@@ -487,3 +487,21 @@ class JanelaPrincipal(QMainWindow):
              DialogoAviso("Erro", f"Falha: {str(e)}", self).exec()
         finally:
              QApplication.restoreOverrideCursor()
+
+    def _resetar_interface(self):
+        """Limpa a interface para uma nova identificação (v0.3.8/v0.3.9)."""
+        self.caminho_imagem_atual = None
+        self.dados_identificacao_atual = {}
+        
+        # Reseta Área de Imagem
+        self.area_drop.setPixmap(QPixmap()) # Limpa imagem
+        self.area_drop.setText("Arraste e solte uma foto aqui\n\nou clique para selecionar")
+        
+        # Reseta Labels
+        self.lbl_nome_cientifico.setText("-")
+        self.lbl_nome_comum.setText("-")
+        self.lbl_confianca.setText("-")
+        self.lbl_descricao.setText("-")
+        
+        self.btn_gravar.setEnabled(False)
+        self.status_bar.showMessage("Pronto")

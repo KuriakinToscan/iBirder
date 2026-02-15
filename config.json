@@ -1,6 +1,6 @@
 {
-    "pular_pergunta_atalho": false,
-    "modo_operacao": null,
-    "lembrar_modo": false,
+    "pular_pergunta_atalho": true,
+    "modo_operacao": "online",
+    "lembrar_modo": true,
     "modo_online_configurado": true
 }
