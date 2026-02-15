@@ -394,24 +394,14 @@ class JanelaPrincipal(QMainWindow):
 
     def _abrir_configuracoes(self):
         janela_cfg = JanelaConfig(self)
-        janela_cfg.exec()
-        
-        # Recarregar config após fechar (caso usuário tenha mudado algo relevante para runtime)
-        # Por enquanto, mudança de modo via config só afeta proxima init ou se implementarmos hot-swap
-        # Vamos implementar um check basico para atualizar modo se mudado
-        nova_config = carregar_config()
-        modo_salvo = nova_config.get("modo_operacao")
-        
-        # Se usuário mudou modo e mandou lembrar/salvar, podemos atualizar agora?
-        # A JanelaConfig atualiza o arquivo, não o runtime imediatamente.
-        # Vamos deixar para próximo restart para simplificar ou forçar update?
-        # Dona Maria prefere ver na hora.
-        if modo_salvo and modo_salvo != self.modo_atual:
-            ret = QMessageBox.question(self, "Mudança de Modo", 
-                "Você alterou o modo padrão. Deseja aplicar agora?",
-                QMessageBox.Yes | QMessageBox.No)
-            if ret == QMessageBox.Yes:
-                self._alterar_modo_runtime(modo_salvo)
+        if janela_cfg.exec(): # Se salvou (exec retorna 1/True)
+            # Recarregar config e aplicar
+            nova_config = carregar_config()
+            novo_modo = nova_config.get("modo_operacao")
+            
+            if novo_modo and novo_modo != self.modo_atual:
+                self._alterar_modo_runtime(novo_modo)
+                QMessageBox.information(self, "Modo Atualizado", f"A aplicação agora está operando no modo: {novo_modo.upper()}")
 
     def _alterar_modo_runtime(self, novo_modo):
         if novo_modo == "online":
@@ -575,7 +565,12 @@ class JanelaPrincipal(QMainWindow):
                 resultado = self.id_local.consultar_especie(nome)
             
             if "erro" in resultado:
-                DialogoAviso("Não Encontrado", resultado["erro"], self).exec()
+                if self.modo_atual != "online":
+                    sugestao = " Conecte-se para uma busca completa."
+                    DialogoAviso("Não Encontrado", resultado["erro"] + sugestao, self).exec()
+                else:
+                    DialogoAviso("Não Encontrado", resultado["erro"], self).exec()
+                    
                 self.status_bar.showMessage("Espécie não encontrada.")
             else:
                 # Preencher dados

@@ -29,35 +29,55 @@ class JanelaConfig(QDialog):
         lbl_titulo.setFont(QFont("Segoe UI", 18, QFont.Bold))
         layout.addWidget(lbl_titulo)
         
-        # Grupo: Identificação
-        grupo_identificacao = QGroupBox("IDENTIFICAÇÃO")
+        # Grupo: Preferências de Conexão (v0.5.1)
+        grupo_conexao = QGroupBox("PREFERÊNCIAS DE CONEXÃO")
+        layout_con = QVBoxLayout()
+        layout_con.setSpacing(10)
+        
+        from PySide6.QtWidgets import QRadioButton, QButtonGroup
+        
+        self.radio_online = QRadioButton("Online (Google Gemini)")
+        self.radio_online.setToolTip("Requer chave de API e Internet. Identificação mais precisa.")
+        self.radio_offline = QRadioButton("Offline (Processamento Local)")
+        self.radio_offline.setToolTip("Usa base de dados interna. Ideal para campo sem internet.")
+        
+        # Estado Inicial
+        modo_atual = self.config.get("modo_operacao", "offline") # Default offline se none
+        if modo_atual == "online":
+            self.radio_online.setChecked(True)
+        else:
+            self.radio_offline.setChecked(True)
+            
+        # Conectar mudanças
+        self.group_modo = QButtonGroup(self)
+        self.group_modo.addButton(self.radio_online)
+        self.group_modo.addButton(self.radio_offline)
+        
+        layout_con.addWidget(self.radio_online)
+        layout_con.addWidget(self.radio_offline)
+        
+        lbl_info_offline = QLabel("Nota: O modo offline utiliza o banco de dados interno e modelos locais.")
+        lbl_info_offline.setStyleSheet("color: #757575; font-style: italic; font-size: 11px;")
+        lbl_info_offline.setWordWrap(True)
+        layout_con.addWidget(lbl_info_offline)
+        
+        grupo_conexao.setLayout(layout_con)
+        layout.addWidget(grupo_conexao)
+
+        # Grupo: Identificação (Mantendo botões de chave, mas removendo infos antigas de modo se redundante)
+        grupo_identificacao = QGroupBox("CHAVES E DADOS")
         layout_id = QVBoxLayout()
         layout_id.setSpacing(15)
-        
-        # Status do Modo Atual
-        modo_atual = self.config.get("modo_operacao", "Não definido")
-        if modo_atual == "online": modo_exibicao = "Online (Preciso)"
-        elif modo_atual == "offline": modo_exibicao = "Offline (Rápido)"
-        else: modo_exibicao = "Automático/Indefinido"
-        
-        self.lbl_modo = QLabel(f"Modo Padrão: <b>{modo_exibicao}</b>")
-        layout_id.addWidget(self.lbl_modo)
-        
-        # Botão Resetar Escolha
-        btn_reset_modo = QPushButton("Redefinir Modo Padrão")
-        btn_reset_modo.setToolTip("O app perguntará novamente na próxima inicialização.")
-        btn_reset_modo.clicked.connect(self._resetar_modo)
-        layout_id.addWidget(btn_reset_modo)
         
         # Botão Chave API
         btn_chave = QPushButton("Gerenciar Chave Google AI")
         btn_chave.clicked.connect(self._abrir_wizard_chave)
         layout_id.addWidget(btn_chave)
         
-        # Botão Resetar Online (Novo v0.3.4)
-        btn_reset_online = QPushButton("Apagar Chave de API e Redefinir")
-        btn_reset_online.setToolTip("Apaga a chave de API e esquece a escolha do modo.")
-        btn_reset_online.setStyleSheet("color: #D32F2F; border-color: #EF9A9A;") # Vermelho alerta
+        # Botão Resetar Online
+        btn_reset_online = QPushButton("Apagar Chave de API")
+        btn_reset_online.setToolTip("Remove a chave de API salva.")
+        btn_reset_online.setStyleSheet("color: #D32F2F; border-color: #EF9A9A;") 
         btn_reset_online.clicked.connect(self._resetar_online)
         layout_id.addWidget(btn_reset_online)
         
@@ -94,18 +114,21 @@ class JanelaConfig(QDialog):
         
         layout.addStretch()
         
-        # Botão Fechar
-        btn_fechar = QPushButton("Fechar")
-        btn_fechar.setProperty("class", "acao")
-        btn_fechar.clicked.connect(self.accept)
-        layout.addWidget(btn_fechar, alignment=Qt.AlignRight)
+        # Botão Salvar
+        btn_salvar = QPushButton("Salvar e Fechar")
+        btn_salvar.setProperty("class", "acao")
+        btn_salvar.clicked.connect(self._salvar_e_fechar)
+        layout.addWidget(btn_salvar, alignment=Qt.AlignRight)
 
-    def _resetar_modo(self):
-        self.config["modo_operacao"] = None
-        self.config["lembrar_modo"] = False
+    def _salvar_e_fechar(self):
+        # Salvar Modo
+        novo_modo = "online" if self.radio_online.isChecked() else "offline"
+        self.config["modo_operacao"] = novo_modo
+        self.config["lembrar_modo"] = True # Força lembrar, já que é config explicita
         salvar_config(self.config)
-        self.lbl_modo.setText("Modo Padrão: <b>Redefinido</b>")
-        QMessageBox.information(self, "Sucesso", "Na próxima vez, perguntaremos qual modo usar.")
+        
+        self.accept()
+
 
     def _resetar_online(self):
         """Apaga chave do keyring e limpa preferência online."""
