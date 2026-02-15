@@ -1,1 +1,1 @@
-v0.3.0 - Online AI Identification (Google Gemini) & Description Sync
+v0.3.1 - Wizard UI Fix (Overlay & Padding)

@@ -97,7 +97,10 @@ class WizardConfig(QWizard):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Configuração do Modo Online")
-        self.setWizardStyle(QWizard.ModernStyle)
+        
+        # Correção v0.3.1: Mudança para ClassicStyle para evitar faixas cinzas estranhas
+        # e sobreposição de texto em temas não nativos.
+        self.setWizardStyle(QWizard.ClassicStyle)
         
         # Tradução dos botões padrão
         self.setButtonText(QWizard.NextButton, "Próximo")
@@ -105,10 +108,21 @@ class WizardConfig(QWizard):
         self.setButtonText(QWizard.FinishButton, "Concluir")
         self.setButtonText(QWizard.CancelButton, "Cancelar")
         
-        # Tema Industrial/Grafite
+        # Tema Industrial/Grafite Minimalista v0.3.1
+        # Ajuste de margin-top para garantir que o título não cole no topo
         self.setStyleSheet("""
-            QWizard { background-color: #F5F5F5; color: #222222; }
-            QLabel { font-size: 13px; color: #222222; }
+            QWizard { 
+                background-color: #F5F5F5; 
+                color: #222222; 
+            }
+            QWizardPage {
+                background-color: #F5F5F5;
+                margin: 20px; /* Respiro geral */
+            }
+            QLabel { 
+                font-size: 13px; 
+                color: #222222; 
+            }
             QLineEdit { 
                 padding: 8px; 
                 border-radius: 4px; 
@@ -116,7 +130,9 @@ class WizardConfig(QWizard):
                 background-color: #FFFFFF;
                 color: #222222;
             }
-            QLineEdit:focus { border: 1px solid #444444; }
+            QLineEdit:focus { 
+                border: 1px solid #444444; 
+            }
         """)
 
         self.addPage(PaginaIntro())
