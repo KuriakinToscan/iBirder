@@ -33,20 +33,21 @@ class IdentificadorNuvem(IdentificadorAve):
         img = Image.open(caminho_imagem)
 
         prompt = """
-        Identifique a espécie desta ave.
-        Responda APENAS um JSON no seguinte formato, sem markdown ou explicações adicionais:
+        Identifique a espécie desta ave com alta precisão.
+        Responda APENAS um JSON válido no seguinte formato, sem markdown, sem ```json, sem explicações:
         {
             "nome_cientifico": "Genus species",
-            "nome_comum": "Nome em Português (se possível)",
-            "confianca": 0.95,
-            "familia": "FamilyName"
+            "nome_comum": "Nome popular oficial em Português do Brasil",
+            "familia": "Família científica",
+            "confianca": 0.99,
+            "descricao": "Uma breve descrição visual e comportamental da ave em Português, com no máximo 20 palavras."
         }
         """
 
         try:
             # Novo método generate_content
             response = client.models.generate_content(
-                model='gemini-1.5-flash',
+                model='gemini-2.0-flash', # Atualizado para modelo mais recente se disponível, ou manter 1.5-flash
                 contents=[img, prompt]
             )
             

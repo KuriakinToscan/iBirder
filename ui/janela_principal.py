@@ -176,10 +176,18 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_confianca = QLabel("-")
         self.lbl_confianca.setStyleSheet("color: #757575; background: transparent; border: none; font-size: 11px;")
         
+        self.lbl_descricao = QLabel("-") # Novo campo v0.3.0
+        self.lbl_descricao.setFont(QFont("Segoe UI", 11))
+        self.lbl_descricao.setStyleSheet("color: #616161; background: transparent; border: none;")
+        self.lbl_descricao.setWordWrap(True)
+        # self.lbl_descricao.setMaximumHeight(80) # Opcional: limitar altura
+
         layout_res.addWidget(QLabel("Espécie:"))
         layout_res.addWidget(self.lbl_nome_cientifico)
         layout_res.addWidget(QLabel("Nome Comum:"))
         layout_res.addWidget(self.lbl_nome_comum)
+        layout_res.addWidget(QLabel("Descrição:")) # Label da seção
+        layout_res.addWidget(self.lbl_descricao)
         layout_res.addWidget(self.lbl_confianca)
         grupo_resultados.setLayout(layout_res)
         layout_direito.addWidget(grupo_resultados)
@@ -353,9 +361,15 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_nome_cientifico.setText("...")
         self.lbl_nome_comum.setText("...")
         self.lbl_confianca.setText("")
+        self.lbl_descricao.setText("-")
         self.btn_gravar.setEnabled(False)
         self.dados_identificacao_atual = {}
-        self.status_bar.showMessage("Identificando...")
+        
+        # Feedback visual específico v0.3.0
+        if self.radio_nuvem.isChecked():
+            self.status_bar.showMessage("Analisando ave com IA...")
+        else:
+            self.status_bar.showMessage("Identificando...")
         
         # Muda cursor para wait
         QApplication.setOverrideCursor(Qt.WaitCursor)
@@ -369,8 +383,11 @@ class JanelaPrincipal(QMainWindow):
                 self.lbl_nome_cientifico.setText("Falha")
                 self.lbl_nome_comum.setText("-")
                 self.lbl_confianca.setText("")
+                self.lbl_descricao.setText(f"Erro: {resultado.get('detalhes', '-')}")
                 self.status_bar.showMessage("Falha na identificação.")
                 return
+
+            descricao = "-"
 
             if "melhor_taxa" in resultado: # Resposta Local
                 dados = resultado["melhor_taxa"]
@@ -384,15 +401,18 @@ class JanelaPrincipal(QMainWindow):
                 nome_comum = dados.get("nome_comum", "-")
                 confianca = dados.get("confianca", 0.0)
                 conf_str = f"Confiança: {confianca:.1%}" if isinstance(confianca, float) else str(confianca)
+                descricao = dados.get("descricao", "-") # v0.3.0
 
             self.lbl_nome_cientifico.setText(f"{nome_cientifico}")
             self.lbl_nome_comum.setText(f"{nome_comum}")
             self.lbl_confianca.setText(conf_str)
+            self.lbl_descricao.setText(descricao)
             
             self.dados_identificacao_atual = {
                 "nome_cientifico": nome_cientifico,
                 "nome_comum": nome_comum,
-                "fonte": "iBirder AI"
+                "fonte": "iBirder AI",
+                "descricao": descricao # Passa descrição para gravação
             }
             self.btn_gravar.setEnabled(True)
             self.status_bar.showMessage("Concluído.")
@@ -419,7 +439,14 @@ class JanelaPrincipal(QMainWindow):
                 self.caminho_imagem_atual, 
                 self.dados_identificacao_atual
             )
-            QMessageBox.information(self, "Sucesso", "Metadados gravados com sucesso!")
+            # Sucesso
+            msg = QMessageBox(self)
+            msg.setWindowTitle("Sucesso")
+            msg.setText("Metadados gravados com sucesso!")
+            msg.setIcon(QMessageBox.Information)
+            msg.addButton("OK", QMessageBox.AcceptRole) # Garante botão OK simples
+            msg.exec()
+            
             self.status_bar.showMessage("Gravado com sucesso.")
         except ErroArquivoInvalido as e:
             QMessageBox.critical(self, "Erro de Arquivo", str(e))

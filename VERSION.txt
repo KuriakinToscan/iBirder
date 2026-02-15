@@ -1,1 +1,1 @@
-v0.2.5 - Smart Shortcut Dialog (Don't Ask Again) & Config Persistence
+v0.3.0 - Online AI Identification (Google Gemini) & Description Sync

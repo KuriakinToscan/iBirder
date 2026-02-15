@@ -96,6 +96,14 @@ class MotorMetadados:
                  f"-XMP-dc:Source={fonte}"
             ])
 
+        descricao = dados_ave.get("descricao")
+        if descricao:
+            cmd.extend([
+                f"-XMP-dc:Description={descricao}",
+                f"-EXIF:ImageDescription={descricao}",
+                f"-IPTC:Caption-Abstract={descricao}"
+            ])
+
         # GPS (Opcional)
         # ExifTool é esperto o suficiente para gerenciar refs se passarmos os valores assinados
         # Mas para garantir, passamos os valores
