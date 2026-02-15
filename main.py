@@ -22,6 +22,14 @@ if platform.system() == "Windows":
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     except Exception:
         pass 
+    
+    # Tenta definir novamente com v0.2.4 para limpar cache
+    try:
+        import ctypes
+        myappid = 'ibirder.v0.2.4.final_check'
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+    except Exception:
+        pass 
 
 def verificar_ambiente_virtual():
     """Verifica se a pasta .venv existe no diretório do projeto."""
@@ -150,15 +158,19 @@ def detectar_tema_e_icone():
         pass # Mantém padrão (CLARO)
 
     # Retorna o nome do arquivo
-    nome_arquivo = "logo_ave_escuro.png" if usar_icone_escuro else "logo_ave_clara.png"
+    # CORREÇÃO v0.2.4: Nome correto do arquivo é logo_ave_claro.png (masculino)
+    nome_arquivo = "logo_ave_escuro.png" if usar_icone_escuro else "logo_ave_claro.png"
     
     # Validação de caminho absoluto para setWindowIcon
-    base_assets = Path(__file__).parent.absolute() / "assets"
-    caminho_absoluto = base_assets / nome_arquivo
+    # Usa os.path.join e abspath para garantia total no Windows
+    basedir = os.path.dirname(os.path.abspath(__file__))
+    caminho_absoluto = os.path.join(basedir, "assets", nome_arquivo)
     
-    if not caminho_absoluto.exists():
-        print(f"[AVISO] Ícone {nome_arquivo} não encontrado. Usando original.")
+    if not os.path.exists(caminho_absoluto):
+        print(f"[AVISO] Ícone {nome_arquivo} não encontrado em {caminho_absoluto}. Usando original.")
         return "logo_ave.png"
+    else:
+        print(f"[SISTEMA] Ícone {nome_arquivo} carregado com sucesso.")
         
     return nome_arquivo
 

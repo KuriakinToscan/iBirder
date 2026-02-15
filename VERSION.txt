@@ -1,1 +1,1 @@
-v0.2.3 - Visual Identity & Robust Theme Logic
+v0.2.4 - Fix Filename Typo (claro/clara) & Absolute Paths
