@@ -24,6 +24,48 @@ class IdentificadorLocal(IdentificadorAve):
                     self.dados_offline = json.load(f)
             except Exception as e:
                 print(f"Erro ao carregar JSON offline: {e}")
+        else:
+            # Criar base padrão se não existir (v0.5.2)
+            print("Criando base de dados local padrão...")
+            self.dados_offline = [
+                {
+                    "nome_cientifico": "Ramphastos toco",
+                    "nome_comum": "Tucanuçu",
+                    "familia": "Ramphastidae",
+                    "descricao": "O maior dos tucanos, possui bico alaranjado com mancha negra na ponta."
+                },
+                {
+                    "nome_cientifico": "Pitangus sulphuratus",
+                    "nome_comum": "Bem-te-vi",
+                    "familia": "Tyrannidae",
+                    "descricao": "Ave popular com canto característico, peito amarelo e faixa branca na cabeça."
+                },
+                {
+                    "nome_cientifico": "Sicalis flaveola",
+                    "nome_comum": "Canário-da-terra",
+                    "familia": "Thraupidae",
+                    "descricao": "Pássaro de coloração amarela vibrante no macho e parda na fêmea."
+                },
+                {
+                    "nome_cientifico": "Turdus rufiventris",
+                    "nome_comum": "Sabiá-laranjeira",
+                    "familia": "Turdidae",
+                    "descricao": "Ave símbolo do Brasil, com ventre cor de ferrugem e canto melodioso."
+                },
+                {
+                    "nome_cientifico": "Rhea americana",
+                    "nome_comum": "Ema",
+                    "familia": "Rheidae",
+                    "descricao": "A maior ave brasileira, não voa e habita campos e cerrados."
+                }
+            ]
+            try:
+                # Garantir que diretório existe
+                os.makedirs(os.path.dirname(self.caminho_json), exist_ok=True)
+                with open(self.caminho_json, 'w', encoding='utf-8') as f:
+                    json.dump(self.dados_offline, f, ensure_ascii=False, indent=4)
+            except Exception as e:
+                print(f"Erro ao criar base padrão: {e}")
 
     def consultar_especie(self, nome_cientifico: str) -> dict:
         """

@@ -181,26 +181,29 @@ class JanelaConfig(QDialog):
             QDialog {
                 background-color: #FFFFFF;
             }
-            QGroupBox {
+            /* Forçar texto escuro para contraste (v0.5.2) */
+            QLabel, QRadioButton, QCheckBox, QGroupBox {
+                color: #2c3e50; 
+                background-color: transparent;
                 font-family: "Segoe UI";
+            }
+            QGroupBox {
                 font-weight: bold;
                 border: 1px solid #E0E0E0;
                 border-radius: 8px;
                 margin-top: 20px;
                 padding-top: 15px;
                 background-color: #FFFFFF;
-                color: #555555;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 5px;
                 background-color: #FFFFFF;
+                color: #2c3e50;
             }
             QLabel {
-                color: #222222;
                 font-size: 13px;
-                font-family: "Segoe UI";
             }
             QPushButton {
                 background-color: #FFFFFF;
@@ -216,12 +219,15 @@ class JanelaConfig(QDialog):
                 border-color: #999999;
                 color: #000000;
             }
+            /* Botão Salvar e Fechar - Destaque (v0.5.2) */
             QPushButton[class="acao"] {
-                background-color: #444444;
-                color: white;
+                background-color: #2c3e50; 
+                color: #FFFFFF;
                 border: none;
+                padding: 10px 20px;
+                font-size: 14px;
             }
             QPushButton[class="acao"]:hover {
-                background-color: #222222;
+                background-color: #1a252f;
             }
         """)
