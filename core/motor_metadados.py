@@ -61,15 +61,19 @@ class MotorMetadados:
 
             cmd = [self.caminho_exiftool, "-j", "-charset", "filename=UTF8"] + tags + [caminho_arquivo]
             
-            resultado = subprocess.run(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                startupinfo=startupinfo,
-                text=True,
-                encoding='utf-8', # Forçar UTF-8 na leitura
-                errors='ignore' 
-            )
+            try:
+                resultado = subprocess.run(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    startupinfo=startupinfo,
+                    text=True,
+                    encoding='utf-8', # Forçar UTF-8 na leitura
+                    errors='ignore' 
+                )
+            except OSError as e:
+                print(f"Aviso: ExifTool incompatível ou arquivo não executável (Erro {e.errno}). Ignorando metadados.")
+                return {}
             
             if resultado.returncode != 0:
                 print(f"Erro ExifTool (Leitura): {resultado.stderr}")
