@@ -37,6 +37,74 @@ class MotorMetadados:
 
         return str(exiftool_path)
 
+    def ler_metadados(self, caminho_arquivo: str) -> dict:
+        """
+        Lê metadados da imagem usando ExifTool. Tenta recuperar informações de espécie.
+        """
+        if not os.path.exists(caminho_arquivo):
+            return {}
+
+        try:
+            # Lista de tags para ler
+            tags = [
+                "-XMP:Species", "-IPTC:Keywords",
+                "-XMP-dc:Title", "-IPTC:ObjectName",
+                "-XMP-dc:Description", "-EXIF:ImageDescription",
+                "-XMP-dc:Source"
+            ]
+            
+            # Configuração do processo para esconder janela no Windows
+            startupinfo = None
+            if os.name == 'nt':
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
+            cmd = [self.caminho_exiftool, "-j", "-charset", "filename=UTF8"] + tags + [caminho_arquivo]
+            
+            resultado = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                startupinfo=startupinfo,
+                text=True,
+                encoding='utf-8', # Forçar UTF-8 na leitura
+                errors='ignore' 
+            )
+            
+            if resultado.returncode != 0:
+                print(f"Erro ExifTool (Leitura): {resultado.stderr}")
+                return {}
+
+            import json
+            dados = json.loads(resultado.stdout)
+            
+            if not dados or not isinstance(dados, list):
+                return {}
+                
+            info = dados[0]
+            metadados = {}
+            
+            # Mapeamento com prioridade
+            metadados["nome_cientifico"] = info.get("Species") or info.get("Keywords")
+            metadados["nome_comum"] = info.get("Title") or info.get("ObjectName")
+            metadados["descricao"] = info.get("Description") or info.get("ImageDescription")
+            metadados["fonte"] = info.get("Source")
+            
+            # Limpeza de dados (ExifTool pode retornar listas para Keywords)
+            for k, v in metadados.items():
+                if isinstance(v, list):
+                    metadados[k] = v[0] if v else None
+                    
+            # Filtra apenas o que serve (tem nome científico?)
+            if metadados.get("nome_cientifico"):
+                return metadados
+                
+            return {}
+
+        except Exception as e:
+            print(f"Erro ao ler metadados: {e}")
+            return {}
+
     def inserir_metadados(self, caminho_arquivo: str, dados_ave: dict):
         """
         Insere metadados na imagem usando ExifTool via subprocess.

@@ -20,8 +20,8 @@ class IdentificadorLocal(IdentificadorAve):
         
         if cv2:
             self._carregar_modelo()
-        else:
-            print("Aviso: OpenCV não encontrado. IA Offline indisponível.")
+        # else:
+        #    print("Aviso: OpenCV não encontrado. IA Offline indisponível.")
             
         self._carregar_dados_offline()
 
