@@ -33,8 +33,11 @@ class IdentificadorNuvem(IdentificadorAve):
         img = Image.open(caminho_imagem)
 
         prompt = """
-        Identifique a espécie desta ave com alta precisão.
-        Responda APENAS um JSON válido no seguinte formato, sem markdown, sem ```json, sem explicações:
+        Analise esta imagem cuidadosamente.
+        1. Se a imagem NÃO for de uma ave (ex: cachorro, gato, objeto, pessoa), retorne APENAS:
+        {"erro": "nao_ave"}
+        
+        2. Se FOR uma ave, identifique a espécie com alta precisão e retorne APENAS um JSON válido no seguinte formato:
         {
             "nome_cientifico": "Genus species",
             "nome_comum": "Nome popular oficial em Português do Brasil",
@@ -42,12 +45,13 @@ class IdentificadorNuvem(IdentificadorAve):
             "confianca": 0.99,
             "descricao": "Uma breve descrição visual e comportamental da ave em Português, com no máximo 20 palavras."
         }
+        Responda APENAS o JSON, sem markdown.
         """
 
         try:
             # Novo método generate_content
             response = client.models.generate_content(
-                model='gemini-2.0-flash', # Atualizado para modelo mais recente se disponível, ou manter 1.5-flash
+                model='gemini-2.0-flash', 
                 contents=[img, prompt]
             )
             
@@ -55,13 +59,29 @@ class IdentificadorNuvem(IdentificadorAve):
             texto_limpo = self._limpar_markdown_json(response.text)
             
             dados = json.loads(texto_limpo)
+            
+            # Tratamento de "Não-Ave" (v0.3.7)
+            if "erro" in dados and dados["erro"] == "nao_ave":
+                return {
+                    "erro": "Não consegui identificar uma ave nesta foto.",
+                    "detalhes": "A inteligência artificial analisou a imagem e não encontrou características de aves. Certifique-se de que a imagem está clara e contém um pássaro."
+                }
+                
             return dados
 
         except Exception as e:
-            # Fallback em caso de erro grave
+            msg_erro = str(e)
+            
+            # Tratamento Amigável de Erro 429 (Cota/Busy) (v0.3.7)
+            if "429" in msg_erro:
+                return {
+                    "erro": "O servidor de inteligência está um pouco ocupado agora.",
+                    "detalhes": "Por favor, aguarde um minuto e tente novamente. (Erro 429 - Limite de Requisições)"
+                }
+            
             return {
-                "erro": f"Falha na API Google GenAI: {str(e)}",
-                "detalhes": str(e)
+                "erro": f"Falha na API Google GenAI: {msg_erro}",
+                "detalhes": msg_erro
             }
 
     def _limpar_markdown_json(self, texto: str) -> str:

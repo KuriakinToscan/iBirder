@@ -1,1 +1,1 @@
-v0.3.6 - Custom Shortcut Dialog
+v0.3.7 - Error Handling & UX Polish

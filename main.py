@@ -84,7 +84,7 @@ def verificar_e_criar_atalho():
             criar_atalho_windows(atalho_path)
             # Feedback sutil (ou remover se quiser ser ultra-minimalista)
             # QMessageBox.information(None, "Sucesso", "Atalho criado na Área de Trabalho!")
-            print("[SISTEMA] Atalho criado com sucesso.")
+            # print("[SISTEMA] Atalho criado com sucesso.")
 
     except Exception as e:
         print(f"Erro ao verificar atalho: {e}")
@@ -151,9 +151,10 @@ def detectar_tema_e_icone():
              # Se for Dark Mode (AppsUseLightTheme=0) -> Ícone CLARO
              if not detect_dark_mode_windows():
                  usar_icone_escuro = True
-                 print("[SISTEMA] Modo CLARO detectado. Usando ícone ESCURO.")
+                 # print("[SISTEMA] Modo CLARO detectado. Usando ícone ESCURO.")
              else:
-                 print("[SISTEMA] Modo ESCURO detectado. Usando ícone CLARO.")
+                 pass
+                 # print("[SISTEMA] Modo ESCURO detectado. Usando ícone CLARO.")
     except:
         pass
 
@@ -167,7 +168,8 @@ def detectar_tema_e_icone():
         print(f"[AVISO] Ícone {nome_arquivo} não encontrado. Usando original.")
         return "logo_ave.png"
     else:
-        print(f"[SISTEMA] Ícone {nome_arquivo} carregado.")
+        # print(f"[SISTEMA] Ícone {nome_arquivo} carregado.")
+        pass
         
     return nome_arquivo
 
@@ -186,7 +188,7 @@ if __name__ == "__main__":
         print(f"[CONFIG] Modo salvo detectado: {config['modo_operacao']}")
         modo_inicial = config["modo_operacao"]
     else:
-        print("[CONFIG] Solicitando escolha de modo...") 
+        # print("[CONFIG] Solicitando escolha de modo...") 
         dialogo = DialogoModo()
         if dialogo.exec():
             modo_inicial = dialogo.modo_selecionado
@@ -212,10 +214,11 @@ if __name__ == "__main__":
             wizard = WizardConfig()
             if wizard.exec():
                 # Sucesso
-                print("[CONFIG] Chave configurada com sucesso via Wizard startup.")
+                # print("[CONFIG] Chave configurada com sucesso via Wizard startup.")
+                pass
             else:
                 # Cancelou -> Fallback para Offline
-                print("[CONFIG] Wizard cancelado. Revertendo para Offline.")
+                # print("[CONFIG] Wizard cancelado. Revertendo para Offline.")
                 modo_inicial = "offline"
                 
                 # Se tinha salvo como lembrar online, talvez devêssemos esquecer?

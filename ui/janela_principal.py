@@ -18,6 +18,7 @@ from core.erros import ChaveApiFaltandoErro, ErroArquivoInvalido
 from core.config import carregar_config
 from ui.wizard_config import WizardConfig
 from ui.janela_config import JanelaConfig # v0.3.2
+from ui.dialogo_aviso import DialogoAviso # v0.3.7
 import keyring
 
 class AreaDrop(QLabel):
@@ -158,11 +159,19 @@ class JanelaPrincipal(QMainWindow):
         
         layout_cabecalho.addStretch()
         
-        # Botão Configurações (Engrenagem) v0.3.2
-        self.btn_config = QPushButton("⚙️")
+        # Botão Configurações (Engrenagem) v0.3.2/v0.3.7
+        self.btn_config = QPushButton()
         self.btn_config.setFixedSize(40, 40)
         self.btn_config.setToolTip("Configurações")
         self.btn_config.setProperty("class", "icon-btn")
+        
+        caminho_gear = self._obter_caminho_asset("config_gear.png")
+        if os.path.exists(caminho_gear):
+            self.btn_config.setIcon(QIcon(caminho_gear))
+            self.btn_config.setIconSize(QSize(24, 24))
+        else:
+            self.btn_config.setText("⚙️") # Fallback
+            
         self.btn_config.clicked.connect(self._abrir_configuracoes)
         layout_cabecalho.addWidget(self.btn_config)
         
@@ -339,7 +348,7 @@ class JanelaPrincipal(QMainWindow):
     def _alterar_modo_runtime(self, novo_modo):
         if novo_modo == "online":
              if not keyring.get_password("iBirder_Gemini_Key", "user"):
-                 QMessageBox.warning(self, "Falta Chave", "Configure a chave primeiro.")
+                 DialogoAviso("Falta Chave", "Configure a chave primeiro no menu de opções.", self).exec()
                  return
         
         self._definir_estrategia(novo_modo)
@@ -383,7 +392,7 @@ class JanelaPrincipal(QMainWindow):
             resultado = self.servico.identificar(self.caminho_imagem_atual)
             
             if "erro" in resultado:
-                QMessageBox.warning(self, "Aviso", resultado["erro"])
+                DialogoAviso("Aviso", resultado["erro"], self).exec()
                 self.lbl_nome_cientifico.setText("Falha")
                 self.lbl_nome_comum.setText("-")
                 self.lbl_confianca.setText("")
@@ -423,11 +432,11 @@ class JanelaPrincipal(QMainWindow):
             self.status_bar.showMessage("Concluído.")
 
         except ChaveApiFaltandoErro:
-            QMessageBox.critical(self, "Chave de API", "Chave não encontrada. Configure no menu.")
+            DialogoAviso("Chave de API", "Chave não encontrada. Configure no menu.", self).exec()
             # Fallback para offline
             self._alterar_modo_runtime("offline")
         except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Erro: {str(e)}")
+            DialogoAviso("Erro", f"Erro: {str(e)}", self).exec()
             self.status_bar.showMessage("Erro fatal.")
         finally:
             QApplication.restoreOverrideCursor()
@@ -445,19 +454,14 @@ class JanelaPrincipal(QMainWindow):
                 self.caminho_imagem_atual, 
                 self.dados_identificacao_atual
             )
-            msg = QMessageBox(self)
-            msg.setWindowTitle("Sucesso")
-            msg.setText("Metadados gravados com sucesso!")
-            msg.setIcon(QMessageBox.Information)
-            msg.addButton("OK", QMessageBox.AcceptRole) 
-            msg.exec()
+            DialogoAviso("Sucesso", "Metadados gravados com sucesso na imagem!", self).exec()
             
             self.status_bar.showMessage("Gravado com sucesso.")
         except ErroArquivoInvalido as e:
-            QMessageBox.critical(self, "Erro de Arquivo", str(e))
+            DialogoAviso("Erro de Arquivo", str(e), self).exec()
         except RuntimeError as e:
-            QMessageBox.critical(self, "Erro no ExifTool", str(e))
+             DialogoAviso("Erro no ExifTool", str(e), self).exec()
         except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Falha: {str(e)}")
+             DialogoAviso("Erro", f"Falha: {str(e)}", self).exec()
         finally:
              QApplication.restoreOverrideCursor()
