@@ -1,1 +1,1 @@
-v0.2.1 - Logic Inversion for Dark Mode & Absolute Paths
+v0.2.2 - Brute Force Icon & Translation Fix
