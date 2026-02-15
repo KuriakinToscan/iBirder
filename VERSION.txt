@@ -1,1 +1,1 @@
-v0.5.5 - Base Offline Exclusiva de Aves
+v0.6.3 - Motor OpenCV Light e Fluxo Silencioso

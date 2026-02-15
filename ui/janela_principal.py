@@ -449,15 +449,43 @@ class JanelaPrincipal(QMainWindow):
         QApplication.setOverrideCursor(Qt.WaitCursor)
         QApplication.processEvents() 
 
+        # Prioridade Metadados (v0.6.3)
+        if self.modo_atual == "offline":
+            try:
+                meta = self.motor_metadados.ler_metadados(self.caminho_imagem_atual)
+                if meta and meta.get("nome_cientifico"):
+                    self.input_nome_cientifico.setText(meta["nome_cientifico"])
+                    self.lbl_nome_comum.setText(meta.get("nome_comum", "-"))
+                    self.lbl_confianca.setText("Metadados (Original)")
+                    self.lbl_descricao.setText(meta.get("descricao", "Dados recuperados do arquivo."))
+                    self.status_bar.showMessage("Identificado via metadados.")
+                    self.dados_identificacao_atual = meta
+                    self.btn_gravar.setEnabled(False)
+                    QApplication.restoreOverrideCursor()
+                    return
+            except Exception as e:
+                print(f"Erro ao ler metadados: {e}")
+
         try:
             resultado = self.servico.identificar(self.caminho_imagem_atual)
             
+            # Tratamento Silencioso de Erro (v0.6.3)
+            if "aviso_silencioso" in resultado:
+                self.input_nome_cientifico.setText("Recurso Offline")
+                self.lbl_nome_comum.setText("-")
+                self.lbl_confianca.setText("-")
+                self.lbl_descricao.setText(f"{resultado['aviso_silencioso']}\n{resultado.get('detalhes', '')}")
+                self.status_bar.showMessage("Requer pacote adicional.")
+                return
+
             if "erro" in resultado:
-                DialogoAviso("Aviso", resultado["erro"], self).exec()
+                titulo = resultado.get("titulo", "Aviso")
+                DialogoAviso(titulo, resultado["erro"], self).exec()
+                
                 self.input_nome_cientifico.setText("Falha")
                 self.lbl_nome_comum.setText("-")
                 self.lbl_confianca.setText("")
-                self.lbl_descricao.setText(f"Erro: {resultado.get('detalhes', '-')}")
+                self.lbl_descricao.setText(f"Info: {resultado.get('detalhes', 'Verifique as configurações')}")
                 self.status_bar.showMessage("Falha na identificação.")
                 return
 

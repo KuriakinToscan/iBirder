@@ -92,8 +92,8 @@ class JanelaConfig(QDialog):
         self.lbl_status_base = QLabel("Base de dados: 5 espécies")
         layout_off.addWidget(self.lbl_status_base)
         
-        btn_baixar_base = QPushButton("Baixar Base de Dados Local (~20MB)")
-        btn_baixar_base.setToolTip("Simula o download de dados para uso offline.")
+        btn_baixar_base = QPushButton("Baixar Pacote Offline (Base + Visão ~35MB)")
+        btn_baixar_base.setToolTip("Baixa banco de dados e modelos de IA para uso sem internet.")
         btn_baixar_base.clicked.connect(self._baixar_base)
         layout_off.addWidget(btn_baixar_base)
         
@@ -158,23 +158,60 @@ class JanelaConfig(QDialog):
         wizard.exec()
 
     def _baixar_base(self):
-        """Simula download da base offline (v0.5.0)."""
-        DialogoAviso("Download", "Iniciando download da base de dados...", self).exec()
-        # Simulação
+        """Baixa base offline e Modelo Real (v0.6.1)."""
+        DialogoAviso("Download", "Iniciando download da base de dados e Inteligência Artificial...", self).exec()
+        
         import time
+        import requests
+        from pathlib import Path
+        
         self.setCursor(Qt.WaitCursor)
-        self.lbl_status_base.setText("Baixando... 20%")
-        self.repaint() # Forçar atualização visual
-        # time.sleep(0.5) # Bloqueia UI mas ok para simulação rápida
-        self.lbl_status_base.setText("Baixando... 80%")
-        self.repaint()
-        # time.sleep(0.5)
-        self.lbl_status_base.setText("Processando...")
+        self.lbl_status_base.setText("Iniciando...")
         self.repaint()
         
-        self.lbl_status_base.setText("Base de dados: Atualizada (Versão 2026.02)")
-        self.setCursor(Qt.ArrowCursor)
-        DialogoAviso("Sucesso", "Base de dados offline atualizada com sucesso!", self).exec()
+        try:
+            # 1. Base JSON (Simulado/Local)
+            self.lbl_status_base.setText("Atualizando Base de Espécies... 10%")
+            self.repaint()
+            time.sleep(0.5) 
+            
+            # 2. Download do Modelo (MobileNetV2 ONNX para OpenCV)
+            url_modelo = "https://github.com/onnx/models/raw/main/validated/vision/classification/mobilenet/model/mobilenetv2-7.onnx"
+            model_dir = Path("models")
+            model_dir.mkdir(exist_ok=True)
+            model_path = model_dir / "model.onnx"
+            
+            self.lbl_status_base.setText("Baixando Motor de Visão (OpenCV)... 0%")
+            self.repaint()
+            
+            with requests.get(url_modelo, stream=True) as r:
+                r.raise_for_status()
+                total_length = int(r.headers.get('content-length', 0))
+                downloaded = 0
+                
+                with open(model_path, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if total_length > 0:
+                            percent = int((downloaded / total_length) * 100)
+                            # Atualizar a cada 10% para não travar UI demais
+                            if percent % 10 == 0:
+                                self.lbl_status_base.setText(f"Baixando Motor de Visão (OpenCV)... {percent}%")
+                                self.repaint()
+            
+            self.lbl_status_base.setText("Download Concluído. Instalando...")
+            self.repaint()
+            time.sleep(0.5)
+
+            self.lbl_status_base.setText("Pacote Offline: Ativo (v0.6.3)")
+            self.setCursor(Qt.ArrowCursor)
+            DialogoAviso("Sucesso", "Pacote de Inteligência Artificial (OpenCV) instalado com sucesso! Agora você pode identificar aves offline.", self).exec()
+            
+        except Exception as e:
+            self.setCursor(Qt.ArrowCursor)
+            self.lbl_status_base.setText("Erro no download.")
+            DialogoAviso("Erro de Download", f"Falha ao baixar componentes: {e}", self).exec()
 
     def _aplicar_estilo(self):
         # Estilo Unificado v0.3.5

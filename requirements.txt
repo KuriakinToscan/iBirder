@@ -1,5 +1,4 @@
-PySide6
-onnxruntime
+opencv-python-headless
 Pillow
 requests
 google-genai
