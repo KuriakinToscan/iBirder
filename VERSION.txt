@@ -1,1 +1,1 @@
-v0.5.2 - Correção de Acessibilidade e Fallback Database
+v0.5.3 - Padronização Visual de Diálogos

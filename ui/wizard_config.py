@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QWizard, QWizardPage, QVBoxLayout, QLabel, QLineEdit, QPushButton, 
-    QMessageBox, QRadioButton, QButtonGroup, QSpacerItem, QSizePolicy
+    QRadioButton, QButtonGroup, QSpacerItem, QSizePolicy
 )
 from PySide6.QtGui import QDesktopServices, QFont, QPixmap
 from PySide6.QtCore import QUrl, Qt
@@ -205,7 +205,8 @@ class PaginaSalvar(QWizardPage):
             
             return True
         except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Falha ao salvar chave: {e}")
+            from ui.dialogo_aviso import DialogoAviso
+            DialogoAviso("Erro", f"Falha ao salvar chave: {e}", self, tipo="erro").exec()
             return False
 
 class WizardConfig(QWizard):

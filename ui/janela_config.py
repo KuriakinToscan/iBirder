@@ -1,11 +1,12 @@
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
-    QMessageBox, QFrame, QGroupBox
+    QFrame, QGroupBox
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QIcon
 from core.config import carregar_config, salvar_config
 from ui.wizard_config import WizardConfig
+from ui.dialogo_aviso import DialogoAviso
 import keyring
 
 class JanelaConfig(QDialog):
@@ -145,12 +146,12 @@ class JanelaConfig(QDialog):
             salvar_config(self.config)
             self.lbl_modo.setText("Modo Padrão: <b>Redefinido</b>")
             
-        QMessageBox.information(self, "Sucesso", "Chave de API removida e modo Online redefinido.")
+        DialogoAviso("Sucesso", "Chave de API removida e modo Online redefinido.", self).exec()
 
     def _resetar_atalho(self):
         self.config["pular_pergunta_atalho"] = False
         salvar_config(self.config)
-        QMessageBox.information(self, "Sucesso", "O aviso de atalho foi reativado.")
+        DialogoAviso("Sucesso", "O aviso de atalho foi reativado.", self).exec()
 
     def _abrir_wizard_chave(self):
         wizard = WizardConfig(self)
@@ -158,7 +159,7 @@ class JanelaConfig(QDialog):
 
     def _baixar_base(self):
         """Simula download da base offline (v0.5.0)."""
-        QMessageBox.information(self, "Download", "Iniciando download da base de dados...")
+        DialogoAviso("Download", "Iniciando download da base de dados...", self).exec()
         # Simulação
         import time
         self.setCursor(Qt.WaitCursor)
@@ -173,7 +174,7 @@ class JanelaConfig(QDialog):
         
         self.lbl_status_base.setText("Base de dados: Atualizada (Versão 2026.02)")
         self.setCursor(Qt.ArrowCursor)
-        QMessageBox.information(self, "Sucesso", "Base de dados offline atualizada com sucesso!")
+        DialogoAviso("Sucesso", "Base de dados offline atualizada com sucesso!", self).exec()
 
     def _aplicar_estilo(self):
         # Estilo Unificado v0.3.5

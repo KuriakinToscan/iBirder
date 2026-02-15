@@ -4,7 +4,7 @@ import platform
 import os
 import subprocess
 from pathlib import Path
-from PySide6.QtWidgets import QApplication, QMessageBox, QCheckBox
+from PySide6.QtWidgets import QApplication, QCheckBox
 from PySide6.QtGui import QIcon
 import keyring
 
@@ -37,12 +37,12 @@ def verificar_ambiente_virtual():
     
     if not venv_path.exists():
         app = QApplication.instance() or QApplication(sys.argv)
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Critical)
-        msg.setWindowTitle("Erro de Ambiente")
-        msg.setText("Ambiente virtual não encontrado.")
-        msg.setInformativeText("Certifique-se de que a pasta .venv está presente na pasta do iBirder e execute o setup_ambiente.ps1.")
-        msg.exec()
+        from ui.dialogo_aviso import DialogoAviso
+        DialogoAviso(
+            "Erro de Ambiente", 
+            "Ambiente virtual não encontrado.\n\nCertifique-se de que a pasta .venv está presente na pasta do iBirder e execute o setup_ambiente.ps1.", 
+            tipo="erro"
+        ).exec()
         sys.exit(1)
 
 def verificar_e_criar_atalho():
@@ -83,7 +83,6 @@ def verificar_e_criar_atalho():
         if criar:
             criar_atalho_windows(atalho_path)
             # Feedback sutil (ou remover se quiser ser ultra-minimalista)
-            # QMessageBox.information(None, "Sucesso", "Atalho criado na Área de Trabalho!")
             # print("[SISTEMA] Atalho criado com sucesso.")
 
     except Exception as e:

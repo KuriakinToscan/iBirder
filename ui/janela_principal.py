@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-    QPushButton, QGroupBox, QFileDialog, QMessageBox, QLineEdit,
+    QPushButton, QGroupBox, QFileDialog, QLineEdit,
     QFrame, QStatusBar, QApplication, QSizePolicy, QGraphicsDropShadowEffect
 )
 from PySide6.QtCore import Qt, QSize
@@ -401,7 +401,7 @@ class JanelaPrincipal(QMainWindow):
             
             if novo_modo and novo_modo != self.modo_atual:
                 self._alterar_modo_runtime(novo_modo)
-                QMessageBox.information(self, "Modo Atualizado", f"A aplicação agora está operando no modo: {novo_modo.upper()}")
+                DialogoAviso("Modo Atualizado", f"A aplicação agora está operando no modo: {novo_modo.upper()}", self).exec()
 
     def _alterar_modo_runtime(self, novo_modo):
         if novo_modo == "online":
