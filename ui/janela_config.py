@@ -92,10 +92,14 @@ class JanelaConfig(QDialog):
         self.lbl_status_base = QLabel("Base de dados: 5 espécies")
         layout_off.addWidget(self.lbl_status_base)
         
-        btn_baixar_base = QPushButton("Baixar Pacote Offline (Base + Visão ~35MB)")
-        btn_baixar_base.setToolTip("Baixa banco de dados e modelos de IA para uso sem internet.")
         btn_baixar_base.clicked.connect(self._baixar_base)
         layout_off.addWidget(btn_baixar_base)
+        
+        # botão verificar ExifTool (v0.6.4)
+        btn_verificar_exif = QPushButton("Verificar Integridade do ExifTool")
+        btn_verificar_exif.setToolTip("Testa se o componente de metadados está funcionando.")
+        btn_verificar_exif.clicked.connect(self._verificar_exiftool)
+        layout_off.addWidget(btn_verificar_exif)
         
         grupo_offline.setLayout(layout_off)
         layout.addWidget(grupo_offline)
@@ -269,3 +273,32 @@ class JanelaConfig(QDialog):
                 background-color: #1a252f;
             }
         """)
+
+    def _verificar_exiftool(self):
+        from core.motor_metadados import MotorMetadados
+        from PySide6.QtGui import QDesktopServices
+        from PySide6.QtCore import QUrl
+        
+        self.setCursor(Qt.WaitCursor)
+        self.lbl_status_base.setText("Verificando ExifTool...")
+        self.repaint()
+        
+        try:
+            motor = MotorMetadados()
+            resultado = motor.verificar_integridade()
+            
+            self.setCursor(Qt.ArrowCursor)
+            self.lbl_status_base.setText("Verificação Concluída.")
+            
+            if resultado["ok"]:
+                DialogoAviso("Sucesso", f"ExifTool Operacional!\nVersão: {resultado['versao']}", self).exec()
+            else:
+                botoes = [
+                    {"texto": "Fechar", "funcao": None},
+                    {"texto": "Como Corrigir", "funcao": lambda: QDesktopServices.openUrl(QUrl("https://exiftool.org/install.html")), "destaque": True}
+                ]
+                msg = f"Falha na verificação:\n{resultado['erro']}\n\nO componente de metadados não funcionará neste computador."
+                DialogoAviso("Erro de Integridade", msg, self, tipo="erro", botoes=botoes).exec()
+        except Exception as e:
+            self.setCursor(Qt.ArrowCursor)
+            DialogoAviso("Erro", f"Erro ao inicializar motor: {e}", self).exec()

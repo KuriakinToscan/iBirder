@@ -72,8 +72,12 @@ class MotorMetadados:
                     errors='ignore' 
                 )
             except OSError as e:
-                print(f"Aviso: ExifTool incompatível ou arquivo não executável (Erro {e.errno}). Ignorando metadados.")
-                return {}
+                # Tratamento de Erro ExifTool v0.6.4
+                print(f"Aviso: ExifTool incompatível (Erro {e.errno})")
+                return {
+                    "erro_exif": "O componente ExifTool é incompatível com seu sistema.",
+                    "detalhes": f"Erro do Sistema: {e.errno}"
+                }
             
             if resultado.returncode != 0:
                 print(f"Erro ExifTool (Leitura): {resultado.stderr}")
@@ -108,6 +112,35 @@ class MotorMetadados:
         except Exception as e:
             print(f"Erro ao ler metadados: {e}")
             return {}
+
+    def verificar_integridade(self) -> dict:
+        """
+        Verifica se o ExifTool está funcional (v0.6.4).
+        """
+        try:
+            startupinfo = None
+            if os.name == 'nt':
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
+            # Tenta pegar versão
+            resultado = subprocess.run(
+                [self.caminho_exiftool, "-ver"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                startupinfo=startupinfo,
+                text=True
+            )
+            
+            if resultado.returncode == 0:
+                return {"ok": True, "versao": resultado.stdout.strip()}
+            else:
+                return {"ok": False, "erro": resultado.stderr}
+                
+        except OSError as e:
+            return {"ok": False, "erro": f"Incompatibilidade de Sistema ({e.errno})"}
+        except Exception as e:
+            return {"ok": False, "erro": str(e)}
 
     def inserir_metadados(self, caminho_arquivo: str, dados_ave: dict):
         """

@@ -3,7 +3,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
 class DialogoAviso(QDialog):
-    def __init__(self, titulo, mensagem, parent=None, tipo="info"):
+    def __init__(self, titulo, mensagem, parent=None, tipo="info", botoes=None):
         super().__init__(parent)
         self.setWindowTitle(f"iBirder - {titulo}")
         self.setFixedSize(450, 220)
@@ -11,6 +11,7 @@ class DialogoAviso(QDialog):
         self.titulo = titulo
         self.mensagem = mensagem
         self.tipo = tipo # "info", "erro", "pergunta"
+        self.botoes = botoes
         
         self._configurar_ui()
         self._aplicar_estilo()
@@ -25,7 +26,6 @@ class DialogoAviso(QDialog):
         lbl_titulo.setAlignment(Qt.AlignLeft)
         font_titulo = QFont("Segoe UI", 16, QFont.Bold)
         lbl_titulo.setFont(font_titulo)
-        # Forçar cor escura visualmente direto no widget além do QSS
         layout.addWidget(lbl_titulo)
         
         # Mensagem
@@ -41,7 +41,27 @@ class DialogoAviso(QDialog):
         layout_botoes.setSpacing(15)
         layout_botoes.addStretch()
         
-        if self.tipo == "pergunta":
+        if self.botoes:
+            # Modo Personalizado (v0.6.4)
+            for btn_data in self.botoes:
+                btn = QPushButton(btn_data["texto"])
+                btn.setCursor(Qt.PointingHandCursor)
+                btn.setFixedSize(120, 45)
+                
+                if btn_data.get("destaque"):
+                    btn.setProperty("class", "acao")
+                    
+                funcao = btn_data.get("funcao")
+                if funcao:
+                    # Conecta e fecha o diálogo
+                    btn.clicked.connect(lambda f=funcao: (f(), self.accept()))
+                else:
+                    # Padrão é fechar
+                    btn.clicked.connect(self.accept)
+                    
+                layout_botoes.addWidget(btn)
+                
+        elif self.tipo == "pergunta":
             btn_nao = QPushButton("Não")
             btn_nao.setCursor(Qt.PointingHandCursor)
             btn_nao.setFixedSize(100, 45)

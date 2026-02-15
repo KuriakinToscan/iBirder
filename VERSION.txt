@@ -1,1 +1,1 @@
-v0.6.3 - Motor OpenCV Light e Fluxo Silencioso
+v0.6.4 - Motor OpenCV Light e Fluxo Silencioso

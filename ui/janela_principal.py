@@ -450,10 +450,22 @@ class JanelaPrincipal(QMainWindow):
         QApplication.processEvents() 
 
         # Prioridade Metadados (v0.6.3)
+        # Prioridade Metadados (v0.6.3)
         if self.modo_atual == "offline":
             try:
                 meta = self.motor_metadados.ler_metadados(self.caminho_imagem_atual)
-                if meta and meta.get("nome_cientifico"):
+                
+                # Tratamento de Erro v0.6.4
+                if "erro_exif" in meta:
+                    botoes = [
+                        {"texto": "Ignorar", "funcao": None}, # Apenas fecha e segue
+                        {"texto": "Como Corrigir", "funcao": self._abrir_ajuda_exiftool, "destaque": True}
+                    ]
+                    msg = f"{meta['erro_exif']}\n\nDeseja abrir a página de ajuda para reinstalar o componente?"
+                    DialogoAviso("Aviso de Metadados", msg, self, botoes=botoes).exec()
+                    # Segue para IA após fechar (Ignorar)
+                
+                elif meta and meta.get("nome_cientifico"):
                     self.input_nome_cientifico.setText(meta["nome_cientifico"])
                     self.lbl_nome_comum.setText(meta.get("nome_comum", "-"))
                     self.lbl_confianca.setText("Metadados (Original)")
@@ -622,3 +634,9 @@ class JanelaPrincipal(QMainWindow):
         finally:
              QApplication.restoreOverrideCursor()
              self.btn_buscar.setEnabled(True)
+
+    def _abrir_ajuda_exiftool(self):
+        from PySide6.QtGui import QDesktopServices
+        from PySide6.QtCore import QUrl
+        # Redireciona para página de instalação ou wiki do projeto
+        QDesktopServices.openUrl(QUrl("https://exiftool.org/install.html"))
