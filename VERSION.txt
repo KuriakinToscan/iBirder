@@ -1,1 +1,1 @@
-v0.1.3 - Cross-Platform Dynamic Icons (Win/Linux)
+v0.1.4 - Silent & Robust Deployment (Dona Maria Profile)
