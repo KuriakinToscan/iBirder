@@ -45,9 +45,39 @@ def verificar_ambiente_virtual():
         msg.exec()
         sys.exit(1)
 
+import json
+from PySide6.QtWidgets import QMessageBox, QCheckBox
+
+def carregar_config():
+    """Carrega a configuração local."""
+    base_path = Path(__file__).parent.absolute()
+    config_path = base_path / "config.json"
+    if config_path.exists():
+        try:
+            with open(config_path, "r") as f:
+                return json.load(f)
+        except:
+            pass
+    return {}
+
+def salvar_config(config):
+    """Salva a configuração local."""
+    base_path = Path(__file__).parent.absolute()
+    config_path = base_path / "config.json"
+    try:
+        with open(config_path, "w") as f:
+            json.dump(config, f, indent=4)
+    except Exception as e:
+        print(f"Erro ao salvar config: {e}")
+
 def verificar_e_criar_atalho():
     """Verifica se o atalho existe e oferece para criar."""
     if setup_atalho is None:
+        return
+
+    # 1. Verifica preferência do usuário (v0.2.5)
+    config = carregar_config()
+    if config.get("pular_pergunta_atalho", False):
         return
 
     sistema = platform.system()
@@ -73,11 +103,20 @@ def verificar_e_criar_atalho():
         msg.setInformativeText("Deseja criar um agora para facilitar o acesso?")
         msg.setIcon(QMessageBox.Question)
         
+        # Checkbox "Não perguntar novamente"
+        cb_nao_perguntar = QCheckBox("Não perguntar novamente")
+        msg.setCheckBox(cb_nao_perguntar)
+        
         btn_sim = msg.addButton("Sim", QMessageBox.YesRole)
         btn_nao = msg.addButton("Não", QMessageBox.NoRole)
         msg.setDefaultButton(btn_sim)
         
         msg.exec()
+        
+        # Salva preferência se marcado
+        if cb_nao_perguntar.isChecked():
+            config["pular_pergunta_atalho"] = True
+            salvar_config(config)
         
         if msg.clickedButton() == btn_sim:
             try:

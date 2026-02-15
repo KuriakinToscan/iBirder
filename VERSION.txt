@@ -1,1 +1,1 @@
-v0.2.4 - Fix Filename Typo (claro/clara) & Absolute Paths
+v0.2.5 - Smart Shortcut Dialog (Don't Ask Again) & Config Persistence
