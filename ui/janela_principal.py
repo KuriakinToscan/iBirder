@@ -85,21 +85,28 @@ class JanelaPrincipal(QMainWindow):
         layout_esquerda.setSpacing(20)
         
         # Logo
-        caminho_logo = self._obter_caminho_asset("logo_ave.png")
-        if os.path.exists(caminho_logo):
+        # Logo do Painel (Sempre logo_ave.png para identidade visual)
+        caminho_logo_painel = self._obter_caminho_asset("logo_ave.png")
+        if os.path.exists(caminho_logo_painel):
             lbl_logo = QLabel()
-            pixmap_logo = QPixmap(caminho_logo)
+            pixmap_logo = QPixmap(caminho_logo_painel)
             lbl_logo.setPixmap(pixmap_logo.scaled(170, 70, Qt.KeepAspectRatio, Qt.SmoothTransformation))
             layout_esquerda.addWidget(lbl_logo, alignment=Qt.AlignLeft)
-            
-            # Define o ícone da janela
-            self.setWindowIcon(QIcon(caminho_logo))
         else:
             # Fallback elegante
             lbl_logo = QLabel("iBirder")
             lbl_logo.setFont(QFont("Segoe UI Light", 32))
             lbl_logo.setStyleSheet("color: #222222;")
             layout_esquerda.addWidget(lbl_logo)
+
+        # Ícone da Janela/Barra de Tarefas (Dinâmico)
+        caminho_icone_janela = self._obter_caminho_asset(self.nome_icone_janela)
+        if os.path.exists(caminho_icone_janela):
+            self.setWindowIcon(QIcon(caminho_icone_janela))
+        else:
+             # Se o dinâmico falhar, tenta o logo padrão
+             if os.path.exists(caminho_logo_painel):
+                 self.setWindowIcon(QIcon(caminho_logo_painel))
 
         self.area_drop = AreaDrop(self._carregar_imagem)
         layout_esquerda.addWidget(self.area_drop)

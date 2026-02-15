@@ -1,1 +1,1 @@
-v0.2.2 - Brute Force Icon & Translation Fix
+v0.2.3 - Visual Identity & Robust Theme Logic

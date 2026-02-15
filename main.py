@@ -17,8 +17,8 @@ except ImportError:
 if platform.system() == "Windows":
     try:
         import ctypes
-        # Alterado para v0.2.2.force_icon para forçar limpeza completa de cache E ignorar tema
-        myappid = 'ibirder.v0.2.2.force_icon'
+        # Alterado para v0.2.3.check para forçar reavaliação de cache pelo Windows
+        myappid = 'ibirder.v0.2.3.check'
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     except Exception:
         pass 
@@ -105,22 +105,72 @@ def verificar_e_criar_atalho():
             except Exception as e:
                 print(f"Erro ao criar atalho: {e}")
 
+def detectar_tema_e_icone():
+    """
+    Detecta se o sistema está em modo escuro ou claro.
+    Lógica Simplificada e À Prova de Falhas (v0.2.3):
+    1. Tenta detectar Light Mode.
+    2. Se for LIGHT -> Retorna ícone ESCURO.
+    3. Qualquer outra coisa (Dark, Erro, Indefinido) -> Retorna ícone CLARO.
+    """
+    sistema = platform.system()
+    usar_icone_escuro = False # Padrão é False (ou seja, usa CLARO)
+
+    try:
+        if sistema == "Windows":
+            import winreg
+            try:
+                registry = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
+                key = winreg.OpenKey(registry, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
+                value, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
+                winreg.CloseKey(key)
+                
+                # AppsUseLightTheme: 1 = Light Mode
+                if value == 1:
+                    usar_icone_escuro = True
+                    print("[SISTEMA] Modo CLARO detectado. Usando ícone ESCURO.")
+                else:
+                    print("[SISTEMA] Modo ESCURO (ou outro) detectado. Usando ícone CLARO.")
+                    
+            except Exception:
+                pass # Mantém padrão (CLARO)
+            
+        elif sistema == "Linux":
+            try:
+                cmd = ["gsettings", "get", "org.gnome.desktop.interface", "color-scheme"]
+                resultado = subprocess.check_output(cmd, stderr=subprocess.DEVNULL).decode("utf-8").lower()
+                
+                if "light" in resultado and "dark" not in resultado:
+                     usar_icone_escuro = True
+                     
+            except Exception:
+                pass # Mantém padrão (CLARO)
+                
+    except Exception:
+        pass # Mantém padrão (CLARO)
+
+    # Retorna o nome do arquivo
+    nome_arquivo = "logo_ave_escuro.png" if usar_icone_escuro else "logo_ave_clara.png"
+    
+    # Validação de caminho absoluto para setWindowIcon
+    base_assets = Path(__file__).parent.absolute() / "assets"
+    caminho_absoluto = base_assets / nome_arquivo
+    
+    if not caminho_absoluto.exists():
+        print(f"[AVISO] Ícone {nome_arquivo} não encontrado. Usando original.")
+        return "logo_ave.png"
+        
+    return nome_arquivo
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     
     # 1. Verificação de Ambiente (.venv)
     verificar_ambiente_virtual()
     
-    # 2. Configuração de Ícone FORÇADA (Brute Force)
-    # Sem detecção de tema. Sem fallback complexo. Caminho absoluto.
-    basedir = os.path.dirname(os.path.abspath(__file__))
-    icon_path = os.path.join(basedir, 'assets', 'logo_ave.png')
+    # 2. Configuração de Ícone Dinâmico
+    nome_icone = detectar_tema_e_icone()
     
-    if os.path.exists(icon_path):
-        app.setWindowIcon(QIcon(icon_path))
-    else:
-        print(f"[ERRO] Ícone não encontrado em: {icon_path}")
-
     # 3. Verifica e oferece criação de atalho
     if not getattr(sys, 'frozen', False):
         verificar_e_criar_atalho()
@@ -128,9 +178,8 @@ if __name__ == "__main__":
     # Estilo básico
     app.setStyle("Fusion")
 
-    # Janela Principal agora carrega o padrão 'logo_ave.png' internamente se não passarmos nada,
-    # ou podemos passar explicitamente 'logo_ave.png' para garantir.
-    janela = JanelaPrincipal(nome_icone_janela="logo_ave.png")
+    # Passa o nome do ícone dinâmico.
+    janela = JanelaPrincipal(nome_icone_janela=nome_icone)
     janela.show()
 
     sys.exit(app.exec())
