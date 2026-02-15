@@ -54,6 +54,13 @@ class JanelaConfig(QDialog):
         btn_chave.clicked.connect(self._abrir_wizard_chave)
         layout_id.addWidget(btn_chave)
         
+        # Botão Resetar Online (Novo v0.3.4)
+        btn_reset_online = QPushButton("Apagar Configurações Online")
+        btn_reset_online.setToolTip("Apaga a chave de API e esquece a escolha do modo.")
+        btn_reset_online.setStyleSheet("color: #D32F2F;") # Vermelho alerta
+        btn_reset_online.clicked.connect(self._resetar_online)
+        layout_id.addWidget(btn_reset_online)
+        
         grupo_identificacao.setLayout(layout_id)
         layout.addWidget(grupo_identificacao)
         
@@ -84,6 +91,23 @@ class JanelaConfig(QDialog):
         salvar_config(self.config)
         self.lbl_modo.setText("Modo Padrão: <b>Redefinido</b>")
         QMessageBox.information(self, "Sucesso", "Na próxima vez, perguntaremos qual modo usar.")
+
+    def _resetar_online(self):
+        """Apaga chave do keyring e limpa preferência online."""
+        try:
+            # Apaga do Keyring
+            keyring.delete_password("iBirder_Gemini_Key", "user")
+        except keyring.errors.PasswordDeleteError:
+            pass # Senha não existia
+            
+        # Limpa config se for online
+        if self.config.get("modo_operacao") == "online":
+            self.config["modo_operacao"] = None
+            self.config["lembrar_modo"] = False
+            salvar_config(self.config)
+            self.lbl_modo.setText("Modo Padrão: <b>Redefinido</b>")
+            
+        QMessageBox.information(self, "Sucesso", "Chave de API removida e modo Online redefinido.")
 
     def _resetar_atalho(self):
         self.config["pular_pergunta_atalho"] = False

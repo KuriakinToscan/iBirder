@@ -1,1 +1,1 @@
-v0.3.3 - Startup Logic Fix (Strict Order)
+v0.3.4 - Auto-Wizard & Online Reset

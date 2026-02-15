@@ -6,10 +6,12 @@ import subprocess
 from pathlib import Path
 from PySide6.QtWidgets import QApplication, QMessageBox, QCheckBox
 from PySide6.QtGui import QIcon
+import keyring
 
 # Importações Locais
 from ui.janela_principal import JanelaPrincipal
 from ui.dialogo_modo import DialogoModo
+from ui.wizard_config import WizardConfig
 from core.config import carregar_config, salvar_config
 
 # Tenta importar o script de setup para criar atalhos
@@ -200,6 +202,33 @@ if __name__ == "__main__":
         else:
             # Se cancelar, definimos um padrão seguro mas não salvamos
             modo_inicial = "offline"
+
+    # A.1) Validação da Chave Online (Novo v0.3.4)
+    # Se o modo escolhido (ou salvo) for Online, verificamos se temos a chave.
+    if modo_inicial == "online":
+        chave = keyring.get_password("iBirder_Gemini_Key", "user")
+        if not chave:
+            print("[CONFIG] Chave não encontrada para modo Online via config. Abrindo Wizard...")
+            
+            # Avisa antes de abrir wizard para não ser muito abrupto?
+            # O Wizard já tem intro "Bem-vindo", então direto é ok.
+            # Mas vamos garantir que a janela não esteja aberta ainda (estamos antes do show).
+            
+            wizard = WizardConfig()
+            if wizard.exec():
+                # Sucesso
+                print("[CONFIG] Chave configurada com sucesso via Wizard startup.")
+            else:
+                # Cancelou -> Fallback para Offline
+                print("[CONFIG] Wizard cancelado. Revertendo para Offline.")
+                modo_inicial = "offline"
+                
+                # Se tinha salvo como lembrar online, talvez devêssemos esquecer?
+                # Sim, evita loop na próxima vez
+                if config.get("modo_operacao") == "online":
+                    config["modo_operacao"] = None
+                    config["lembrar_modo"] = False
+                    salvar_config(config)
 
     # B) Trigger do Atalho
     # Verifica sempre agora, conforme solicitado
