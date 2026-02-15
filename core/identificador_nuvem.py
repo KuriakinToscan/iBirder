@@ -72,11 +72,11 @@ class IdentificadorNuvem(IdentificadorAve):
         except Exception as e:
             msg_erro = str(e)
             
-            # Tratamento Amigável de Erro 429 (Cota/Busy) (v0.3.7)
+            # Tratamento Amigável de Erro 429 (Cota/Busy) (v0.3.7/v0.3.8)
             if "429" in msg_erro:
                 return {
-                    "erro": "O servidor de inteligência está um pouco ocupado agora.",
-                    "detalhes": "Por favor, aguarde um minuto e tente novamente. (Erro 429 - Limite de Requisições)"
+                    "erro": "O servidor de inteligência está ocupado.",
+                    "detalhes": "Tente novamente em um minuto. (Erro 429 - Limite de Requisições)"
                 }
             
             return {

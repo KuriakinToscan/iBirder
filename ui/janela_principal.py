@@ -129,6 +129,14 @@ class JanelaPrincipal(QMainWindow):
         self.area_drop = AreaDrop(self._carregar_imagem)
         layout_esquerda.addWidget(self.area_drop)
         
+        # Botão Reset / Nova Identificação (v0.3.8)
+        self.btn_nova = QPushButton("Nova Identificação")
+        self.btn_nova.setCursor(Qt.PointingHandCursor)
+        self.btn_nova.setToolTip("Limpar imagem e começar de novo")
+        self.btn_nova.setProperty("class", "reset-btn") # Novo estilo
+        self.btn_nova.clicked.connect(self._resetar_interface)
+        layout_esquerda.addWidget(self.btn_nova)
+        
         lbl_instrucao = QLabel("Suporte a JPG, PNG")
         lbl_instrucao.setStyleSheet("color: #616161; font-size: 11px;")
         layout_esquerda.addWidget(lbl_instrucao, alignment=Qt.AlignCenter)
@@ -321,6 +329,20 @@ class JanelaPrincipal(QMainWindow):
                 background-color: #EEEEEE;
                 border: 1px solid #BDBDBD;
                 color: #222222;
+            }
+            /* Botão Reset Clean (v0.3.8) */
+            QPushButton[class="reset-btn"] {
+                background-color: transparent;
+                color: #616161;
+                border: 1px solid #E0E0E0;
+                font-size: 12px;
+                padding: 8px;
+                margin-top: 15px; /* Espaçamento solicitado */
+            }
+            QPushButton[class="reset-btn"]:hover {
+                color: #222222;
+                border-color: #BDBDBD;
+                background-color: #FAFAFA;
             }
         """)
 

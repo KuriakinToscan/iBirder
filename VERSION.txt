@@ -1,1 +1,1 @@
-v0.3.7 - Error Handling & UX Polish
+v0.3.8 - Fluxo de Repetição e Reset
