@@ -1,1 +1,1 @@
-v0.1.6 - Self-Configuring Application (Auto-Shortcut & Venv Check)
+v0.2.1 - Logic Inversion for Dark Mode & Absolute Paths

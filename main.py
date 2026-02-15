@@ -4,6 +4,7 @@ import platform
 import subprocess
 from pathlib import Path
 from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtCore import QDir
 from ui.janela_principal import JanelaPrincipal
 
 # Tenta importar o script de setup para criar atalhos
@@ -16,7 +17,8 @@ except ImportError:
 if platform.system() == "Windows":
     try:
         import ctypes
-        myappid = 'ibirder.app_identificacao.v0.1.6.final'
+        # Alterado para v0.2.1-fix-icons para forçar limpeza completa de cache
+        myappid = 'ibirder.app_identificacao.v0.2.1-fix-icons'
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     except Exception:
         pass # Silencioso em caso de erro
@@ -57,14 +59,20 @@ def verificar_e_criar_atalho():
         atalho_existe = atalho_path.exists()
     
     if not atalho_existe:
-        resposta = QMessageBox.question(
-            None,
-            "Criar Atalho",
-            "Notei que você ainda não tem um atalho na Área de Trabalho.\nDeseja criar um agora para facilitar o acesso?",
-            QMessageBox.Yes | QMessageBox.No
-        )
+        # Uso de QMessageBox customizado para botões em Português
+        msg = QMessageBox()
+        msg.setWindowTitle("Criar Atalho")
+        msg.setText("Notei que você ainda não tem um atalho na Área de Trabalho.")
+        msg.setInformativeText("Deseja criar um agora para facilitar o acesso?")
+        msg.setIcon(QMessageBox.Question)
         
-        if resposta == QMessageBox.Yes:
+        btn_sim = msg.addButton("Sim", QMessageBox.YesRole)
+        btn_nao = msg.addButton("Não", QMessageBox.NoRole)
+        msg.setDefaultButton(btn_sim)
+        
+        msg.exec()
+        
+        if msg.clickedButton() == btn_sim:
             try:
                 if sistema == "Windows":
                     # Identifica pythonw.exe
@@ -101,12 +109,14 @@ def verificar_e_criar_atalho():
 
 def detectar_tema_e_icone():
     """
-    Detecta se o sistema está em modo escuro ou claro de forma silenciosa.
-    Retorna o nome do ícone apropriado.
-    Em caso de dúvida ou erro, retorna 'logo_ave_clara.png' (melhor contraste geral).
+    Detecta se o sistema está em modo escuro ou claro.
+    Lógica INVERTIDA para robustez:
+    - Se for detectado ESCURO com certeza -> Usa CLARO (para contraste).
+    - Se for detectado CLARO com certeza -> Usa ESCURO.
+    - Se houver QUALQUER dúivida ou erro -> Usa CLARO (padrão mais seguro).
     """
     sistema = platform.system()
-    tema_escuro = True # Padrão seguro para maior visibilidade (ícone claro em fundo escuro)
+    usar_icone_claro = True # Padrão (Fallback Seguro)
 
     try:
         if sistema == "Windows":
@@ -116,39 +126,58 @@ def detectar_tema_e_icone():
                 key = winreg.OpenKey(registry, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
                 value, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
                 winreg.CloseKey(key)
-                # 0 = Dark Mode, 1 = Light Mode
+                
+                # AppsUseLightTheme: 0 = Dark, 1 = Light
                 if value == 1:
-                    tema_escuro = False
+                    # Sistema CLARO -> Usa ícone ESCURO
+                    usar_icone_claro = False
+                    print("[SISTEMA] Modo Claro detectado. Aplicando ícone ESCURO.")
+                elif value == 0:
+                    # Sistema ESCURO -> Usa ícone CLARO
+                    usar_icone_claro = True
+                    print("[SISTEMA] Modo Escuro detectado. Aplicando ícone CLARO para visibilidade.")
+                    
             except Exception:
-                pass # Mantém o padrão (Escuro/Clara.png) se falhar leitura do registro
+                pass # Mantém padrão (CLARO)
             
         elif sistema == "Linux":
             try:
-                # Tenta detectar via gsettings (GNOME/Unity)
                 cmd = ["gsettings", "get", "org.gnome.desktop.interface", "color-scheme"]
                 resultado = subprocess.check_output(cmd, stderr=subprocess.DEVNULL).decode("utf-8").lower()
                 
                 if "prefer-dark" in resultado:
-                    tema_escuro = True
+                    usar_icone_claro = True
                 elif "default" in resultado or "light" in resultado:
-                     tema_escuro = False
+                     usar_icone_claro = False
                 else:
-                    # Fallback antigo
+                    # Fallback GTK
                     cmd_gtk = ["gsettings", "get", "org.gnome.desktop.interface", "gtk-theme"]
                     resultado_gtk = subprocess.check_output(cmd_gtk, stderr=subprocess.DEVNULL).decode("utf-8").lower()
                     if "dark" in resultado_gtk:
-                        tema_escuro = True
+                        usar_icone_claro = True
             except Exception:
-                pass # Mantém o padrão se falhar
+                pass # Mantém padrão (CLARO)
                 
     except Exception:
-        pass # Silêncio absoluto em erros gerais
+        pass # Mantém padrão (CLARO)
 
-    # Seleção final do ícone
-    if tema_escuro:
-        return "logo_ave_clara.png"
-    else:
-        return "logo_ave_escuro.png"
+    # Retorna o nome do arquivo
+    nome_arquivo = "logo_ave_clara.png" if usar_icone_claro else "logo_ave_escuro.png"
+    
+    # ---------------------------------------------------------
+    # CORREÇÃO CRÍTICA: CAMINHO ABSOLUTO PARA O ÍCONE
+    # O setWindowIcon às vezes falha com caminhos relativos
+    # dependendo do CWD. Vamos forçar absoluto.
+    # ---------------------------------------------------------
+    base_assets = Path(__file__).parent.absolute() / "assets"
+    caminho_absoluto = base_assets / nome_arquivo
+    
+    # Se o arquivo específico não existir (ex: dev não criou ainda), fallback para original
+    if not caminho_absoluto.exists():
+        print(f"[AVISO] Ícone {nome_arquivo} não encontrado. Usando original.")
+        return "logo_ave.png"
+        
+    return nome_arquivo
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
@@ -156,17 +185,18 @@ if __name__ == "__main__":
     # 1. Verificação de Ambiente (.venv)
     verificar_ambiente_virtual()
     
-    # 2. Verifica e oferece criação de atalho (após QApplication existir para usar QMessageBox)
-    # Apenas se não estivermos congelados (exe)
+    # 2. Verifica e oferece criação de atalho
     if not getattr(sys, 'frozen', False):
         verificar_e_criar_atalho()
     
-    # Define o ícone com base no tema
+    # Define o ícone com base no tema (retorna nome do arquivo)
     nome_icone = detectar_tema_e_icone()
     
-    # Estilo básico para garantir que o tema escuro funcione bem com Fusion
+    # Estilo básico
     app.setStyle("Fusion")
 
+    # Passa o nome do ícone. A JanelaPrincipal já lida com caminhos,
+    # mas vamos garantir que ela receba o nome correto que validamos.
     janela = JanelaPrincipal(nome_icone_janela=nome_icone)
     janela.show()
 
