@@ -1,1 +1,1 @@
-v0.1.4 - Robust & User-Friendly Setup Script
+v0.1.5 - Dynamic Setup Script (Path Awareness)

@@ -7,7 +7,6 @@ from pathlib import Path
 def create_windows_shortcut(target, arguments, icon, shortcut_path, working_dir):
     """
     Creates a Windows shortcut (.lnk) using a temporary VBScript.
-    This avoids needing external dependencies like winshell or pywin32.
     """
     vbs_script = f"""
     Set oWS = WScript.CreateObject("WScript.Shell")
@@ -29,7 +28,7 @@ def create_windows_shortcut(target, arguments, icon, shortcut_path, working_dir)
         print(f"Atalho criado com sucesso em: {shortcut_path}")
     except Exception as e:
         print(f"Erro ao criar atalho via VBS: {e}")
-        # Fallback para .bat simples (menos elegante, mas funciona)
+        # Fallback para .bat
         bat_path = str(shortcut_path).replace(".lnk", ".bat")
         with open(bat_path, "w", encoding="utf-8") as bat:
             bat.write(f'@echo off\ncd /d "{working_dir}"\nstart "" "{target}" {arguments}')
@@ -40,7 +39,7 @@ def create_windows_shortcut(target, arguments, icon, shortcut_path, working_dir)
 
 def create_linux_desktop_file(target, arguments, icon, working_dir):
     """
-    Creates a .desktop file for Linux (Gnome/Unity).
+    Creates a .desktop file for Linux.
     """
     desktop_entry = f"""[Desktop Entry]
 Version=1.0
@@ -54,7 +53,7 @@ Type=Application
 Categories=Utility;Science;
 """
     
-    # Path padrão para aplicações do usuário
+    # Tenta salvar em ~/.local/share/applications/
     apps_dir = Path.home() / ".local" / "share" / "applications"
     if not apps_dir.exists():
         apps_dir.mkdir(parents=True, exist_ok=True)
@@ -65,35 +64,44 @@ Categories=Utility;Science;
         with open(desktop_path, "w", encoding="utf-8") as f:
             f.write(desktop_entry)
         
-        # Torna executável
+        # Torna executável (chmod +x)
         os.chmod(desktop_path, 0o755)
-        print(f"Arquivo .desktop criado em: {desktop_path}")
+        print(f"Arquivo .desktop criado e executável em: {desktop_path}")
         
     except Exception as e:
         print(f"Erro ao criar .desktop: {e}")
 
 def main():
     sistema = platform.system()
-    base_path = Path(__file__).parent.absolute()
+    
+    # Usa o diretório atual como base (onde o script está sendo rodado)
+    base_path = Path(os.path.abspath(os.getcwd()))
     
     print(f"Detectando ambiente: {sistema}")
+    print(f"Diretório base: {base_path}")
+    
+    # Verificação de segurança do ambiente virtual
+    venv_path = base_path / ".venv"
+    if not venv_path.exists():
+        print("\n[ERRO] Ambiente virtual (.venv) não encontrado.")
+        print("Certifique-se de rodar este script DENTRO da pasta do iBirder e que o 'setup_ambiente.ps1' (ou equivalente) já foi executado.")
+        return
+
+    script_main = base_path / "main.py"
+    icon_path = base_path / "assets" / "logo_ave.png"
     
     if sistema == "Windows":
-        # Caminhos Windows
         # pythonw.exe no venv para não abrir janela de terminal
-        python_exe = base_path / ".venv" / "Scripts" / "pythonw.exe"
+        python_exe = venv_path / "Scripts" / "pythonw.exe"
         
-        # Se não achar no venv, tenta o sys.executable (mas pode abrir terminal se for python.exe)
         if not python_exe.exists():
-            python_exe = Path(sys.executable)
-            # Tenta achar o pythonw vizinho
-            possible_pythonw = python_exe.parent / "pythonw.exe"
-            if possible_pythonw.exists():
-                python_exe = possible_pythonw
+            print(f"[AVISO] pythonw.exe não encontrado em {python_exe}. Tentando python.exe...")
+            python_exe = venv_path / "Scripts" / "python.exe"
 
-        script_main = base_path / "main.py"
-        icon_path = base_path / "assets" / "logo_ave.png"
-        
+        if not python_exe.exists():
+             print("[ERRO] Executável Python não encontrado no .venv!")
+             return
+
         # Desktop do Usuário
         desktop = Path(os.environ["USERPROFILE"]) / "Desktop"
         shortcut_dest = desktop / "iBirder.lnk"
@@ -107,13 +115,14 @@ def main():
         )
         
     elif sistema == "Linux":
-        # Caminhos Linux
-        python_exe = base_path / ".venv" / "bin" / "python3"
+        python_exe = venv_path / "bin" / "python3"
+        
         if not python_exe.exists():
-             python_exe = Path(sys.executable)
+             python_exe = venv_path / "bin" / "python"
              
-        script_main = base_path / "main.py"
-        icon_path = base_path / "assets" / "logo_ave.png"
+        if not python_exe.exists():
+             print("[ERRO] Executável Python não encontrado no .venv!")
+             return
         
         create_linux_desktop_file(
             target=str(python_exe),
@@ -127,7 +136,7 @@ def main():
         return
 
     print("-" * 30)
-    print("Pronto! O ícone do iBirder agora está pronto para uso.")
+    print("Pronto! O ícone do iBirder agora está na sua Área de Trabalho.")
     print("-" * 30)
 
 if __name__ == "__main__":
