@@ -99,6 +99,12 @@ class WizardConfig(QWizard):
         self.setWindowTitle("Configuração do Modo Online")
         self.setWizardStyle(QWizard.ModernStyle)
         
+        # Tradução dos botões padrão
+        self.setButtonText(QWizard.NextButton, "Próximo")
+        self.setButtonText(QWizard.BackButton, "Voltar")
+        self.setButtonText(QWizard.FinishButton, "Concluir")
+        self.setButtonText(QWizard.CancelButton, "Cancelar")
+        
         # Tema Industrial/Grafite
         self.setStyleSheet("""
             QWizard { background-color: #F5F5F5; color: #222222; }

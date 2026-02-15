@@ -1,1 +1,1 @@
-v0.1 - Interface Minimalista & Google GenAI Integration
+v0.1.1 - Clean Theme & Dynamic Icons

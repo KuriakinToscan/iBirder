@@ -47,8 +47,9 @@ class AreaDrop(QLabel):
             self.callback(path)
 
 class JanelaPrincipal(QMainWindow):
-    def __init__(self):
+    def __init__(self, nome_icone_janela="logo_ave.png"):
         super().__init__()
+        self.nome_icone_janela = nome_icone_janela
         self.setWindowTitle("iBirder - Identificador de Aves")
         self.resize(1100, 700)
         
@@ -90,6 +91,9 @@ class JanelaPrincipal(QMainWindow):
             pixmap_logo = QPixmap(caminho_logo)
             lbl_logo.setPixmap(pixmap_logo.scaled(170, 70, Qt.KeepAspectRatio, Qt.SmoothTransformation))
             layout_esquerda.addWidget(lbl_logo, alignment=Qt.AlignLeft)
+            
+            # Define o ícone da janela
+            self.setWindowIcon(QIcon(caminho_logo))
         else:
             # Fallback elegante
             lbl_logo = QLabel("iBirder")
@@ -291,13 +295,18 @@ class JanelaPrincipal(QMainWindow):
         else:
             # Verifica chave antes de ativar modo online
             if not keyring.get_password("iBirder_Gemini_Key", "user"):
-                resposta = QMessageBox.question(
-                    self, 
-                    "Configuração Necessária", 
-                    "O Modo Online requer chave de API.\nConfigurar agora?",
-                    QMessageBox.Yes | QMessageBox.No
-                )
-                if resposta == QMessageBox.Yes:
+                msg = QMessageBox(self)
+                msg.setWindowTitle("Configuração Necessária")
+                msg.setText("O Modo Online requer uma chave de API.\nDeseja configurar agora?")
+                msg.setIcon(QMessageBox.Question)
+                
+                # Botões personalizados em Português
+                btn_sim = msg.addButton("Sim", QMessageBox.YesRole)
+                btn_nao = msg.addButton("Não", QMessageBox.NoRole)
+                
+                msg.exec()
+                
+                if msg.clickedButton() == btn_sim:
                     assistente = WizardConfig(self)
                     if assistente.exec():
                          self.servico.definir_estrategia(self.id_nuvem)
