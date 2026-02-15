@@ -1,1 +1,1 @@
-v0.1.4 - Silent & Robust Deployment (Dona Maria Profile)
+v0.1.4 - Robust & User-Friendly Setup Script
