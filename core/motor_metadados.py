@@ -111,26 +111,46 @@ class MotorMetadados:
                  f"-EXIF:GPSLongitudeRef={lon}"
              ])
 
-        # Adiciona o arquivo alvo ao comando
-        cmd.append(str(arquivo))
-
-        # Configura startupinfo para esconder janela do CMD no Windows
-        startupinfo = None
-        if os.name == 'nt':
-            startupinfo = subprocess.STARTUPINFO()
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-
+        # Safe Write Protocol (Regra 1): Cópia Temporária -> Edição -> Atomic Move
+        copia_temp = arquivo.with_suffix(f".temp{arquivo.suffix}")
+        
         try:
-            # Executa o comando
-            # encoding='utf-8' é importante para suportar caracteres especiais nos metadados
-            resultado = subprocess.run(
+            # 1. Cria cópia
+            import shutil
+            shutil.copy2(arquivo, copia_temp)
+
+            # 2. Executa ExifTool na cópia
+            cmd.append(str(copia_temp))
+            
+            # Ajuste de comandos para trabalhar na cópia
+            # Removemos -overwrite_original pois estamos trabalhando na cópia que será movida depois
+            if "-overwrite_original" in cmd:
+                cmd.remove("-overwrite_original")
+
+            # Configura startupinfo
+            startupinfo = None
+            if os.name == 'nt':
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
+            subprocess.run(
                 cmd, 
                 stdout=subprocess.PIPE, 
                 stderr=subprocess.PIPE,
-                startupinfo=startupinfo,
+                startupinfo=startupinfo, # Hide console window
                 text=True,
-                check=True # Lança CalledProcessError se retorno != 0
+                check=True
             )
+
+            # 3. Substitui original (Atomic Move)
+            # Remove original primeiro para garantir substituição limpa no Windows
+            os.replace(copia_temp, arquivo)
+
         except subprocess.CalledProcessError as e:
-            # Captura erro do ExifTool e relança como erro de runtime
+            if copia_temp.exists():
+                os.remove(copia_temp) # Limpa lixo
             raise RuntimeError(f"Erro ao executar ExifTool: {e.stderr}")
+        except Exception as e:
+            if copia_temp.exists():
+                os.remove(copia_temp)
+            raise RuntimeError(f"Falha na escrita segura: {str(e)}")

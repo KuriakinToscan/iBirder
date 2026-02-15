@@ -1,8 +1,10 @@
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import keyring
 import json
 import re
 from pathlib import Path
+from PIL import Image # Pillow para abrir imagem se necessário
 from .interfaces import IdentificadorAve
 from .erros import ChaveApiFaltandoErro
 
@@ -19,17 +21,16 @@ class IdentificadorNuvem(IdentificadorAve):
 
     def identificar(self, caminho_imagem: str) -> dict:
         chave_api = self._obter_chave_api()
-        genai.configure(api_key=chave_api)
-
-        # Modelo recomendado: gemini-1.5-flash (rápido e barato/gratuito)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        # Cliente do novo SDK
+        client = genai.Client(api_key=chave_api)
 
         imagem_path = Path(caminho_imagem)
         if not imagem_path.exists():
             raise FileNotFoundError(f"Imagem não encontrada: {caminho_imagem}")
 
-        # Carregar imagem para a API (upload temporário)
-        myfile = genai.upload_file(imagem_path)
+        # Preparar Imagem
+        img = Image.open(caminho_imagem)
 
         prompt = """
         Identifique a espécie desta ave.
@@ -42,19 +43,24 @@ class IdentificadorNuvem(IdentificadorAve):
         }
         """
 
-        response = model.generate_content([myfile, prompt])
-        
-        # Limpar resposta (remover blocos de código Markdown se houver)
-        texto_limpo = self._limpar_markdown_json(response.text)
-        
         try:
+            # Novo método generate_content
+            response = client.models.generate_content(
+                model='gemini-1.5-flash',
+                contents=[img, prompt]
+            )
+            
+            # Limpar resposta (remover blocos de código Markdown se houver)
+            texto_limpo = self._limpar_markdown_json(response.text)
+            
             dados = json.loads(texto_limpo)
             return dados
-        except json.JSONDecodeError:
-            # Fallback em caso de erro grave no JSON, retorna texto cru para debug
+
+        except Exception as e:
+            # Fallback em caso de erro grave
             return {
-                "erro": "Falha ao decodificar JSON da API",
-                "resposta_crua": response.text
+                "erro": f"Falha na API Google GenAI: {str(e)}",
+                "detalhes": str(e)
             }
 
     def _limpar_markdown_json(self, texto: str) -> str:
@@ -62,9 +68,9 @@ class IdentificadorNuvem(IdentificadorAve):
         Remove formatação Markdown de blocos de código (```json ... ```) 
         para evitar erros no json.loads.
         """
+        if not texto: return "{}"
         padrao = r"```json\s*(.*?)\s*```"
         match = re.search(padrao, texto, re.DOTALL)
         if match:
             return match.group(1)
-        # Se não tiver markdown, tenta retornar o texto original limpo
         return texto.strip()
