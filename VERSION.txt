@@ -1,1 +1,1 @@
-v0.3.5 - UI Unification & Branched Wizard
+v0.3.6 - Custom Shortcut Dialog

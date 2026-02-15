@@ -12,6 +12,7 @@ import keyring
 from ui.janela_principal import JanelaPrincipal
 from ui.dialogo_modo import DialogoModo
 from ui.wizard_config import WizardConfig
+from ui.dialogo_atalho import DialogoAtalho # v0.3.6
 from core.config import carregar_config, salvar_config
 
 # Tenta importar o script de setup para criar atalhos
@@ -47,7 +48,7 @@ def verificar_ambiente_virtual():
 def verificar_e_criar_atalho():
     """
     Verifica se o atalho existe na Área de Trabalho.
-    Se não, pergunta ao usuário se deseja criar.
+    Se não, pergunta ao usuário se deseja criar (Dialogo Customizado v0.3.6).
     Respeita a preferência 'pular_pergunta_atalho' (config.json).
     """
     try:
@@ -67,29 +68,23 @@ def verificar_e_criar_atalho():
 
         print("[CONFIG] Solicitando criação de atalho...") 
         
-        # 2. Pergunta ao usuário
-        msg = QMessageBox()
-        msg.setWindowTitle("Criar Atalho")
-        msg.setText("Deseja criar um atalho do iBirder na sua Área de Trabalho?")
-        msg.setIcon(QMessageBox.Question)
+        # 2. Pergunta ao usuário (Dialogo Customizado)
+        dialogo = DialogoAtalho()
+        resultado = dialogo.exec() # Retorna 1 (Accepted) ou 0 (Rejected)
         
-        btn_sim = msg.addButton("Sim", QMessageBox.YesRole)
-        btn_nao = msg.addButton("Não", QMessageBox.NoRole)
-        
-        # Checkbox "Não perguntar novamente"
-        cb_nao_perguntar = QCheckBox("Não perguntar novamente")
-        msg.setCheckBox(cb_nao_perguntar)
-
-        msg.exec()
+        criar = (resultado == 1)
+        nao_perguntar = dialogo.nao_perguntar # Propriedade customizada
 
         # Salva preferência se marcado
-        if cb_nao_perguntar.isChecked():
+        if nao_perguntar:
             config["pular_pergunta_atalho"] = True
             salvar_config(config)
 
-        if msg.clickedButton() == btn_sim:
+        if criar:
             criar_atalho_windows(atalho_path)
-            QMessageBox.information(None, "Sucesso", "Atalho criado na Área de Trabalho!")
+            # Feedback sutil (ou remover se quiser ser ultra-minimalista)
+            # QMessageBox.information(None, "Sucesso", "Atalho criado na Área de Trabalho!")
+            print("[SISTEMA] Atalho criado com sucesso.")
 
     except Exception as e:
         print(f"Erro ao verificar atalho: {e}")
