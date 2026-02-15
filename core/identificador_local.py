@@ -29,34 +29,22 @@ class IdentificadorLocal(IdentificadorAve):
             print("Criando base de dados local padrão...")
             self.dados_offline = [
                 {
-                    "nome_cientifico": "Ramphastos toco",
-                    "nome_comum": "Tucanuçu",
-                    "familia": "Ramphastidae",
-                    "descricao": "O maior dos tucanos, possui bico alaranjado com mancha negra na ponta."
+                    "nome_cientifico": "Pyrocephalus rubinus",
+                    "nome_comum": "Príncipe",
+                    "familia": "Tyrannidae",
+                    "descricao": "Pequeno passeriforme de plumagem vermelha vibrante e dorso escuro, comum em áreas abertas."
+                },
+                {
+                    "nome_cientifico": "Zonotrichia capensis",
+                    "nome_comum": "Tico-tico",
+                    "familia": "Passerellidae",
+                    "descricao": "Ave muito conhecida pelo seu topete cinza e colar ferrugíneo, adaptada a diversos ambientes."
                 },
                 {
                     "nome_cientifico": "Pitangus sulphuratus",
                     "nome_comum": "Bem-te-vi",
                     "familia": "Tyrannidae",
-                    "descricao": "Ave popular com canto característico, peito amarelo e faixa branca na cabeça."
-                },
-                {
-                    "nome_cientifico": "Sicalis flaveola",
-                    "nome_comum": "Canário-da-terra",
-                    "familia": "Thraupidae",
-                    "descricao": "Pássaro de coloração amarela vibrante no macho e parda na fêmea."
-                },
-                {
-                    "nome_cientifico": "Turdus rufiventris",
-                    "nome_comum": "Sabiá-laranjeira",
-                    "familia": "Turdidae",
-                    "descricao": "Ave símbolo do Brasil, com ventre cor de ferrugem e canto melodioso."
-                },
-                {
-                    "nome_cientifico": "Rhea americana",
-                    "nome_comum": "Ema",
-                    "familia": "Rheidae",
-                    "descricao": "A maior ave brasileira, não voa e habita campos e cerrados."
+                    "descricao": "Uma das aves mais populares, com máscara facial preta e branca e ventre amarelo vivo."
                 }
             ]
             try:

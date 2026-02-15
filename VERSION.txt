@@ -1,1 +1,1 @@
-v0.5.3 - Padronização Visual de Diálogos
+v0.5.5 - Base Offline Exclusiva de Aves
