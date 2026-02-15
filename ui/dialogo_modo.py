@@ -56,33 +56,36 @@ class DialogoModo(QDialog):
         self.accept()
 
     def _aplicar_estilo(self):
+        # Estilo Unificado v0.3.5 (Match Wizard)
         self.setStyleSheet("""
             QDialog {
-                background-color: #F5F5F5;
+                background-color: #FFFFFF;
             }
             QLabel {
                 color: #222222;
+                font-family: "Segoe UI";
             }
             QPushButton {
                 background-color: #FFFFFF;
-                border: 2px solid #E0E0E0;
+                border: 1px solid #CCCCCC;
                 border-radius: 8px;
                 padding: 15px;
                 font-size: 14px;
-                font-weight: bold;
-                color: #424242;
+                font-weight: 600;
+                color: #333333;
                 text-align: left;
                 padding-left: 20px;
             }
             QPushButton:hover {
-                border-color: #444444;
-                color: #222222;
-                background-color: #FAFAFA;
+                border-color: #999999;
+                color: #000000;
+                background-color: #F8F8F8;
             }
             QPushButton:pressed {
                 background-color: #E0E0E0;
             }
             QCheckBox {
-                color: #616161;
+                color: #666666;
+                spacing: 8px;
             }
         """)

@@ -55,9 +55,9 @@ class JanelaConfig(QDialog):
         layout_id.addWidget(btn_chave)
         
         # Botão Resetar Online (Novo v0.3.4)
-        btn_reset_online = QPushButton("Apagar Configurações Online")
+        btn_reset_online = QPushButton("Apagar Chave de API e Redefinir")
         btn_reset_online.setToolTip("Apaga a chave de API e esquece a escolha do modo.")
-        btn_reset_online.setStyleSheet("color: #D32F2F;") # Vermelho alerta
+        btn_reset_online.setStyleSheet("color: #D32F2F; border-color: #EF9A9A;") # Vermelho alerta
         btn_reset_online.clicked.connect(self._resetar_online)
         layout_id.addWidget(btn_reset_online)
         
@@ -119,18 +119,20 @@ class JanelaConfig(QDialog):
         wizard.exec()
 
     def _aplicar_estilo(self):
+        # Estilo Unificado v0.3.5
         self.setStyleSheet("""
             QDialog {
-                background-color: #F5F5F5;
+                background-color: #FFFFFF;
             }
             QGroupBox {
+                font-family: "Segoe UI";
                 font-weight: bold;
                 border: 1px solid #E0E0E0;
                 border-radius: 8px;
                 margin-top: 20px;
                 padding-top: 15px;
                 background-color: #FFFFFF;
-                color: #757575;
+                color: #555555;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
@@ -141,19 +143,21 @@ class JanelaConfig(QDialog):
             QLabel {
                 color: #222222;
                 font-size: 13px;
+                font-family: "Segoe UI";
             }
             QPushButton {
                 background-color: #FFFFFF;
-                border: 1px solid #BDBDBD;
+                border: 1px solid #CCCCCC;
                 border-radius: 6px;
                 padding: 8px 15px;
-                color: #424242;
+                color: #333333;
                 font-weight: 600;
+                font-family: "Segoe UI";
             }
             QPushButton:hover {
-                background-color: #EEEEEE;
-                border-color: #9E9E9E;
-                color: #212121;
+                background-color: #F8F8F8;
+                border-color: #999999;
+                color: #000000;
             }
             QPushButton[class="acao"] {
                 background-color: #444444;
