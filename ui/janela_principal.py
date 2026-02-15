@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-    QPushButton, QRadioButton, QGroupBox, QFileDialog, QMessageBox, 
+    QPushButton, QGroupBox, QFileDialog, QMessageBox, 
     QFrame, QStatusBar, QApplication, QSizePolicy, QGraphicsDropShadowEffect
 )
 from PySide6.QtCore import Qt, QSize
@@ -15,7 +15,9 @@ from core.identificador_nuvem import IdentificadorNuvem
 from core.servico_identificacao import ServicoIdentificacao
 from core.motor_metadados import MotorMetadados
 from core.erros import ChaveApiFaltandoErro, ErroArquivoInvalido
+from core.config import carregar_config
 from ui.wizard_config import WizardConfig
+from ui.janela_config import JanelaConfig # v0.3.2
 import keyring
 
 class AreaDrop(QLabel):
@@ -47,23 +49,41 @@ class AreaDrop(QLabel):
             self.callback(path)
 
 class JanelaPrincipal(QMainWindow):
-    def __init__(self, nome_icone_janela="logo_ave.png"):
+    def __init__(self, nome_icone_janela="logo_ave.png", modo_inicial="offline"):
         super().__init__()
         self.nome_icone_janela = nome_icone_janela
-        self.setWindowTitle("iBirder - Identificador de Aves")
+        self.modo_atual = modo_inicial # "online" ou "offline" Recebido do main
+        
+        self.setWindowTitle(f"iBirder - Modo {self.modo_atual.capitalize()}")
         self.resize(1100, 700)
         
         # Inicialização dos Serviços
         self.id_local = IdentificadorLocal()
         self.id_nuvem = IdentificadorNuvem()
-        self.servico = ServicoIdentificacao(self.id_local) # Começa Local
+        self.servico = ServicoIdentificacao(self.id_local) 
         self.motor_metadados = MotorMetadados()
+        
+        # Configura estratégia inicial
+        self._definir_estrategia(self.modo_atual)
         
         self.caminho_imagem_atual = None
         self.dados_identificacao_atual = {}
 
         self._configurar_ui()
         self._aplicar_estilo()
+
+    def _definir_estrategia(self, modo):
+        self.modo_atual = modo
+        if modo == "online":
+            self.servico.definir_estrategia(self.id_nuvem)
+            self.setWindowTitle("iBirder - Modo Online")
+        else:
+            self.servico.definir_estrategia(self.id_local)
+            self.setWindowTitle("iBirder - Modo Offline")
+            
+        # Atualiza UI se existir
+        if hasattr(self, 'lbl_modo_status'):
+             self.lbl_modo_status.setText(f"MODO: {modo.upper()}")
 
     def _obter_caminho_asset(self, nome_arquivo):
         """Retorna o caminho correto para assets (dev ou frozen)."""
@@ -85,7 +105,6 @@ class JanelaPrincipal(QMainWindow):
         layout_esquerda.setSpacing(20)
         
         # Logo
-        # Logo do Painel (Sempre logo_ave.png para identidade visual)
         caminho_logo_painel = self._obter_caminho_asset("logo_ave.png")
         if os.path.exists(caminho_logo_painel):
             lbl_logo = QLabel()
@@ -93,25 +112,22 @@ class JanelaPrincipal(QMainWindow):
             lbl_logo.setPixmap(pixmap_logo.scaled(170, 70, Qt.KeepAspectRatio, Qt.SmoothTransformation))
             layout_esquerda.addWidget(lbl_logo, alignment=Qt.AlignLeft)
         else:
-            # Fallback elegante
             lbl_logo = QLabel("iBirder")
             lbl_logo.setFont(QFont("Segoe UI Light", 32))
             lbl_logo.setStyleSheet("color: #222222;")
             layout_esquerda.addWidget(lbl_logo)
 
-        # Ícone da Janela/Barra de Tarefas (Dinâmico)
+        # Ícone da Janela
         caminho_icone_janela = self._obter_caminho_asset(self.nome_icone_janela)
         if os.path.exists(caminho_icone_janela):
             self.setWindowIcon(QIcon(caminho_icone_janela))
         else:
-             # Se o dinâmico falhar, tenta o logo padrão
              if os.path.exists(caminho_logo_painel):
                  self.setWindowIcon(QIcon(caminho_logo_painel))
 
         self.area_drop = AreaDrop(self._carregar_imagem)
         layout_esquerda.addWidget(self.area_drop)
         
-        # Instrução sutil
         lbl_instrucao = QLabel("Suporte a JPG, PNG")
         lbl_instrucao.setStyleSheet("color: #616161; font-size: 11px;")
         layout_esquerda.addWidget(lbl_instrucao, alignment=Qt.AlignCenter)
@@ -122,7 +138,6 @@ class JanelaPrincipal(QMainWindow):
         self.painel_direito = QFrame()
         self.painel_direito.setProperty("class", "painel")
         
-        # Sombra sutil no painel
         sombra = QGraphicsDropShadowEffect()
         sombra.setBlurRadius(20)
         sombra.setColor(QColor(0, 0, 0, 20))
@@ -133,30 +148,39 @@ class JanelaPrincipal(QMainWindow):
         layout_direito.setSpacing(30)
         layout_direito.setContentsMargins(25, 35, 25, 25)
         
-        # Título do Painel
+        # Cabeçalho do Painel (Título + Engrenagem)
+        layout_cabecalho = QHBoxLayout()
+        
         lbl_controle = QLabel("Identificação")
         lbl_controle.setFont(QFont("Segoe UI Semibold", 20))
         lbl_controle.setStyleSheet("color: #222222; border: none; background: transparent;")
-        layout_direito.addWidget(lbl_controle)
-
-        # Seletor de Modo
-        grupo_modo = QGroupBox("MODO DE OPERAÇÃO")
-        layout_modo = QVBoxLayout()
-        layout_modo.setSpacing(15)
+        layout_cabecalho.addWidget(lbl_controle)
         
-        self.radio_local = QRadioButton("Offline (Local AI)")
-        self.radio_local.setChecked(True)
-        self.radio_local.toggled.connect(self._trocar_modo)
-        self.radio_local.setCursor(Qt.PointingHandCursor)
+        layout_cabecalho.addStretch()
         
-        self.radio_nuvem = QRadioButton("Online (Google AI)")
-        self.radio_nuvem.toggled.connect(self._trocar_modo)
-        self.radio_nuvem.setCursor(Qt.PointingHandCursor)
+        # Botão Configurações (Engrenagem) v0.3.2
+        self.btn_config = QPushButton("⚙️")
+        self.btn_config.setFixedSize(40, 40)
+        self.btn_config.setToolTip("Configurações")
+        self.btn_config.setProperty("class", "icon-btn")
+        self.btn_config.clicked.connect(self._abrir_configuracoes)
+        layout_cabecalho.addWidget(self.btn_config)
         
-        layout_modo.addWidget(self.radio_local)
-        layout_modo.addWidget(self.radio_nuvem)
-        grupo_modo.setLayout(layout_modo)
-        layout_direito.addWidget(grupo_modo)
+        layout_direito.addLayout(layout_cabecalho)
+        
+        # Indicador de Modo
+        self.lbl_modo_status = QLabel(f"MODO: {self.modo_atual.upper()}")
+        self.lbl_modo_status.setAlignment(Qt.AlignCenter)
+        self.lbl_modo_status.setStyleSheet("""
+            background-color: #EEEEEE; 
+            color: #616161; 
+            border-radius: 4px; 
+            padding: 5px; 
+            font-weight: bold; 
+            font-size: 10px; 
+            letter-spacing: 1px;
+        """)
+        layout_direito.addWidget(self.lbl_modo_status)
 
         # Painel de Resultados
         grupo_resultados = QGroupBox("RESULTADOS")
@@ -176,17 +200,16 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_confianca = QLabel("-")
         self.lbl_confianca.setStyleSheet("color: #757575; background: transparent; border: none; font-size: 11px;")
         
-        self.lbl_descricao = QLabel("-") # Novo campo v0.3.0
+        self.lbl_descricao = QLabel("-") 
         self.lbl_descricao.setFont(QFont("Segoe UI", 11))
         self.lbl_descricao.setStyleSheet("color: #616161; background: transparent; border: none;")
         self.lbl_descricao.setWordWrap(True)
-        # self.lbl_descricao.setMaximumHeight(80) # Opcional: limitar altura
 
         layout_res.addWidget(QLabel("Espécie:"))
         layout_res.addWidget(self.lbl_nome_cientifico)
         layout_res.addWidget(QLabel("Nome Comum:"))
         layout_res.addWidget(self.lbl_nome_comum)
-        layout_res.addWidget(QLabel("Descrição:")) # Label da seção
+        layout_res.addWidget(QLabel("Descrição:"))
         layout_res.addWidget(self.lbl_descricao)
         layout_res.addWidget(self.lbl_confianca)
         grupo_resultados.setLayout(layout_res)
@@ -196,7 +219,7 @@ class JanelaPrincipal(QMainWindow):
 
         # Botão de Ação
         self.btn_gravar = QPushButton("GRAVAR DADOS")
-        self.btn_gravar.setEnabled(False) # Só habilita após identificar
+        self.btn_gravar.setEnabled(False)
         self.btn_gravar.setCursor(Qt.PointingHandCursor)
         self.btn_gravar.setMinimumHeight(60)
         self.btn_gravar.clicked.connect(self._gravar_metadados)
@@ -210,13 +233,6 @@ class JanelaPrincipal(QMainWindow):
         self.status_bar.showMessage("Pronto")
 
     def _aplicar_estilo(self):
-        # Paleta Industrial/Grafite
-        # Fundo: #E0E0E0 (Cinza Claro Industrial)
-        # Painel: #F5F5F5 (Quase Branco) ou #FFFFFF
-        # Texto: #222222 (Preto Suave/Grafite Profundo)
-        # Botão: #444444 (Grafite) -> Hover #222222
-        # DropZone: #EEEEEE (Cinza Médio Claro) + Borda #424242
-        
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #E0E0E0;
@@ -247,7 +263,7 @@ class JanelaPrincipal(QMainWindow):
                 font-weight: bold;
                 font-size: 11px;
                 background-color: #FFFFFF;
-                color: #757575; /* Label do grupo */
+                color: #757575;
                 letter-spacing: 1px;
                 text-transform: uppercase;
             }
@@ -258,7 +274,7 @@ class JanelaPrincipal(QMainWindow):
                 background-color: #FFFFFF;
             }
             QPushButton {
-                background-color: #444444; /* Grafite */
+                background-color: #444444; 
                 color: white;
                 font-size: 13px;
                 font-weight: bold;
@@ -268,7 +284,7 @@ class JanelaPrincipal(QMainWindow):
                 letter-spacing: 0.5px;
             }
             QPushButton:hover {
-                background-color: #222222; /* Quase Preto */
+                background-color: #222222; 
             }
             QPushButton:pressed {
                 background-color: #000000;
@@ -278,73 +294,63 @@ class JanelaPrincipal(QMainWindow):
                 color: #9E9E9E;
                 border: 1px solid #BDBDBD;
             }
-            QRadioButton {
-                color: #222222;
-                font-size: 14px;
-                padding: 5px;
-            }
-            QRadioButton::indicator {
-                width: 18px;
-                height: 18px;
-                border: 2px solid #757575;
-                border-radius: 9px;
-                background: white;
-            }
-            QRadioButton::indicator:checked {
-                background-color: #222222;
-                border: 2px solid #222222;
-            }
             QStatusBar {
                 background-color: #E0E0E0;
                 color: #424242;
                 font-size: 11px;
                 border-top: 1px solid #BDBDBD;
             }
+            /* Botão Ícone (Engrenagem) */
+            QPushButton[class="icon-btn"] {
+                background-color: transparent;
+                color: #444444;
+                border: 1px solid transparent;
+                font-size: 20px;
+                padding: 0;
+            }
+            QPushButton[class="icon-btn"]:hover {
+                background-color: #EEEEEE;
+                border: 1px solid #BDBDBD;
+                color: #222222;
+            }
         """)
 
-    def _trocar_modo(self):
-        if self.radio_local.isChecked():
-            self.servico.definir_estrategia(self.id_local)
-            self.btn_gravar.setEnabled(False) 
-            self.status_bar.showMessage("Modo Offline ativado.")
-        else:
-            # Verifica chave antes de ativar modo online
-            if not keyring.get_password("iBirder_Gemini_Key", "user"):
-                msg = QMessageBox(self)
-                msg.setWindowTitle("Configuração Necessária")
-                msg.setText("O Modo Online requer uma chave de API.\nDeseja configurar agora?")
-                msg.setIcon(QMessageBox.Question)
-                
-                # Botões personalizados em Português
-                btn_sim = msg.addButton("Sim", QMessageBox.YesRole)
-                btn_nao = msg.addButton("Não", QMessageBox.NoRole)
-                
-                msg.exec()
-                
-                if msg.clickedButton() == btn_sim:
-                    assistente = WizardConfig(self)
-                    if assistente.exec():
-                         self.servico.definir_estrategia(self.id_nuvem)
-                         self.status_bar.showMessage("Modo Online ativado.")
-                    else:
-                        self.radio_local.setChecked(True)
-                else:
-                    self.radio_local.setChecked(True)
-            else:
-                self.servico.definir_estrategia(self.id_nuvem)
-                self.status_bar.showMessage("Modo Online ativado.")
+    def _abrir_configuracoes(self):
+        janela_cfg = JanelaConfig(self)
+        janela_cfg.exec()
+        
+        # Recarregar config após fechar (caso usuário tenha mudado algo relevante para runtime)
+        # Por enquanto, mudança de modo via config só afeta proxima init ou se implementarmos hot-swap
+        # Vamos implementar um check basico para atualizar modo se mudado
+        nova_config = carregar_config()
+        modo_salvo = nova_config.get("modo_operacao")
+        
+        # Se usuário mudou modo e mandou lembrar/salvar, podemos atualizar agora?
+        # A JanelaConfig atualiza o arquivo, não o runtime imediatamente.
+        # Vamos deixar para próximo restart para simplificar ou forçar update?
+        # Dona Maria prefere ver na hora.
+        if modo_salvo and modo_salvo != self.modo_atual:
+            ret = QMessageBox.question(self, "Mudança de Modo", 
+                "Você alterou o modo padrão. Deseja aplicar agora?",
+                QMessageBox.Yes | QMessageBox.No)
+            if ret == QMessageBox.Yes:
+                self._alterar_modo_runtime(modo_salvo)
 
-        # Se já tiver imagem carregada, reidentifica
+    def _alterar_modo_runtime(self, novo_modo):
+        if novo_modo == "online":
+             if not keyring.get_password("iBirder_Gemini_Key", "user"):
+                 QMessageBox.warning(self, "Falta Chave", "Configure a chave primeiro.")
+                 return
+        
+        self._definir_estrategia(novo_modo)
         if self.caminho_imagem_atual:
             self._identificar_ave()
 
     def _carregar_imagem(self, caminho: str):
         self.caminho_imagem_atual = caminho
         
-        # Atualiza Preview no DropZone
         original_pixmap = QPixmap(caminho)
         if not original_pixmap.isNull():
-            # Redimensiona mantendo aspect ratio e qualidade
             scaled_pixmap = original_pixmap.scaled(
                 self.area_drop.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
             )
@@ -365,13 +371,11 @@ class JanelaPrincipal(QMainWindow):
         self.btn_gravar.setEnabled(False)
         self.dados_identificacao_atual = {}
         
-        # Feedback visual específico v0.3.0
-        if self.radio_nuvem.isChecked():
+        if self.modo_atual == "online":
             self.status_bar.showMessage("Analisando ave com IA...")
         else:
             self.status_bar.showMessage("Identificando...")
         
-        # Muda cursor para wait
         QApplication.setOverrideCursor(Qt.WaitCursor)
         QApplication.processEvents() 
 
@@ -395,13 +399,14 @@ class JanelaPrincipal(QMainWindow):
                 confianca = dados.get("confianca", 0.0)
                 conf_str = f"Confiança: {confianca:.1%}"
                 nome_comum = "Não disponível (Offline)" 
-            else: # Resposta Nuvem
+            else: # Resposta Nuvem e Local devolvem estruturas diferentes?
+                # Ajuste: se for nuvem padronizada
                 dados = resultado
                 nome_cientifico = dados.get("nome_cientifico", "?")
                 nome_comum = dados.get("nome_comum", "-")
                 confianca = dados.get("confianca", 0.0)
                 conf_str = f"Confiança: {confianca:.1%}" if isinstance(confianca, float) else str(confianca)
-                descricao = dados.get("descricao", "-") # v0.3.0
+                descricao = dados.get("descricao", "-")
 
             self.lbl_nome_cientifico.setText(f"{nome_cientifico}")
             self.lbl_nome_comum.setText(f"{nome_comum}")
@@ -412,14 +417,15 @@ class JanelaPrincipal(QMainWindow):
                 "nome_cientifico": nome_cientifico,
                 "nome_comum": nome_comum,
                 "fonte": "iBirder AI",
-                "descricao": descricao # Passa descrição para gravação
+                "descricao": descricao
             }
             self.btn_gravar.setEnabled(True)
             self.status_bar.showMessage("Concluído.")
 
         except ChaveApiFaltandoErro:
-            QMessageBox.critical(self, "Chave de API", "Chave não encontrada. Configure.")
-            self.radio_local.setChecked(True)
+            QMessageBox.critical(self, "Chave de API", "Chave não encontrada. Configure no menu.")
+            # Fallback para offline
+            self._alterar_modo_runtime("offline")
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro: {str(e)}")
             self.status_bar.showMessage("Erro fatal.")
@@ -439,12 +445,11 @@ class JanelaPrincipal(QMainWindow):
                 self.caminho_imagem_atual, 
                 self.dados_identificacao_atual
             )
-            # Sucesso
             msg = QMessageBox(self)
             msg.setWindowTitle("Sucesso")
             msg.setText("Metadados gravados com sucesso!")
             msg.setIcon(QMessageBox.Information)
-            msg.addButton("OK", QMessageBox.AcceptRole) # Garante botão OK simples
+            msg.addButton("OK", QMessageBox.AcceptRole) 
             msg.exec()
             
             self.status_bar.showMessage("Gravado com sucesso.")

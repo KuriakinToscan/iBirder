@@ -30,6 +30,14 @@ if platform.system() == "Windows":
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     except Exception:
         pass 
+from ui.dialogo_modo import DialogoModo # v0.3.2
+from core.config import carregar_config, salvar_config # v0.3.2
+
+def definir_app_user_model_id():
+    """Garante que o ícone na barra de tarefas seja o nosso."""
+    if platform.system() == 'Windows':
+        myappid = 'ibirder.v0.3.2.mode_selector' 
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
 def verificar_ambiente_virtual():
     """Verifica se a pasta .venv existe no diretório do projeto."""
@@ -45,112 +53,94 @@ def verificar_ambiente_virtual():
         msg.exec()
         sys.exit(1)
 
-import json
-from PySide6.QtWidgets import QMessageBox, QCheckBox
-
-def carregar_config():
-    """Carrega a configuração local."""
-    base_path = Path(__file__).parent.absolute()
-    config_path = base_path / "config.json"
-    if config_path.exists():
-        try:
-            with open(config_path, "r") as f:
-                return json.load(f)
-        except:
-            pass
-    return {}
-
-def salvar_config(config):
-    """Salva a configuração local."""
-    base_path = Path(__file__).parent.absolute()
-    config_path = base_path / "config.json"
-    try:
-        with open(config_path, "w") as f:
-            json.dump(config, f, indent=4)
-    except Exception as e:
-        print(f"Erro ao salvar config: {e}")
-
 def verificar_e_criar_atalho():
-    """Verifica se o atalho existe e oferece para criar."""
-    if setup_atalho is None:
-        return
+    """
+    Verifica se o atalho existe na Área de Trabalho.
+    Se não, pergunta ao usuário se deseja criar.
+    Respeita a preferência 'pular_pergunta_atalho' (config.json).
+    """
+    try:
+        if platform.system() != "Windows":
+            return # Apenas para Windows por enquanto
 
-    # 1. Verifica preferência do usuário (v0.2.5)
-    config = carregar_config()
-    if config.get("pular_pergunta_atalho", False):
-        return
-
-    sistema = platform.system()
-    base_path = Path(__file__).parent.absolute()
-    icon_path = base_path / "assets" / "logo_ave.png"
-    
-    atalho_existe = False
-    atalho_path = None
-    
-    if sistema == "Windows":
         desktop = Path(os.environ["USERPROFILE"]) / "Desktop"
         atalho_path = desktop / "iBirder.lnk"
-        atalho_existe = atalho_path.exists()
-    elif sistema == "Linux":
-        apps_dir = Path.home() / ".local" / "share" / "applications"
-        atalho_path = apps_dir / "ibirder.desktop"
-        atalho_existe = atalho_path.exists()
-    
-    if not atalho_existe:
+
+        if atalho_path.exists():
+            return
+
+        # 1. Verifica preferência config
+        config = carregar_config()
+        if config.get("pular_pergunta_atalho", False):
+            return
+
+        # 2. Pergunta ao usuário
+        # QApplication já deve estar instanciado em main()
         msg = QMessageBox()
         msg.setWindowTitle("Criar Atalho")
-        msg.setText("Notei que você ainda não tem um atalho na Área de Trabalho.")
-        msg.setInformativeText("Deseja criar um agora para facilitar o acesso?")
+        msg.setText("Deseja criar um atalho do iBirder na sua Área de Trabalho?")
         msg.setIcon(QMessageBox.Question)
+        
+        btn_sim = msg.addButton("Sim", QMessageBox.YesRole)
+        btn_nao = msg.addButton("Não", QMessageBox.NoRole)
         
         # Checkbox "Não perguntar novamente"
         cb_nao_perguntar = QCheckBox("Não perguntar novamente")
         msg.setCheckBox(cb_nao_perguntar)
-        
-        btn_sim = msg.addButton("Sim", QMessageBox.YesRole)
-        btn_nao = msg.addButton("Não", QMessageBox.NoRole)
-        msg.setDefaultButton(btn_sim)
-        
+
         msg.exec()
-        
+
         # Salva preferência se marcado
         if cb_nao_perguntar.isChecked():
             config["pular_pergunta_atalho"] = True
             salvar_config(config)
-        
+
         if msg.clickedButton() == btn_sim:
-            try:
-                if sistema == "Windows":
-                    # Identifica pythonw.exe
-                    python_exe = base_path / ".venv" / "Scripts" / "pythonw.exe"
-                    if not python_exe.exists():
-                         python_exe = base_path / ".venv" / "Scripts" / "python.exe"
-                    
-                    if python_exe.exists():
-                        setup_atalho.create_windows_shortcut(
-                            target=str(python_exe),
-                            arguments=f'"{str(base_path / "main.py")}"',
-                            icon=str(icon_path),
-                            shortcut_path=str(atalho_path),
-                            working_dir=str(base_path)
-                        )
-                        QMessageBox.information(None, "Sucesso", "Atalho criado na Área de Trabalho!")
-                    
-                elif sistema == "Linux":
-                    python_exe = base_path / ".venv" / "bin" / "python3"
-                    if not python_exe.exists():
-                        python_exe = base_path / ".venv" / "bin" / "python"
-                        
-                    if python_exe.exists():
-                        setup_atalho.create_linux_desktop_file(
-                            target=str(python_exe),
-                            arguments=str(base_path / "main.py"),
-                            icon=str(icon_path),
-                            working_dir=str(base_path)
-                        )
-                        QMessageBox.information(None, "Sucesso", "Atalho criado no menu de aplicativos!")
-            except Exception as e:
-                print(f"Erro ao criar atalho: {e}")
+            criar_atalho_windows(atalho_path)
+            QMessageBox.information(None, "Sucesso", "Atalho criado na Área de Trabalho!")
+
+    except Exception as e:
+        print(f"Erro ao verificar atalho: {e}")
+
+def criar_atalho_windows(atalho_path):
+    """Cria atalho usando PowerShell."""
+    
+    # Determina o executável Python a ser usado
+    if getattr(sys, 'frozen', False): # Se for um executável PyInstaller
+        target_exe = sys.executable
+        working_dir = str(Path(target_exe).parent)
+        arguments = ""
+    else: # Se for um script Python
+        base_path = Path(__file__).parent.absolute()
+        # Tenta encontrar pythonw.exe no venv, senão python.exe
+        pythonw_path = base_path / ".venv" / "Scripts" / "pythonw.exe"
+        python_path = base_path / ".venv" / "Scripts" / "python.exe"
+        
+        if pythonw_path.exists():
+            target_exe = str(pythonw_path)
+        elif python_path.exists():
+            target_exe = str(python_path)
+        else:
+            target_exe = sys.executable # Fallback para o python do sistema
+            
+        working_dir = str(base_path)
+        arguments = f'"{str(base_path / "main.py")}"'
+
+    # Caminho do ícone
+    icon_path = str(Path(__file__).parent.absolute() / "assets" / "logo_ave.ico") # Usar .ico para atalhos
+
+    script = f'''
+    $WshShell = New-Object -comObject WScript.Shell
+    $Shortcut = $WshShell.CreateShortcut("{str(atalho_path)}")
+    $Shortcut.TargetPath = "{target_exe}"
+    $Shortcut.WorkingDirectory = "{working_dir}"
+    $Shortcut.Arguments = "{arguments}"
+    $Shortcut.IconLocation = "{icon_path}"
+    $Shortcut.Save()
+    '''
+    
+    subprocess.run(["powershell", "-Command", script], capture_output=True)
+
 
 def detectar_tema_e_icone():
     """
