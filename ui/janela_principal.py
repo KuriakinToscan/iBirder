@@ -218,6 +218,7 @@ class JanelaPrincipal(QMainWindow):
                 padding: 5px;
                 color: #222222;
                 background-color: #FAFAFA;
+                font-style: italic; /* v0.5.0 */
             }
             QLineEdit:focus {
                 border: 1px solid #444444;
@@ -555,14 +556,10 @@ class JanelaPrincipal(QMainWindow):
         self.status_bar.showMessage("Pronto")
 
     def _buscar_especie_manual(self):
-        """Busca manual via texto (v0.4.0)."""
+        """Busca manual via texto, Híbrida (v0.5.0)."""
         nome = self.input_nome_cientifico.text().strip()
         if not nome or len(nome) < 3:
             DialogoAviso("Busca Inválida", "Digite pelo menos 3 caracteres.", self).exec()
-            return
-            
-        if self.modo_atual != "online":
-            DialogoAviso("Modo Offline", "Busca disponível apenas Online.", self).exec()
             return
 
         self.status_bar.showMessage(f"Buscando informações sobre {nome}...")
@@ -571,23 +568,27 @@ class JanelaPrincipal(QMainWindow):
         QApplication.processEvents()
         
         try:
-            # Chama novo método da nuvem diretamente (bypass servico comum por enquanto ou poderia extender servico)
-            # Como é feature especifica da nuvem, chamamos direto do id_nuvem se modo online
-            resultado = self.id_nuvem.consultar_especie(nome)
+            if self.modo_atual == "online":
+                resultado = self.id_nuvem.consultar_especie(nome)
+            else:
+                # Modo Offline (v0.5.0)
+                resultado = self.id_local.consultar_especie(nome)
             
             if "erro" in resultado:
                 DialogoAviso("Não Encontrado", resultado["erro"], self).exec()
                 self.status_bar.showMessage("Espécie não encontrada.")
             else:
+                # Preencher dados
+                # Nota: O input já está em itálico pelo CSS
                 self.lbl_nome_comum.setText(resultado.get("nome_comum", "-"))
                 self.lbl_descricao.setText(resultado.get("descricao", "-"))
-                self.lbl_confianca.setText("Validado Manualmente")
+                self.lbl_confianca.setText(resultado.get("confianca", "Validado Manualmente"))
                 
-                # Atualizar dados para gravação
+                # Atualizar dados para gravação (Metadados sem formatação visual)
                 self.dados_identificacao_atual = {
                     "nome_cientifico": resultado.get("nome_cientifico"),
                     "nome_comum": resultado.get("nome_comum"),
-                    "fonte": "Busca Manual",
+                    "fonte": "Busca Manual " + ("(Online)" if self.modo_atual == "online" else "(Local)"),
                     "descricao": resultado.get("descricao")
                 }
                 self.btn_gravar.setEnabled(True)

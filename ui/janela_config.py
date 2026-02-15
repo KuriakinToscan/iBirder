@@ -63,6 +63,21 @@ class JanelaConfig(QDialog):
         
         grupo_identificacao.setLayout(layout_id)
         layout.addWidget(grupo_identificacao)
+
+        # Grupo: Dados Offline (v0.5.0)
+        grupo_offline = QGroupBox("DADOS OFFLINE")
+        layout_off = QVBoxLayout()
+        
+        self.lbl_status_base = QLabel("Base de dados: 5 espécies")
+        layout_off.addWidget(self.lbl_status_base)
+        
+        btn_baixar_base = QPushButton("Baixar Base de Dados Local (~20MB)")
+        btn_baixar_base.setToolTip("Simula o download de dados para uso offline.")
+        btn_baixar_base.clicked.connect(self._baixar_base)
+        layout_off.addWidget(btn_baixar_base)
+        
+        grupo_offline.setLayout(layout_off)
+        layout.addWidget(grupo_offline)
         
         # Grupo: Sistema
         grupo_sistema = QGroupBox("SISTEMA")
@@ -117,6 +132,25 @@ class JanelaConfig(QDialog):
     def _abrir_wizard_chave(self):
         wizard = WizardConfig(self)
         wizard.exec()
+
+    def _baixar_base(self):
+        """Simula download da base offline (v0.5.0)."""
+        QMessageBox.information(self, "Download", "Iniciando download da base de dados...")
+        # Simulação
+        import time
+        self.setCursor(Qt.WaitCursor)
+        self.lbl_status_base.setText("Baixando... 20%")
+        self.repaint() # Forçar atualização visual
+        # time.sleep(0.5) # Bloqueia UI mas ok para simulação rápida
+        self.lbl_status_base.setText("Baixando... 80%")
+        self.repaint()
+        # time.sleep(0.5)
+        self.lbl_status_base.setText("Processando...")
+        self.repaint()
+        
+        self.lbl_status_base.setText("Base de dados: Atualizada (Versão 2026.02)")
+        self.setCursor(Qt.ArrowCursor)
+        QMessageBox.information(self, "Sucesso", "Base de dados offline atualizada com sucesso!")
 
     def _aplicar_estilo(self):
         # Estilo Unificado v0.3.5

@@ -1,4 +1,5 @@
 import os
+import json
 import numpy as np
 import onnxruntime as ort
 from PIL import Image
@@ -6,12 +7,41 @@ from pathlib import Path
 from .interfaces import IdentificadorAve
 
 class IdentificadorLocal(IdentificadorAve):
-    def __init__(self, caminho_modelo: str = "assets/model.onnx", caminho_labels: str = "assets/labels.txt"):
+    def __init__(self, caminho_modelo: str = "assets/model.onnx", caminho_labels: str = "assets/labels.txt", caminho_json: str = "assets/aves_locais.json"):
         self.caminho_modelo = caminho_modelo
         self.caminho_labels = caminho_labels
+        self.caminho_json = caminho_json
         self.sessao = None
         self.labels = []
+        self.dados_offline = []
         self._carregar_modelo()
+        self._carregar_dados_offline()
+
+    def _carregar_dados_offline(self):
+        if os.path.exists(self.caminho_json):
+            try:
+                with open(self.caminho_json, 'r', encoding='utf-8') as f:
+                    self.dados_offline = json.load(f)
+            except Exception as e:
+                print(f"Erro ao carregar JSON offline: {e}")
+
+    def consultar_especie(self, nome_cientifico: str) -> dict:
+        """
+        Busca offline baseada em JSON local (v0.5.0).
+        """
+        nome_busca = nome_cientifico.lower().strip()
+        
+        for ave in self.dados_offline:
+            if nome_busca in ave["nome_cientifico"].lower():
+                return {
+                    "nome_cientifico": ave["nome_cientifico"],
+                    "nome_comum": ave["nome_comum"],
+                    "familia": ave["familia"],
+                    "confianca": "Validado Offline",
+                    "descricao": ave["descricao"]
+                }
+       
+        return {"erro": "Espécie não encontrada na base local."}
 
     def _carregar_modelo(self):
         # Verifica se o modelo existe
