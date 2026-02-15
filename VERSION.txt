@@ -1,1 +1,1 @@
-v0.3.2 - Mode Selector, Settings Menu & UI Fixes
+v0.3.3 - Startup Logic Fix (Strict Order)

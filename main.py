@@ -1,11 +1,16 @@
 import sys
-import os
+import ctypes
 import platform
+import os
 import subprocess
 from pathlib import Path
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication, QMessageBox, QCheckBox
 from PySide6.QtGui import QIcon
+
+# Importações Locais
 from ui.janela_principal import JanelaPrincipal
+from ui.dialogo_modo import DialogoModo
+from core.config import carregar_config, salvar_config
 
 # Tenta importar o script de setup para criar atalhos
 try:
@@ -16,28 +21,11 @@ except ImportError:
 # Configuração do AppUserModelID (Apenas Windows)
 if platform.system() == "Windows":
     try:
-        import ctypes
-        # Alterado para v0.2.3.check para forçar reavaliação de cache pelo Windows
-        myappid = 'ibirder.v0.2.3.check'
+        # Alterado para v0.3.3.startup para forçar reavaliação de cache pelo Windows
+        myappid = 'ibirder.v0.3.3.startup_fix'
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     except Exception:
         pass 
-    
-    # Tenta definir novamente com v0.2.4 para limpar cache
-    try:
-        import ctypes
-        myappid = 'ibirder.v0.2.4.final_check'
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
-    except Exception:
-        pass 
-from ui.dialogo_modo import DialogoModo # v0.3.2
-from core.config import carregar_config, salvar_config # v0.3.2
-
-def definir_app_user_model_id():
-    """Garante que o ícone na barra de tarefas seja o nosso."""
-    if platform.system() == 'Windows':
-        myappid = 'ibirder.v0.3.2.mode_selector' 
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
 def verificar_ambiente_virtual():
     """Verifica se a pasta .venv existe no diretório do projeto."""
@@ -45,6 +33,7 @@ def verificar_ambiente_virtual():
     venv_path = base_path / ".venv"
     
     if not venv_path.exists():
+        app = QApplication.instance() or QApplication(sys.argv)
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Critical)
         msg.setWindowTitle("Erro de Ambiente")
@@ -61,7 +50,7 @@ def verificar_e_criar_atalho():
     """
     try:
         if platform.system() != "Windows":
-            return # Apenas para Windows por enquanto
+            return 
 
         desktop = Path(os.environ["USERPROFILE"]) / "Desktop"
         atalho_path = desktop / "iBirder.lnk"
@@ -74,8 +63,9 @@ def verificar_e_criar_atalho():
         if config.get("pular_pergunta_atalho", False):
             return
 
+        print("[CONFIG] Solicitando criação de atalho...") 
+        
         # 2. Pergunta ao usuário
-        # QApplication já deve estar instanciado em main()
         msg = QMessageBox()
         msg.setWindowTitle("Criar Atalho")
         msg.setText("Deseja criar um atalho do iBirder na sua Área de Trabalho?")
@@ -118,88 +108,69 @@ def criar_atalho_windows(atalho_path):
         
         if pythonw_path.exists():
             target_exe = str(pythonw_path)
+            arguments = f'"{str(base_path / "main.py")}"'
         elif python_path.exists():
             target_exe = str(python_path)
+            arguments = f'"{str(base_path / "main.py")}"'
         else:
             target_exe = sys.executable # Fallback para o python do sistema
+            arguments = f'"{str(base_path / "main.py")}"'
             
         working_dir = str(base_path)
-        arguments = f'"{str(base_path / "main.py")}"'
 
     # Caminho do ícone
-    icon_path = str(Path(__file__).parent.absolute() / "assets" / "logo_ave.ico") # Usar .ico para atalhos
+    icon_path = str(Path(__file__).parent.absolute() / "assets" / "logo_ave.ico") 
 
     script = f'''
     $WshShell = New-Object -comObject WScript.Shell
     $Shortcut = $WshShell.CreateShortcut("{str(atalho_path)}")
     $Shortcut.TargetPath = "{target_exe}"
     $Shortcut.WorkingDirectory = "{working_dir}"
-    $Shortcut.Arguments = "{arguments}"
+    $Shortcut.Arguments = '{arguments}'
     $Shortcut.IconLocation = "{icon_path}"
     $Shortcut.Save()
     '''
     
     subprocess.run(["powershell", "-Command", script], capture_output=True)
 
+def detect_dark_mode_windows():
+    try:
+        import winreg
+        registry = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
+        key = winreg.OpenKey(registry, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
+        value, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
+        winreg.CloseKey(key)
+        return value == 0 # 0 = Dark, 1 = Light
+    except:
+        return False
 
 def detectar_tema_e_icone():
-    """
-    Detecta se o sistema está em modo escuro ou claro.
-    Lógica Simplificada e À Prova de Falhas (v0.2.3):
-    1. Tenta detectar Light Mode.
-    2. Se for LIGHT -> Retorna ícone ESCURO.
-    3. Qualquer outra coisa (Dark, Erro, Indefinido) -> Retorna ícone CLARO.
-    """
-    sistema = platform.system()
-    usar_icone_escuro = False # Padrão é False (ou seja, usa CLARO)
+    """Retorna o nome do ícone baseado no tema."""
+    usar_icone_escuro = False 
 
     try:
-        if sistema == "Windows":
-            import winreg
-            try:
-                registry = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
-                key = winreg.OpenKey(registry, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
-                value, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
-                winreg.CloseKey(key)
-                
-                # AppsUseLightTheme: 1 = Light Mode
-                if value == 1:
-                    usar_icone_escuro = True
-                    print("[SISTEMA] Modo CLARO detectado. Usando ícone ESCURO.")
-                else:
-                    print("[SISTEMA] Modo ESCURO (ou outro) detectado. Usando ícone CLARO.")
-                    
-            except Exception:
-                pass # Mantém padrão (CLARO)
-            
-        elif sistema == "Linux":
-            try:
-                cmd = ["gsettings", "get", "org.gnome.desktop.interface", "color-scheme"]
-                resultado = subprocess.check_output(cmd, stderr=subprocess.DEVNULL).decode("utf-8").lower()
-                
-                if "light" in resultado and "dark" not in resultado:
-                     usar_icone_escuro = True
-                     
-            except Exception:
-                pass # Mantém padrão (CLARO)
-                
-    except Exception:
-        pass # Mantém padrão (CLARO)
+        if platform.system() == "Windows":
+             # Se for Light Mode (AppsUseLightTheme=1) -> Ícone ESCURO
+             # Se for Dark Mode (AppsUseLightTheme=0) -> Ícone CLARO
+             if not detect_dark_mode_windows():
+                 usar_icone_escuro = True
+                 print("[SISTEMA] Modo CLARO detectado. Usando ícone ESCURO.")
+             else:
+                 print("[SISTEMA] Modo ESCURO detectado. Usando ícone CLARO.")
+    except:
+        pass
 
-    # Retorna o nome do arquivo
-    # CORREÇÃO v0.2.4: Nome correto do arquivo é logo_ave_claro.png (masculino)
+    # Nome correto do arquivo é logo_ave_claro.png
     nome_arquivo = "logo_ave_escuro.png" if usar_icone_escuro else "logo_ave_claro.png"
     
-    # Validação de caminho absoluto para setWindowIcon
-    # Usa os.path.join e abspath para garantia total no Windows
-    basedir = os.path.dirname(os.path.abspath(__file__))
-    caminho_absoluto = os.path.join(basedir, "assets", nome_arquivo)
+    base_path = Path(__file__).parent.absolute()
+    caminho_absoluto = base_path / "assets" / nome_arquivo
     
-    if not os.path.exists(caminho_absoluto):
-        print(f"[AVISO] Ícone {nome_arquivo} não encontrado em {caminho_absoluto}. Usando original.")
+    if not caminho_absoluto.exists():
+        print(f"[AVISO] Ícone {nome_arquivo} não encontrado. Usando original.")
         return "logo_ave.png"
     else:
-        print(f"[SISTEMA] Ícone {nome_arquivo} carregado com sucesso.")
+        print(f"[SISTEMA] Ícone {nome_arquivo} carregado.")
         
     return nome_arquivo
 
@@ -209,18 +180,37 @@ if __name__ == "__main__":
     # 1. Verificação de Ambiente (.venv)
     verificar_ambiente_virtual()
     
-    # 2. Configuração de Ícone Dinâmico
+    # 2. Configurações Iniciais (Modo & Atalho)
+    config = carregar_config()
+    modo_inicial = "offline" 
+    
+    # A) Trigger do Modo (Startup)
+    if config.get("lembrar_modo") and config.get("modo_operacao"):
+        print(f"[CONFIG] Modo salvo detectado: {config['modo_operacao']}")
+        modo_inicial = config["modo_operacao"]
+    else:
+        print("[CONFIG] Solicitando escolha de modo...") 
+        dialogo = DialogoModo()
+        if dialogo.exec():
+            modo_inicial = dialogo.modo_selecionado
+            if dialogo.lembrar:
+                config["modo_operacao"] = modo_inicial
+                config["lembrar_modo"] = True
+                salvar_config(config)
+        else:
+            # Se cancelar, definimos um padrão seguro mas não salvamos
+            modo_inicial = "offline"
+
+    # B) Trigger do Atalho
+    # Verifica sempre agora, conforme solicitado
+    verificar_e_criar_atalho()
+
+    # 3. Ícone e Estilo
     nome_icone = detectar_tema_e_icone()
-    
-    # 3. Verifica e oferece criação de atalho
-    if not getattr(sys, 'frozen', False):
-        verificar_e_criar_atalho()
-    
-    # Estilo básico
     app.setStyle("Fusion")
 
-    # Passa o nome do ícone dinâmico.
-    janela = JanelaPrincipal(nome_icone_janela=nome_icone)
+    # 4. Inicia Janela Principal
+    janela = JanelaPrincipal(nome_icone_janela=nome_icone, modo_inicial=modo_inicial)
     janela.show()
 
     sys.exit(app.exec())
