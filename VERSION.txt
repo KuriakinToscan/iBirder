@@ -1,1 +1,1 @@
-v0.4.0 - Busca Manual por Nome Científico
+v0.4.1 - Hotfix AttributeError e Layout

@@ -209,7 +209,7 @@ class JanelaPrincipal(QMainWindow):
         layout_busca.setSpacing(10)
 
         self.input_nome_cientifico = QLineEdit()
-        self.input_nome_cientifico.setPlaceholderText("Nome Científico (ex: Ramphastos toco)")
+        self.input_nome_cientifico.setPlaceholderText("Digite o nome científico...")
         self.input_nome_cientifico.setFont(QFont("Segoe UI", 14, QFont.Bold))
         self.input_nome_cientifico.setStyleSheet("""
             QLineEdit {
@@ -258,8 +258,7 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_descricao.setStyleSheet("color: #616161; background: transparent; border: none;")
         self.lbl_descricao.setWordWrap(True)
 
-        layout_res.addWidget(QLabel("Espécie:"))
-        layout_res.addWidget(self.lbl_nome_cientifico)
+
         layout_res.addWidget(QLabel("Nome Comum:"))
         layout_res.addWidget(self.lbl_nome_comum)
         layout_res.addWidget(QLabel("Descrição:"))
