@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-    QPushButton, QGroupBox, QFileDialog, QMessageBox, 
+    QPushButton, QGroupBox, QFileDialog, QMessageBox, QLineEdit,
     QFrame, QStatusBar, QApplication, QSizePolicy, QGraphicsDropShadowEffect
 )
 from PySide6.QtCore import Qt, QSize
@@ -204,10 +204,46 @@ class JanelaPrincipal(QMainWindow):
         layout_res = QVBoxLayout()
         layout_res.setSpacing(15)
         
-        self.lbl_nome_cientifico = QLabel("-")
-        self.lbl_nome_cientifico.setFont(QFont("Segoe UI", 16, QFont.Bold))
-        self.lbl_nome_cientifico.setStyleSheet("color: #222222; background: transparent; border: none;")
-        self.lbl_nome_cientifico.setWordWrap(True)
+        # Layout Horizontal para Busca (v0.4.0)
+        layout_busca = QHBoxLayout()
+        layout_busca.setSpacing(10)
+
+        self.input_nome_cientifico = QLineEdit()
+        self.input_nome_cientifico.setPlaceholderText("Nome Científico (ex: Ramphastos toco)")
+        self.input_nome_cientifico.setFont(QFont("Segoe UI", 14, QFont.Bold))
+        self.input_nome_cientifico.setStyleSheet("""
+            QLineEdit {
+                border: 1px solid #E0E0E0;
+                border-radius: 6px;
+                padding: 5px;
+                color: #222222;
+                background-color: #FAFAFA;
+            }
+            QLineEdit:focus {
+                border: 1px solid #444444;
+                background-color: #FFFFFF;
+            }
+        """)
+        
+        self.btn_buscar = QPushButton()
+        self.btn_buscar.setFixedSize(36, 36)
+        self.btn_buscar.setToolTip("Buscar Espécie")
+        self.btn_buscar.setProperty("class", "search-btn")
+        
+        caminho_lupa = self._obter_caminho_asset("search_loupe.png")
+        if os.path.exists(caminho_lupa):
+            self.btn_buscar.setIcon(QIcon(caminho_lupa))
+            self.btn_buscar.setIconSize(QSize(20, 20))
+        else:
+            self.btn_buscar.setText("🔍")
+            
+        self.btn_buscar.clicked.connect(self._buscar_especie_manual)
+        
+        layout_busca.addWidget(self.input_nome_cientifico)
+        layout_busca.addWidget(self.btn_buscar)
+
+        layout_res.addWidget(QLabel("Espécie (Editável):"))
+        layout_res.addLayout(layout_busca)
         
         self.lbl_nome_comum = QLabel("-")
         self.lbl_nome_comum.setFont(QFont("Segoe UI", 13))
@@ -337,12 +373,22 @@ class JanelaPrincipal(QMainWindow):
                 border: 1px solid #E0E0E0;
                 font-size: 12px;
                 padding: 8px;
-                margin-top: 15px; /* Espaçamento solicitado */
+                margin-top: 15px; 
             }
             QPushButton[class="reset-btn"]:hover {
                 color: #222222;
                 border-color: #BDBDBD;
                 background-color: #FAFAFA;
+            }
+            /* Botão Busca (v0.4.0) */
+            QPushButton[class="search-btn"] {
+                background-color: #FFFFFF;
+                border: 1px solid #E0E0E0;
+                border-radius: 6px;
+            }
+            QPushButton[class="search-btn"]:hover {
+                background-color: #F5F5F5;
+                border-color: #BDBDBD;
             }
         """)
 
@@ -395,7 +441,10 @@ class JanelaPrincipal(QMainWindow):
         if not self.caminho_imagem_atual:
             return
 
-        self.lbl_nome_cientifico.setText("...")
+        if not self.caminho_imagem_atual:
+            return
+ 
+        self.input_nome_cientifico.setText("...")
         self.lbl_nome_comum.setText("...")
         self.lbl_confianca.setText("")
         self.lbl_descricao.setText("-")
@@ -415,7 +464,7 @@ class JanelaPrincipal(QMainWindow):
             
             if "erro" in resultado:
                 DialogoAviso("Aviso", resultado["erro"], self).exec()
-                self.lbl_nome_cientifico.setText("Falha")
+                self.input_nome_cientifico.setText("Falha")
                 self.lbl_nome_comum.setText("-")
                 self.lbl_confianca.setText("")
                 self.lbl_descricao.setText(f"Erro: {resultado.get('detalhes', '-')}")
@@ -439,7 +488,7 @@ class JanelaPrincipal(QMainWindow):
                 conf_str = f"Confiança: {confianca:.1%}" if isinstance(confianca, float) else str(confianca)
                 descricao = dados.get("descricao", "-")
 
-            self.lbl_nome_cientifico.setText(f"{nome_cientifico}")
+            self.input_nome_cientifico.setText(f"{nome_cientifico}")
             self.lbl_nome_comum.setText(f"{nome_comum}")
             self.lbl_confianca.setText(conf_str)
             self.lbl_descricao.setText(descricao)
@@ -498,10 +547,55 @@ class JanelaPrincipal(QMainWindow):
         self.area_drop.setText("Arraste e solte uma foto aqui\n\nou clique para selecionar")
         
         # Reseta Labels
-        self.lbl_nome_cientifico.setText("-")
+        self.input_nome_cientifico.clear() # v0.4.0
         self.lbl_nome_comum.setText("-")
         self.lbl_confianca.setText("-")
         self.lbl_descricao.setText("-")
         
         self.btn_gravar.setEnabled(False)
         self.status_bar.showMessage("Pronto")
+
+    def _buscar_especie_manual(self):
+        """Busca manual via texto (v0.4.0)."""
+        nome = self.input_nome_cientifico.text().strip()
+        if not nome or len(nome) < 3:
+            DialogoAviso("Busca Inválida", "Digite pelo menos 3 caracteres.", self).exec()
+            return
+            
+        if self.modo_atual != "online":
+            DialogoAviso("Modo Offline", "Busca disponível apenas Online.", self).exec()
+            return
+
+        self.status_bar.showMessage(f"Buscando informações sobre {nome}...")
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        self.btn_buscar.setEnabled(False)
+        QApplication.processEvents()
+        
+        try:
+            # Chama novo método da nuvem diretamente (bypass servico comum por enquanto ou poderia extender servico)
+            # Como é feature especifica da nuvem, chamamos direto do id_nuvem se modo online
+            resultado = self.id_nuvem.consultar_especie(nome)
+            
+            if "erro" in resultado:
+                DialogoAviso("Não Encontrado", resultado["erro"], self).exec()
+                self.status_bar.showMessage("Espécie não encontrada.")
+            else:
+                self.lbl_nome_comum.setText(resultado.get("nome_comum", "-"))
+                self.lbl_descricao.setText(resultado.get("descricao", "-"))
+                self.lbl_confianca.setText("Validado Manualmente")
+                
+                # Atualizar dados para gravação
+                self.dados_identificacao_atual = {
+                    "nome_cientifico": resultado.get("nome_cientifico"),
+                    "nome_comum": resultado.get("nome_comum"),
+                    "fonte": "Busca Manual",
+                    "descricao": resultado.get("descricao")
+                }
+                self.btn_gravar.setEnabled(True)
+                self.status_bar.showMessage("Busca concluída.")
+                
+        except Exception as e:
+            DialogoAviso("Erro na Busca", str(e), self).exec()
+        finally:
+             QApplication.restoreOverrideCursor()
+             self.btn_buscar.setEnabled(True)

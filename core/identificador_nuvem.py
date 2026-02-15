@@ -84,6 +84,57 @@ class IdentificadorNuvem(IdentificadorAve):
                 "detalhes": msg_erro
             }
 
+    def consultar_especie(self, nome_cientifico: str) -> dict:
+        """
+        Consulta informações sobre uma espécie pelo nome científico (v0.4.0).
+        """
+        chave_api = self._obter_chave_api()
+        client = genai.Client(api_key=chave_api)
+        
+        prompt = f"""
+        Você é um ornitólogo especialista.
+        Forneça o Nome Comum (em Português do Brasil), Família e uma Descrição de até 20 palavras em Português para a espécie "{nome_cientifico}".
+        
+        Se a espécie não existir ou o nome estiver muito errado, retorne APENAS:
+        {{"erro": "Especie não encontrada"}}
+        
+        Caso contrário, retorne APENAS um JSON válido neste formato:
+        {{
+            "nome_cientifico": "{nome_cientifico}",
+            "nome_comum": "Nome popular em Pt-BR",
+            "familia": "Família científica",
+            "confianca": "Validado Manualmente",
+            "descricao": "Descrição visual e comportamental breve."
+        }}
+        Sem markdown.
+        """
+        
+        try:
+            response = client.models.generate_content(
+                model='gemini-2.0-flash', 
+                contents=[prompt]
+            )
+            
+            texto_limpo = self._limpar_markdown_json(response.text)
+            dados = json.loads(texto_limpo)
+            
+            if "erro" in dados:
+                return {"erro": "Espécie não encontrada. Verifique a grafia e tente novamente."}
+                
+            return dados
+            
+        except Exception as e:
+            msg_erro = str(e)
+            if "429" in msg_erro:
+                return {
+                    "erro": "O servidor de inteligência está ocupado.",
+                    "detalhes": "Tente novamente em um minuto."
+                }
+            return {
+                "erro": f"Falha na busca manual: {msg_erro}",
+                "detalhes": msg_erro
+            }
+
     def _limpar_markdown_json(self, texto: str) -> str:
         """
         Remove formatação Markdown de blocos de código (```json ... ```) 
