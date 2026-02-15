@@ -2,3 +2,6 @@ PySide6
 onnxruntime
 Pillow
 requests
+google-generativeai
+keyring
+numpy

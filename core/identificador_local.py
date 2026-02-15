@@ -1,0 +1,80 @@
+import os
+import numpy as np
+import onnxruntime as ort
+from PIL import Image
+from pathlib import Path
+from .interfaces import IdentificadorAve
+
+class IdentificadorLocal(IdentificadorAve):
+    def __init__(self, caminho_modelo: str = "assets/model.onnx", caminho_labels: str = "assets/labels.txt"):
+        self.caminho_modelo = caminho_modelo
+        self.caminho_labels = caminho_labels
+        self.sessao = None
+        self.labels = []
+        self._carregar_modelo()
+
+    def _carregar_modelo(self):
+        # Verifica se o modelo existe
+        if os.path.exists(self.caminho_modelo):
+            try:
+                self.sessao = ort.InferenceSession(self.caminho_modelo)
+            except Exception as e:
+                print(f"Erro ao carregar modelo ONNX: {e}")
+                self.sessao = None
+        
+        # Carrega labels se existirem
+        if os.path.exists(self.caminho_labels):
+            with open(self.caminho_labels, 'r', encoding='utf-8') as f:
+                self.labels = [linha.strip() for linha in f.readlines()]
+
+    def identificar(self, caminho_imagem: str) -> dict:
+        if not self.sessao:
+            # Placeholder se o modelo não estiver carregado
+            return {
+                "erro": "Modelo local não encontrado ou inválido.",
+                "sugestao": "Baixe o modelo em assets/ ou use o modo Online.",
+                "top_k": []
+            }
+
+        imagem = self._processar_imagem(caminho_imagem)
+        
+        # Inferência
+        input_name = self.sessao.get_inputs()[0].name
+        output_name = self.sessao.get_outputs()[0].name
+        result = self.sessao.run([output_name], {input_name: imagem})
+        
+        # Processar resultados (softmax e top k)
+        scores = result[0][0]
+        probs = self._softmax(scores)
+        top_k_indices = np.argsort(probs)[-3:][::-1]
+
+        candidatos = []
+        for idx in top_k_indices:
+            label = self.labels[idx] if idx < len(self.labels) else f"Species {idx}"
+            candidatos.append({
+                "nome_cientifico": label,
+                "confianca": float(probs[idx])
+            })
+
+        return {
+            "melhor_taxa": candidatos[0],
+            "top_3": candidatos
+        }
+
+    def _processar_imagem(self, caminho_imagem: str):
+        # Pré-processamento padrão EfficientNet (224x224, normalização)
+        img = Image.open(caminho_imagem).convert('RGB')
+        img = img.resize((224, 224))
+        img_data = np.array(img).astype('float32')
+        
+        # Normalização (exemplo simples, ajustar conforme modelo específico)
+        img_data = img_data / 255.0
+        # Transpor para formato (N, C, H, W) se necessário, o padrão ONNX costuma pedir
+        img_data = np.transpose(img_data, (2, 0, 1))
+        img_data = np.expand_dims(img_data, axis=0) # Batch size 1
+        
+        return img_data
+
+    def _softmax(self, x):
+        e_x = np.exp(x - np.max(x))
+        return e_x / e_x.sum(axis=0)
