@@ -48,7 +48,8 @@ class WikiAvesWorker(QThread):
                 print(f"[WIKIAVES] Acesso direto falhou ({resp_wa.status_code}). Tentando busca fallback...")
                 
                 # --- Fallback: Busca via DuckDuckGo (Código Antigo) ---
-                query = f'site:wikiaves.com.br "{self.raw_name}"'
+                # v0.10.11: InURL Search
+                query = f'inurl:wikiaves.com.br "{self.raw_name}"'
                 search_url = f"https://html.duckduckgo.com/html/?q={query}"
                 try:
                     resp = requests.get(search_url, headers=headers, timeout=10)
@@ -74,26 +75,48 @@ class WikiAvesWorker(QThread):
                 print("[ERRO WIKIAVES] Não foi possível acessar a página da espécie.")
                 return
 
-            # 3. Extração da Etimologia (Refinada v0.10.10)
+            # 3. Extração da Etimologia (Refinada v0.10.11: CSS Selectors)
+            print("[WIKIAVES] Analisando estrutura div.level2...")
             etimo_text = ""
-            # Procura pelo texto trigger
-            target = soup_wa.find(string=re.compile("Seu nome cientifica significa|Seu nome científico significa", re.IGNORECASE))
             
-            if target:
-                print("[WIKIAVES] Texto de etimologia encontrado. Extraindo...")
-                # O target é o texto. O pai deve ser o elemento (p, span, b, etc).
-                parent = target.parent
-                # Pegamos o texto completo desse contexto
-                full_text = parent.get_text(" ", strip=True) 
-                
+            # Tenta encontrar o container específico sugerido (div.level2 > p)
+            div_content = soup_wa.find("div", class_="level2")
+            
+            # Fallback para mks_text se level2 não existir
+            if not div_content:
+                 div_content = soup_wa.find("div", class_="mks_text")
+
+            extracted = False
+            full_text = ""
+            
+            if div_content:
+                # Procura parágrafo com o trigger dentro do container
+                 for p in div_content.find_all("p"):
+                    text_p = p.get_text(" ", strip=True)
+                    if "nome científico significa" in text_p or "nome cientifica significa" in text_p:
+                        # Achou parágrafo alvo
+                        full_text = text_p
+                        extracted = True
+                        break
+            
+            if not extracted:
+                 # Fallback Global: Busca no soup inteiro se containers falharem
+                 target = soup_wa.find(string=re.compile("Seu nome cientifica significa|Seu nome científico significa", re.IGNORECASE))
+                 if target:
+                      full_text = target.parent.get_text(" ", strip=True)
+                      extracted = True
+
+            if extracted:
+                # Lógica de limpeza unificada
                 # Regex para pegar o que vem depois de "significa"
                 match = re.search(r"significa[:\s]*(.*)", full_text, re.IGNORECASE | re.DOTALL)
                 if match:
                     etimo_text = match.group(1).strip()
                 else:
-                    etimo_text = full_text
+                     # Split simples como fallback do regex
+                     etimo_text = full_text.split("significa", 1)[-1].strip()
                 
-                # Limpeza de pontuação inicial residual
+                # Limpeza final de pontuação inicial residual
                 etimo_text = etimo_text.lstrip(":.- ").strip()
                 if etimo_text:
                     etimo_text = etimo_text[0].upper() + etimo_text[1:]
