@@ -15,6 +15,7 @@ from ui.wizard_config import WizardConfig
 from ui.dialogo_atalho import DialogoAtalho
 from core.config import carregar_config, salvar_config
 from ui.janela_principal import JanelaPrincipal
+from core.logger import setup_logger, save_crash_log, cleanup_session_log
 
 # Tenta importar o script de setup para criar atalhos
 try:
