@@ -138,7 +138,27 @@ class WikiAvesWorker(QThread):
             except Exception as e:
                 print(f"[DEBUG] Erro extraindo mapa: {e}")
 
-            # D. Etimologia (Lógica Refinada v0.10.16)
+            # D. Status de Conservação (IUCN) v0.14.0
+            try:
+                # Procura pela imagem do status ou texto próximo
+                img_status = soup_wa.find("img", src=re.compile("status_"))
+                if img_status and img_status.get("title"):
+                    resultado["conservacao"] = img_status.get("title")
+                    print(f"[WIKIAVES] Conservação (Img Title): {resultado['conservacao']}")
+                
+                if not resultado.get("conservacao"):
+                    status_tag = soup_wa.find(string=re.compile("Estado de Conservação:"))
+                    if status_tag:
+                         parent_text = status_tag.parent.parent.get_text(" ", strip=True)
+                         if "Estado de Conservação:" in parent_text:
+                             status = parent_text.split("Estado de Conservação:")[-1].strip()
+                             resultado["conservacao"] = status
+                             print(f"[WIKIAVES] Conservação (Texto): {status}")
+
+            except Exception as e:
+                 print(f"[DEBUG] Erro extraindo conservação: {e}")
+
+            # E. Etimologia (Lógica Refinada v0.10.16)
             print(f"[WIKIAVES] Extraindo etimologia...")
             etimo_text = None
             

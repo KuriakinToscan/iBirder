@@ -143,22 +143,47 @@ class JanelaPrincipal(QMainWindow):
             familia = dados.get("familia")
             ordem = dados.get("ordem")
             nome_ingles = dados.get("nome_ingles")
+            conservacao = dados.get("conservacao")
             
-            texto_final = ""
+            # --- Construção do HTML Rico (v0.14.0) ---
+            html = "<div style='line-height: 1.4;'>"
             
-            if etimologia:
-                texto_final += f"{etimologia}\n\n"
-            
-            infos_extras = []
-            if nome_ingles:
-                infos_extras.append(f"<b>Inglês:</b> {nome_ingles}")
+            # 1. Taxonomia (Subtítulo discreto)
             if ordem and familia:
-                infos_extras.append(f"<b>Taxonomia:</b> {ordem} > {familia}")
+                html += f"<div style='color: #6B7280; font-size: 10px; margin-bottom: 2px;'>{ordem.upper()} • {familia.upper()}</div>"
+            
+            # 2. Nome em Inglês (Destaque)
+            if nome_ingles:
+                html += f"<div style='font-weight: bold; font-size: 13px; color: #1F2937; margin-bottom: 4px;'>{nome_ingles}</div>"
+            
+            # 3. Status de Conservação (Badge Colorido)
+            if conservacao:
+                cor_bg = "#E5E7EB" # Cinza default
+                cor_txt = "#374151"
                 
-            if infos_extras:
-                texto_final += "<br>".join(infos_extras)
+                # Lógica de Cores IUCN
+                c_lower = conservacao.lower()
+                if "pouco preocupante" in c_lower or "quase ameaçada" in c_lower:
+                    cor_bg = "#D1FAE5" # Verde claro
+                    cor_txt = "#065F46" # Verde escuro
+                elif "vulnerável" in c_lower:
+                    cor_bg = "#FEF3C7" # Amarelo
+                    cor_txt = "#92400E" # Laranja escuro
+                elif "perigo" in c_lower or "ameaçada" in c_lower: # Abrange "Em perigo", "Criticamente..."
+                    cor_bg = "#FEE2E2" # Vermelho claro
+                    cor_txt = "#991B1B" # Vermelho escuro
 
-            self.lbl_etimologia_texto.setText(texto_final.strip())
+                html += f"<span style='background-color: {cor_bg}; color: {cor_txt}; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold;'>{conservacao.upper()}</span><br>"
+            
+            # 4. Etimologia (Texto)
+            if etimologia:
+                html += f"<div style='margin-top: 8px; font-size: 11px; color: #4B5563;'><i>{etimologia}</i></div>"
+            
+            html += "</div>"
+            
+            self.lbl_etimologia_texto.setText(html)
+            # Título dinâmico não existe como atributo direto na classe atual (lbl_titulo é local no _configurar_ui), 
+            # então mantemos apenas o texto rico.
             
         else:
             # Legado (str)
