@@ -22,16 +22,18 @@ class ReferenceImageWorker(QThread):
             return
             
         try:
-            # 1. Busca no DuckDuckGo para achar link do eBird
-            # Simula browser real
+            print("--- INICIANDO WORKER DE REFERENCIA ---")
+            
+            # 1. Configuração (User-Agent Obrigatório)
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
             }
             
-            search_query = f"site:ebird.org/species {self.species_name} photo"
+            # v0.8.5: Busca via DuckDuckGo HTML (Mais permissivo que Google)
+            search_query = f"{self.species_name} site:ebird.org"
             search_url = f"https://html.duckduckgo.com/html/?q={search_query}"
             
-            print(f"[REF] Buscando espécie: {self.species_name}")
+            print(f"[REF] Buscando: {self.species_name}")
             resp = requests.get(search_url, headers=headers, timeout=10)
             resp.raise_for_status()
             
@@ -42,15 +44,17 @@ class ReferenceImageWorker(QThread):
             for link in soup.find_all('a', href=True):
                 href = link['href']
                 if "ebird.org/species/" in href:
+                    if "http" not in href: 
+                        href = f"https:{href}" if href.startswith("//") else f"https://ebird.org{href}"
                     species_url = href
                     break
             
             if not species_url:
-                # print("[WORKER] Link da espécie não encontrado.")
+                print("[REF] Link da espécie não encontrado.")
                 self.search_failed.emit()
                 return
 
-            print(f"[REF] URL encontrada: {species_url}")
+            print(f"[REF] Link eBird encontrado: {species_url}")
             
             # 2. Acessar página da espécie
             resp_spec = requests.get(species_url, headers=headers, timeout=10)
@@ -60,13 +64,15 @@ class ReferenceImageWorker(QThread):
             # 3. Encontrar imagem
             img_url = None
             
-            # Tentativa 1: Meta Tag (Mais confiável)
+            # Tentativa 1: Meta Tag (Padrão Ouro)
             meta_og = soup_spec.find("meta", property="og:image")
             if meta_og:
                 img_url = meta_og.get("content")
-            
-            # Tentativa 2: Seletores CSS Específicos (Backup)
+                print("[REF] Imagem via Metadata (og:image)")
+
+            # Tentativa 2: Fallback (Seletores CSS)
             if not img_url:
+                print("[REF] Metadata falhou. Tentando seletores CSS...")
                 div = soup_spec.find("div", class_="AspectRatioContent") 
                 if not div:
                      div = soup_spec.find("div", class_="Species-media-button")
@@ -74,15 +80,15 @@ class ReferenceImageWorker(QThread):
                 if div:
                     img_tag = div.find("img")
                     if img_tag:
-                        img_url = img_tag.get("src")
-                        if img_tag.get("srcset"):
+                         img_url = img_tag.get("src")
+                         if img_tag.get("srcset"):
                             parts = img_tag.get("srcset").split(",")
                             if parts:
                                 last_part = parts[-1].strip().split(" ")[0]
                                 if last_part.startswith("http"):
                                     img_url = last_part
-            
-            print(f"[REF] Imagem encontrada? {bool(img_url)}")
+
+            print(f"[REF] Imagem final: {img_url}")
 
             if not img_url:
                 # print("[WORKER] Imagem não encontrada na página.")
@@ -101,6 +107,7 @@ class ReferenceImageWorker(QThread):
                 f.write(img_data)
                 
             self.image_found.emit(str(save_path))
+            print("--- WORKER FINALIZADO COM SUCESSO ---")
 
         except Exception as e:
             print(f"[ERRO REF] Falha na busca: {e}")
