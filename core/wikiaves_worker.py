@@ -18,6 +18,7 @@ class WikiAvesWorker(QThread):
     def run(self):
         # Import time for safety delay
         import time
+        etimo_text = None # Inicialização para evitar UnboundLocalError
         
         print(f"[WIKIAVES] Worker iniciado para: {self.species_name}")
         if not BeautifulSoup:
@@ -66,10 +67,9 @@ class WikiAvesWorker(QThread):
                 print(f"[ERRO WIKIAVES] Falha na busca Google ({resp_google.status_code})")
             
             if not wa_link:
-                # Fallback: Tentar acesso direto (antigo) se Google falhar
-                print("[TRACE 2] Link não encontrado no Google. Tentando acesso direto (fallback)...")
-                nome_direto = self.species_name.replace("+", "_").replace(" ", "_").lower()
-                wa_link = f"https://www.wikiaves.com.br/wiki/{nome_direto}"
+                # Nova Regra: Se o Google não retornar um link de WikiAves, o worker deve emitir um erro amigável e encerrar
+                print("[ERRO WIKIAVES] Link não encontrado no Google. Encerrando busca.")
+                return
 
             # Segurança: Delay para evitar bloqueio
             time.sleep(2)
@@ -100,58 +100,39 @@ class WikiAvesWorker(QThread):
             if not soup_wa:
                 return
 
-            # 4. Extração da Etimologia (Refinada v0.10.13: CSS Selectors + Text Match)
-            print("[WIKIAVES] Analisando estrutura div.level2...")
-            # Tenta encontrar o container específico sugerido (div.level2 > p)
-            div_content = soup_wa.find("div", class_="level2")
+            # 4. Extração da Etimologia (Refinada v0.10.16: Text Search Global)
+            print(f"[WIKIAVES] Analisando a página: {wa_link}")
             
-            # Fallback para mks_text se level2 não existir
-            if not div_content:
-                 div_content = soup_wa.find("div", class_="mks_text")
-
-            extracted = False
-            full_text = ""
+            # Procure por qualquer elemento que contenha a frase gatilho
+            # Busca em p, div, strong, span
+            trigger_element = soup_wa.find(lambda tag: tag.name in ['p', 'div', 'strong', 'span'] and "seu nome científico significa" in tag.text.lower())
             
-            if div_content:
-                # Debug Dump (Mantido)
-                try:
-                    import os
-                    with open("temp/debug_wikiaves.html", "w", encoding="utf-8") as f:
-                        f.write(div_content.prettify())
-                except Exception:
-                    pass
-
-                print("[TRACE 6] Div encontrada. Buscando parágrafo de etimologia...")
-                # Procura parágrafo com o trigger dentro do container
-                for p in div_content.find_all("p"):
-                    text_p = p.get_text(" ", strip=True)
-                    text_lower = text_p.lower()
-                    if "nome científico significa" in text_lower or "nome cientifica significa" in text_lower:
-                        # Achou parágrafo alvo
-                        full_text = text_p
-                        extracted = True
-                        print(f"[TRACE 7] Parágrafo localizado: {text_p[:50]}...")
-                        break
-            
-            if not extracted:
-                 print("[TRACE 6] Parágrafo não encontrado no container. Tentando busca global...")
-                 # Fallback Global
-                 target = soup_wa.find(string=re.compile("Seu nome cientifica significa|Seu nome científico significa", re.IGNORECASE))
-                 if target:
-                      full_text = target.parent.get_text(" ", strip=True)
-                      extracted = True
-                      print("[TRACE 7] Texto localizado via busca global.")
-
-            if extracted:
-                # Lógica de limpeza unificada
-                # Regex para pegar o que vem depois de "significa"
+            if trigger_element:
+                print("[TRACE 6] Frase gatilho encontrada.")
+                # Pegue o texto completo do container pai se o elemento for inline (strong/span) ou se o texto for muito curto
+                full_text = trigger_element.get_text(" ", strip=True)
+                
+                if len(full_text) < 60 or trigger_element.name in ['strong', 'b', 'span']:
+                     if trigger_element.parent:
+                         full_text = trigger_element.parent.get_text(" ", strip=True)
+                
+                # Use o split... mas com segurança de case
+                import re
+                # Regex para pegar o que vem depois de "significa" (ignorando case e dois pontos)
                 match = re.search(r"significa[:\s]*(.*)", full_text, re.IGNORECASE | re.DOTALL)
+                
                 if match:
                     etimo_text = match.group(1).strip()
                 else:
-                     # Split simples como fallback do regex
-                     etimo_text = full_text.split("significa", 1)[-1].strip()
-                
+                    # Fallback split simples
+                    parts = full_text.lower().split("significa")
+                    if len(parts) > 1:
+                        # Recupera o texto original usando o tamanho da parte anterior
+                        start_index = len(parts[0]) + len("significa")
+                        etimo_text = full_text[start_index:].lstrip(": ").strip()
+                    else:
+                        etimo_text = full_text
+
                 # Limpeza final de pontuação inicial residual
                 etimo_text = etimo_text.lstrip(":.- ").strip()
                 if etimo_text:
@@ -159,7 +140,7 @@ class WikiAvesWorker(QThread):
                     
                 print(f"[WIKIAVES] Sucesso! Texto extraído: {etimo_text[:50]}...")
             else:
-                print("[ERRO WIKIAVES] Parágrafo de etimologia não encontrado na página.")
+                print("[ERRO WIKIAVES] Frase 'Seu nome científico significa' não encontrada na página.")
 
             if etimo_text and len(etimo_text) > 10:
                 self.etymology_found.emit(etimo_text)
