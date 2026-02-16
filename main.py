@@ -163,8 +163,31 @@ def detectar_tema_e_icone():
         
     return nome_arquivo
 
+def garantir_dependencias():
+    """Verifica e instala dependências críticas automaticamente (v0.10.9)."""
+    libs = {
+        'bs4': 'beautifulsoup4',
+        'PIL': 'Pillow',
+        'requests': 'requests',
+        'google.genai': 'google-genai',
+        'lxml': 'lxml'
+    }
+    
+    for import_name, package_name in libs.items():
+        try:
+            __import__(import_name)
+        except ImportError:
+            print(f"[AUTO-REPARO] Instalando biblioteca ausente: {package_name}")
+            try:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
+            except Exception as e:
+                print(f"[ERRO CRÍTICO] Falha ao instalar {package_name}: {e}")
+
 if __name__ == "__main__":
-    # 0. Init Logger
+    # 0. Self-Healing (v0.10.9)
+    garantir_dependencias()
+
+    # 1. Init Logger
     logger = setup_logger()
 
     app = QApplication(sys.argv)

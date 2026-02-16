@@ -125,6 +125,7 @@ class JanelaPrincipal(QMainWindow):
         print(f"[DEBUG] Iniciando busca de Etimologia para: {nome_cientifico}")
         self.worker_wiki = WikiAvesWorker(nome_cientifico)
         self.worker_wiki.etymology_found.connect(self._ao_encontrar_etimologia)
+        self.worker_wiki.error_occurred.connect(self._ao_erro_wikiaves)
         self.worker_wiki.start()
 
     def _ao_encontrar_imagem_referencia(self, path, creditos):
@@ -138,6 +139,10 @@ class JanelaPrincipal(QMainWindow):
         if texto:
             self.lbl_etimologia_texto.setText(texto)
             self.frame_etimologia.setVisible(True)
+
+    def _ao_erro_wikiaves(self, erro_msg):
+        self.lbl_etimologia_texto.setText(erro_msg)
+        self.frame_etimologia.setVisible(True)
 
     def _configurar_ui(self):
         widget_central = QWidget()

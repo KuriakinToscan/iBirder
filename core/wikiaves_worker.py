@@ -8,6 +8,7 @@ import re
 
 class WikiAvesWorker(QThread):
     etymology_found = Signal(str)
+    error_occurred = Signal(str)
     
     def __init__(self, species_name):
         super().__init__()
@@ -98,3 +99,4 @@ class WikiAvesWorker(QThread):
             import traceback
             error_msg = f"Falha fatal no worker: {str(e)}\n{traceback.format_exc()}"
             print(f"[ERRO WIKIAVES] {error_msg}")
+            self.error_occurred.emit("Informações de etimologia temporariamente indisponíveis (WikiAves offline).")
