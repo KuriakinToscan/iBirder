@@ -135,10 +135,36 @@ class JanelaPrincipal(QMainWindow):
             self.area_referencia.setText("")
             self.lbl_referencia_creditos.setText(creditos)
 
-    def _ao_encontrar_etimologia(self, texto):
-        if texto:
-            self.lbl_etimologia_texto.setText(texto)
-            self.frame_etimologia.setVisible(True)
+    def _ao_encontrar_etimologia(self, dados_ou_texto):
+        # Suporte legado e novo (dict)
+        if isinstance(dados_ou_texto, dict):
+            dados = dados_ou_texto
+            etimologia = dados.get("etimologia")
+            familia = dados.get("familia")
+            ordem = dados.get("ordem")
+            nome_ingles = dados.get("nome_ingles")
+            
+            texto_final = ""
+            
+            if etimologia:
+                texto_final += f"{etimologia}\n\n"
+            
+            infos_extras = []
+            if nome_ingles:
+                infos_extras.append(f"<b>Inglês:</b> {nome_ingles}")
+            if ordem and familia:
+                infos_extras.append(f"<b>Taxonomia:</b> {ordem} > {familia}")
+                
+            if infos_extras:
+                texto_final += "<br>".join(infos_extras)
+
+            self.lbl_etimologia_texto.setText(texto_final.strip())
+            
+        else:
+            # Legado (str)
+            self.lbl_etimologia_texto.setText(dados_ou_texto)
+            
+        self.frame_etimologia.setVisible(True)
 
     def _ao_erro_wikiaves(self, erro_msg):
         self.lbl_etimologia_texto.setText(erro_msg)
