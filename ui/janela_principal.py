@@ -17,6 +17,7 @@ from core.config import carregar_config
 from ui.janela_config import JanelaConfig
 from ui.janela_manual import JanelaManual
 from ui.dialogo_aviso import DialogoAviso
+from ui.worker_referencia import ReferenceImageWorker
 import keyring
 
 class AreaDrop(QLabel):
@@ -81,6 +82,27 @@ class JanelaPrincipal(QMainWindow):
         else:
             base_path = Path(__file__).parent.parent / 'assets'
         return str(base_path / nome_arquivo)
+
+    def _iniciar_busca_imagem(self, nome_cientifico):
+        # Reset visual
+        self.area_referencia.setText("Buscando ref...")
+        self.area_referencia.setPixmap(QPixmap())
+        
+        # Para worker anterior se existir
+        if getattr(self, "worker_referencia", None) and self.worker_referencia.isRunning():
+            self.worker_referencia.terminate()
+            self.worker_referencia.wait()
+            
+        self.worker_referencia = ReferenceImageWorker(nome_cientifico)
+        self.worker_referencia.image_found.connect(self._ao_encontrar_imagem_referencia)
+        self.worker_referencia.search_failed.connect(lambda: self.area_referencia.setText("Sem referência"))
+        self.worker_referencia.start()
+
+    def _ao_encontrar_imagem_referencia(self, path):
+        pixmap = QPixmap(path)
+        if not pixmap.isNull():
+            self.area_referencia.setPixmap(pixmap.scaled(self.area_referencia.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            self.area_referencia.setText("")
 
     def _configurar_ui(self):
         widget_central = QWidget()
@@ -360,6 +382,11 @@ class JanelaPrincipal(QMainWindow):
                 self.lbl_confianca.setText(f"Confiança IA: {conf:.1%}" if isinstance(conf, float) else str(conf))
                 self.status_bar.showMessage("Identificado.")
                 
+                # v0.8.3: Busca Imagem de Referência
+                nome_cientifico = resultado.get("nome_cientifico", "")
+                if nome_cientifico and "?" not in nome_cientifico:
+                     self._iniciar_busca_imagem(nome_cientifico)
+                
         except ChaveApiFaltandoErro:
              DialogoAviso("Falta Chave", "Configure a chave de API no menu.", self).exec()
         except Exception as e:
@@ -370,6 +397,8 @@ class JanelaPrincipal(QMainWindow):
     def _resetar_interface(self):
         self.caminho_imagem_atual = None
         self.ultimo_caminho_processado = None
+        self.area_referencia.setText("Referência")
+        self.area_referencia.setPixmap(QPixmap())
         self.area_drop.setPixmap(QPixmap())
         self.area_drop.setText("Arraste e solte uma foto aqui\n\nou clique para selecionar")
         self.input_nome_cientifico.clear()
@@ -396,6 +425,9 @@ class JanelaPrincipal(QMainWindow):
                 self.lbl_nome_comum.setText(resultado.get("nome_comum", "-"))
                 self.lbl_descricao.setText(resultado.get("descricao", "-"))
                 self.lbl_confianca.setText("Busca Manual (Nuvem)")
+                
+                # v0.8.3: Busca Imagem de Referência
+                self._iniciar_busca_imagem(resultado.get("nome_cientifico", ""))
         except Exception as e:
             DialogoAviso("Erro", str(e), self).exec()
         finally:
