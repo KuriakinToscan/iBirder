@@ -33,16 +33,21 @@ class WikiAvesWorker(QThread):
             
             # 2. Estratégia de Acesso Direto (Prioridade)
             # URL: https://www.wikiaves.com.br/wiki/genero_especie
+            print("[TRACE 1] Iniciando montagem da URL de busca...")
             nome_direto = self.species_name.replace("+", "_").replace(" ", "_").lower()
             url_direta = f"https://www.wikiaves.com.br/wiki/{nome_direto}"
             
             print(f"[WIKIAVES] Tentando acesso direto via Chrome emulação: {url_direta}")
+            print(f"[TRACE 2] Executando requests.get na URL: {url_direta}...")
             
             resp_wa = requests.get(url_direta, headers=headers, timeout=10)
+            print(f"[TRACE 3] Resposta recebida. Status Code: {resp_wa.status_code}")
+            
             soup_wa = None
             
             if resp_wa.status_code == 200:
                 print("[WIKIAVES] Acesso direto com sucesso (200 OK).")
+                print("[TRACE 4] Iniciando BeautifulSoup no conteúdo HTML...")
                 soup_wa = BeautifulSoup(resp_wa.text, 'html.parser')
             else:
                 print(f"[WIKIAVES] Acesso direto falhou ({resp_wa.status_code}). Tentando busca fallback...")
@@ -52,6 +57,7 @@ class WikiAvesWorker(QThread):
                 query = f'inurl:wikiaves.com.br "{self.raw_name}"'
                 search_url = f"https://html.duckduckgo.com/html/?q={query}"
                 try:
+                    print(f"[TRACE 2-Fallback] Executando busca DuckDuckGo: {search_url}")
                     resp = requests.get(search_url, headers=headers, timeout=10)
                     
                     if resp.status_code == 200:
@@ -65,8 +71,10 @@ class WikiAvesWorker(QThread):
                         
                         if wa_link:
                             print(f"[WIKIAVES] Link encontrado via busca: {wa_link}")
+                            print(f"[TRACE 2-Fallback] Acessando link encontrado...")
                             resp_wa = requests.get(wa_link, headers=headers, timeout=10)
                             if resp_wa.status_code == 200:
+                                print(f"[TRACE 4-Fallback] Iniciando BeautifulSoup...")
                                 soup_wa = BeautifulSoup(resp_wa.text, 'html.parser')
                 except Exception as e_search:
                      print(f"[WIKIAVES] Erro na busca DuckDuckGo: {e_search}")
@@ -77,6 +85,7 @@ class WikiAvesWorker(QThread):
 
             # 3. Extração da Etimologia (Refinada v0.10.11: CSS Selectors)
             print("[WIKIAVES] Analisando estrutura div.level2...")
+            print("[TRACE 5] Buscando div.level2...")
             etimo_text = ""
             
             # Tenta encontrar o container específico sugerido (div.level2 > p)
@@ -84,27 +93,32 @@ class WikiAvesWorker(QThread):
             
             # Fallback para mks_text se level2 não existir
             if not div_content:
+                 print("[TRACE 5] div.level2 não encontrada. Tentando div.mks_text...")
                  div_content = soup_wa.find("div", class_="mks_text")
 
             extracted = False
             full_text = ""
             
             if div_content:
+                print("[TRACE 6] Div encontrada. Buscando parágrafo de etimologia...")
                 # Procura parágrafo com o trigger dentro do container
-                 for p in div_content.find_all("p"):
+                for p in div_content.find_all("p"):
                     text_p = p.get_text(" ", strip=True)
                     if "nome científico significa" in text_p or "nome cientifica significa" in text_p:
                         # Achou parágrafo alvo
                         full_text = text_p
                         extracted = True
+                        print("[TRACE 7] Parágrafo localizado. Extraindo texto...")
                         break
             
             if not extracted:
+                 print("[TRACE 6] Parágrafo não encontrado no container. Tentando busca global...")
                  # Fallback Global: Busca no soup inteiro se containers falharem
                  target = soup_wa.find(string=re.compile("Seu nome cientifica significa|Seu nome científico significa", re.IGNORECASE))
                  if target:
                       full_text = target.parent.get_text(" ", strip=True)
                       extracted = True
+                      print("[TRACE 7] Texto localizado via busca global.")
 
             if extracted:
                 # Lógica de limpeza unificada
@@ -131,5 +145,5 @@ class WikiAvesWorker(QThread):
         except Exception as e:
             import traceback
             error_msg = f"Falha fatal no worker: {str(e)}\n{traceback.format_exc()}"
-            print(f"[ERRO WIKIAVES] {error_msg}")
+            print(f"[ERRO FATAL WIKIAVES] {error_msg}")
             self.error_occurred.emit("Informações de etimologia temporariamente indisponíveis (WikiAves offline).")
