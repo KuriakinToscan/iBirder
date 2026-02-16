@@ -89,15 +89,20 @@ class JanelaPrincipal(QMainWindow):
         self.area_referencia.setPixmap(QPixmap())
         self.lbl_referencia_creditos.setText("")
         
-        # Para worker anterior se existir
-        if getattr(self, "worker_referencia", None) and self.worker_referencia.isRunning():
-            self.worker_referencia.terminate()
-            self.worker_referencia.wait()
+        # Para worker anterior se existir (v0.9.1: Correção de Crash)
+        if getattr(self, "worker_referencia", None) is not None:
+            try:
+                if self.worker_referencia.isRunning():
+                    self.worker_referencia.quit()
+                    self.worker_referencia.wait()
+                self.worker_referencia.deleteLater()
+            except RuntimeError:
+                pass 
             
         self.worker_referencia = ReferenceImageWorker(nome_cientifico)
         self.worker_referencia.image_found.connect(self._ao_encontrar_imagem_referencia)
         self.worker_referencia.search_failed.connect(lambda: self.area_referencia.setText("Sem referência"))
-        self.worker_referencia.finished.connect(self.worker_referencia.deleteLater)
+        # self.worker_referencia.finished.connect(self.worker_referencia.deleteLater) # REMOVIDO: Evita dangling pointer
         self.worker_referencia.start()
 
     def _ao_encontrar_imagem_referencia(self, path, creditos):
