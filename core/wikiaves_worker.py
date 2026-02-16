@@ -18,79 +18,89 @@ class WikiAvesWorker(QThread):
     def run(self):
         print(f"[WIKIAVES] Worker iniciado para: {self.species_name}")
         if not BeautifulSoup:
-            print("[ERRO WIKIAVES] BeautifulSoup não importado/instalado.")
+            msg = "Biblioteca BeautifulSoup não instalada."
+            print(f"[ERRO WIKIAVES] {msg}")
+            self.error_occurred.emit("Erro interno: dependência ausente (bs4).")
             return
 
         try:
-            # 1. Configuração
+            # 1. Configuração (Emulação Chrome 120)
             headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+                "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7"
             }
             
-            # 2. Busca no DuckDuckGo HTML
-            # site:wikiaves.com.br "Nome Cientifico"
-            query = f'site:wikiaves.com.br "{self.raw_name}"'
-            search_url = f"https://html.duckduckgo.com/html/?q={query}"
+            # 2. Estratégia de Acesso Direto (Prioridade)
+            # URL: https://www.wikiaves.com.br/wiki/genero_especie
+            nome_direto = self.species_name.replace("+", "_").replace(" ", "_").lower()
+            url_direta = f"https://www.wikiaves.com.br/wiki/{nome_direto}"
             
-            resp = requests.get(search_url, headers=headers, timeout=10)
-            if resp.status_code != 200:
-                return
-
-            soup = BeautifulSoup(resp.text, 'html.parser')
+            print(f"[WIKIAVES] Tentando acesso direto via Chrome emulação: {url_direta}")
             
-            # 3. Encontrar Link do WikiAves
-            wa_link = None
-            for a in soup.find_all('a', href=True):
-                href = a['href']
-                if "wikiaves.com.br/" in href and "search" not in href:
-                    # DuckDuckGo as vezes coloca o link dentro de um redirect
-                    if "uddg=" in href:
-                        # Tentar extrair do parametro ou apenas pegar o href
-                        # Geralmente o href direto funciona no html.duckduckgo
-                        pass
+            resp_wa = requests.get(url_direta, headers=headers, timeout=10)
+            soup_wa = None
+            
+            if resp_wa.status_code == 200:
+                print("[WIKIAVES] Acesso direto com sucesso (200 OK).")
+                soup_wa = BeautifulSoup(resp_wa.text, 'html.parser')
+            else:
+                print(f"[WIKIAVES] Acesso direto falhou ({resp_wa.status_code}). Tentando busca fallback...")
+                
+                # --- Fallback: Busca via DuckDuckGo (Código Antigo) ---
+                query = f'site:wikiaves.com.br "{self.raw_name}"'
+                search_url = f"https://html.duckduckgo.com/html/?q={query}"
+                try:
+                    resp = requests.get(search_url, headers=headers, timeout=10)
                     
-                    wa_link = href
-                    break
-            
-            if not wa_link:
+                    if resp.status_code == 200:
+                        soup = BeautifulSoup(resp.text, 'html.parser')
+                        wa_link = None
+                        for a in soup.find_all('a', href=True):
+                            href = a['href']
+                            if "wikiaves.com.br/" in href and "search" not in href and "uddg=" not in href:
+                                wa_link = href
+                                break
+                        
+                        if wa_link:
+                            print(f"[WIKIAVES] Link encontrado via busca: {wa_link}")
+                            resp_wa = requests.get(wa_link, headers=headers, timeout=10)
+                            if resp_wa.status_code == 200:
+                                soup_wa = BeautifulSoup(resp_wa.text, 'html.parser')
+                except Exception as e_search:
+                     print(f"[WIKIAVES] Erro na busca DuckDuckGo: {e_search}")
+
+            if not soup_wa:
+                print("[ERRO WIKIAVES] Não foi possível acessar a página da espécie.")
                 return
 
-            # 4. Acessar WikiAves
-            resp_wa = requests.get(wa_link, headers=headers, timeout=10)
-            if resp_wa.status_code != 200:
-                return
-            
-            soup_wa = BeautifulSoup(resp_wa.text, 'html.parser')
-            
-            # 5. Extração da Etimologia
-            # Procurar texto "Seu nome científico significa"
-            # O texto costuma estar em um span ou p. Vamos buscar pelo string.
+            # 3. Extração da Etimologia (Refinada v0.10.10)
+            etimo_text = ""
+            # Procura pelo texto trigger
             target = soup_wa.find(string=re.compile("Seu nome cientifica significa|Seu nome científico significa", re.IGNORECASE))
             
-            etimo_text = ""
-            
             if target:
-                # O texto alvo é geralmente "Seu nome científico significa:"
-                # O conteudo real vem depois ou está no parent.
+                print("[WIKIAVES] Texto de etimologia encontrado. Extraindo...")
+                # O target é o texto. O pai deve ser o elemento (p, span, b, etc).
                 parent = target.parent
-                # Pegar o texto completo do parágrafo/container
-                full_text = parent.get_text(" ", strip=True)
+                # Pegamos o texto completo desse contexto
+                full_text = parent.get_text(" ", strip=True) 
                 
-                # Limpeza: Remover a frase gatilho e tudo antes dela
-                # Ex: "Etimologia: Seu nome científico significa..." -> "do latim..."
-                split_token = "significa"
-                if split_token in full_text:
-                     parts = full_text.split(split_token, 1)
-                     if len(parts) > 1:
-                         etimo_text = parts[1]
+                # Regex para pegar o que vem depois de "significa"
+                match = re.search(r"significa[:\s]*(.*)", full_text, re.IGNORECASE | re.DOTALL)
+                if match:
+                    etimo_text = match.group(1).strip()
                 else:
                     etimo_text = full_text
-                    
-                # Limpeza final de pontuação inicial
-                etimo_text = etimo_text.lstrip(":").strip()
-                # Capitalizar primeira letra
+                
+                # Limpeza de pontuação inicial residual
+                etimo_text = etimo_text.lstrip(":.- ").strip()
                 if etimo_text:
                     etimo_text = etimo_text[0].upper() + etimo_text[1:]
+                    
+                print(f"[WIKIAVES] Sucesso! Texto extraído: {etimo_text[:50]}...")
+            else:
+                print("[ERRO WIKIAVES] Parágrafo de etimologia não encontrado na página.")
 
             if etimo_text and len(etimo_text) > 10:
                 self.etymology_found.emit(etimo_text)
