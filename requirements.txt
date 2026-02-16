@@ -2,3 +2,4 @@ Pillow
 requests
 google-genai
 keyring
+beautifulsoup4

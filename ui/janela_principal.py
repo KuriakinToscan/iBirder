@@ -18,6 +18,7 @@ from ui.janela_config import JanelaConfig
 from ui.janela_manual import JanelaManual
 from ui.dialogo_aviso import DialogoAviso
 from ui.worker_referencia import ReferenceImageWorker
+from core.wikiaves_worker import WikiAvesWorker
 import keyring
 import logging
 from core.logger import save_crash_log
@@ -91,6 +92,9 @@ class JanelaPrincipal(QMainWindow):
         self.area_referencia.setPixmap(QPixmap())
         self.lbl_referencia_creditos.setText("")
         
+        self.lbl_referencia_creditos.setText("")
+        self.frame_etimologia.setVisible(False) # Reset etimologia
+
         # Para worker anterior se existir (v0.9.1: Correção de Crash)
         if getattr(self, "worker_referencia", None) is not None:
             try:
@@ -100,6 +104,19 @@ class JanelaPrincipal(QMainWindow):
                 self.worker_referencia.deleteLater()
             except RuntimeError:
                 pass 
+        
+        # v0.10.0: Worker WikiAves (Etimologia)
+        if getattr(self, "worker_wiki", None) is not None:
+             try:
+                 if self.worker_wiki.isRunning():
+                     self.worker_wiki.quit()
+                     self.worker_wiki.wait()
+                 self.worker_wiki.deleteLater()
+             except: pass
+
+        self.worker_wiki = WikiAvesWorker(nome_cientifico)
+        self.worker_wiki.etymology_found.connect(self._ao_encontrar_etimologia)
+        self.worker_wiki.start()
             
         self.worker_referencia = ReferenceImageWorker(nome_cientifico)
         self.worker_referencia.image_found.connect(self._ao_encontrar_imagem_referencia)
@@ -113,6 +130,11 @@ class JanelaPrincipal(QMainWindow):
             self.area_referencia.setPixmap(pixmap.scaled(self.area_referencia.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
             self.area_referencia.setText("")
             self.lbl_referencia_creditos.setText(creditos)
+
+    def _ao_encontrar_etimologia(self, texto):
+        if texto:
+            self.lbl_conteudo_etimo.setText(texto)
+            self.frame_etimologia.setVisible(True)
 
     def _configurar_ui(self):
         widget_central = QWidget()
@@ -429,6 +451,7 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_nome_comum.setText("-")
         self.lbl_descricao.setText("-")
         self.lbl_confianca.setText("-")
+        self.frame_etimologia.setVisible(False) # Reset etimologia
         self.status_bar.showMessage("Pronto (Online)")
 
     def _buscar_especie_manual(self):
