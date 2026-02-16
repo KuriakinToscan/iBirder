@@ -7,6 +7,7 @@ from pathlib import Path
 from PIL import Image # Pillow para abrir imagem se necessário
 from .interfaces import IdentificadorAve
 from .erros import ChaveApiFaltandoErro
+from .utils import otimizar_imagem
 
 class IdentificadorNuvem(IdentificadorAve):
     def __init__(self):
@@ -73,7 +74,14 @@ class IdentificadorNuvem(IdentificadorAve):
         if not imagem_path.exists():
             raise FileNotFoundError(f"Imagem não encontrada: {caminho_imagem}")
 
-        img = Image.open(caminho_imagem)
+        # v0.8.2: Otimização de Imagem (Resize/Compress) para economizar cota (Tier 1)
+        temp_path = Path(__file__).parent.parent / "temp" / "temp_upload.jpg"
+        
+        # Tenta otimizar, se falhar usa a original
+        if otimizar_imagem(caminho_imagem, str(temp_path)):
+             img = Image.open(temp_path)
+        else:
+             img = Image.open(caminho_imagem)
 
         prompt = """
         Atue como um ornitólogo sênior. Analise a imagem fornecida. Identifique a espécie com precisão taxonômica.

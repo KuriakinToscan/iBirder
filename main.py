@@ -3,6 +3,8 @@ import ctypes
 import platform
 import os
 import subprocess
+import shutil
+import atexit
 from pathlib import Path
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon
@@ -27,6 +29,15 @@ if platform.system() == "Windows":
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     except Exception:
         pass 
+
+def limpar_temp():
+    """Remove a pasta temporária e seu conteúdo ao fechar."""
+    temp_dir = Path(__file__).parent.absolute() / "temp"
+    if temp_dir.exists():
+        try:
+            shutil.rmtree(temp_dir)
+        except Exception as e:
+            print(f"Erro ao limpar temp: {e}") 
 
 def verificar_ambiente_virtual():
     """Verifica se a pasta .venv existe no diretório do projeto."""
@@ -152,6 +163,11 @@ if __name__ == "__main__":
     
     # 1. Verificação de Ambiente (.venv)
     verificar_ambiente_virtual()
+    
+    # v0.8.2: Gestão de Pasta Temporária
+    temp_dir = Path(__file__).parent.absolute() / "temp"
+    temp_dir.mkdir(exist_ok=True)
+    atexit.register(limpar_temp)
     
     # 2. Configurações Iniciais (Modo Online Fixo)
     config = carregar_config()
