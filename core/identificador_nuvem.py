@@ -117,8 +117,8 @@ class IdentificadorNuvem(IdentificadorAve):
             msg_erro = str(e)
             if "429" in msg_erro or "503" in msg_erro:
                 return {
-                    "erro": "Conexão Instável (Servidor Ocupado)",
-                    "detalhes": "O servidor de IA está com alta demanda. Aguarde alguns instantes e tente novamente. (Erro 429/503)"
+                    "erro": "Servidor Ocupado (Cota Excedida)",
+                    "detalhes": "Aguardando liberação do servidor... Tente novamente em alguns segundos."
                 }
             
             return {

@@ -169,16 +169,8 @@ if __name__ == "__main__":
         if not wizard.exec():
             pass
     else:
-        # v0.7.3: Teste de Conexão no Startup
-        print("[INIT] Testando conexão com Gemini...")
-        try:
-            from core.identificador_nuvem import IdentificadorNuvem
-            if IdentificadorNuvem().testar_conexao():
-                print("[INIT] Conexão com IA: OK")
-            else:
-                print("[AVISO] Conexão instável ou chave inválida.")
-        except Exception as e:
-            print(f"[ERRO] Falha no teste de conexão: {e}")
+        # v0.7.9: Teste de conexão removido para preservar cota (Tier 1)
+        pass
 
     # 4. Trigger do Atalho
     verificar_e_criar_atalho()

@@ -306,6 +306,12 @@ class JanelaPrincipal(QMainWindow):
     def _identificar_ave(self):
         if not self.caminho_imagem_atual:
             return
+
+        # v0.7.9: Evita chamadas redundantes para preservar cota
+        if getattr(self, "ultimo_caminho_processado", None) == self.caminho_imagem_atual:
+            return
+
+        self.ultimo_caminho_processado = self.caminho_imagem_atual
             
         self.lbl_nome_comum.setText("...")
         self.lbl_descricao.setText("-")
@@ -336,6 +342,7 @@ class JanelaPrincipal(QMainWindow):
 
     def _resetar_interface(self):
         self.caminho_imagem_atual = None
+        self.ultimo_caminho_processado = None
         self.area_drop.setPixmap(QPixmap())
         self.area_drop.setText("Arraste e solte uma foto aqui\n\nou clique para selecionar")
         self.input_nome_cientifico.clear()
