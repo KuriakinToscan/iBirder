@@ -87,6 +87,7 @@ class JanelaPrincipal(QMainWindow):
         # Reset visual
         self.area_referencia.setText("Buscando ref...")
         self.area_referencia.setPixmap(QPixmap())
+        self.lbl_referencia_creditos.setText("")
         
         # Para worker anterior se existir
         if getattr(self, "worker_referencia", None) and self.worker_referencia.isRunning():
@@ -99,11 +100,12 @@ class JanelaPrincipal(QMainWindow):
         self.worker_referencia.finished.connect(self.worker_referencia.deleteLater)
         self.worker_referencia.start()
 
-    def _ao_encontrar_imagem_referencia(self, path):
+    def _ao_encontrar_imagem_referencia(self, path, creditos):
         pixmap = QPixmap(path)
         if not pixmap.isNull():
             self.area_referencia.setPixmap(pixmap.scaled(self.area_referencia.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
             self.area_referencia.setText("")
+            self.lbl_referencia_creditos.setText(creditos)
 
     def _configurar_ui(self):
         widget_central = QWidget()
@@ -138,8 +140,19 @@ class JanelaPrincipal(QMainWindow):
         self.area_drop = AreaDrop(self._carregar_imagem)
         layout_imagens.addWidget(self.area_drop, stretch=1)
         
+        # Wrapper vertical para imagem de referência + créditos (v0.8.7)
+        layout_ref_wrapper = QVBoxLayout()
+        layout_ref_wrapper.setSpacing(5)
+        
         self.area_referencia = AreaReferencia()
-        layout_imagens.addWidget(self.area_referencia, stretch=1)
+        layout_ref_wrapper.addWidget(self.area_referencia)
+        
+        self.lbl_referencia_creditos = QLabel("")
+        self.lbl_referencia_creditos.setAlignment(Qt.AlignRight)
+        self.lbl_referencia_creditos.setStyleSheet("color: #6B7280; font-size: 10px;")
+        layout_ref_wrapper.addWidget(self.lbl_referencia_creditos)
+        
+        layout_imagens.addLayout(layout_ref_wrapper, stretch=1)
         
         layout_esquerda.addLayout(layout_imagens)
         
