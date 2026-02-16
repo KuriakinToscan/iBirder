@@ -31,7 +31,7 @@ class ReferenceImageWorker(QThread):
             search_query = f"site:ebird.org/species {self.species_name} photo"
             search_url = f"https://html.duckduckgo.com/html/?q={search_query}"
             
-            # print(f"[WORKER] Buscando: {search_url}")
+            print(f"[REF] Buscando espécie: {self.species_name}")
             resp = requests.get(search_url, headers=headers, timeout=10)
             resp.raise_for_status()
             
@@ -50,31 +50,39 @@ class ReferenceImageWorker(QThread):
                 self.search_failed.emit()
                 return
 
-            # print(f"[WORKER] Página da espécie: {species_url}")
+            print(f"[REF] URL encontrada: {species_url}")
             
             # 2. Acessar página da espécie
             resp_spec = requests.get(species_url, headers=headers, timeout=10)
+            print(f"[REF] Status Code da página: {resp_spec.status_code}")
             soup_spec = BeautifulSoup(resp_spec.text, 'html.parser')
             
             # 3. Encontrar imagem
-            # Target: <div class="AspectRatioContent Species-media-button"> <img src="...">
             img_url = None
-            div = soup_spec.find("div", class_="AspectRatioContent") # Tenta classe parcial se composta falhar
-            if not div:
-                 div = soup_spec.find("div", class_="Species-media-button")
             
-            if div:
-                img_tag = div.find("img")
-                if img_tag:
-                    img_url = img_tag.get("src")
-                    # Tenta pegar versão maior do srcset se disponivel
-                    if img_tag.get("srcset"):
-                        # Pega a ultima (maior)
-                        parts = img_tag.get("srcset").split(",")
-                        if parts:
-                            last_part = parts[-1].strip().split(" ")[0]
-                            if last_part.startswith("http"):
-                                img_url = last_part
+            # Tentativa 1: Meta Tag (Mais confiável)
+            meta_og = soup_spec.find("meta", property="og:image")
+            if meta_og:
+                img_url = meta_og.get("content")
+            
+            # Tentativa 2: Seletores CSS Específicos (Backup)
+            if not img_url:
+                div = soup_spec.find("div", class_="AspectRatioContent") 
+                if not div:
+                     div = soup_spec.find("div", class_="Species-media-button")
+                
+                if div:
+                    img_tag = div.find("img")
+                    if img_tag:
+                        img_url = img_tag.get("src")
+                        if img_tag.get("srcset"):
+                            parts = img_tag.get("srcset").split(",")
+                            if parts:
+                                last_part = parts[-1].strip().split(" ")[0]
+                                if last_part.startswith("http"):
+                                    img_url = last_part
+            
+            print(f"[REF] Imagem encontrada? {bool(img_url)}")
 
             if not img_url:
                 # print("[WORKER] Imagem não encontrada na página.")
@@ -95,5 +103,5 @@ class ReferenceImageWorker(QThread):
             self.image_found.emit(str(save_path))
 
         except Exception as e:
-            # print(f"[WORKER] Erro silencioso: {e}")
+            print(f"[ERRO REF] Falha na busca: {e}")
             self.search_failed.emit()
