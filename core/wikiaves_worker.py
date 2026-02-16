@@ -34,18 +34,25 @@ class WikiAvesWorker(QThread):
             return
 
         try:
-            # 1. Configuração de Headers (Simulando Navegador Real)
+            # 1. Configuração de Sessão e Headers (Baseado no Relatório Técnico)
+            session = requests.Session()
+            
+            # Headers completos para mimetizar um navegador real (Chrome)
             headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-                "Referer": "https://www.wikiaves.com.br/"
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+                'Connection': 'keep-alive',
+                'Referer': 'https://www.wikiaves.com.br/'
             }
+            session.headers.update(headers)
             
             # 2. Estratégia de Conexão (v0.15.2: Fix URL & API Fallback)
-            # URL de busca correta: index.php (pesquisa.php deprecated -> 404)
-            search_url = f"https://www.wikiaves.com.br/index.php?s={quote(self.species_name)}&t=s"
-            print(f"[TRACE 1] Iniciando busca via: {search_url}")
+            # URL de busca correta: index.php?t=s&s={termo} (Seguindo o relatório)
+            search_url = f"https://www.wikiaves.com.br/index.php?t=s&s={quote(self.species_name)}"
+            print(f"[TRACE 1] Iniciando busca via Session: {search_url}")
             
-            resp = requests.get(search_url, headers=headers, timeout=15)
+            resp = session.get(search_url, timeout=15)
             
             final_url = None
             soup_wa = None
@@ -56,19 +63,16 @@ class WikiAvesWorker(QThread):
                  soup_wa = BeautifulSoup(resp.text, 'html.parser')
                  print(f"[TRACE 2] Redirecionamento automático detectado: {final_url}")
             
-            # Caso B: API Fallback (v0.15.2 "Pulo do Gato")
-            # Se não redirecionou, tentamos a API de Typeahead usada no site
+            # Caso B: API Fallback ("Pulo do Gato")
             else:
                  print(f"[TRACE 2] Redirect falhou (URL: {resp.url}). Tentando API getBusca...")
                  api_url = f"https://www.wikiaves.com.br/getBusca.php?tm=s&t=s&term={quote(self.species_name)}"
                  try:
-                     r_api = requests.get(api_url, headers=headers, timeout=10)
-                     # A API retorna JSON: [{"id":"...", "value":"...", "label":"...", "link":"wiki/..."}]
-                     # Verificação básica de JSON
+                     r_api = session.get(api_url, timeout=10)
                      if r_api.status_code == 200 and r_api.text.strip().startswith("["):
                          data = r_api.json()
                          if data and isinstance(data, list) and len(data) > 0:
-                             item = data[0] # Pega o primeiro resultado (mais relevante)
+                             item = data[0]
                              if "link" in item:
                                  link = item["link"]
                                  if not link.startswith("http"):
@@ -77,15 +81,15 @@ class WikiAvesWorker(QThread):
                                  print(f"[TRACE 3] Link encontrado via API: {link}")
                                  final_url = link
                                  
-                                 time.sleep(1)
-                                 r_page = requests.get(final_url, headers=headers, timeout=10)
+                                 time.sleep(1.5) # Delay ético (Relatório sugere ~1.5s)
+                                 r_page = session.get(final_url, timeout=10)
                                  if r_page.status_code == 200:
                                      soup_wa = BeautifulSoup(r_page.text, 'html.parser')
                  except Exception as e:
                      print(f"[DEBUG] Erro na API getBusca: {e}")
 
             if not soup_wa:
-                print(f"[ERRO WIKIAVES] Espécie não encontrada: {self.species_name}")
+                # Debug Dump
                 
                 # Debug Dump (v0.15.2)
                 try:
