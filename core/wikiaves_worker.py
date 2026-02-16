@@ -37,66 +37,71 @@ class WikiAvesWorker(QThread):
             # 1. Configuração de Headers (Simulando Navegador Real)
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-                "Referer": "https://www.google.com/"
+                "Referer": "https://www.wikiaves.com.br/"
             }
             
-            # 2. Estratégia de Conexão (Híbrida)
+            # 2. Estratégia de Conexão (v0.15.2: Fix URL & API Fallback)
+            # URL de busca correta: index.php (pesquisa.php deprecated -> 404)
+            search_url = f"https://www.wikiaves.com.br/index.php?s={quote(self.species_name)}&t=s"
+            print(f"[TRACE 1] Iniciando busca via: {search_url}")
             
-            # Passo A: Acesso Direto (Fast Path)
-            slug = self.species_name.lower().replace(" ", "_").strip()
-            url_direta = f"https://www.wikiaves.com.br/wiki/{slug}"
-            
-            print(f"[TRACE 1] Tentando acesso direto: {url_direta}")
-            # Requests segue redirects por padrão
-            resp = requests.get(url_direta, headers=headers, timeout=10)
+            resp = requests.get(search_url, headers=headers, timeout=15)
             
             final_url = None
             soup_wa = None
             
-            # Verifica se caiu na página certa (wiki) e não é 404 customizado ('Página não encontrada')
-            if resp.status_code == 200 and "/wiki/" in resp.url and "Página não encontrada" not in resp.text:
-                 print(f"[TRACE 2] Acesso direto funcionou: {resp.url}")
+            # Caso A: Redirect automático para /wiki/ (Sucesso)
+            if "/wiki/" in resp.url and resp.status_code == 200:
                  final_url = resp.url
                  soup_wa = BeautifulSoup(resp.text, 'html.parser')
-            else:
-                 print(f"[TRACE 2] Acesso direto incerto ({resp.status_code}). Tentando busca...")
-                 
-                 # Passo B: Busca (Fallback)
-                 search_url = f"https://www.wikiaves.com.br/pesquisa.php?t=s&s={quote(self.species_name)}"
-                 print(f"[TRACE 3] Buscando: {search_url}")
-                 
-                 resp_search = requests.get(search_url, headers=headers, timeout=15)
-                 
-                 # Caso 1: Redirecionamento automático para wiki
-                 if "/wiki/" in resp_search.url:
-                     final_url = resp_search.url
-                     soup_wa = BeautifulSoup(resp_search.text, 'html.parser')
-                     print(f"[TRACE 4] Busca redirecionou para: {final_url}")
-                     
-                 # Caso 2: Lista de resultados
-                 elif resp_search.status_code == 200:
-                     soup_search = BeautifulSoup(resp_search.text, 'html.parser')
-                     # Tenta achar link de wiki nos resultados
-                     for a in soup_search.find_all('a', href=True):
-                         if "/wiki/" in a['href']:
-                             link = a['href']
-                             if not link.startswith("http"):
-                                 link = "https://www.wikiaves.com.br" + link
-                             final_url = link
-                             print(f"[TRACE 4] Link encontrado na busca: {final_url}")
-                             
-                             time.sleep(1) # Delay gentil
-                             r2 = requests.get(final_url, headers=headers, timeout=10)
-                             if r2.status_code == 200:
-                                 soup_wa = BeautifulSoup(r2.text, 'html.parser')
-                             break
+                 print(f"[TRACE 2] Redirecionamento automático detectado: {final_url}")
             
+            # Caso B: API Fallback (v0.15.2 "Pulo do Gato")
+            # Se não redirecionou, tentamos a API de Typeahead usada no site
+            else:
+                 print(f"[TRACE 2] Redirect falhou (URL: {resp.url}). Tentando API getBusca...")
+                 api_url = f"https://www.wikiaves.com.br/getBusca.php?tm=s&t=s&term={quote(self.species_name)}"
+                 try:
+                     r_api = requests.get(api_url, headers=headers, timeout=10)
+                     # A API retorna JSON: [{"id":"...", "value":"...", "label":"...", "link":"wiki/..."}]
+                     # Verificação básica de JSON
+                     if r_api.status_code == 200 and r_api.text.strip().startswith("["):
+                         data = r_api.json()
+                         if data and isinstance(data, list) and len(data) > 0:
+                             item = data[0] # Pega o primeiro resultado (mais relevante)
+                             if "link" in item:
+                                 link = item["link"]
+                                 if not link.startswith("http"):
+                                     link = "https://www.wikiaves.com.br/" + link.lstrip("/")
+                                 
+                                 print(f"[TRACE 3] Link encontrado via API: {link}")
+                                 final_url = link
+                                 
+                                 time.sleep(1)
+                                 r_page = requests.get(final_url, headers=headers, timeout=10)
+                                 if r_page.status_code == 200:
+                                     soup_wa = BeautifulSoup(r_page.text, 'html.parser')
+                 except Exception as e:
+                     print(f"[DEBUG] Erro na API getBusca: {e}")
+
             if not soup_wa:
-                print("[ERRO WIKIAVES] Espécie não encontrada.")
+                print(f"[ERRO WIKIAVES] Espécie não encontrada: {self.species_name}")
+                
+                # Debug Dump (v0.15.2)
+                try:
+                    import os
+                    debug_path = "temp/search_fail_debug.html"
+                    os.makedirs("temp", exist_ok=True)
+                    with open(debug_path, "w", encoding="utf-8") as f:
+                        f.write(resp.text)
+                    print(f"[DEBUG] HTML salvo em {debug_path}")
+                except Exception as ex:
+                    print(f"[DEBUG] Falha ao salvar dump: {ex}")
+                
                 self.error_occurred.emit("Espécie não encontrada no WikiAves.")
                 return
 
-            # 3. Parsing (Método Auxiliar)
+            # 3. Parsing (Método Auxiliar v0.15.1)
             dados = self._parse_page(soup_wa, final_url)
             
             if any(dados.values()):
