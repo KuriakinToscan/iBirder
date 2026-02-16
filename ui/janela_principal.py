@@ -26,7 +26,7 @@ class AreaDrop(QLabel):
         self.setText("Arraste e solte uma foto aqui\n\nou clique para selecionar")
         self.setAlignment(Qt.AlignCenter)
         self.setAcceptDrops(True)
-        self.setMinimumSize(450, 450)
+        self.setMinimumSize(250, 250)
         self.setProperty("class", "dropzone") 
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
@@ -52,7 +52,7 @@ class AreaReferencia(QLabel):
         super().__init__()
         self.setText("Referência")
         self.setAlignment(Qt.AlignCenter)
-        self.setMinimumSize(220, 220)
+        self.setMinimumSize(250, 250)
         self.setProperty("class", "referencia")
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
