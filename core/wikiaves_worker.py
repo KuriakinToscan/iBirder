@@ -15,7 +15,9 @@ class WikiAvesWorker(QThread):
         self.raw_name = species_name
 
     def run(self):
+        print(f"[WIKIAVES] Worker iniciado para: {self.species_name}")
         if not BeautifulSoup:
+            print("[ERRO WIKIAVES] BeautifulSoup não importado/instalado.")
             return
 
         try:
@@ -93,6 +95,6 @@ class WikiAvesWorker(QThread):
                 self.etymology_found.emit(etimo_text)
 
         except Exception as e:
-            # Falha silenciosa confoorme solicitado
-            print(f"[WIKIAVES] Erro: {e}")
-            pass
+            import traceback
+            error_msg = f"Falha fatal no worker: {str(e)}\n{traceback.format_exc()}"
+            print(f"[ERRO WIKIAVES] {error_msg}")
