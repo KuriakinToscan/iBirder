@@ -75,14 +75,21 @@ class IdentificadorNuvem(IdentificadorAve):
             raise FileNotFoundError(f"Imagem não encontrada: {caminho_imagem}")
 
         # v0.8.2: Otimização de Imagem (Resize/Compress) para economizar cota (Tier 1)
-        # v0.8.2: Otimização de Imagem (Resize/Compress) para economizar cota (Tier 1)
         temp_path = Path(__file__).parent.parent / "temp" / "temp_upload.jpg"
         
-        # v0.9.2: Trava de Segurança - OBRIGATÓRIO usar imagem otimizada (sem EXIF)
-        if not otimizar_imagem(caminho_imagem, str(temp_path)):
-             raise Exception("Falha crítica na otimização. Upload cancelado para evitar bloqueio (Erro 429).")
+        # v0.10.8: Trava de Segurança e Auditoria
+        import os
+        caminho_otimizado = otimizar_imagem(caminho_imagem, str(temp_path))
         
-        img = Image.open(temp_path)
+        # Auditoria de Tamanho
+        tamanho_bytes = os.path.getsize(caminho_otimizado)
+        print(f"[AUDITORIA] Preparando envio. Arquivo: {caminho_otimizado}")
+        print(f"[AUDITORIA] Tamanho do arquivo: {tamanho_bytes / 1024:.2f} KB")
+        
+        if tamanho_bytes > 1024 * 1024:
+             print("[ALERTA CRÍTICO] O arquivo é GIGANTE! A otimização falhou.")
+        
+        img = Image.open(caminho_otimizado)
 
         prompt = """
         Atue como um ornitólogo sênior. Analise a imagem fornecida. Identifique a espécie com precisão taxonômica.

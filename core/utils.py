@@ -31,11 +31,12 @@ def otimizar_imagem(caminho_entrada: str, caminho_saida: str, max_tamanho: int =
             # 4. Salvar Otimizado
             os.makedirs(os.path.dirname(caminho_saida), exist_ok=True)
             clean_img.save(caminho_saida, "JPEG", quality=qualidade, subsampling=0, optimize=True)
-            return True
+            
+            return caminho_saida
             
     except Exception as e:
         print(f"[ERRO] Falha ao otimizar imagem: {e}")
-        return False
+        raise e
 
 def limpar_temp_inteligente():
     """Remove arquivos temporários e logs de sessão segura ao fechar."""
