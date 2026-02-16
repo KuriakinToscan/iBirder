@@ -16,6 +16,9 @@ class WikiAvesWorker(QThread):
         self.raw_name = species_name
 
     def run(self):
+        # Import time for safety delay
+        import time
+        
         print(f"[WIKIAVES] Worker iniciado para: {self.species_name}")
         if not BeautifulSoup:
             msg = "Biblioteca BeautifulSoup não instalada."
@@ -31,101 +34,97 @@ class WikiAvesWorker(QThread):
                 "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7"
             }
             
-            # 2. Estratégia de Acesso Direto (Prioridade)
-            # URL: https://www.wikiaves.com.br/wiki/genero_especie
-            print("[TRACE 1] Iniciando montagem da URL de busca...")
-            nome_direto = self.species_name.replace("+", "_").replace(" ", "_").lower()
-            url_direta = f"https://www.wikiaves.com.br/wiki/{nome_direto}"
+            # 2. Estratégia de Busca Google (v0.10.15)
+            # Busca: inurl:wikiaves.com.br "{nome_cientifico}"
+            print(f"[TRACE 1] Pesquisando no Google: inurl:wikiaves.com.br {self.raw_name}")
             
-            print(f"[WIKIAVES] Tentando acesso direto via Chrome emulação: {url_direta}")
-            print(f"[TRACE 2] Executando requests.get na URL: {url_direta}...")
+            # Google Search URL
+            encoded_query = f"inurl:wikiaves.com.br+{self.species_name}"
+            google_url = f"https://www.google.com/search?q={encoded_query}"
             
-            resp_wa = requests.get(url_direta, headers=headers, timeout=10)
+            print(f"[WIKIAVES] Buscando URL correta via Google: {google_url}")
+            resp_google = requests.get(google_url, headers=headers, timeout=10)
+            
+            wa_link = None
+            if resp_google.status_code == 200:
+                soup_google = BeautifulSoup(resp_google.text, 'html.parser')
+                
+                # Extração do Link (v0.10.15)
+                # Google structure varies, looking for <a href="..."> that contains wikiaves.com.br/wiki/
+                for a in soup_google.find_all('a', href=True):
+                    href = a['href']
+                    # Filtra links válidos do WikiAves (evita google.com/url?q=...)
+                    if "wikiaves.com.br/wiki/" in href:
+                        # Limpa redirecionamentos do Google se houver
+                        if href.startswith("/url?q="):
+                            href = href.split("/url?q=")[1].split("&")[0]
+                        
+                        wa_link = href
+                        print(f"[TRACE 2] Link encontrado no Google: {wa_link}")
+                        break
+            else:
+                print(f"[ERRO WIKIAVES] Falha na busca Google ({resp_google.status_code})")
+            
+            if not wa_link:
+                # Fallback: Tentar acesso direto (antigo) se Google falhar
+                print("[TRACE 2] Link não encontrado no Google. Tentando acesso direto (fallback)...")
+                nome_direto = self.species_name.replace("+", "_").replace(" ", "_").lower()
+                wa_link = f"https://www.wikiaves.com.br/wiki/{nome_direto}"
+
+            # Segurança: Delay para evitar bloqueio
+            time.sleep(2)
+
+            # 3. Acessar Página da Espécie
+            print(f"[TRACE 3] Acessando página da espécie: {wa_link}...")
+            resp_wa = requests.get(wa_link, headers=headers, timeout=10)
             print(f"[TRACE 3] Resposta recebida. Status Code: {resp_wa.status_code}")
             
-            # v0.10.14: Debug Raw Dump
+            # v0.10.14: Debug Raw Dump (Mantido)
             try:
                 import os
                 os.makedirs("temp", exist_ok=True)
                 with open("temp/full_page_debug.html", "w", encoding="utf-8") as f:
                     f.write(resp_wa.text)
-                print(f"[DEBUG] HTML bruto salvo em temp/full_page_debug.html ({len(resp_wa.text)} bytes)")
-                print(f"[DEBUG] Início do HTML: {resp_wa.text[:100].replace(chr(10), '')}")
-            except Exception as e:
-                print(f"[DEBUG] Falha ao salvar dump HTML bruto: {e}")
+                # print(f"[DEBUG] HTML bruto salvo em temp/full_page_debug.html") 
+            except Exception:
+                pass
 
             soup_wa = None
-            
             if resp_wa.status_code == 200:
-                print("[WIKIAVES] Acesso direto com sucesso (200 OK).")
                 print("[TRACE 4] Iniciando BeautifulSoup no conteúdo HTML...")
                 soup_wa = BeautifulSoup(resp_wa.text, 'html.parser')
             else:
-                print(f"[WIKIAVES] Acesso direto falhou ({resp_wa.status_code}). Tentando busca fallback...")
-                
-                # --- Fallback: Busca via DuckDuckGo (Código Antigo) ---
-                # v0.10.11: InURL Search
-                query = f'inurl:wikiaves.com.br "{self.raw_name}"'
-                search_url = f"https://html.duckduckgo.com/html/?q={query}"
-                try:
-                    print(f"[TRACE 2-Fallback] Executando busca DuckDuckGo: {search_url}")
-                    resp = requests.get(search_url, headers=headers, timeout=10)
-                    
-                    if resp.status_code == 200:
-                        soup = BeautifulSoup(resp.text, 'html.parser')
-                        wa_link = None
-                        for a in soup.find_all('a', href=True):
-                            href = a['href']
-                            if "wikiaves.com.br/" in href and "search" not in href and "uddg=" not in href:
-                                wa_link = href
-                                break
-                        
-                        if wa_link:
-                            print(f"[WIKIAVES] Link encontrado via busca: {wa_link}")
-                            print(f"[TRACE 2-Fallback] Acessando link encontrado...")
-                            resp_wa = requests.get(wa_link, headers=headers, timeout=10)
-                            if resp_wa.status_code == 200:
-                                print(f"[TRACE 4-Fallback] Iniciando BeautifulSoup...")
-                                soup_wa = BeautifulSoup(resp_wa.text, 'html.parser')
-                except Exception as e_search:
-                     print(f"[WIKIAVES] Erro na busca DuckDuckGo: {e_search}")
+                 print(f"[ERRO WIKIAVES] Falha ao acessar página da espécie ({resp_wa.status_code})")
+                 return
 
             if not soup_wa:
-                print("[ERRO WIKIAVES] Não foi possível acessar a página da espécie.")
                 return
 
-            # 3. Extração da Etimologia (Refinada v0.10.11: CSS Selectors)
+            # 4. Extração da Etimologia (Refinada v0.10.13: CSS Selectors + Text Match)
             print("[WIKIAVES] Analisando estrutura div.level2...")
-            print("[TRACE 5] Buscando div.level2...")
-            etimo_text = ""
-            
             # Tenta encontrar o container específico sugerido (div.level2 > p)
             div_content = soup_wa.find("div", class_="level2")
             
             # Fallback para mks_text se level2 não existir
             if not div_content:
-                 print("[TRACE 5] div.level2 não encontrada. Tentando div.mks_text...")
                  div_content = soup_wa.find("div", class_="mks_text")
 
             extracted = False
             full_text = ""
             
             if div_content:
-                # Debug: Dump da estrutura encontrada
+                # Debug Dump (Mantido)
                 try:
                     import os
-                    os.makedirs("temp", exist_ok=True)
                     with open("temp/debug_wikiaves.html", "w", encoding="utf-8") as f:
                         f.write(div_content.prettify())
-                    print("[DEBUG WIKIAVES] Estrutura da div.level2 salva em temp/debug_wikiaves.html")
-                except Exception as e:
-                    print(f"[DEBUG WIKIAVES] Falha ao salvar dump HTML: {e}")
+                except Exception:
+                    pass
 
-                print("[TRACE 6] Div encontrada. Buscando parágrafo de etimologia (busca textual permissiva)...")
+                print("[TRACE 6] Div encontrada. Buscando parágrafo de etimologia...")
                 # Procura parágrafo com o trigger dentro do container
                 for p in div_content.find_all("p"):
                     text_p = p.get_text(" ", strip=True)
-                    # Normalização para busca
                     text_lower = text_p.lower()
                     if "nome científico significa" in text_lower or "nome cientifica significa" in text_lower:
                         # Achou parágrafo alvo
@@ -136,7 +135,7 @@ class WikiAvesWorker(QThread):
             
             if not extracted:
                  print("[TRACE 6] Parágrafo não encontrado no container. Tentando busca global...")
-                 # Fallback Global: Busca no soup inteiro se containers falharem
+                 # Fallback Global
                  target = soup_wa.find(string=re.compile("Seu nome cientifica significa|Seu nome científico significa", re.IGNORECASE))
                  if target:
                       full_text = target.parent.get_text(" ", strip=True)
