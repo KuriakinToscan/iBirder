@@ -9,7 +9,6 @@ from PySide6.QtGui import QIcon
 import keyring
 
 # Importações Locais
-from ui.janela_principal import JanelaPrincipal
 from ui.dialogo_modo import DialogoModo
 from ui.wizard_config import WizardConfig
 from ui.dialogo_atalho import DialogoAtalho # v0.3.6
@@ -29,6 +28,44 @@ if platform.system() == "Windows":
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     except Exception:
         pass 
+
+def verificar_dependencias_ia():
+    """
+    Verifica se o OpenCV e Numpy estão instalados (v0.6.6).
+    Se não, tenta instalar automaticamente via pip.
+    """
+    try:
+        import cv2
+        import numpy
+        return True
+    except ImportError:
+        from PySide6.QtWidgets import QProgressDialog, QMessageBox
+        from PySide6.QtCore import Qt
+        
+        dlg = QProgressDialog("Configurando Motor de Visão (OpenCV)...\nIsso levará apenas alguns segundos.", None, 0, 0)
+        dlg.setWindowTitle("Configuração Inicial")
+        dlg.setWindowModality(Qt.WindowModal)
+        dlg.setCancelButton(None)
+        dlg.setMinimumDuration(0)
+        dlg.show()
+        QApplication.processEvents()
+        
+        try:
+            # Instalação silenciosa
+            print("[SETUP] Instalando opencv-python-headless numpy...")
+            subprocess.check_call(
+                [sys.executable, "-m", "pip", "install", "opencv-python-headless", "numpy"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
+            )
+            dlg.close()
+            return True
+        except Exception as e:
+            dlg.close()
+            print(f"[ERRO] Falha na auto-instalação: {e}")
+            QMessageBox.warning(None, "Aviso de Dependência", "Não foi possível configurar a IA offline automaticamente.\nVerifique sua conexão com a internet para o primeiro acesso.")
+            return False
 
 def verificar_ambiente_virtual():
     """Verifica se a pasta .venv existe no diretório do projeto."""
@@ -177,6 +214,10 @@ if __name__ == "__main__":
     
     # 1. Verificação de Ambiente (.venv)
     verificar_ambiente_virtual()
+
+    # 1.1 Verificação de Dependências IA (v0.6.6 Auto-Install)
+    # Garante que OpenCV exista antes de importar qualquer coisa que o use
+    verificar_dependencias_ia()
     
     # 2. Configurações Iniciais (Modo & Atalho)
     config = carregar_config()
@@ -236,6 +277,8 @@ if __name__ == "__main__":
     app.setStyle("Fusion")
 
     # 4. Inicia Janela Principal
+    # Importação Tardia para garantir dependências (v0.6.6)
+    from ui.janela_principal import JanelaPrincipal
     janela = JanelaPrincipal(nome_icone_janela=nome_icone, modo_inicial=modo_inicial)
     janela.show()
 
