@@ -7,20 +7,19 @@ except ImportError:
 import re
 
 class WikiAvesWorker(QThread):
-    # v0.13.0: Alterado para emitir dicionário com múltiplos dados
     etymology_found = Signal(dict) 
     error_occurred = Signal(str)
     
     def __init__(self, species_name):
         super().__init__()
-        self.species_name = species_name.replace(" ", "+") # URL friendly for search
+        self.species_name = species_name
         self.raw_name = species_name
 
     def run(self):
-        # Import time for safety delay
         import time
         import re
-        
+        from urllib.parse import quote
+
         # Inicializa dicionário de resultados
         resultado = {
             "etimologia": None,
@@ -28,137 +27,190 @@ class WikiAvesWorker(QThread):
             "familia": None,
             "ordem": None,
             "mapa_url": None,
-            "link_wikiaves": None
+            "link_wikiaves": None,
+            "conservacao": None,
+            "imagem_url": None
         }
         
         print(f"[WIKIAVES] Worker iniciado para: {self.species_name}")
         if not BeautifulSoup:
-            msg = "Biblioteca BeautifulSoup não instalada."
-            print(f"[ERRO WIKIAVES] {msg}")
             self.error_occurred.emit("Erro interno: dependência ausente (bs4).")
             return
 
         try:
-            # 1. Configuração (Emulação Chrome 120)
+            # 1. Configuração de Headers (Idêntico ao Código do Usuário)
             headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-                "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7"
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+                "Referer": "https://www.wikiaves.com.br/"
             }
             
-            # 2. Estratégia de Busca Interna (v0.13.0)
-            # URL: https://www.wikiaves.com.br/pesquisa.php?t=s&s={nome_cientifico}
-            search_url = f"https://www.wikiaves.com.br/pesquisa.php?t=s&s={self.species_name}"
-            print(f"[TRACE 1] Iniciando busca interna: {search_url}")
+            # 2. Estratégia de Conexão (Híbrida)
             
-            # Requests segue redirects automaticamente por padrão
-            resp_search = requests.get(search_url, headers=headers, timeout=15)
-            print(f"[TRACE 2] Resposta recebida. Status: {resp_search.status_code}. URL Final: {resp_search.url}")
-
-            wa_link = resp_search.url
+            # Passo A: Acesso Direto Rápido
+            slug = self.species_name.lower().replace(" ", "_").strip()
+            url_direta = f"https://www.wikiaves.com.br/wiki/{slug}"
             
-            # Verifica se foi redirecionado para uma página de espécie (/wiki/)
-            if "/wiki/" in wa_link:
-                print(f"[WIKIAVES] Redirecionamento direto para: {wa_link}")
-                resultado["link_wikiaves"] = wa_link
+            print(f"[TRACE 1] Tentando acesso direto: {url_direta}")
+            resp = requests.get(url_direta, headers=headers, timeout=10)
+            
+            final_url = None
+            soup_wa = None
+            
+            if resp.status_code == 200 and "/wiki/" in resp.url and "Página não encontrada" not in resp.text:
+                 print(f"[TRACE 2] Acesso direto funcionou: {resp.url}")
+                 final_url = resp.url
+                 soup_wa = BeautifulSoup(resp.text, 'html.parser')
             else:
-                # Se não redirecionou, analisa o resultado da busca (pode ser uma lista ou página de erro)
-                soup_search = BeautifulSoup(resp_search.text, 'html.parser')
-                # Tenta achar o primeiro link de espécie na lista de resultados
-                found_link = None
-                for a in soup_search.find_all('a', href=True):
-                    if "/wiki/" in a['href']:
-                        found_link = a['href']
-                        if not found_link.startswith("http"):
-                            found_link = "https://www.wikiaves.com.br" + found_link
-                        break
-                
-                if found_link:
-                    wa_link = found_link
-                    print(f"[WIKIAVES] Link encontrado na lista de busca: {wa_link}")
-                    resultado["link_wikiaves"] = wa_link
-                    # Acessa a página encontrada
-                    time.sleep(1)
-                    resp_search = requests.get(wa_link, headers=headers, timeout=15)
-                else:
-                    print("[ERRO WIKIAVES] Espécie não encontrada na busca interna.")
-                    self.error_occurred.emit("Espécie não encontrada no WikiAves.")
-                    return
+                 print(f"[TRACE 2] Acesso direto falhou ({resp.status_code}). Tentando busca...")
+                 
+                 # Passo B: Busca
+                 # https://www.wikiaves.com.br/pesquisa.php?t=s&s={quote(self.species_name)}
+                 search_url = f"https://www.wikiaves.com.br/pesquisa.php?t=s&s={quote(self.species_name)}"
+                 print(f"[TRACE 3] Buscando: {search_url}")
+                 
+                 resp_search = requests.get(search_url, headers=headers, timeout=15)
+                 
+                 if "/wiki/" in resp_search.url:
+                     # Redirecionamento automático
+                     final_url = resp_search.url
+                     soup_wa = BeautifulSoup(resp_search.text, 'html.parser')
+                     print(f"[TRACE 4] Busca redirecionou para: {final_url}")
+                 elif resp_search.status_code == 200:
+                     # Lista de resultados ou erro
+                     soup_search = BeautifulSoup(resp_search.text, 'html.parser')
+                     # Tenta achar link de wiki
+                     for a in soup_search.find_all('a', href=True):
+                         if "/wiki/" in a['href']:
+                             link = a['href']
+                             if not link.startswith("http"):
+                                 link = "https://www.wikiaves.com.br" + link
+                             final_url = link
+                             print(f"[TRACE 4] Link encontrado na busca: {final_url}")
+                             
+                             # Acessa a página
+                             time.sleep(1)
+                             r2 = requests.get(final_url, headers=headers, timeout=10)
+                             if r2.status_code == 200:
+                                 soup_wa = BeautifulSoup(r2.text, 'html.parser')
+                             break
+            
+            if not soup_wa:
+                print("[ERRO WIKIAVES] Espécie não encontrada.")
+                self.error_occurred.emit("Espécie não encontrada no WikiAves.")
+                return
 
-            if resp_search.status_code != 200:
-                 print(f"[ERRO WIKIAVES] Falha ao acessar página da espécie ({resp_search.status_code})")
-                 return
+            resultado["link_wikiaves"] = final_url
+            
+            # --- PARSING ROBUSTO (Baseado no Legacy) ---
+            
+            # A. Nome Comum (h1 com limpeza de small)
+            h1 = soup_wa.find("h1")
+            if h1:
+                # Remove small se existir
+                if h1.find("small"):
+                    h1.find("small").decompose()
+                # Opcional: extrair nome comum se quiser usar, mas o foco é etimologia/tech
+                # nome_comum = h1.get_text(strip=True)
 
-            soup_wa = BeautifulSoup(resp_search.text, 'html.parser')
-
-            # --- EXTRAÇÃO DE DADOS (v0.13.0) ---
-
-            # A. Nome em Inglês
+            # B. Taxonomia (Tabela id='taxonomia')
             try:
-                english_tag = soup_wa.find(string=re.compile("Nome em Inglês:"))
-                if english_tag:
-                    parent_text = english_tag.parent.parent.get_text(" ", strip=True)
-                    if "Nome em Inglês:" in parent_text:
-                        english_name = parent_text.split("Nome em Inglês:")[-1].strip()
-                        english_name = english_name.split("Also")[0].strip() 
-                        resultado["nome_ingles"] = english_name
-                        print(f"[WIKIAVES] Nome em Inglês: {english_name}")
+                table_tax = soup_wa.find("table", id="taxonomia")
+                if table_tax:
+                    for tr in table_tax.find_all("tr"):
+                        tds = tr.find_all("td")
+                        if len(tds) >= 2:
+                            item = tds[0].get_text(strip=True).replace(":", "")
+                            val = tds[1].get_text(strip=True)
+                            if "Ordem" in item:
+                                resultado["ordem"] = val
+                            elif "Família" in item:
+                                resultado["familia"] = val
+                print(f"[WIKIAVES] Taxonomia: {resultado['ordem']} / {resultado['familia']}")
             except Exception as e:
-                print(f"[DEBUG] Erro extraindo nome inglês: {e}")
+                print(f"[DEBUG] Erro taxonomia: {e}")
 
-            # B. Taxonomia (Família e Ordem)
+            # C. Nome em Inglês
             try:
-                tabela_tax = soup_wa.find("table", id="taxonomia")
-                if tabela_tax:
-                    rows = tabela_tax.find_all("tr")
-                    for row in rows:
-                        cols = row.find_all("td")
-                        if len(cols) >= 2:
-                            label = cols[0].get_text(strip=True).replace(":", "")
-                            value = cols[1].get_text(strip=True)
-                            
-                            if "Ordem" in label:
-                                resultado["ordem"] = value
-                            elif "Família" in label:
-                                resultado["familia"] = value
+                # Procura por strings 'Nome em Inglês'
+                # Geralmente: <p><b>Nome em Inglês:</b> <i>Species Name</i> ...</p>
+                # Ou texto solto
+                tag_ing = soup_wa.find(string=re.compile("Nome em Inglês"))
+                if tag_ing:
+                     # Tenta pegar o elemento seguinte ou pai
+                     parent = tag_ing.parent
+                     # Navega até achar o nome (geralmente num <i> ou texto seguinte)
+                     # No código legacy: "frequentemente em itálico"
+                     # Tenta achar um <i> irmão ou sobrinho
+                     
+                     # Opção 1: Texto completo do container
+                     full_line = parent.parent.get_text(" ", strip=True) 
+                     if "Nome em Inglês" in full_line:
+                         # Split
+                         parts = full_line.split("Nome em Inglês")
+                         if len(parts) > 1:
+                             candidate = parts[1].replace(":", "").strip()
+                             # Limpa "Also..." ou quebras
+                             candidate = candidate.split("Also")[0].split("Ouça")[0].strip()
+                             resultado["nome_ingles"] = candidate
+                             print(f"[WIKIAVES] Nome Inglês: {candidate}")
+            except Exception as e:
+                print(f"[DEBUG] Erro nome inglês: {e}")
+
+            # D. Status de Conservação
+            try:
+                # Procure por links contendo lista_vermelha_iucn dentro de tags h2 ou sup
+                # Legacy: link com href contendo 'lista_vermelha_iucn'
+                link_iucn = soup_wa.find("a", href=re.compile(r"lista_vermelha_iucn"))
+                if link_iucn:
+                    # Verifica se está dentro de h2 ou sup (opcional, mas o user pediu)
+                    # Vamos pegar o texto do link ou imagem dentro
+                    # O status geralmente está num title de imagem DENTRO do link ou próximo
                     
-                    print(f"[WIKIAVES] Taxonomia: Ordem={resultado['ordem']}, Família={resultado['familia']}")
-            except Exception as e:
-                print(f"[DEBUG] Erro extraindo taxonomia: {e}")
+                    # No WikiAves atual, o status costuma estar no title da imagem status_xx.png
+                    # Mas seguindo o pedido legacy: "Identifique o status da IUCN (ex: 'Pouco preocupante')"
+                    
+                    # Tenta pegar o title da imagem dentro do link
+                    img_status = link_iucn.find("img")
+                    if img_status and img_status.get("title"):
+                        resultado["conservacao"] = img_status.get("title")
+                    elif link_iucn.get_text(strip=True):
+                         resultado["conservacao"] = link_iucn.get_text(strip=True)
+                
+                # Fallback imagem direta (muito comum)
+                if not resultado["conservacao"]:
+                     img_st = soup_wa.find("img", src=re.compile("status_"))
+                     if img_st and img_st.get("title"):
+                         resultado["conservacao"] = img_st.get("title")
 
-            # C. Mapa de Ocorrência
+                print(f"[WIKIAVES] Status: {resultado['conservacao']}")
+            except Exception as e:
+                print(f"[DEBUG] Erro conservação: {e}")
+
+            # E. Mapa
             try:
                 img_map = soup_wa.find("img", src=re.compile("mapaocorrencia.php"))
                 if img_map:
                     src = img_map['src']
                     if not src.startswith("http"):
                         src = "https://www.wikiaves.com.br/" + src.lstrip("/")
+                    # Ajuste de tamanho pedido: l=600&a=600
+                    if "?" in src:
+                        src += "&l=600&a=600"
+                    else:
+                        src += "?l=600&a=600"
                     resultado["mapa_url"] = src
-                    print(f"[WIKIAVES] Mapa encontrado: {src}")
+                    print(f"[WIKIAVES] Mapa: {src}")
             except Exception as e:
-                print(f"[DEBUG] Erro extraindo mapa: {e}")
-
-            # D. Status de Conservação (IUCN) v0.14.0
-            try:
-                # Procura pela imagem do status ou texto próximo
-                img_status = soup_wa.find("img", src=re.compile("status_"))
-                if img_status and img_status.get("title"):
-                    resultado["conservacao"] = img_status.get("title")
-                    print(f"[WIKIAVES] Conservação (Img Title): {resultado['conservacao']}")
+                print(f"[DEBUG] Erro mapa: {e}")
                 
-                if not resultado.get("conservacao"):
-                    status_tag = soup_wa.find(string=re.compile("Estado de Conservação:"))
-                    if status_tag:
-                         parent_text = status_tag.parent.parent.get_text(" ", strip=True)
-                         if "Estado de Conservação:" in parent_text:
-                             status = parent_text.split("Estado de Conservação:")[-1].strip()
-                             resultado["conservacao"] = status
-                             print(f"[WIKIAVES] Conservação (Texto): {status}")
+            # F. Imagem Principal (og:image)
+            try:
+                meta_img = soup_wa.find("meta", property="og:image")
+                if meta_img:
+                    resultado["imagem_url"] = meta_img.get("content")
+            except: pass
 
-            except Exception as e:
-                 print(f"[DEBUG] Erro extraindo conservação: {e}")
-
-            # E. Etimologia (Lógica Refinada v0.10.16)
+            # G. Etimologia (Mantendo nossa lógica robusta)
             print(f"[WIKIAVES] Extraindo etimologia...")
             etimo_text = None
             
@@ -166,21 +218,17 @@ class WikiAvesWorker(QThread):
             
             if trigger_element:
                 full_text = trigger_element.get_text(" ", strip=True)
-                
                 if len(full_text) < 60 or trigger_element.name in ['strong', 'b', 'span']:
                      if trigger_element.parent:
                          full_text = trigger_element.parent.get_text(" ", strip=True)
                 
-                import re
                 match = re.search(r"significa[:\s]*(.*)", full_text, re.IGNORECASE | re.DOTALL)
-                
                 if match:
                     etimo_text = match.group(1).strip()
                 else:
                     parts = full_text.lower().split("significa")
                     if len(parts) > 1:
-                        start_index = len(parts[0]) + len("significa")
-                        etimo_text = full_text[start_index:].lstrip(": ").strip()
+                        etimo_text = full_text[len(parts[0]) + 9:].lstrip(": ").strip()
                     else:
                         etimo_text = full_text
 
@@ -189,18 +237,16 @@ class WikiAvesWorker(QThread):
                     etimo_text = etimo_text[0].upper() + etimo_text[1:]
                 
                 resultado["etimologia"] = etimo_text
-                print(f"[WIKIAVES] Etimologia extraída: {etimo_text[:50]}...")
-            else:
-                 print("[ERRO WIKIAVES] Etimologia não encontrada.")
-
-            # Emite o sinal se tiver pelo menos algum dado útil
+                print(f"[WIKIAVES] Etimologia: {etimo_text[:30]}...")
+            
+            # Finalização
             if any(resultado.values()):
                 self.etymology_found.emit(resultado)
             else:
-                self.error_occurred.emit("Nenhum dado encontrado no WikiAves.")
+                self.error_occurred.emit("Nenhum dado encontrado.")
 
         except Exception as e:
             import traceback
-            error_msg = f"Falha fatal no worker: {str(e)}\n{traceback.format_exc()}"
-            print(f"[ERRO FATAL WIKIAVES] {error_msg}")
-            self.error_occurred.emit("WikiAves indisponível.")
+            error_msg = f"Falha fatal worker: {str(e)}"
+            print(f"[ERRO FATAL] {traceback.format_exc()}")
+            self.error_occurred.emit("Erro ao conectar ao WikiAves.")
