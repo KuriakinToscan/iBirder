@@ -92,7 +92,6 @@ class JanelaPrincipal(QMainWindow):
         self.area_referencia.setPixmap(QPixmap())
         self.lbl_referencia_creditos.setText("")
         
-        self.lbl_referencia_creditos.setText("")
         self.frame_etimologia.setVisible(False) # Reset etimologia
 
         # Para worker anterior se existir (v0.9.1: Correção de Crash)
@@ -104,7 +103,16 @@ class JanelaPrincipal(QMainWindow):
                 self.worker_referencia.deleteLater()
             except RuntimeError:
                 pass 
+            
+        self.worker_referencia = ReferenceImageWorker(nome_cientifico)
+        self.worker_referencia.image_found.connect(self._ao_encontrar_imagem_referencia)
+        self.worker_referencia.search_failed.connect(lambda: self.area_referencia.setText("Sem referência"))
+        self.worker_referencia.start()
         
+        # Iniciar etimologia também
+        self._iniciar_busca_etimologia(nome_cientifico)
+
+    def _iniciar_busca_etimologia(self, nome_cientifico):
         # v0.10.0: Worker WikiAves (Etimologia)
         if getattr(self, "worker_wiki", None) is not None:
              try:
@@ -114,15 +122,10 @@ class JanelaPrincipal(QMainWindow):
                  self.worker_wiki.deleteLater()
              except: pass
 
+        print(f"[DEBUG] Iniciando busca de Etimologia para: {nome_cientifico}")
         self.worker_wiki = WikiAvesWorker(nome_cientifico)
         self.worker_wiki.etymology_found.connect(self._ao_encontrar_etimologia)
         self.worker_wiki.start()
-            
-        self.worker_referencia = ReferenceImageWorker(nome_cientifico)
-        self.worker_referencia.image_found.connect(self._ao_encontrar_imagem_referencia)
-        self.worker_referencia.search_failed.connect(lambda: self.area_referencia.setText("Sem referência"))
-        # self.worker_referencia.finished.connect(self.worker_referencia.deleteLater) # REMOVIDO: Evita dangling pointer
-        self.worker_referencia.start()
 
     def _ao_encontrar_imagem_referencia(self, path, creditos):
         pixmap = QPixmap(path)
