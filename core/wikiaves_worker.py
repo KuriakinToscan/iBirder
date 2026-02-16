@@ -50,19 +50,34 @@ class WikiAvesWorker(QThread):
             if resp_google.status_code == 200:
                 soup_google = BeautifulSoup(resp_google.text, 'html.parser')
                 
-                # Extração do Link (v0.10.15)
-                # Google structure varies, looking for <a href="..."> that contains wikiaves.com.br/wiki/
+                # v0.10.17: Verificação de Título (CAPTCHA check)
+                if soup_google.title:
+                    print(f"[WIKIAVES] Título da página do Google: {soup_google.title.string}")
+
+                # Extração do Link (v0.10.17: Universal Selector)
+                import urllib.parse
                 for a in soup_google.find_all('a', href=True):
                     href = a['href']
-                    # Filtra links válidos do WikiAves (evita google.com/url?q=...)
                     if "wikiaves.com.br/wiki/" in href:
-                        # Limpa redirecionamentos do Google se houver
-                        if href.startswith("/url?q="):
+                        # Limpeza de redirecionamento do Google
+                        if "/url?q=" in href:
                             href = href.split("/url?q=")[1].split("&")[0]
+                            href = urllib.parse.unquote(href)
                         
                         wa_link = href
-                        print(f"[TRACE 2] Link encontrado no Google: {wa_link}")
+                        print(f"[TRACE 2] Link extraído do Google: {wa_link}")
                         break
+                
+                # Debug Dump se falhar
+                if not wa_link:
+                     try:
+                        import os
+                        os.makedirs("temp", exist_ok=True)
+                        with open("temp/google_results_debug.html", "w", encoding="utf-8") as f:
+                            f.write(resp_google.text)
+                        print("[DEBUG] HTML da busca Google salvo em temp/google_results_debug.html")
+                     except Exception: 
+                        pass
             else:
                 print(f"[ERRO WIKIAVES] Falha na busca Google ({resp_google.status_code})")
             
