@@ -47,6 +47,15 @@ class AreaDrop(QLabel):
         if path:
             self.callback(path)
 
+class AreaReferencia(QLabel):
+    def __init__(self):
+        super().__init__()
+        self.setText("Referência")
+        self.setAlignment(Qt.AlignCenter)
+        self.setMinimumSize(220, 220)
+        self.setProperty("class", "referencia")
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
 class JanelaPrincipal(QMainWindow):
     def __init__(self, nome_icone_janela="logo_ave.png", modo_inicial="online"):
         super().__init__()
@@ -99,8 +108,17 @@ class JanelaPrincipal(QMainWindow):
         if os.path.exists(caminho_icone_janela):
             self.setWindowIcon(QIcon(caminho_icone_janela))
 
+        # Layout de Comparação Lado a Lado (v0.8.0)
+        layout_imagens = QHBoxLayout()
+        layout_imagens.setSpacing(15)
+
         self.area_drop = AreaDrop(self._carregar_imagem)
-        layout_esquerda.addWidget(self.area_drop)
+        layout_imagens.addWidget(self.area_drop, stretch=1)
+        
+        self.area_referencia = AreaReferencia()
+        layout_imagens.addWidget(self.area_referencia, stretch=1)
+        
+        layout_esquerda.addLayout(layout_imagens)
         
         self.btn_nova = QPushButton("Nova Identificação")
         self.btn_nova.setCursor(Qt.PointingHandCursor)
@@ -235,6 +253,15 @@ class JanelaPrincipal(QMainWindow):
                 font-weight: bold; 
             }
             QLabel.dropzone:hover { background-color: #E5E7EB; border-color: #374151; }
+            
+            /* Area Referencia (v0.8.0) */
+            QLabel.referencia {
+                border: 1px solid #E5E7EB;
+                border-radius: 12px;
+                background-color: #F9FAFB;
+                color: #9CA3AF;
+                font-size: 14px;
+            }
             
             /* Botões */
             QPushButton { 
