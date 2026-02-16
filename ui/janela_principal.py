@@ -133,7 +133,7 @@ class JanelaPrincipal(QMainWindow):
 
     def _ao_encontrar_etimologia(self, texto):
         if texto:
-            self.lbl_conteudo_etimo.setText(texto)
+            self.lbl_etimologia_texto.setText(texto)
             self.frame_etimologia.setVisible(True)
 
     def _configurar_ui(self):
@@ -290,6 +290,35 @@ class JanelaPrincipal(QMainWindow):
         layout_res.addWidget(QLabel("Descrição:"))
         layout_res.addWidget(self.lbl_descricao)
         layout_res.addWidget(self.lbl_confianca)
+        
+        # --- Card Etimologia (v0.10.3: WikiAves) ---
+        self.frame_etimologia = QFrame()
+        self.frame_etimologia.setObjectName("frame_etimologia")
+        self.frame_etimologia.setStyleSheet("""
+            QFrame#frame_etimologia {
+                background-color: #F8F9FA;
+                border-left: 4px solid #10B981;
+                border-radius: 4px;
+                padding: 10px;
+                margin-top: 10px;
+            }
+        """)
+        
+        layout_etimologia = QVBoxLayout(self.frame_etimologia)
+        layout_etimologia.setContentsMargins(0, 0, 0, 0)
+        
+        lbl_titulo = QLabel("Origem do Nome (WikiAves)")
+        lbl_titulo.setStyleSheet("font-weight: bold; color: #059669; font-size: 11px; text-transform: uppercase;")
+        layout_etimologia.addWidget(lbl_titulo)
+        
+        self.lbl_etimologia_texto = QLabel("Carregando...")
+        self.lbl_etimologia_texto.setWordWrap(True)
+        self.lbl_etimologia_texto.setStyleSheet("color: #374151; font-size: 12px; margin-top: 4px;")
+        layout_etimologia.addWidget(self.lbl_etimologia_texto)
+        
+        self.frame_etimologia.setVisible(False)
+        layout_res.addWidget(self.frame_etimologia)
+        # -------------------------------------------
         
         grupo_resultados.setLayout(layout_res)
         layout_direito.addWidget(grupo_resultados)

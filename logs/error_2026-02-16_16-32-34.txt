@@ -1,0 +1,51 @@
+2026-02-16 16:32:16,299 - INFO - [INIT] Sessão iniciada
+2026-02-16 16:32:16,338 - DEBUG - Loading KWallet
+2026-02-16 16:32:16,339 - DEBUG - Loading SecretService
+2026-02-16 16:32:16,340 - DEBUG - Loading Windows
+2026-02-16 16:32:16,349 - DEBUG - Loaded cffi backend
+2026-02-16 16:32:16,382 - DEBUG - Loading chainer
+2026-02-16 16:32:16,383 - DEBUG - Loading libsecret
+2026-02-16 16:32:16,384 - DEBUG - Loading macOS
+2026-02-16 16:32:30,314 - DEBUG - tag: Make (271) - type: string (2) Tag Location: 22 - Data Location: 206 - value: b'Canon\x00'
+2026-02-16 16:32:30,314 - DEBUG - tag: Model (272) - type: string (2) Tag Location: 34 - Data Location: 212 - value: b'Canon EOS R10\x00'
+2026-02-16 16:32:30,314 - DEBUG - tag: Orientation (274) - type: short (3) - value: b'\x00\x01'
+2026-02-16 16:32:30,315 - DEBUG - tag: XResolution (282) - type: rational (5) Tag Location: 58 - Data Location: 226 - value: b'\x00\x00\x01^\x00\x00\x00\x01'
+2026-02-16 16:32:30,315 - DEBUG - tag: YResolution (283) - type: rational (5) Tag Location: 70 - Data Location: 234 - value: b'\x00\x00\x01^\x00\x00\x00\x01'
+2026-02-16 16:32:30,315 - DEBUG - tag: ResolutionUnit (296) - type: short (3) - value: b'\x00\x02'
+2026-02-16 16:32:30,315 - DEBUG - tag: Software (305) - type: string (2) Tag Location: 94 - Data Location: 242 - value: b'iBirder\x00'
+2026-02-16 16:32:30,315 - DEBUG - tag: DateTime (306) - type: string (2) Tag Location: 106 - Data Location: 250 - value: b'2025:12:02 18:41:34\x00'
+2026-02-16 16:32:30,315 - DEBUG - tag: Artist (315) - type: string (2) Tag Location: 118 - Data Location: 270 - value: b'Kuriakin Humberto Toscan\x00'
+2026-02-16 16:32:30,315 - DEBUG - tag: YCbCrPositioning (531) - type: short (3) - value: b'\x00\x01'
+2026-02-16 16:32:30,315 - DEBUG - tag: Copyright (33432) - type: string (2) Tag Location: 142 - Data Location: 295 - value: b'@kuriakin\x00'
+2026-02-16 16:32:30,315 - DEBUG - tag: unknown (40091) - type: byte (1) Tag Location: 154 - Data Location: 305 - value: <table: 64 bytes>
+2026-02-16 16:32:30,315 - DEBUG - tag: unknown (40094) - type: byte (1) Tag Location: 166 - Data Location: 369 - value: <table: 168 bytes>
+2026-02-16 16:32:30,315 - DEBUG - tag: unknown (40095) - type: byte (1) Tag Location: 178 - Data Location: 537 - value: b'P\x00r\x00\xed\x00n\x00c\x00i\x00p\x00e\x00\x00\x00'
+2026-02-16 16:32:30,315 - DEBUG - tag: ExifIFD (34665) - type: long (4) - value: b'\x00\x00\x02+'
+2026-02-16 16:32:30,315 - DEBUG - tag: GPSInfoIFD (34853) - type: long (4) - value: b'\x00\x00\x0f\x95'
+2026-02-16 16:32:31,573 - INFO - AFC is enabled with max remote calls: 10.
+2026-02-16 16:32:31,576 - DEBUG - connect_tcp.started host='generativelanguage.googleapis.com' port=443 local_address=None timeout=None socket_options=None
+2026-02-16 16:32:31,641 - DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x000001E95462C440>
+2026-02-16 16:32:31,641 - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x000001E94A1956D0> server_hostname='generativelanguage.googleapis.com' timeout=None
+2026-02-16 16:32:31,732 - DEBUG - start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x000001E954592850>
+2026-02-16 16:32:31,732 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2026-02-16 16:32:31,733 - DEBUG - send_request_headers.complete
+2026-02-16 16:32:31,733 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2026-02-16 16:32:31,733 - DEBUG - send_request_body.complete
+2026-02-16 16:32:31,733 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2026-02-16 16:32:34,888 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Mon, 16 Feb 2026 19:32:34 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=3109'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2026-02-16 16:32:34,889 - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2026-02-16 16:32:34,889 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2026-02-16 16:32:34,890 - DEBUG - receive_response_body.complete
+2026-02-16 16:32:34,890 - DEBUG - response_closed.started
+2026-02-16 16:32:34,890 - DEBUG - response_closed.complete
+2026-02-16 16:32:34,890 - DEBUG - close.started
+2026-02-16 16:32:34,890 - DEBUG - close.complete
+2026-02-16 16:32:34,891 - ERROR - Erro fatal na identificação: 'JanelaPrincipal' object has no attribute 'frame_etimologia'
+Traceback (most recent call last):
+  File "C:\Users\98015753953\Desktop\iBirder\ui\janela_principal.py", line 432, in _identificar_ave
+    self._iniciar_busca_imagem(nome_cientifico)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\98015753953\Desktop\iBirder\ui\janela_principal.py", line 96, in _iniciar_busca_imagem
+    self.frame_etimologia.setVisible(False) # Reset etimologia
+    ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'JanelaPrincipal' object has no attribute 'frame_etimologia'
