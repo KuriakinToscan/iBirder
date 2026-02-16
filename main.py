@@ -154,12 +154,12 @@ def detectar_tema_e_icone():
     except:
         pass
 
-    nome_arquivo = "logo_ave_escuro.png" if usar_icone_escuro else "logo_ave_claro.png"
+    nome_arquivo = "logo_ave_escuro.svg" if usar_icone_escuro else "logo_ave_claro.svg"
     base_path = Path(__file__).parent.absolute()
     caminho_absoluto = base_path / "assets" / nome_arquivo
     
     if not caminho_absoluto.exists():
-        return "logo_ave.png"
+        return "logo_ave.svg"
         
     return nome_arquivo
 

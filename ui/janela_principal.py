@@ -61,7 +61,7 @@ class AreaReferencia(QLabel):
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
 class JanelaPrincipal(QMainWindow):
-    def __init__(self, nome_icone_janela="logo_ave.png", modo_inicial="online"):
+    def __init__(self, nome_icone_janela="logo_ave.svg", modo_inicial="online"):
         super().__init__()
         self.nome_icone_janela = nome_icone_janela
         # Modo é sempre online agora (v0.7.0)
@@ -150,7 +150,7 @@ class JanelaPrincipal(QMainWindow):
         layout_esquerda = QVBoxLayout()
         layout_esquerda.setSpacing(20)
         
-        caminho_logo_painel = self._obter_caminho_asset("logo_ave.png")
+        caminho_logo_painel = self._obter_caminho_asset("logo_ave.svg")
         if os.path.exists(caminho_logo_painel):
             lbl_logo = QLabel()
             pixmap_logo = QPixmap(caminho_logo_painel)
@@ -263,7 +263,7 @@ class JanelaPrincipal(QMainWindow):
         self.btn_buscar.setFixedSize(36, 36)
         self.btn_buscar.setProperty("class", "icon-btn")
         self.btn_buscar.setCursor(Qt.PointingHandCursor)
-        caminho_lupa = self._obter_caminho_asset("search_loupe.png")
+        caminho_lupa = self._obter_caminho_asset("search_loupe.svg")
         if os.path.exists(caminho_lupa):
             self.btn_buscar.setIcon(QIcon(caminho_lupa))
         else:
