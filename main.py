@@ -159,6 +159,9 @@ def detectar_tema_e_icone():
     return nome_arquivo
 
 if __name__ == "__main__":
+    # 0. Init Logger
+    logger = setup_logger()
+
     app = QApplication(sys.argv)
     
     # 1. Verificação de Ambiente (.venv)
@@ -167,7 +170,7 @@ if __name__ == "__main__":
     # v0.8.2: Gestão de Pasta Temporária
     temp_dir = Path(__file__).parent.absolute() / "temp"
     temp_dir.mkdir(exist_ok=True)
-    atexit.register(limpar_temp)
+    atexit.register(limpar_temp_inteligente)
     
     # 2. Configurações Iniciais (Modo Online Fixo)
     config = carregar_config()

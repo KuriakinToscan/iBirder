@@ -19,6 +19,8 @@ from ui.janela_manual import JanelaManual
 from ui.dialogo_aviso import DialogoAviso
 from ui.worker_referencia import ReferenceImageWorker
 import keyring
+import logging
+from core.logger import save_crash_log
 
 class AreaDrop(QLabel):
     def __init__(self, callback_arquivo_carregado):
@@ -410,6 +412,8 @@ class JanelaPrincipal(QMainWindow):
         except ChaveApiFaltandoErro:
              DialogoAviso("Falta Chave", "Configure a chave de API no menu.", self).exec()
         except Exception as e:
+             logging.error(f"Erro fatal na identificação: {e}", exc_info=True)
+             save_crash_log()
              DialogoAviso("Erro", f"Erro fatal: {e}", self).exec()
         finally:
             QApplication.restoreOverrideCursor()
