@@ -96,6 +96,7 @@ class JanelaPrincipal(QMainWindow):
         self.worker_referencia = ReferenceImageWorker(nome_cientifico)
         self.worker_referencia.image_found.connect(self._ao_encontrar_imagem_referencia)
         self.worker_referencia.search_failed.connect(lambda: self.area_referencia.setText("Sem referência"))
+        self.worker_referencia.finished.connect(self.worker_referencia.deleteLater)
         self.worker_referencia.start()
 
     def _ao_encontrar_imagem_referencia(self, path):
@@ -385,6 +386,7 @@ class JanelaPrincipal(QMainWindow):
                 # v0.8.3: Busca Imagem de Referência
                 nome_cientifico = resultado.get("nome_cientifico", "")
                 if nome_cientifico and "?" not in nome_cientifico:
+                     print(f"[DEBUG] Iniciando busca de referência para: {nome_cientifico}")
                      self._iniciar_busca_imagem(nome_cientifico)
                 
         except ChaveApiFaltandoErro:
@@ -427,6 +429,7 @@ class JanelaPrincipal(QMainWindow):
                 self.lbl_confianca.setText("Busca Manual (Nuvem)")
                 
                 # v0.8.3: Busca Imagem de Referência
+                print(f"[DEBUG] Iniciando busca de referência para: {resultado.get('nome_cientifico', '')}")
                 self._iniciar_busca_imagem(resultado.get("nome_cientifico", ""))
         except Exception as e:
             DialogoAviso("Erro", str(e), self).exec()

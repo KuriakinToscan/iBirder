@@ -3,6 +3,7 @@ try:
     import requests
     from bs4 import BeautifulSoup
 except ImportError:
+    print("[ERRO CRITICO] Bibliotecas requests ou bs4 não instaladas no ambiente!")
     requests = None
     BeautifulSoup = None
 import traceback
@@ -22,7 +23,8 @@ class ReferenceImageWorker(QThread):
             return
             
         try:
-            print("--- INICIANDO WORKER DE REFERENCIA ---")
+            print(f"[WORKER] Thread iniciada para: {self.species_name}")
+            print("[WORKER] Verificando bibliotecas...")
             
             # 1. Configuração (User-Agent Obrigatório)
             headers = {
@@ -33,7 +35,7 @@ class ReferenceImageWorker(QThread):
             search_query = f"{self.species_name} site:ebird.org"
             search_url = f"https://html.duckduckgo.com/html/?q={search_query}"
             
-            print(f"[REF] Buscando: {self.species_name}")
+            print(f"[WORKER] Buscando no DuckDuckGo: {search_url}")
             resp = requests.get(search_url, headers=headers, timeout=10)
             resp.raise_for_status()
             
