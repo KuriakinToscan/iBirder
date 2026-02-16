@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+
+# Virtual Environment
+.venv/
+.env
+
+# Temporary Files
+temp/
+*.log
+
+# Project specific
+assets/proposals/
+assets/Gemini_Generated_Image_*.jpg
