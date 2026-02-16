@@ -153,8 +153,9 @@ class JanelaPrincipal(QMainWindow):
         caminho_logo_painel = self._obter_caminho_asset("logo_ave.svg")
         if os.path.exists(caminho_logo_painel):
             lbl_logo = QLabel()
-            pixmap_logo = QPixmap(caminho_logo_painel)
-            lbl_logo.setPixmap(pixmap_logo.scaled(170, 70, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            # Fix v0.10.6: Renderização robusta de SVG via QIcon
+            pixmap_logo = QIcon(caminho_logo_painel).pixmap(QSize(170, 70))
+            lbl_logo.setPixmap(pixmap_logo)
             layout_esquerda.addWidget(lbl_logo, alignment=Qt.AlignLeft)
         else:
             lbl_logo = QLabel("iBirder")
