@@ -100,15 +100,27 @@ class WikiAvesWorker(QThread):
             full_text = ""
             
             if div_content:
-                print("[TRACE 6] Div encontrada. Buscando parágrafo de etimologia...")
+                # Debug: Dump da estrutura encontrada
+                try:
+                    import os
+                    os.makedirs("temp", exist_ok=True)
+                    with open("temp/debug_wikiaves.html", "w", encoding="utf-8") as f:
+                        f.write(div_content.prettify())
+                    print("[DEBUG WIKIAVES] Estrutura da div.level2 salva em temp/debug_wikiaves.html")
+                except Exception as e:
+                    print(f"[DEBUG WIKIAVES] Falha ao salvar dump HTML: {e}")
+
+                print("[TRACE 6] Div encontrada. Buscando parágrafo de etimologia (busca textual permissiva)...")
                 # Procura parágrafo com o trigger dentro do container
                 for p in div_content.find_all("p"):
                     text_p = p.get_text(" ", strip=True)
-                    if "nome científico significa" in text_p or "nome cientifica significa" in text_p:
+                    # Normalização para busca
+                    text_lower = text_p.lower()
+                    if "nome científico significa" in text_lower or "nome cientifica significa" in text_lower:
                         # Achou parágrafo alvo
                         full_text = text_p
                         extracted = True
-                        print("[TRACE 7] Parágrafo localizado. Extraindo texto...")
+                        print(f"[TRACE 7] Parágrafo localizado: {text_p[:50]}...")
                         break
             
             if not extracted:
