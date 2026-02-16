@@ -43,6 +43,17 @@ class WikiAvesWorker(QThread):
             resp_wa = requests.get(url_direta, headers=headers, timeout=10)
             print(f"[TRACE 3] Resposta recebida. Status Code: {resp_wa.status_code}")
             
+            # v0.10.14: Debug Raw Dump
+            try:
+                import os
+                os.makedirs("temp", exist_ok=True)
+                with open("temp/full_page_debug.html", "w", encoding="utf-8") as f:
+                    f.write(resp_wa.text)
+                print(f"[DEBUG] HTML bruto salvo em temp/full_page_debug.html ({len(resp_wa.text)} bytes)")
+                print(f"[DEBUG] Início do HTML: {resp_wa.text[:100].replace(chr(10), '')}")
+            except Exception as e:
+                print(f"[DEBUG] Falha ao salvar dump HTML bruto: {e}")
+
             soup_wa = None
             
             if resp_wa.status_code == 200:
