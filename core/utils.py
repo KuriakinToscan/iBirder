@@ -36,3 +36,29 @@ def otimizar_imagem(caminho_entrada: str, caminho_saida: str, max_tamanho: int =
     except Exception as e:
         print(f"[ERRO] Falha ao otimizar imagem: {e}")
         return False
+
+def limpar_temp_inteligente():
+    """Remove arquivos temporários e logs de sessão segura ao fechar."""
+    folder = 'temp'
+    if not os.path.exists(folder):
+        return
+        
+    # Lista tudo na pasta temp
+    for filename in os.listdir(folder):
+        file_path = os.path.join(folder, filename)
+        # Preserva session.log se necessário (lógica já tratada no logger/main, 
+        # mas aqui limpamos o resto ou se o logger já liberou)
+        # Nota: O main.py vai chamar esta função via atexit.
+        # Se main.py definir lógica condicional, ele deve chamar logger.cleanup antes ou depois.
+        # Aqui vamos fazer uma limpeza geral "safe".
+        if filename == "session.log":
+            continue # Deixa o logger cuidar do session.log (cleanup_session_log)
+
+        try:
+            if os.path.isfile(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                import shutil
+                shutil.rmtree(file_path)
+        except Exception as e:
+            print(f"Erro ao limpar {file_path}: {e}")

@@ -15,7 +15,11 @@ from ui.wizard_config import WizardConfig
 from ui.dialogo_atalho import DialogoAtalho
 from core.config import carregar_config, salvar_config
 from ui.janela_principal import JanelaPrincipal
+
+# Imports do Core
 from core.logger import setup_logger, save_crash_log, cleanup_session_log
+from core.utils import limpar_temp_inteligente
+from core.wikiaves_worker import WikiAvesWorker
 
 # Tenta importar o script de setup para criar atalhos
 try:
@@ -171,6 +175,7 @@ if __name__ == "__main__":
     # v0.8.2: Gestão de Pasta Temporária
     temp_dir = Path(__file__).parent.absolute() / "temp"
     temp_dir.mkdir(exist_ok=True)
+    atexit.register(cleanup_session_log)
     atexit.register(limpar_temp_inteligente)
     
     # 2. Configurações Iniciais (Modo Online Fixo)
