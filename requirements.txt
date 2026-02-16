@@ -1,6 +1,4 @@
-opencv-python-headless
 Pillow
 requests
 google-genai
 keyring
-numpy

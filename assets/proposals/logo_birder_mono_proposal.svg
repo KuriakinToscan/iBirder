@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="#2c3e50">
+  <desc>iBirder Logo Proposal - Stylized Bird (Monochrome)</desc>
+  <!-- Stylized Bird Body Outline -->
+  <path d="M400,160 c0,0-40-60-120-60 s-140,80-140,160 s60,120,140,120 s120-60,120-140 Z M280,260 c0,0,40-40,100,0 c0,0-50,80-100,0 Z" />
+  <!-- Beak -->
+  <path d="M400,200 L460,210 L400,230 Z" />
+  <!-- Eye Cutout -->
+  <circle cx="360" cy="190" r="10" fill="#ffffff" />
+</svg>
