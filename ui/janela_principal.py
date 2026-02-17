@@ -202,20 +202,40 @@ class JanelaPrincipal(QMainWindow):
         layout_esquerda = QVBoxLayout()
         layout_esquerda.setSpacing(20)
         
-        caminho_logo_painel = self._obter_caminho_asset("logo_ave.svg")
-        if os.path.exists(caminho_logo_painel):
-            lbl_logo = QLabel()
-            pixmap_logo = QIcon(caminho_logo_painel).pixmap(QSize(170, 70))
-            lbl_logo.setPixmap(pixmap_logo)
-            layout_esquerda.addWidget(lbl_logo, alignment=Qt.AlignLeft)
-        else:
-            lbl_logo = QLabel("iBirder")
-            lbl_logo.setFont(QFont("Segoe UI Light", 32))
-            layout_esquerda.addWidget(lbl_logo)
+        # Branding Header (Icon + Text)
+        layout_branding = QHBoxLayout()
+        layout_branding.setSpacing(12)
+        layout_branding.setAlignment(Qt.AlignLeft)
         
-        lbl_subtitle = QLabel("IA para BirdWatching")
-        lbl_subtitle.setStyleSheet("color: #6B7280; font-size: 16px; font-weight: bold; margin-bottom: 4px;")
-        layout_esquerda.addWidget(lbl_subtitle)
+        # Logo Icon
+        caminho_logo_painel = self._obter_caminho_asset("logo_ave.svg")
+        lbl_logo = QLabel()
+        if os.path.exists(caminho_logo_painel):
+            pixmap_logo = QIcon(caminho_logo_painel).pixmap(QSize(48, 48))
+            lbl_logo.setPixmap(pixmap_logo)
+        else:
+            lbl_logo.setText("🐦")
+            lbl_logo.setFont(QFont("Segoe UI Emoji", 32))
+        
+        layout_branding.addWidget(lbl_logo)
+        
+        # Text Column
+        layout_textos_header = QVBoxLayout()
+        layout_textos_header.setSpacing(0)
+        
+        lbl_titulo_app = QLabel("iBirder")
+        lbl_titulo_app.setStyleSheet("color: #1F2937; font-size: 24px; font-weight: bold; font-family: 'Segoe UI';")
+        
+        lbl_subtitulo = QLabel("IA para BirdWatching")
+        lbl_subtitulo.setStyleSheet("color: #6B7280; font-size: 14px; font-weight: normal; font-family: 'Segoe UI';")
+        
+        layout_textos_header.addWidget(lbl_titulo_app)
+        layout_textos_header.addWidget(lbl_subtitulo)
+        
+        layout_branding.addLayout(layout_textos_header)
+        layout_branding.addStretch() # Push everything to the left
+        
+        layout_esquerda.addLayout(layout_branding)
 
         caminho_icone_janela = self._obter_caminho_asset(self.nome_icone_janela)
         if os.path.exists(caminho_icone_janela):
@@ -307,7 +327,8 @@ class JanelaPrincipal(QMainWindow):
         layout_direito.addLayout(layout_cabecalho)
         
         # Grupo Resultados
-        grupo_resultados = QGroupBox("TAXONÔMICO")
+        grupo_resultados = QGroupBox("") # Sem título
+
         layout_res = QVBoxLayout()
         layout_res.setSpacing(15)
         
@@ -329,15 +350,29 @@ class JanelaPrincipal(QMainWindow):
         # Container de Busca Manual
         container_busca = QHBoxLayout()
         container_busca.setContentsMargins(0, 0, 0, 0)
+        container_busca.setSpacing(5)
         
         self.input_especie = QLineEdit()
-        self.input_especie.setPlaceholderText("Gavião-real, Harpia harpyja...")
+        self.input_especie.setPlaceholderText("pesquise ou digite")
         self.input_especie.setFont(QFont("Segoe UI", 12))
+        self.input_especie.setStyleSheet("""
+            QLineEdit {
+                background-color: transparent;
+                border: none;
+                border-bottom: 1px solid #E5E7EB; /* Linha sutil para guiar */
+                color: #374151;
+                font-style: normal;
+            }
+            QLineEdit:focus {
+                border-bottom: 2px solid #10B981;
+            }
+        """)
         self.input_especie.returnPressed.connect(self._realizar_busca_manual)
         
         self.btn_search = QPushButton()
         self.btn_search.setCursor(Qt.PointingHandCursor)
-        self.btn_search.setFixedSize(36, 36)
+        self.btn_search.setFixedSize(32, 32)
+        self.btn_search.setStyleSheet("background-color: transparent; border: none;") # Transparente e solto
         
         caminho_lupa = self._obter_caminho_asset("search_loupe.svg")
         if os.path.exists(caminho_lupa):
