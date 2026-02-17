@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
     QPushButton, QGroupBox, QFileDialog, QLineEdit,
     QFrame, QStatusBar, QApplication, QSizePolicy, QGraphicsDropShadowEffect,
-    QMessageBox
+    QMessageBox, QCheckBox
 )
 from PySide6.QtCore import Qt, QSize, QThread, Signal, QSettings, QMimeData, QUrl
 from PySide6.QtGui import (
@@ -364,7 +364,44 @@ class JanelaPrincipal(QMainWindow):
         
         layout_principal.addLayout(layout_esquerda, stretch=3)
 
-        # --- LADO DIREITO ---
+        # --- LADO DIREITO (Wrapper) ---
+        layout_coluna_direita = QVBoxLayout()
+        layout_coluna_direita.setSpacing(10)
+        
+        # Botão Ajuda (Header Global)
+        layout_ajuda = QHBoxLayout()
+        layout_ajuda.addStretch()
+        
+        # Botão Reload (Novo)
+        self.btn_reload = QPushButton()
+        self.btn_reload.setFixedSize(40, 40)
+        self.btn_reload.setProperty("class", "icon-btn")
+        self.btn_reload.setCursor(Qt.PointingHandCursor)
+        self.btn_reload.setToolTip("Recarregar / Limpar")
+        # Reuse existing logic or simple text icon if asset missing
+        self.btn_reload.setText("⟳")
+        self.btn_reload.setFont(QFont("Segoe UI", 16, QFont.Bold))
+        self.btn_reload.clicked.connect(self._resetar_interface)
+        
+        layout_ajuda.addWidget(self.btn_reload)
+        
+        self.btn_ajuda = QPushButton()
+        self.btn_ajuda.setFixedSize(40, 40)
+        self.btn_ajuda.setProperty("class", "icon-btn")
+        self.btn_ajuda.setCursor(Qt.PointingHandCursor)
+        caminho_help = self._obter_caminho_asset("icon_help.svg")
+        if os.path.exists(caminho_help):
+            self.btn_ajuda.setIcon(QIcon(caminho_help))
+            self.btn_ajuda.setIconSize(QSize(24, 24))
+        else:
+             self.btn_ajuda.setText("?")
+             self.btn_ajuda.setFont(QFont("Segoe UI", 16, QFont.Bold))
+        self.btn_ajuda.clicked.connect(self._abrir_manual)
+        
+        layout_ajuda.addWidget(self.btn_ajuda)
+        layout_coluna_direita.addLayout(layout_ajuda)
+
+        # Painel Branco
         self.painel_direito = QFrame()
         self.painel_direito.setProperty("class", "painel")
         
@@ -378,31 +415,7 @@ class JanelaPrincipal(QMainWindow):
         layout_direito.setSpacing(30)
         layout_direito.setContentsMargins(25, 35, 25, 25)
         
-        # Cabeçalho
-        layout_cabecalho = QHBoxLayout()
-        # lbl_controle = QLabel("Identificação Local") # Removido
-        # layout_cabecalho.addWidget(lbl_controle)
-        
-        layout_cabecalho.addStretch()
-        
-        # Botão Ajuda
-        self.btn_ajuda = QPushButton()
-        self.btn_ajuda.setFixedSize(40, 40)
-        self.btn_ajuda.setProperty("class", "icon-btn")
-        self.btn_ajuda.setCursor(Qt.PointingHandCursor)
-        caminho_help = self._obter_caminho_asset("icon_help.svg")
-        if os.path.exists(caminho_help):
-            self.btn_ajuda.setIcon(QIcon(caminho_help))
-            self.btn_ajuda.setIconSize(QSize(24, 24))
-        else:
-             self.btn_ajuda.setText("?")
-             self.btn_ajuda.setFont(QFont("Segoe UI", 16, QFont.Bold))
-        self.btn_ajuda.clicked.connect(self._abrir_manual)
-        layout_cabecalho.addWidget(self.btn_ajuda)
-        
-        layout_direito.addLayout(layout_cabecalho)
-        
-        # Grupo Resultados
+        # Grupo Resultados dentro do Painel
         grupo_resultados = QGroupBox("") # Sem título
 
         layout_res = QVBoxLayout()
@@ -524,7 +537,9 @@ class JanelaPrincipal(QMainWindow):
         grupo_resultados.setLayout(layout_res)
         layout_direito.addWidget(grupo_resultados)
         layout_direito.addStretch()
-        layout_principal.addWidget(self.painel_direito, stretch=2)
+        
+        layout_coluna_direita.addWidget(self.painel_direito)
+        layout_principal.addLayout(layout_coluna_direita, stretch=2)
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
@@ -656,7 +671,14 @@ class JanelaPrincipal(QMainWindow):
         # 2. Abre o Google Lens
         QDesktopServices.openUrl("https://lens.google.com/upload")
         
-        # 3. Exibe Instruções Customizadas
+        # 3. Verifica Persistência "Não exibir novamente"
+        settings = QSettings("iBirder", "App")
+        dont_show = settings.value("lens_dont_show_again", False, type=bool)
+        
+        if dont_show:
+            return
+
+        # 4. Exibe Instruções Customizadas
         msg = QMessageBox(self)
         msg.setWindowTitle("iBirder - Pesquisa Visual")
         
@@ -680,6 +702,12 @@ class JanelaPrincipal(QMainWindow):
             QPushButton:hover {
                 background-color: #111827;
             }
+            QCheckBox {
+                background-color: transparent;
+                color: #4B5563;
+                font-size: 11px;
+                margin-top: 10px;
+            }
         """)
         
         msg.setText("O Google Lens foi aberto no seu navegador.")
@@ -690,7 +718,15 @@ class JanelaPrincipal(QMainWindow):
         )
         msg.setIcon(QMessageBox.Information)
         msg.addButton("Entendi", QMessageBox.AcceptRole)
+        
+        # Checkbox "Não exibir novamente"
+        chk_dont_show = QCheckBox("Não exibir esta mensagem novamente", msg)
+        msg.setCheckBox(chk_dont_show)
+        
         msg.exec()
+        
+        if chk_dont_show.isChecked():
+            settings.setValue("lens_dont_show_again", True)
 
     def _carregar_imagem(self, caminho: str):
         # 1. Reset da Interface (Limpeza Visual para Nova Identificação)
@@ -733,6 +769,7 @@ class JanelaPrincipal(QMainWindow):
 
         # Check AI Status (v0.16.1)
         if self.ai_status == 'RESTART_REQUIRED':
+             # ... (código existente de restart)
              msg = QMessageBox()
              msg.setIcon(QMessageBox.Information)
              msg.setWindowTitle("Reinicialização Necessária")
@@ -743,7 +780,10 @@ class JanelaPrincipal(QMainWindow):
 
         self.lbl_nome_comum.setText("...")
         self.lbl_descricao.setText("-")
-        self.input_especie.setText("...")
+        
+        # Garante placeholder visível (não define "..." como texto)
+        self.input_especie.clear() 
+        
         self.status_bar.showMessage("Iniciando IA Local...")
         
         # Desabilita interação básica durante processamento
@@ -821,11 +861,14 @@ class JanelaPrincipal(QMainWindow):
             self.lbl_confianca.setStyleSheet("color: #059669") # Verde
             self.status_bar.showMessage("Identificação concluída.")
             
-            # Reativar botões
+            # Reabilita botões
             self.btn_wiki.setVisible(True)
             self.btn_google.setVisible(True)
             self.btn_ebird.setVisible(True)
             
+            # Texto da Referência: Feedback visual
+            self.area_referencia.setText("aguardando identificação da espécie...")
+
             # Iniciar Workers de Enriquecimento (WikiAves, Imagens, etc)
             if sci:
                 self._iniciar_busca_imagem(sci)
