@@ -25,6 +25,12 @@ import logging
 from core.logger import save_crash_log
 
 class AreaDrop(QLabel):
+    def sizeHint(self):
+        return QSize(1, 1)
+
+    def minimumSizeHint(self):
+        return QSize(1, 1)
+
     def __init__(self, callback_arquivo_carregado):
         super().__init__()
         self.callback = callback_arquivo_carregado
@@ -120,6 +126,12 @@ class AreaDrop(QLabel):
         drag.exec(Qt.CopyAction)
 
 class AreaReferencia(QLabel):
+    def sizeHint(self):
+        return QSize(1, 1)
+
+    def minimumSizeHint(self):
+        return QSize(1, 1)
+
     def __init__(self):
         super().__init__()
         self.setText("Aguardando a identificação da ave.")
