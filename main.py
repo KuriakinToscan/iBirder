@@ -182,7 +182,18 @@ def garantir_dependencias():
             except Exception:
                 pass
 
+import traceback
+
+def exception_hook(exctype, value, tb):
+    print("[CRASH] Exceção não tratada:")
+    traceback.print_exception(exctype, value, tb)
+    sys.exit(1)
+
+sys.excepthook = exception_hook
+
 if __name__ == "__main__":
+    print("[BOOT] Iniciando aplicação...")
+    
     # 0. Self-Healing
     garantir_dependencias()
 
@@ -199,6 +210,7 @@ if __name__ == "__main__":
     # 1. Init Logger
     logger = setup_logger()
 
+    print("[BOOT] Criando QApplication...")
     app = QApplication(sys.argv)
     
     # 1. Verificação de Ambiente (.venv)
@@ -221,7 +233,11 @@ if __name__ == "__main__":
     app.setStyle("Fusion")
 
     # 5. Inicia Janela Principal (Modo Local)
+    print("[BOOT] Criando JanelaPrincipal...")
     janela = JanelaPrincipal(nome_icone_janela=nome_icone, ai_status=AI_ENGINE_STATUS)
+    
+    print("[BOOT] Exibindo janela...")
     janela.show()
 
+    print("[BOOT] Entrando no loop de eventos.")
     sys.exit(app.exec())
