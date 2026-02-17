@@ -769,7 +769,7 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_descricao.setText("-")
         self.lbl_confianca.setText("-")
         self.input_especie.clear()
-        self.input_especie.setStyleSheet("font-style: normal;")
+        self.input_especie.setStyleSheet("background: transparent; border: none; font-style: normal;")
         
         self.area_referencia.set_placeholder("Aguardando a identificação da ave.")
         self.area_referencia.setPixmap(QPixmap())
@@ -820,7 +820,7 @@ class JanelaPrincipal(QMainWindow):
         
         # Garante placeholder visível (não define "..." como texto)
         self.input_especie.clear() 
-        self.input_especie.setStyleSheet("font-style: normal;") 
+        self.input_especie.setStyleSheet("background: transparent; border: none; font-style: normal;") 
         
         self.area_referencia.set_placeholder("aguardando identificação da espécie...")
         self.status_bar.showMessage("Iniciando IA Local...")
@@ -881,8 +881,8 @@ class JanelaPrincipal(QMainWindow):
 
             # Aplica itálico ao nome científico confirmado
             self.input_especie.setText(sci_formatted)
-            # Força o itálico sobrepondo qualquer CSS global
-            self.input_especie.setStyleSheet("font-style: italic;")
+            # Força o itálico sobrepondo qualquer CSS global, mantendo fundo transparente
+            self.input_especie.setStyleSheet("background: transparent; border: none; font-style: italic;")
             
             # Garante que usamos o formatado para buscas subsequentes
             if self.dados_identificacao_atual:
@@ -891,7 +891,7 @@ class JanelaPrincipal(QMainWindow):
         else:
              # Mantém limpo para mostrar o placeholder
              self.input_especie.clear()
-             self.input_especie.setStyleSheet("font-style: normal;")
+             self.input_especie.setStyleSheet("background: transparent; border: none; font-style: normal;")
         
         self.lbl_descricao.setText(desc)
         
