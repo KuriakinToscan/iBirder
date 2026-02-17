@@ -8,10 +8,8 @@ import atexit
 from pathlib import Path
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon
-import keyring
 
 # Importações Locais
-from ui.wizard_config import WizardConfig
 from ui.dialogo_atalho import DialogoAtalho
 from core.config import carregar_config, salvar_config
 from ui.janela_principal import JanelaPrincipal
@@ -30,7 +28,7 @@ except ImportError:
 # Configuração do AppUserModelID (Apenas Windows)
 if platform.system() == "Windows":
     try:
-        myappid = 'ibirder.v0.7.0.online'
+        myappid = 'ibirder.v0.16.0.local'
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     except Exception:
         pass 
@@ -164,27 +162,28 @@ def detectar_tema_e_icone():
     return nome_arquivo
 
 def garantir_dependencias():
-    """Verifica e instala dependências críticas automaticamente (v0.10.9)."""
+    """Verifica e instala dependências críticas automaticamente."""
     libs = {
         'bs4': 'beautifulsoup4',
         'PIL': 'Pillow',
         'requests': 'requests',
-        'google.genai': 'google-genai',
-        'lxml': 'lxml'
+        'tensorflow': 'tensorflow-cpu',
+        'numpy': 'numpy'
     }
     
     for import_name, package_name in libs.items():
         try:
             __import__(import_name)
         except ImportError:
-            print(f"[AUTO-REPARO] Instalando biblioteca ausente: {package_name}")
+            # print(f"[AUTO-REPARO] Import {import_name} falhou. Instalando {package_name}...")
             try:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
-            except Exception as e:
-                print(f"[ERRO CRÍTICO] Falha ao instalar {package_name}: {e}")
+                subprocess.check_call([sys.executable, "-m", "pip", "install", package_name], 
+                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
 
 if __name__ == "__main__":
-    # 0. Self-Healing (v0.10.9)
+    # 0. Self-Healing
     garantir_dependencias()
 
     # 1. Init Logger
@@ -195,39 +194,23 @@ if __name__ == "__main__":
     # 1. Verificação de Ambiente (.venv)
     verificar_ambiente_virtual()
     
-    # v0.8.2: Gestão de Pasta Temporária
+    # Gestão de Pasta Temporária
     temp_dir = Path(__file__).parent.absolute() / "temp"
     temp_dir.mkdir(exist_ok=True)
     atexit.register(cleanup_session_log)
     atexit.register(limpar_temp_inteligente)
     
-    # 2. Configurações Iniciais (Modo Online Fixo)
+    # 2. Configurações
     config = carregar_config()
-    # Força modo online se não estiver
-    if config.get("modo_operacao") != "online":
-        config["modo_operacao"] = "online"
-        config["lembrar_modo"] = True
-        salvar_config(config)
-
-    # 3. Validação da Chave Online
-    chave = keyring.get_password("iBirder_Gemini_Key", "user")
-    if not chave:
-        # print("[CONFIG] Chave não encontrada. Abrindo Wizard...")
-        wizard = WizardConfig()
-        if not wizard.exec():
-            pass
-    else:
-        # v0.7.9: Teste de conexão removido para preservar cota (Tier 1)
-        pass
-
-    # 4. Trigger do Atalho
+    
+    # 3. Trigger do Atalho
     verificar_e_criar_atalho()
 
-    # 5. Ícone e Estilo
+    # 4. Ícone e Estilo
     nome_icone = detectar_tema_e_icone()
     app.setStyle("Fusion")
 
-    # 6. Inicia Janela Principal
+    # 5. Inicia Janela Principal (Modo Local)
     janela = JanelaPrincipal(nome_icone_janela=nome_icone)
     janela.show()
 

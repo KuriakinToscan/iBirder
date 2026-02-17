@@ -1,5 +1,4 @@
 Pillow
 requests
-google-genai
-keyring
-beautifulsoup4
+tensorflow-cpu
+numpy

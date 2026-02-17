@@ -10,16 +10,12 @@ from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QPixmap, QFont, QDragEnterEvent, QDropEvent, QIcon, QColor, QPainter, QAction, QDesktopServices
 
 # Importações do Core
-from core.identificador_nuvem import IdentificadorNuvem
-from core.servico_identificacao import ServicoIdentificacao
-from core.erros import ChaveApiFaltandoErro
-from core.config import carregar_config
-from ui.janela_config import JanelaConfig
+from core.local_worker import LocalIdentificationWorker
+# from core.config import carregar_config # Removido se não for usar
 from ui.janela_manual import JanelaManual
 from ui.dialogo_aviso import DialogoAviso
 from ui.worker_referencia import ReferenceImageWorker
 from core.wikiaves_worker import WikiAvesWorker
-import keyring
 import logging
 from core.logger import save_crash_log
 
@@ -64,14 +60,9 @@ class JanelaPrincipal(QMainWindow):
     def __init__(self, nome_icone_janela="logo_ave.svg", modo_inicial="online"):
         super().__init__()
         self.nome_icone_janela = nome_icone_janela
-        # Modo é sempre online agora (v0.7.0)
         
-        self.setWindowTitle("iBirder")
+        self.setWindowTitle("iBirder (Offline/Local)")
         self.resize(1100, 700)
-        
-        # Inicialização dos Serviços
-        self.id_nuvem = IdentificadorNuvem()
-        self.servico = ServicoIdentificacao(self.id_nuvem) 
         
         self.caminho_imagem_atual = None
         self.dados_identificacao_atual = {}
@@ -94,7 +85,7 @@ class JanelaPrincipal(QMainWindow):
         
         self.frame_etimologia.setVisible(False) # Reset etimologia
 
-        # Para worker anterior se existir (v0.9.1: Correção de Crash)
+        # Para worker anterior se existir
         if getattr(self, "worker_referencia", None) is not None:
             try:
                 if self.worker_referencia.isRunning():
@@ -113,7 +104,6 @@ class JanelaPrincipal(QMainWindow):
         self._iniciar_busca_etimologia(nome_cientifico)
 
     def _iniciar_busca_etimologia(self, nome_cientifico):
-        # v0.10.0: Worker WikiAves (Etimologia)
         if getattr(self, "worker_wiki", None) is not None:
              try:
                  if self.worker_wiki.isRunning():
@@ -122,7 +112,6 @@ class JanelaPrincipal(QMainWindow):
                  self.worker_wiki.deleteLater()
              except: pass
 
-        print(f"[DEBUG] Iniciando busca de Etimologia para: {nome_cientifico}")
         self.worker_wiki = WikiAvesWorker(nome_cientifico)
         self.worker_wiki.etymology_found.connect(self._ao_encontrar_etimologia)
         self.worker_wiki.error_occurred.connect(self._ao_erro_wikiaves)
@@ -145,7 +134,7 @@ class JanelaPrincipal(QMainWindow):
             nome_ingles = dados.get("nome_ingles")
             conservacao = dados.get("conservacao")
             
-            # --- Construção do HTML Rico (v0.14.0) ---
+            # --- Construção do HTML Rico ---
             html = "<div style='line-height: 1.4;'>"
             
             # 1. Taxonomia (Subtítulo discreto)
@@ -185,6 +174,11 @@ class JanelaPrincipal(QMainWindow):
             # Título dinâmico não existe como atributo direto na classe atual (lbl_titulo é local no _configurar_ui), 
             # então mantemos apenas o texto rico.
             
+            # Atualiza nome comum se disponível e ainda não definido
+            if dados.get("nome_comum"):
+                # Opcional: atualizar o nome comum se a IA não deu um bom
+                pass
+
         else:
             # Legado (str)
             self.lbl_etimologia_texto.setText(dados_ou_texto)
@@ -209,7 +203,6 @@ class JanelaPrincipal(QMainWindow):
         caminho_logo_painel = self._obter_caminho_asset("logo_ave.svg")
         if os.path.exists(caminho_logo_painel):
             lbl_logo = QLabel()
-            # Fix v0.10.6: Renderização robusta de SVG via QIcon
             pixmap_logo = QIcon(caminho_logo_painel).pixmap(QSize(170, 70))
             lbl_logo.setPixmap(pixmap_logo)
             layout_esquerda.addWidget(lbl_logo, alignment=Qt.AlignLeft)
@@ -222,14 +215,14 @@ class JanelaPrincipal(QMainWindow):
         if os.path.exists(caminho_icone_janela):
             self.setWindowIcon(QIcon(caminho_icone_janela))
 
-        # Layout de Comparação Lado a Lado (v0.8.0)
+        # Layout de Comparação Lado a Lado
         layout_imagens = QHBoxLayout()
         layout_imagens.setSpacing(15)
 
         self.area_drop = AreaDrop(self._carregar_imagem)
         layout_imagens.addWidget(self.area_drop, stretch=1)
         
-        # Wrapper vertical para imagem de referência + créditos (v0.8.7)
+        # Wrapper vertical para imagem de referência + créditos
         layout_ref_wrapper = QVBoxLayout()
         layout_ref_wrapper.setSpacing(5)
         
@@ -268,27 +261,13 @@ class JanelaPrincipal(QMainWindow):
         
         # Cabeçalho
         layout_cabecalho = QHBoxLayout()
-        lbl_controle = QLabel("Identificação")
+        lbl_controle = QLabel("Identificação Local")
         lbl_controle.setFont(QFont("Segoe UI Semibold", 20))
         layout_cabecalho.addWidget(lbl_controle)
         
         layout_cabecalho.addStretch()
         
-        # Botão Configuração
-        self.btn_config = QPushButton()
-        self.btn_config.setFixedSize(40, 40)
-        self.btn_config.setProperty("class", "icon-btn")
-        self.btn_config.setCursor(Qt.PointingHandCursor)
-        caminho_gear = self._obter_caminho_asset("icon_config.svg")
-        if os.path.exists(caminho_gear):
-            self.btn_config.setIcon(QIcon(caminho_gear))
-            self.btn_config.setIconSize(QSize(24, 24))
-        else:
-            self.btn_config.setText("⚙️")
-        self.btn_config.clicked.connect(self._abrir_configuracoes)
-        layout_cabecalho.addWidget(self.btn_config)
-
-        # Botão Ajuda (Direita)
+        # Botão Ajuda
         self.btn_ajuda = QPushButton()
         self.btn_ajuda.setFixedSize(40, 40)
         self.btn_ajuda.setProperty("class", "icon-btn")
@@ -306,31 +285,9 @@ class JanelaPrincipal(QMainWindow):
         layout_direito.addLayout(layout_cabecalho)
         
         # Grupo Resultados
-        grupo_resultados = QGroupBox("RESULTADOS (IA)")
+        grupo_resultados = QGroupBox("RESULTADOS (IA LOCAL)")
         layout_res = QVBoxLayout()
         layout_res.setSpacing(15)
-        
-        # Busca Manual
-        layout_busca = QHBoxLayout()
-        self.input_nome_cientifico = QLineEdit()
-        self.input_nome_cientifico.setPlaceholderText("Insira o nome da espécie para busca manual")
-        self.input_nome_cientifico.setFont(QFont("Segoe UI", 12))
-        
-        self.btn_buscar = QPushButton()
-        self.btn_buscar.setFixedSize(36, 36)
-        self.btn_buscar.setProperty("class", "icon-btn")
-        self.btn_buscar.setCursor(Qt.PointingHandCursor)
-        caminho_lupa = self._obter_caminho_asset("search_loupe.svg")
-        if os.path.exists(caminho_lupa):
-            self.btn_buscar.setIcon(QIcon(caminho_lupa))
-        else:
-            self.btn_buscar.setText("🔍")
-        self.btn_buscar.clicked.connect(self._buscar_especie_manual)
-        
-        layout_busca.addWidget(self.input_nome_cientifico)
-        layout_busca.addWidget(self.btn_buscar)
-
-        layout_res.addLayout(layout_busca)
         
         self.lbl_nome_comum = QLabel("-")
         self.lbl_nome_comum.setObjectName("lbl_nome_comum")
@@ -345,13 +302,16 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_descricao.setObjectName("lbl_descricao")
         self.lbl_descricao.setWordWrap(True)
 
-        layout_res.addWidget(QLabel("Nome Comum:"))
-        layout_res.addWidget(self.lbl_nome_comum)
-        layout_res.addWidget(QLabel("Descrição:"))
+        layout_res.addWidget(QLabel("Nome Científico (IA):"))
+        self.lbl_nome_cientifico = QLabel("-") # Novo label explicito
+        self.lbl_nome_cientifico.setFont(QFont("Segoe UI", 12, QFont.Bold))
+        layout_res.addWidget(self.lbl_nome_cientifico)
+
+        layout_res.addWidget(QLabel("Info:"))
         layout_res.addWidget(self.lbl_descricao)
         layout_res.addWidget(self.lbl_confianca)
         
-        # --- Card Etimologia (v0.10.3: WikiAves) ---
+        # --- Card Etimologia ---
         self.frame_etimologia = QFrame()
         self.frame_etimologia.setObjectName("frame_etimologia")
         self.frame_etimologia.setStyleSheet("""
@@ -367,7 +327,7 @@ class JanelaPrincipal(QMainWindow):
         layout_etimologia = QVBoxLayout(self.frame_etimologia)
         layout_etimologia.setContentsMargins(0, 0, 0, 0)
         
-        lbl_titulo = QLabel("Origem do Nome (WikiAves)")
+        lbl_titulo = QLabel("Detalhes (WikiAves)")
         lbl_titulo.setStyleSheet("font-weight: bold; color: #059669; font-size: 11px; text-transform: uppercase;")
         layout_etimologia.addWidget(lbl_titulo)
         
@@ -387,7 +347,7 @@ class JanelaPrincipal(QMainWindow):
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        self.status_bar.showMessage("Pronto (Online)")
+        self.status_bar.showMessage("Pronto para uso (Local)")
 
     def _aplicar_estilo(self):
         self.setStyleSheet("""
@@ -408,7 +368,7 @@ class JanelaPrincipal(QMainWindow):
             }
             QLabel.dropzone:hover { background-color: #E5E7EB; border-color: #374151; }
             
-            /* Area Referencia (v0.8.0) */
+            /* Area Referencia */
             QLabel.referencia {
                 border: 1px solid #E5E7EB;
                 border-radius: 12px;
@@ -431,19 +391,6 @@ class JanelaPrincipal(QMainWindow):
             /* Botões Icone */
             QPushButton[class="icon-btn"] { background-color: transparent; color: #374151; padding: 4px; border: none; }
             QPushButton[class="icon-btn"]:hover { background-color: #E5E7EB; border-radius: 4px; }
-            
-            /* Inputs (Resultados) */
-            QLineEdit { 
-                border: 1px solid #D1D5DB; 
-                border-radius: 6px; 
-                padding: 8px; 
-                background-color: #FFFFFF; 
-                color: #111827; 
-                font-weight: bold;
-                font-style: italic;
-                font-size: 14px;
-            }
-            QLineEdit:focus { border: 1px solid #374151; }
             
             /* GroupBox */
             QGroupBox { 
@@ -472,10 +419,6 @@ class JanelaPrincipal(QMainWindow):
         janela_manual = JanelaManual(self)
         janela_manual.exec()
 
-    def _abrir_configuracoes(self):
-        janela_cfg = JanelaConfig(self)
-        janela_cfg.exec()
-
     def _carregar_imagem(self, caminho: str):
         self.caminho_imagem_atual = caminho
         pixmap = QPixmap(caminho)
@@ -488,84 +431,53 @@ class JanelaPrincipal(QMainWindow):
         if not self.caminho_imagem_atual:
             return
 
-        # v0.7.9: Evita chamadas redundantes para preservar cota
-        if getattr(self, "ultimo_caminho_processado", None) == self.caminho_imagem_atual:
-            return
-
-        self.ultimo_caminho_processado = self.caminho_imagem_atual
-            
         self.lbl_nome_comum.setText("...")
         self.lbl_descricao.setText("-")
-        self.status_bar.showMessage("Analisando com Google Gemini (Online)...")
-        QApplication.setOverrideCursor(Qt.WaitCursor)
+        self.lbl_nome_cientifico.setText("...")
+        self.status_bar.showMessage("Iniciando IA Local...")
         
-        try:
-            # Fluxo Único: Nuvem
-            resultado = self.servico.identificar(self.caminho_imagem_atual)
-            
-            if "erro" in resultado:
-                DialogoAviso(resultado.get("titulo", "Erro"), resultado["erro"], self).exec()
-                self.status_bar.showMessage("Falha.")
-            else:
-                self.input_nome_cientifico.setText(resultado.get("nome_cientifico", "?"))
-                self.lbl_nome_comum.setText(resultado.get("nome_comum", "-"))
-                self.lbl_descricao.setText(resultado.get("descricao", "-"))
-                conf = resultado.get("confianca", 0.0)
-                self.lbl_confianca.setText(f"Confiança IA: {conf:.1%}" if isinstance(conf, float) else str(conf))
-                self.status_bar.showMessage("Identificado.")
-                
-                # v0.8.3: Busca Imagem de Referência
-                nome_cientifico = resultado.get("nome_cientifico", "")
-                if nome_cientifico and "?" not in nome_cientifico:
-                     print(f"[DEBUG] Iniciando busca de referência para: {nome_cientifico}")
-                     self._iniciar_busca_imagem(nome_cientifico)
-                
-        except ChaveApiFaltandoErro:
-             DialogoAviso("Falta Chave", "Configure a chave de API no menu.", self).exec()
-        except Exception as e:
-             logging.error(f"Erro fatal na identificação: {e}", exc_info=True)
-             save_crash_log()
-             DialogoAviso("Erro", f"Erro fatal: {e}", self).exec()
-        finally:
-            QApplication.restoreOverrideCursor()
+        # Desabilita interação básica durante processamento
+        self.area_drop.setEnabled(False)
+        
+        # Inicia Worker Local
+        self.worker_local = LocalIdentificationWorker(self.caminho_imagem_atual)
+        self.worker_local.progress_updated.connect(self._ao_progresso_identificacao)
+        self.worker_local.identification_complete.connect(self._ao_concluir_identificacao)
+        self.worker_local.error_occurred.connect(self._ao_erro_identificacao)
+        self.worker_local.start()
+        
+    def _ao_progresso_identificacao(self, mensagem):
+        self.status_bar.showMessage(mensagem)
+
+    def _ao_concluir_identificacao(self, resultado):
+        self.area_drop.setEnabled(True)
+        self.status_bar.showMessage("Identificado.")
+        
+        nome_cientifico = resultado.get("nome_cientifico", "?")
+        conf = resultado.get("confianca", 0.0)
+        
+        self.lbl_nome_cientifico.setText(nome_cientifico)
+        self.lbl_descricao.setText(resultado.get("descricao", "-"))
+        self.lbl_confianca.setText(f"Confiança: {conf:.1%}")
+        
+        # Agora busca detalhes adicionais no WikiAves
+        if nome_cientifico and "?" not in nome_cientifico:
+             self._iniciar_busca_imagem(nome_cientifico)
+
+    def _ao_erro_identificacao(self, erro_msg):
+        self.area_drop.setEnabled(True)
+        self.status_bar.showMessage("Falha na identificação.")
+        DialogoAviso("Erro de Identificação", erro_msg, self).exec()
 
     def _resetar_interface(self):
         self.caminho_imagem_atual = None
-        self.ultimo_caminho_processado = None
         self.area_referencia.setText("Referência")
         self.area_referencia.setPixmap(QPixmap())
         self.area_drop.setPixmap(QPixmap())
         self.area_drop.setText("Arraste e solte uma foto aqui\n\nou clique para selecionar")
-        self.input_nome_cientifico.clear()
+        self.lbl_nome_cientifico.setText("-")
         self.lbl_nome_comum.setText("-")
         self.lbl_descricao.setText("-")
         self.lbl_confianca.setText("-")
-        self.frame_etimologia.setVisible(False) # Reset etimologia
-        self.status_bar.showMessage("Pronto (Online)")
-
-    def _buscar_especie_manual(self):
-        nome = self.input_nome_cientifico.text().strip()
-        if len(nome) < 3:
-            DialogoAviso("Busca", "Digite pelo menos 3 letras.", self).exec()
-            return
-            
-        self.status_bar.showMessage(f"Pesquisando {nome}...")
-        QApplication.setOverrideCursor(Qt.WaitCursor)
-        
-        try:
-            resultado = self.id_nuvem.consultar_especie(nome)
-            if "erro" in resultado:
-                DialogoAviso("Não Encontrado", resultado["erro"], self).exec()
-            else:
-                self.input_nome_cientifico.setText(resultado.get("nome_cientifico", ""))
-                self.lbl_nome_comum.setText(resultado.get("nome_comum", "-"))
-                self.lbl_descricao.setText(resultado.get("descricao", "-"))
-                self.lbl_confianca.setText("Busca Manual (Nuvem)")
-                
-                # v0.8.3: Busca Imagem de Referência
-                print(f"[DEBUG] Iniciando busca de referência para: {resultado.get('nome_cientifico', '')}")
-                self._iniciar_busca_imagem(resultado.get("nome_cientifico", ""))
-        except Exception as e:
-            DialogoAviso("Erro", str(e), self).exec()
-        finally:
-            QApplication.restoreOverrideCursor()
+        self.frame_etimologia.setVisible(False) 
+        self.status_bar.showMessage("Pronto (Local)")
