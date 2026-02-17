@@ -8,8 +8,8 @@ import traceback
 from pathlib import Path
 
 class ReferenceImageWorker(QThread):
-    # Alterado v0.8.7: Emite (caminho_imagem, creditos)
-    image_found = Signal(str, str) 
+    # Alterado v0.8.8: Emite (caminho_imagem, creditos, url_fonte)
+    image_found = Signal(str, str, str) 
     search_failed = Signal()
 
     def __init__(self, species_name):
@@ -69,6 +69,10 @@ class ReferenceImageWorker(QThread):
             print(f"[WORKER] Imagem encontrada: {img_url}")
             print(f"[WORKER] Créditos: {attribution}")
 
+            # URL da Fonte (iNaturalist)
+            inat_id = result.get('id')
+            source_url = f"https://www.inaturalist.org/taxa/{inat_id}" if inat_id else ""
+
             # 2. Baixar Imagem
             img_data = requests.get(img_url, headers=headers, timeout=10).content
             
@@ -79,7 +83,7 @@ class ReferenceImageWorker(QThread):
             with open(save_path, "wb") as f:
                 f.write(img_data)
                 
-            self.image_found.emit(str(save_path), attribution)
+            self.image_found.emit(str(save_path), attribution, source_url)
             print("--- WORKER FINALIZADO COM SUCESSO ---")
 
         except Exception as e:

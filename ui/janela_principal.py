@@ -141,9 +141,13 @@ class JanelaPrincipal(QMainWindow):
 
     def _iniciar_busca_imagem(self, nome_cientifico):
         # Reset visual
-        # Não sobrescrever texto se já estiver "aguardando identificação..."
+        # Texto inicial ajustado
         if not self.area_referencia.text().startswith("aguardando"):
-             self.area_referencia.setText("Buscando ref...")
+             self.area_referencia.setText("aguardando identificação da ave")
+             
+        self.area_referencia.setPixmap(QPixmap())
+        self.lbl_referencia_creditos.setText("")
+        self.btn_fonte.setVisible(False) # Esconde botão de fonte durante nova busca
              
         self.area_referencia.setPixmap(QPixmap())
         self.lbl_referencia_creditos.setText("")
@@ -182,12 +186,18 @@ class JanelaPrincipal(QMainWindow):
         self.worker_wiki.error_occurred.connect(self._ao_erro_wikiaves)
         self.worker_wiki.start()
 
-    def _ao_encontrar_imagem_referencia(self, path, creditos):
+    def _ao_encontrar_imagem_referencia(self, path, creditos, url_fonte=""):
         pixmap = QPixmap(path)
         if not pixmap.isNull():
+            # Usa SmoothTransformation para qualidade
             self.area_referencia.setPixmap(pixmap.scaled(self.area_referencia.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
             self.area_referencia.setText("")
             self.lbl_referencia_creditos.setText(creditos)
+            
+            if url_fonte:
+                self.btn_fonte.setProperty("url_alvo", url_fonte)
+                self.btn_fonte.setVisible(True)
+                self.btn_fonte.setEnabled(True)
 
     def _ao_encontrar_etimologia(self, dados_ou_texto):
         # Suporte legado e novo (dict)
@@ -347,14 +357,29 @@ class JanelaPrincipal(QMainWindow):
         self.area_referencia = AreaReferencia()
         layout_ref_wrapper.addWidget(self.area_referencia)
         
+        # Botão Fonte (Simetria com botão Lens)
+        self.btn_fonte = QPushButton("Abrir Fonte")
+        self.btn_fonte.setCursor(Qt.PointingHandCursor)
+        self.btn_fonte.setVisible(False) # Inicialmente oculto
+        self.btn_fonte.setStyleSheet("""
+            QPushButton {
+                background-color: #ffffff;
+                color: #374151;
+                border: 1px solid #d1d5db;
+                padding: 10px;
+                font-size: 13px;
+            }
+            QPushButton:hover {
+                background-color: #f3f4f6;
+            }
+        """)
+        self.btn_fonte.clicked.connect(lambda: QDesktopServices.openUrl(self.btn_fonte.property("url_alvo")))
+        layout_ref_wrapper.addWidget(self.btn_fonte)
+
         self.lbl_referencia_creditos = QLabel("")
         self.lbl_referencia_creditos.setAlignment(Qt.AlignRight)
         self.lbl_referencia_creditos.setStyleSheet("color: #6B7280; font-size: 10px;")
         layout_ref_wrapper.addWidget(self.lbl_referencia_creditos)
-        
-        # Espaçador para alinhar com o botão da esquerda? 
-        # Não, ReferenceImageWorker não tem botão embaixo, então fica vago ou esticado.
-        # Para ficar alinhado no topo, addStretch pode ser util, mas Default é expandir.
         
         layout_imagens.addLayout(layout_ref_wrapper, stretch=1)
         
@@ -755,9 +780,10 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_confianca.setText("-")
         self.input_especie.clear()
         
-        self.area_referencia.setText("Referência")
+        self.area_referencia.setText("aguardando identificação da ave")
         self.area_referencia.setPixmap(QPixmap())
         self.lbl_referencia_creditos.setText("")
+        self.btn_fonte.setVisible(False)
         
         self.frame_etimologia.setVisible(False)
         self.btn_wiki.setVisible(True) # Mantém visível por padrão ou oculta? O reset original do código apenas limparva textos.
@@ -851,11 +877,26 @@ class JanelaPrincipal(QMainWindow):
         # O Input de Espécie só deve ser preenchido se houver identificação válida.
         # Nunca preencher com status de erro ou mensagens.
         if "Inconclusiva" not in status_msg and "Baixa" not in status_msg and sci:
+            # Rigor Taxonômico (Regra Estrita v0.16.5)
+            # 1. Remover parênteses e conteúdo interno (autores, anos)
+            sci_clean = re.sub(r'[\(\[].*?[\)\]]', '', sci).strip()
+            # 2. Formatação Binomial: Gênero Capitalizado, espécie minúscula
+            parts = sci_clean.split()
+            if len(parts) >= 2:
+                sci_formatted = f"{parts[0].capitalize()} {parts[1].lower()}"
+            else:
+                sci_formatted = sci_clean.capitalize()
+
             # Aplica itálico ao nome científico confirmado
-            self.input_especie.setText(sci)
+            self.input_especie.setText(sci_formatted)
             font_italic = self.input_especie.font()
             font_italic.setItalic(True)
             self.input_especie.setFont(font_italic)
+            
+            # Garante que usamos o formatado para buscas subsequentes
+            if self.dados_identificacao_atual:
+                self.dados_identificacao_atual["nome_cientifico"] = sci_formatted
+
         else:
              # Mantém limpo para mostrar o placeholder
              self.input_especie.clear()
@@ -925,11 +966,13 @@ class JanelaPrincipal(QMainWindow):
     def _resetar_interface(self):
         # Mantido apenas para compatibilidade se algo ainda chamar, mas btn_nova agora chama seletor e _carregar_imagem faz o reset
         self.caminho_imagem_atual = None
-        self.area_referencia.setText("Referência")
+        self.area_referencia.setText("aguardando identificação da ave")
         self.area_referencia.setPixmap(QPixmap())
-        self.area_drop.setPixmap(QPixmap())
+        self.area_drop.setPixmap(QPixmap()) # Limpa imagem anterior
         self.area_drop.setText("Arraste e solte uma foto aqui\n\nou clique para selecionar")
         self.area_drop.caminho_imagem = None
+        self.lbl_referencia_creditos.setText("")
+        self.btn_fonte.setVisible(False)
         self.input_especie.clear()
         self.lbl_nome_comum.setText("-")
         self.lbl_descricao.setText("-")
