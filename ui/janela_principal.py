@@ -8,8 +8,11 @@ from PySide6.QtWidgets import (
     QFrame, QStatusBar, QApplication, QSizePolicy, QGraphicsDropShadowEffect,
     QMessageBox
 )
-from PySide6.QtCore import Qt, QSize, QThread, Signal
-from PySide6.QtGui import QPixmap, QFont, QDragEnterEvent, QDropEvent, QIcon, QColor, QPainter, QAction, QDesktopServices
+from PySide6.QtCore import Qt, QSize, QThread, Signal, QSettings, QMimeData, QUrl
+from PySide6.QtGui import (
+    QPixmap, QFont, QDragEnterEvent, QDropEvent, QIcon, QColor, 
+    QPainter, QAction, QDesktopServices, QDrag
+)
 
 # Importações do Core
 from core.local_worker import LocalIdentificationWorker
@@ -31,6 +34,8 @@ class AreaDrop(QLabel):
         self.setMinimumSize(250, 250)
         self.setProperty("class", "dropzone") 
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.caminho_imagem = None
+        self.drag_start_pos = None
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
@@ -43,11 +48,39 @@ class AreaDrop(QLabel):
             self.callback(caminho)
 
     def mousePressEvent(self, event):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Selecionar Foto", "", "Imagens (*.png *.jpg *.jpeg)"
-        )
-        if path:
-            self.callback(path)
+        if event.button() == Qt.LeftButton:
+            if self.caminho_imagem:
+                self.drag_start_pos = event.position().toPoint()
+            else:
+                self.drag_start_pos = None
+                settings = QSettings("iBirder", "App")
+                last_folder = settings.value("last_folder", "")
+                
+                path, _ = QFileDialog.getOpenFileName(
+                    self, "Selecionar Foto", last_folder, "Imagens (*.png *.jpg *.jpeg)"
+                )
+                if path:
+                    self.callback(path)
+
+    def mouseMoveEvent(self, event):
+        if not (event.buttons() & Qt.LeftButton):
+            return
+        if not self.caminho_imagem or not self.drag_start_pos:
+            return
+            
+        if (event.position().toPoint() - self.drag_start_pos).manhattanLength() < QApplication.startDragDistance():
+            return
+            
+        drag = QDrag(self)
+        mime_data = QMimeData()
+        mime_data.setUrls([QUrl.fromLocalFile(self.caminho_imagem)])
+        drag.setMimeData(mime_data)
+        
+        pixmap = self.pixmap()
+        if pixmap:
+            drag.setPixmap(pixmap.scaled(100, 100, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            
+        drag.exec(Qt.CopyAction)
 
 class AreaReferencia(QLabel):
     def __init__(self):
@@ -600,6 +633,29 @@ class JanelaPrincipal(QMainWindow):
         # 3. Exibe Instruções Customizadas
         msg = QMessageBox(self)
         msg.setWindowTitle("iBirder - Pesquisa Visual")
+        
+        # Estilização para garantir fundo claro e texto legível
+        msg.setStyleSheet("""
+            QMessageBox {
+                background-color: #F9FAFB;
+            }
+            QLabel {
+                color: #1F2937;
+                font-size: 13px;
+            }
+            QPushButton {
+                background-color: #374151;
+                color: white;
+                border-radius: 6px;
+                padding: 6px 16px;
+                font-weight: bold;
+                border: 1px solid #1F2937;
+            }
+            QPushButton:hover {
+                background-color: #111827;
+            }
+        """)
+        
         msg.setText("O Google Lens foi aberto no seu navegador.")
         msg.setInformativeText(
             "Agora, <b>arraste a foto do iBirder</b> ou copie e cole (Ctrl+V) a imagem na página para identificar.<br><br>"
@@ -611,6 +667,13 @@ class JanelaPrincipal(QMainWindow):
 
     def _carregar_imagem(self, caminho: str):
         self.caminho_imagem_atual = caminho
+        self.area_drop.caminho_imagem = caminho # Atualiza caminho no widget de drop
+        
+        # Persistência da pasta
+        folder = str(Path(caminho).parent)
+        settings = QSettings("iBirder", "App")
+        settings.setValue("last_folder", folder)
+        
         pixmap = QPixmap(caminho)
         if not pixmap.isNull():
             # Usa SmoothTransformation para garantir alta qualidade visual na UI
@@ -660,14 +723,32 @@ class JanelaPrincipal(QMainWindow):
         self.dados_identificacao_atual = dados
         
         nc = dados.get("nome_comum", "-")
-        sci = dados.get("nome_cientifico", "")
+        raw_sci = dados.get("nome_cientifico", "")
+        
+        # Rigor Taxonômico: Apenas Binômio (Gênero espécie) e sem parênteses
+        import re
+        # Remove conteúdo entre parenteses/colchetes
+        sci_clean = re.sub(r'[\(\[].*?[\)\]]', '', raw_sci)
+        # Pega apenas as duas primeiras palavras
+        parts = sci_clean.strip().split()
+        if len(parts) >= 2:
+            sci = f"{parts[0]} {parts[1]}"
+        else:
+            sci = sci_clean.strip()
+            
         desc = dados.get("descricao", "")
         conf = dados.get("confianca", 0.0)
         status_msg = dados.get("status_msg", "")
         
         # 1. Atualizar Textos
         self.lbl_nome_comum.setText(nc)
+        
+        # Aplica itálico ao nome científico
         self.input_especie.setText(sci)
+        font_italic = self.input_especie.font()
+        font_italic.setItalic(True)
+        self.input_especie.setFont(font_italic)
+        
         self.lbl_descricao.setText(desc)
         
         # 2. Atualizar Status Bar e Confiança
