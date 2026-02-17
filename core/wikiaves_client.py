@@ -1,46 +1,65 @@
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import quote
-import logging
 import re
+import random
+import time
+import logging
 
 class WikiAvesClient:
     BASE_URL = "https://www.wikiaves.com.br"
+    # Endpoint correto para busca de formulário (confirmado)
     SEARCH_ENDPOINT = "https://www.wikiaves.com.br/buscasimples.php"
 
     def __init__(self):
+        self.session = requests.Session()
+        # Headers para emular navegador real (evita bloqueio)
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Referer': 'https://www.wikiaves.com.br/',
             'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
         }
+        self.session.headers.update(self.headers)
+
+    def _random_delay(self):
+        """Pequeno delay para não sobrecarregar o servidor (Ética de Scraping)."""
+        if hasattr(time, 'sleep'):
+            time.sleep(random.uniform(0.5, 1.5))
 
     def _get_species_link(self, scientific_name):
         """
-        Busca o link da espécie em buscasimples.php e valida se o link corresponde ao nome buscado.
+        Busca a URL da espécie, lidando com redirecionamentos 302 ou listas HTML.
         """
         try:
-            # Limpa o nome e separa as partes (Genero e especie)
-            sci_clean = scientific_name.strip().lower()
-            parts = sci_clean.split()
+            # Limpeza do nome para validação posterior
+            parts = scientific_name.lower().split()
+            # Se tiver 'Genero especie', valida 'especie'. Se só 'Genero', valida 'genero'.
+            specific_epithet = parts[1] if len(parts) > 1 else parts[0]
             
-            params = {'t': 's', 's': scientific_name}
+            # Parâmetros padrão do formulário do WikiAves: 'termo' é o name do input?
+            # O input name no HTML é 's' e 't=s'. O usuário mandou 'termo' na request.
+            # Verificando a request do usuário: params = {'termo': scientific_name}
+            # Se buscasimples.php aceita 'termo', OK. O código anterior usava 't=s' e 's=Nome'.
+            # Vou confiar no código fornecido pelo usuário.
+            params = {'termo': scientific_name}
             
-            print(f"[WIKIAVES] Buscando: {scientific_name}...")
-            response = requests.get(self.SEARCH_ENDPOINT, params=params, headers=self.headers, timeout=15, allow_redirects=True)
+            print(f"[WIKIAVES] Consultando: {self.SEARCH_ENDPOINT} com '{scientific_name}'")
+            # allow_redirects=True segue o 302 se houver match exato
+            response = self.session.get(self.SEARCH_ENDPOINT, params=params, timeout=15, allow_redirects=True)
             
             if response.status_code != 200:
                 print(f"[WIKIAVES] Erro HTTP: {response.status_code}")
                 return None
             
-            # CASO 1: Redirecionamento Automático (Match Exato)
+            # CENÁRIO A: Redirecionamento Direto (Ideal)
+            # Se a URL final contém '/wiki/' e não é uma busca, achamos!
             if "/wiki/" in response.url and "buscasimples.php" not in response.url:
-                # Verifica se não fomos jogados para uma página genérica (ex: wiki/aves)
+                # Validação extra: O link não pode ser genérico (ex: wiki/aves)
                 if "wiki/aves" not in response.url:
-                    print(f"[WIKIAVES] Redirecionamento direto: {response.url}")
+                    print(f"[WIKIAVES] Redirecionamento confirmado: {response.url}")
                     return response.url
             
-            # CASO 2: Lista de Resultados
+            # CENÁRIO B: Lista de Resultados (Parsing)
             soup = BeautifulSoup(response.text, 'html.parser')
             links = soup.find_all('a', href=True)
             
@@ -49,85 +68,72 @@ class WikiAvesClient:
                 text = link.get_text().lower()
                 title = link.get('title', '').lower()
                 
-                # Filtra apenas links de wiki
+                # Filtra links que parecem ser de espécies
                 if "wiki/" in href:
-                    # 1. Ignora links de sistema/taxonomia frequentes
-                    if any(x in href for x in ["index.php", "dicionario", "midias", "mapa", "som", "aves", "pais", "estado"]):
+                    # 1. Ignora links administrativos/taxonomia
+                    if any(x in href for x in ["index.php", "dicionario", "midias", "mapa", "som", "aves", "estado", "pais"]):
                         continue
-                        
-                    # 2. CRITÉRIO DE OURO: O link precisa conter o nome da espécie (parcial ou total)
-                    # Verifica se o 'epiteto específico' (ex: rubinus) está no texto do link ou no title
-                    # Isso evita clicar em 'Passeriformes' ou 'Tyrannidae' no breadcrumb
-                    if len(parts) > 1:
-                        species_epithet = parts[1] # 'rubinus'
-                        if species_epithet in text or species_epithet in title or species_epithet in href:
-                            if not href.startswith("http"):
-                                full_url = f"{self.BASE_URL}/{href.lstrip('/')}"
-                            else:
-                                full_url = href
-                                
-                            print(f"[WIKIAVES] Link validado (contém '{species_epithet}'): {full_url}")
-                            return full_url
-                    else:
-                        # Se for só genero, tenta match direto
-                        if sci_clean in text or sci_clean in title:
-                            if not href.startswith("http"):
-                                full_url = f"{self.BASE_URL}/{href.lstrip('/')}"
-                            else:
-                                full_url = href
-                            return full_url
+                    
+                    # 2. HEURÍSTICA DE VALIDAÇÃO:
+                    # O link ou o texto dele PRECISA conter parte do nome científico (ex: 'rubinus')
+                    if specific_epithet in href or specific_epithet in text or specific_epithet in title:
+                        # Corrige URL relativa se necessário
+                        clean_href = href
+                        if not clean_href.startswith("http"):
+                            clean_href = f"{self.BASE_URL}/{href.lstrip('/')}"
+                            
+                        print(f"[WIKIAVES] Link validado na lista: {clean_href}")
+                        return clean_href
             
-            print("[WIKIAVES] Nenhum link correspondente encontrado na lista de resultados.")
+            print("[WIKIAVES] Nenhum link validado encontrado na lista.")
             return None
-                
         except Exception as e:
-            print(f"[WIKIAVES] Erro na busca: {e}")
+            print(f"[WIKIAVES] Erro na busca de link: {e}")
             return None
 
     def get_description(self, scientific_name):
+        self._random_delay()
         target_url = self._get_species_link(scientific_name)
         
         if not target_url:
             return "Espécie não encontrada no WikiAves.", self.BASE_URL
         
         try:
-            print(f"[WIKIAVES] Acessando página: {target_url}")
-            response = requests.get(target_url, headers=self.headers, timeout=15)
-            response.encoding = 'utf-8'
-            
-            if response.status_code != 200:
-                return "Erro ao carregar página.", target_url
+            print(f"[WIKIAVES] Extraindo conteúdo de: {target_url}")
+            response = self.session.get(target_url, timeout=15)
+            response.encoding = 'utf-8' # Força UTF-8 para acentos
             
             soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # Lógica de Extração Refinada
-            # Tenta pegar especificamente a div.level2 (conteúdo da espécie)
-            content_div = soup.find('div', class_='level2')
             description = ""
             
+            # ESTRATÉGIA 1: Busca Semântica (div.level2)
+            # Onde geralmente reside o texto principal
+            content_div = soup.find('div', class_='level2')
             if content_div:
                 paragraphs = content_div.find_all('p', recursive=False)
                 for p in paragraphs:
                     text = p.get_text().strip()
-                    # Filtra parágrafos de metadados
-                    if len(text) > 40 and "DIMORFISMO" not in text and "Hierarquia" not in text:
+                    # Filtra metadados e textos curtos
+                    if len(text) > 50 and "DIMORFISMO" not in text:
                         description = text
                         break
             
-            # Fallback: Se div.level2 falhar, procura em toda a página, mas com cuidado
+            # ESTRATÉGIA 2: Heurística por Palavras-Chave (Fallback do Relatório)
+            # Se a estratégia 1 falhar, procura em TODOS os parágrafos por medidas ("cm", "mede")
             if not description:
-                ps = soup.find_all('p')
-                for p in ps:
+                print("[WIKIAVES] Estratégia 1 falhou. Tentando heurística de medidas...")
+                all_ps = soup.find_all('p')
+                for p in all_ps:
                     t = p.get_text().strip()
-                    if len(t) > 50 and "DIMORFISMO" not in t and "Hierarquia" not in t and "copyright" not in t.lower():
+                    # Padrão típico de descrição: "Mede X cm..."
+                    if ("mede" in t.lower() or "cm" in t.lower()) and len(t) > 40:
                         description = t
                         break
             
             if description:
                 return f"{description}\n\nFonte: WikiAves (www.wikiaves.com.br)", target_url
             else:
-                return "Descrição textual não disponível.", target_url
+                return "Descrição textual não disponível para esta espécie.", target_url
                 
         except Exception as e:
-            print(f"[WIKIAVES] Erro técnico: {e}")
-            return f"Erro técnico ao extrair descrição: {str(e)}", target_url
+            return f"Erro técnico na extração: {str(e)}", target_url
