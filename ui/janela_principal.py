@@ -359,7 +359,7 @@ class JanelaPrincipal(QMainWindow):
         
         self.btn_nova = QPushButton("Nova Identificação")
         self.btn_nova.setCursor(Qt.PointingHandCursor)
-        self.btn_nova.clicked.connect(self._resetar_interface)
+        self.btn_nova.clicked.connect(self._abrir_seletor_arquivo)
         layout_esquerda.addWidget(self.btn_nova)
         
         layout_principal.addLayout(layout_esquerda, stretch=3)
@@ -693,6 +693,23 @@ class JanelaPrincipal(QMainWindow):
         msg.exec()
 
     def _carregar_imagem(self, caminho: str):
+        # 1. Reset da Interface (Limpeza Visual para Nova Identificação)
+        self.lbl_nome_comum.setText("-")
+        self.lbl_descricao.setText("-")
+        self.lbl_confianca.setText("-")
+        self.input_especie.clear()
+        
+        self.area_referencia.setText("Referência")
+        self.area_referencia.setPixmap(QPixmap())
+        self.lbl_referencia_creditos.setText("")
+        
+        self.frame_etimologia.setVisible(False)
+        self.btn_wiki.setVisible(True) # Mantém visível por padrão ou oculta? O reset original do código apenas limparva textos.
+        # Vamos ocultar botões externos até ter resultado, para dar feedback de "novo processo"
+        self.btn_wiki.setVisible(False)
+        self.btn_google.setVisible(False)
+        self.btn_ebird.setVisible(False)
+
         self.caminho_imagem_atual = caminho
         self.area_drop.caminho_imagem = caminho # Atualiza caminho no widget de drop
         
@@ -822,13 +839,28 @@ class JanelaPrincipal(QMainWindow):
         self.status_bar.showMessage("Falha na identificação.")
         DialogoAviso("Erro de Identificação", erro_msg, self).exec()
 
+    def _abrir_seletor_arquivo(self):
+        # Garante foco na janela principal antes de abrir o diálogo
+        self.activateWindow()
+        self.raise_()
+        
+        settings = QSettings("iBirder", "App")
+        last_folder = settings.value("last_folder", "")
+        
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Nova Identificação", last_folder, "Imagens (*.png *.jpg *.jpeg)"
+        )
+        if path:
+            self._carregar_imagem(path)
+
     def _resetar_interface(self):
+        # Mantido apenas para compatibilidade se algo ainda chamar, mas btn_nova agora chama seletor e _carregar_imagem faz o reset
         self.caminho_imagem_atual = None
         self.area_referencia.setText("Referência")
         self.area_referencia.setPixmap(QPixmap())
         self.area_drop.setPixmap(QPixmap())
         self.area_drop.setText("Arraste e solte uma foto aqui\n\nou clique para selecionar")
-        self.area_drop.setText("Arraste e solte uma foto aqui\n\nou clique para selecionar")
+        self.area_drop.caminho_imagem = None
         self.input_especie.clear()
         self.lbl_nome_comum.setText("-")
         self.lbl_descricao.setText("-")
