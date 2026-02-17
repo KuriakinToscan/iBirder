@@ -566,9 +566,9 @@ class JanelaPrincipal(QMainWindow):
             self.area_referencia.setPixmap(QPixmap())
             self.lbl_referencia_creditos.setText("")
             
-            # Instrução Adicional (já está na descrição, mas reforçamos se precisar)
-            if "Google Lens" not in desc:
-                 self.lbl_descricao.setText(f"{desc}\n\nDica: Tente o botão do Google Lens abaixo.")
+            # Instrução Fixa (Sobrepõe a do worker para garantir o texto solicitado)
+            self.lbl_descricao.setText("Não foi possível identificar com segurança.\n\nTente o botão do Google Lens abaixo para uma análise visual.")
+            self.btn_google_lens.setEnabled(True)
 
         else:
             # Modo Sucesso
