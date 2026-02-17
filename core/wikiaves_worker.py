@@ -108,6 +108,18 @@ class WikiAvesWorker(QThread):
             # 3. Parsing (Método Auxiliar v0.15.1)
             dados = self._parse_page(soup_wa, final_url)
             
+            # [NEW] Scraping Direcionado (v0.2.1)
+            try:
+                from core.wikiaves_client import WikiAvesClient
+                client = WikiAvesClient()
+                desc, url_fonte = client.get_description(self.species_name)
+                dados["descricao"] = desc
+                if url_fonte:
+                    dados["link_wikiaves"] = url_fonte
+            except Exception as e:
+                print(f"[WIKIAVES] Erro ao obter descrição: {e}")
+                dados["descricao"] = "Descrição indisponível."
+
             if any(dados.values()):
                 self.etymology_found.emit(dados)
             else:

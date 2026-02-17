@@ -135,6 +135,28 @@ class JanelaPrincipal(QMainWindow):
             
             html += "</div>"
             self.lbl_etimologia_texto.setText(html)
+            
+            # [NEW] Preencher Descrição (v0.2.1)
+            descricao = dados.get("descricao", "")
+            img_src = dados.get("imagem_url", "")
+            link_src = dados.get("link_wikiaves", "")
+            
+            if descricao:
+                texto_desc = descricao
+                # Créditos
+                if link_src:
+                    texto_desc += f"\n\nFonte: WikiAves"
+                else:
+                    texto_desc += "\n\nFonte: WikiAves (www.wikiaves.com.br)"
+                
+                self.txt_descricao.setPlainText(texto_desc)
+                
+            # Atualizar Botão Fonte (Prioridade para WikiAves se identificado)
+            if link_src:
+                self.btn_fonte.setProperty("url_alvo", link_src)
+                self.btn_fonte.setEnabled(True)
+                self.btn_fonte.setText("Abrir no WikiAves")
+                
         else:
             self.lbl_etimologia_texto.setText(dados_ou_texto)
             

@@ -2,3 +2,4 @@ Pillow
 requests
 tensorflow-cpu
 numpy
+beautifulsoup4
