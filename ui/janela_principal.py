@@ -606,16 +606,16 @@ class JanelaPrincipal(QMainWindow):
             /* Textos Gerais */
             QLabel { color: #1F2937; font-family: "Segoe UI"; }
             
-            /* Dropzone */
+            /* Dropzone (Estilo Unificado com Referência) */
             QLabel.dropzone { 
-                border: 2px dashed #9CA3AF; 
+                border: 1px solid #E5E7EB; 
                 border-radius: 12px; 
-                background-color: #F3F4F6; 
+                background-color: #F9FAFB; 
                 color: #4B5563; 
                 font-size: 14px; 
                 font-weight: bold; 
             }
-            QLabel.dropzone:hover { background-color: #E5E7EB; border-color: #374151; }
+            QLabel.dropzone:hover { background-color: #F3F4F6; border-color: #D1D5DB; }
             
             /* Area Referencia */
             QLabel.referencia {
