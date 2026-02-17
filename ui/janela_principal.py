@@ -119,8 +119,8 @@ class AreaDrop(QLabel):
         mime_data.setUrls([QUrl.fromLocalFile(caminho_final)])
         drag.setMimeData(mime_data)
         
-            
-        # Otimização de Imagem para Google Lens (Limite 20MB)
+        # Executa o arrasto (CopyAction para o navegador entender como arquivo)
+        drag.exec(Qt.CopyAction)
 
 class AreaReferencia(QLabel):
     def __init__(self):
@@ -503,7 +503,7 @@ class JanelaPrincipal(QMainWindow):
                 border: none;
                 border-bottom: 1px solid #E5E7EB; /* Linha sutil para guiar */
                 color: #374151;
-                font-style: normal;
+                font-style: normal; /* Normal ao digitar */
             }
             QLineEdit:focus {
                 border-bottom: 2px solid #10B981;
