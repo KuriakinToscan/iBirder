@@ -21,18 +21,18 @@ class ModelManager:
         """Retorna True se todos os arquivos necessários existem."""
         return self.model_path.exists() and self.labels_path.exists()
 
-    def download_resources(self, progress_callback=None):
+    def download_resources(self, callback=None):
         """
         Baixa o modelo e os labels.
-        progress_callback(str): Função para receber mensagens de progresso/porcentagem.
+        callback(str): Função para receber mensagens de progresso/porcentagem.
         """
         try:
-            self._download_file(self.URL_MODEL, self.model_path, "Modelo IA", progress_callback)
-            self._download_file(self.URL_LABELS, self.labels_path, "Labels", progress_callback)
+            self._download_file(self.URL_MODEL, self.model_path, "Modelo IA", callback)
+            self._download_file(self.URL_LABELS, self.labels_path, "Labels", callback)
             return True
         except Exception as e:
-            if progress_callback:
-                progress_callback(f"Erro no download: {e}")
+            if callback:
+                callback(f"Erro no download: {e}")
             return False
 
     def _download_file(self, url, dest_path, description, callback):
