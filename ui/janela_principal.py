@@ -6,12 +6,12 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
     QPushButton, QGroupBox, QFileDialog, QLineEdit,
     QFrame, QStatusBar, QApplication, QSizePolicy, QGraphicsDropShadowEffect,
-    QMessageBox, QCheckBox
+    QMessageBox, QCheckBox, QGridLayout
 )
 from PySide6.QtCore import Qt, QSize, QThread, Signal, QSettings, QMimeData, QUrl
 from PySide6.QtGui import (
     QPixmap, QFont, QDragEnterEvent, QDropEvent, QIcon, QColor, 
-    QPainter, QAction, QDesktopServices, QDrag
+    QPainter, QAction, QDesktopServices, QDrag, QResizeEvent
 )
 
 # Importações do Core
@@ -35,7 +35,25 @@ class AreaDrop(QLabel):
         self.setProperty("class", "dropzone") 
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.caminho_imagem = None
+        self.setProperty("class", "dropzone") 
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.caminho_imagem = None
         self.drag_start_pos = None
+        self._original_pixmap = None
+
+    def setPixmap(self, pixmap):
+        self._original_pixmap = pixmap
+        # Chama resizeEvent manualmente para aplicar escala
+        if pixmap and not pixmap.isNull():
+            super().setPixmap(pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        else:
+            super().setPixmap(QPixmap())
+
+    def resizeEvent(self, event: QResizeEvent):
+        if self._original_pixmap and not self._original_pixmap.isNull():
+            scaled = self._original_pixmap.scaled(event.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            super().setPixmap(scaled)
+        super().resizeEvent(event)
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
@@ -101,12 +119,8 @@ class AreaDrop(QLabel):
         mime_data.setUrls([QUrl.fromLocalFile(caminho_final)])
         drag.setMimeData(mime_data)
         
-        pixmap = self.pixmap()
-
-        if pixmap:
-            drag.setPixmap(pixmap.scaled(100, 100, Qt.KeepAspectRatio, Qt.SmoothTransformation))
             
-        drag.exec(Qt.CopyAction)
+        # Otimização de Imagem para Google Lens (Limite 20MB)
 
 class AreaReferencia(QLabel):
     def __init__(self):
@@ -115,7 +129,22 @@ class AreaReferencia(QLabel):
         self.setAlignment(Qt.AlignCenter)
         self.setMinimumSize(250, 250)
         self.setProperty("class", "referencia")
+        self.setProperty("class", "referencia")
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self._original_pixmap = None
+
+    def setPixmap(self, pixmap):
+        self._original_pixmap = pixmap
+        if pixmap and not pixmap.isNull():
+            super().setPixmap(pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        else:
+            super().setPixmap(QPixmap())
+
+    def resizeEvent(self, event: QResizeEvent):
+        if self._original_pixmap and not self._original_pixmap.isNull():
+            scaled = self._original_pixmap.scaled(event.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            super().setPixmap(scaled)
+        super().resizeEvent(event)
 
 class JanelaPrincipal(QMainWindow):
     def __init__(self, nome_icone_janela="logo_ave.svg", modo_inicial="online", ai_status="READY"):
@@ -189,8 +218,8 @@ class JanelaPrincipal(QMainWindow):
     def _ao_encontrar_imagem_referencia(self, path, creditos, url_fonte=""):
         pixmap = QPixmap(path)
         if not pixmap.isNull():
-            # Usa SmoothTransformation para qualidade
-            self.area_referencia.setPixmap(pixmap.scaled(self.area_referencia.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            # setPixmap agora tratará o redimensionamento automaticamente via resizeEvent
+            self.area_referencia.setPixmap(pixmap) 
             self.area_referencia.setText("")
             self.lbl_referencia_creditos.setText(creditos)
             
@@ -315,23 +344,21 @@ class JanelaPrincipal(QMainWindow):
         if os.path.exists(caminho_icone_janela):
             self.setWindowIcon(QIcon(caminho_icone_janela))
 
-        # Layout de Comparação Lado a Lado
-        layout_imagens = QHBoxLayout()
-        layout_imagens.setSpacing(15)
+        # Layout de Comparação em Grid para Alinhamento Perfeito
+        layout_imagens = QGridLayout()
+        layout_imagens.setSpacing(10)
+        # Permite que as colunas cresçam igualmente
+        layout_imagens.setColumnStretch(0, 1)
+        layout_imagens.setColumnStretch(1, 1)
+        layout_imagens.setRowStretch(0, 1) # Imagens expandem verticalmente
 
-        # ---------------------------------------------------------
-        # COLUNA 1: Área de Drop + Botão Lens (Largura simétrica)
-        # ---------------------------------------------------------
-        layout_coluna_esquerda = QVBoxLayout()
-        layout_coluna_esquerda.setSpacing(10)
-
+        # --- Coluna 0 (Esquerda) ---
         self.area_drop = AreaDrop(self._carregar_imagem)
-        layout_coluna_esquerda.addWidget(self.area_drop)
+        layout_imagens.addWidget(self.area_drop, 0, 0) # Row 0, Col 0 (Imagem)
         
-        # Botão Google Lens (Agora dentro da coluna da imagem)
         self.btn_google_lens = QPushButton("Pesquisar com Google Lens")
         self.btn_google_lens.setCursor(Qt.PointingHandCursor)
-        self.btn_google_lens.setEnabled(False) # Habilita ao carregar imagem
+        self.btn_google_lens.setEnabled(False)
         self.btn_google_lens.setStyleSheet("""
             QPushButton {
                 background-color: #ffffff;
@@ -345,24 +372,16 @@ class JanelaPrincipal(QMainWindow):
             }
         """)
         self.btn_google_lens.clicked.connect(self._abrir_google_lens)
-        layout_coluna_esquerda.addWidget(self.btn_google_lens)
+        layout_imagens.addWidget(self.btn_google_lens, 1, 0) # Row 1, Col 0 (Botão)
         
-        layout_imagens.addLayout(layout_coluna_esquerda, stretch=1)
-        
-        # ---------------------------------------------------------
-        # COLUNA 2: Referência + Créditos
-        # ---------------------------------------------------------
-        layout_ref_wrapper = QVBoxLayout()
-        layout_ref_wrapper.setSpacing(5)
-        
+        # --- Coluna 1 (Direita) ---
         self.area_referencia = AreaReferencia()
-        layout_ref_wrapper.addWidget(self.area_referencia)
-        
-        # Botão Fonte (Simetria com botão Lens)
+        layout_imagens.addWidget(self.area_referencia, 0, 1) # Row 0, Col 1 (Imagem)
+
         self.btn_fonte = QPushButton("Abrir Fonte")
         self.btn_fonte.setCursor(Qt.PointingHandCursor)
-        self.btn_fonte.setVisible(True) # Sempre visível para manter simetria
-        self.btn_fonte.setEnabled(False) # Habilita apenas com link válido
+        self.btn_fonte.setVisible(True)
+        self.btn_fonte.setEnabled(False)
         self.btn_fonte.setStyleSheet("""
             QPushButton {
                 background-color: #ffffff;
@@ -376,14 +395,12 @@ class JanelaPrincipal(QMainWindow):
             }
         """)
         self.btn_fonte.clicked.connect(lambda: QDesktopServices.openUrl(self.btn_fonte.property("url_alvo")))
-        layout_ref_wrapper.addWidget(self.btn_fonte)
+        layout_imagens.addWidget(self.btn_fonte, 1, 1) # Row 1, Col 1 (Botão)
 
         self.lbl_referencia_creditos = QLabel("")
         self.lbl_referencia_creditos.setAlignment(Qt.AlignRight)
         self.lbl_referencia_creditos.setStyleSheet("color: #6B7280; font-size: 10px;")
-        layout_ref_wrapper.addWidget(self.lbl_referencia_creditos)
-        
-        layout_imagens.addLayout(layout_ref_wrapper, stretch=1)
+        layout_imagens.addWidget(self.lbl_referencia_creditos, 2, 1) # Row 2, Col 1 (Créditos)
         
         layout_esquerda.addLayout(layout_imagens)
         
@@ -804,8 +821,8 @@ class JanelaPrincipal(QMainWindow):
         
         pixmap = QPixmap(caminho)
         if not pixmap.isNull():
-            # Usa SmoothTransformation para garantir alta qualidade visual na UI
-            self.area_drop.setPixmap(pixmap.scaled(self.area_drop.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            # setPixmap agora tratará o redimensionamento automaticamente
+            self.area_drop.setPixmap(pixmap)
         
         self.status_bar.showMessage(f"Imagem: {Path(caminho).name}")
         self.btn_google_lens.setEnabled(True) # Habilita o botão do Lens
