@@ -73,10 +73,36 @@ class AreaDrop(QLabel):
             
         drag = QDrag(self)
         mime_data = QMimeData()
-        mime_data.setUrls([QUrl.fromLocalFile(self.caminho_imagem)])
+        
+        # Otimização de Imagem para Google Lens (Limite 20MB)
+        caminho_final = self.caminho_imagem
+        try:
+            tamanho_mb = os.path.getsize(self.caminho_imagem) / (1024 * 1024)
+            if tamanho_mb > 15: # Margem de segurança (Google aceita até 20MB)
+                print(f"[Drag] Imagem grande ({tamanho_mb:.1f}MB). Comprimindo para temp...")
+                
+                # Cria temp path mantendo extensão ou forçando jpg
+                import tempfile
+                temp_dir = tempfile.gettempdir()
+                nome_temp = f"ibirder_lens_optimized_{os.path.basename(self.caminho_imagem)}"
+                caminho_temp = os.path.join(temp_dir, nome_temp)
+                
+                # Comprime
+                pixmap_full = QPixmap(self.caminho_imagem)
+                if not pixmap_full.isNull():
+                    # Salva como JPEG com qualidade 85
+                    pixmap_full.save(caminho_temp, "JPG", 85)
+                    caminho_final = caminho_temp
+                    print(f"[Drag] Imagem comprimida salva em: {caminho_final}")
+        except Exception as e:
+            print(f"[Drag] Erro na otimização: {e}")
+            caminho_final = self.caminho_imagem
+            
+        mime_data.setUrls([QUrl.fromLocalFile(caminho_final)])
         drag.setMimeData(mime_data)
         
         pixmap = self.pixmap()
+
         if pixmap:
             drag.setPixmap(pixmap.scaled(100, 100, Qt.KeepAspectRatio, Qt.SmoothTransformation))
             
@@ -660,6 +686,7 @@ class JanelaPrincipal(QMainWindow):
         msg.setInformativeText(
             "Agora, <b>arraste a foto do iBirder</b> ou copie e cole (Ctrl+V) a imagem na página para identificar.<br><br>"
             "<i>(O caminho da imagem foi copiado para sua área de transferência)</i>"
+            "<br><br><span style='font-size: 10px; color: #6B7280;'>Nota: A imagem foi otimizada para garantir a compatibilidade com o Google.</span>"
         )
         msg.setIcon(QMessageBox.Information)
         msg.addButton("Entendi", QMessageBox.AcceptRole)
