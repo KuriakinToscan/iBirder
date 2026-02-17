@@ -12,7 +12,7 @@ class ModelManager:
     def __init__(self):
         self.assets_dir = Path(__file__).parent.parent / "assets" / "models"
         self.model_path = self.assets_dir / "birds_model.tflite"
-        self.labels_path = self.assets_dir / "birds_labels.csv"
+        self.labels_path = self.assets_dir / "birds_labels.txt"
         
         # Garantir que a pasta existe
         self.assets_dir.mkdir(parents=True, exist_ok=True)

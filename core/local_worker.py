@@ -102,25 +102,29 @@ class LocalIdentificationWorker(QThread):
 
             # Carregar Labels
             labels = self._load_labels(manager.labels_path)
+            print(f'[IA] Labels carregados: {len(labels)}')
             
-            # Ajuste para Background Class (geralmente index 0 em modelos Object Detection, 
-            # mas em classificação varia). 
-            # O bird_V1_1.csv geralmente começa com id 0.
+            # Ajuste para Background Class (MobileNet V2 do Google Coral usa index 0 para background)
+            # O arquivo .txt não tem o background, então o index 0 do modelo 
+            # corresponde ao primeiro item da lista ou ao background?
+            # Geralmente modelos treinados no iNaturalist pelo Google Coral:
+            # Index 0 = Background
+            # Index 1 = Primeira ave do arquivo txt
             
-            if idx in labels:
-                label_name = labels[idx]
+            try:
+                label_name = labels[idx] # Tenta acessar direto (a lista já terá o offset corrigido)
                 
                 # Resultado
                 resultado = {
                     "nome_cientifico": label_name,
                     "nome_comum": "Analisando...", 
-                    "descricao": "Identificado localmente (MobileNet V1).",
+                    "descricao": "Identificado localmente (MobileNet V2).",
                     "confianca": float(confidence)
                 }
                 
                 self.identification_complete.emit(resultado)
-            else:
-                self.error_occurred.emit(f"Erro: Índice {idx} não encontrado nos labels.")
+            except IndexError:
+                self.error_occurred.emit(f"Erro: Índice {idx} fora dos limites ({len(labels)}).")
 
         except Exception as e:
             print("-" * 50)
@@ -135,20 +139,20 @@ class LocalIdentificationWorker(QThread):
             self.progress_updated.emit(msg)
 
     def _load_labels(self, path):
-        """Lê o CSV de labels e retorna dict {id: nome}."""
-        labels = {}
-        with open(path, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("id"): continue
-                
-                parts = line.split(',')
-                if len(parts) >= 2:
-                    try:
-                        # id,name
-                        labels[int(parts[0])] = parts[1]
-                    except ValueError:
-                        pass
+        """Lê o TXT de labels e retorna lista com offset 0 = Background."""
+        labels = []
+        # Adiciona Background class no index 0
+        labels.append("Fundo/Desconhecido")
+        
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        labels.append(line)
+        except Exception as e:
+            print(f"[IA] Erro ao ler labels: {e}")
+            
         return labels
 
     def stop(self):
