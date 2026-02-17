@@ -771,9 +771,9 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_confianca.setText("-")
         self.input_especie.clear()
         
-        self.area_referencia.setText("Aguardando a identificação da ave.")
+        self.area_referencia.set_placeholder("Aguardando a identificação da ave.")
         self.area_referencia.setPixmap(QPixmap())
-        self.lbl_referencia_creditos.setText("")
+        self.area_referencia.set_overlay_text(None)
         self.btn_fonte.setEnabled(False)
         
         self.frame_etimologia.setVisible(False)
@@ -821,7 +821,7 @@ class JanelaPrincipal(QMainWindow):
         # Garante placeholder visível (não define "..." como texto)
         self.input_especie.clear() 
         
-        self.area_referencia.setText("aguardando identificação da espécie...")
+        self.area_referencia.set_placeholder("aguardando identificação da espécie...")
         self.status_bar.showMessage("Iniciando IA Local...")
         
         # Desabilita interação básica durante processamento
