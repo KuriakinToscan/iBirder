@@ -1,6 +1,5 @@
 import sys
 import os
-import requests
 from pathlib import Path
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
@@ -16,105 +15,12 @@ from PySide6.QtGui import (
 
 # Importações do Core
 from core.local_worker import LocalIdentificationWorker
-# from core.config import carregar_config # Removido se não for usar
 from ui.janela_manual import JanelaManual
 from ui.dialogo_aviso import DialogoAviso
 from ui.worker_referencia import ReferenceImageWorker
 from core.wikiaves_worker import WikiAvesWorker
-import logging
-from core.logger import save_crash_log
-
 from core.logger import save_crash_log
 from ui.custom_widgets import ImageCardWidget
-
-class AreaDrop(ImageCardWidget):
-    def __init__(self, callback_arquivo_carregado):
-        super().__init__()
-        self.callback = callback_arquivo_carregado
-        self.set_placeholder("Arraste e solte uma foto aqui\n\nou clique para selecionar")
-        self.setAcceptDrops(True)
-        self.caminho_imagem = None
-        self.drag_start_pos = None
-
-    def setPixmap(self, pixmap):
-        self.set_pixmap(pixmap)
-
-    # resizeEvent removido (gerido pelo ImageCardWidget)
-
-    def dragEnterEvent(self, event: QDragEnterEvent):
-        if event.mimeData().hasUrls():
-            event.acceptProposedAction()
-
-    def dropEvent(self, event: QDropEvent):
-        urls = event.mimeData().urls()
-        if urls:
-            caminho = urls[0].toLocalFile()
-            self.callback(caminho)
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            if self.caminho_imagem:
-                self.drag_start_pos = event.position().toPoint()
-            else:
-                self.drag_start_pos = None
-                settings = QSettings("iBirder", "App")
-                last_folder = settings.value("last_folder", "")
-                
-                path, _ = QFileDialog.getOpenFileName(
-                    self, "Selecionar Foto", last_folder, "Imagens (*.png *.jpg *.jpeg)"
-                )
-                if path:
-                    self.callback(path)
-
-    def mouseMoveEvent(self, event):
-        if not (event.buttons() & Qt.LeftButton):
-            return
-        if not self.caminho_imagem or not self.drag_start_pos:
-            return
-            
-        if (event.position().toPoint() - self.drag_start_pos).manhattanLength() < QApplication.startDragDistance():
-            return
-            
-        drag = QDrag(self)
-        mime_data = QMimeData()
-        
-        # Otimização de Imagem para Google Lens (Limite 20MB)
-        caminho_final = self.caminho_imagem
-        try:
-            tamanho_mb = os.path.getsize(self.caminho_imagem) / (1024 * 1024)
-            if tamanho_mb > 15: # Margem de segurança (Google aceita até 20MB)
-                print(f"[Drag] Imagem grande ({tamanho_mb:.1f}MB). Comprimindo para temp...")
-                
-                # Cria temp path mantendo extensão ou forçando jpg
-                import tempfile
-                temp_dir = tempfile.gettempdir()
-                nome_temp = f"ibirder_lens_optimized_{os.path.basename(self.caminho_imagem)}"
-                caminho_temp = os.path.join(temp_dir, nome_temp)
-                
-                # Comprime
-                pixmap_full = QPixmap(self.caminho_imagem)
-                if not pixmap_full.isNull():
-                    # Salva como JPEG com qualidade 85
-                    pixmap_full.save(caminho_temp, "JPG", 85)
-                    caminho_final = caminho_temp
-                    print(f"[Drag] Imagem comprimida salva em: {caminho_final}")
-        except Exception as e:
-            print(f"[Drag] Erro na otimização: {e}")
-            caminho_final = self.caminho_imagem
-            
-        mime_data.setUrls([QUrl.fromLocalFile(caminho_final)])
-        drag.setMimeData(mime_data)
-        
-        # Executa o arrasto (CopyAction para o navegador entender como arquivo)
-        drag.exec(Qt.CopyAction)
-
-class AreaReferencia(ImageCardWidget):
-    def __init__(self):
-        super().__init__()
-        self.set_placeholder("Aguardando a identificação da ave.")
-
-    def setPixmap(self, pixmap):
-        self.set_pixmap(pixmap)
 
 class JanelaPrincipal(QMainWindow):
     def __init__(self, nome_icone_janela="logo_ave.svg", modo_inicial="online", ai_status="READY"):
@@ -140,17 +46,12 @@ class JanelaPrincipal(QMainWindow):
 
     def _iniciar_busca_imagem(self, nome_cientifico):
         # Reset visual
-        # Texto inicial ajustado
-        if not self.area_referencia.text_placeholder.startswith("Aguardando"):
-             self.area_referencia.set_placeholder("Aguardando a identificação da ave.")
-             
-        self.area_referencia.setPixmap(QPixmap())
-        self.area_referencia.set_overlay_text(None)
-        self.btn_fonte.setEnabled(False) # Desabilita durante nova busca
-             
-        self.area_referencia.setPixmap(QPixmap())
+        self.card_ref.set_placeholder("Aguardando a identificação da ave.")
+        self.card_ref.set_pixmap(None)
+        self.card_ref.set_overlay_text(None)
+        self.btn_fonte.setEnabled(False) 
         
-        self.frame_etimologia.setVisible(False) # Reset etimologia
+        self.frame_etimologia.setVisible(False)
 
         # Para worker anterior se existir
         if getattr(self, "worker_referencia", None) is not None:
@@ -164,7 +65,7 @@ class JanelaPrincipal(QMainWindow):
             
         self.worker_referencia = ReferenceImageWorker(nome_cientifico)
         self.worker_referencia.image_found.connect(self._ao_encontrar_imagem_referencia)
-        self.worker_referencia.search_failed.connect(lambda: self.area_referencia.set_placeholder("Sem referência"))
+        self.worker_referencia.search_failed.connect(lambda: self.card_ref.set_placeholder("Sem referência"))
         self.worker_referencia.start()
         
         # Iniciar etimologia também
@@ -185,24 +86,21 @@ class JanelaPrincipal(QMainWindow):
         self.worker_wiki.start()
 
     def _ao_encontrar_imagem_referencia(self, path, creditos, url_fonte=""):
-        pixmap = QPixmap(path)
-        if not pixmap.isNull():
-            # setPixmap agora tratará o redimensionamento automaticamente via paintEvent do ImageCardWidget
-            self.area_referencia.setPixmap(pixmap) 
-            # self.area_referencia.setText("") # Removido, gerenciado pelo placeholder
-            if creditos:
-                 self.area_referencia.set_overlay_text(f"Foto: {creditos}")
-            else:
-                 self.area_referencia.set_overlay_text(None)
-            
-            if url_fonte:
-                self.btn_fonte.setProperty("url_alvo", url_fonte)
-                self.btn_fonte.setEnabled(True)
-            else:
-                self.btn_fonte.setEnabled(False)
+        # set_image_path carrega o pixmap e prepara para drag
+        self.card_ref.set_image_path(path) 
+        
+        if creditos:
+             self.card_ref.set_overlay_text(f"Foto: {creditos}")
+        else:
+             self.card_ref.set_overlay_text(None)
+        
+        if url_fonte:
+            self.btn_fonte.setProperty("url_alvo", url_fonte)
+            self.btn_fonte.setEnabled(True)
+        else:
+            self.btn_fonte.setEnabled(False)
 
     def _ao_encontrar_etimologia(self, dados_ou_texto):
-        # Suporte legado e novo (dict)
         if isinstance(dados_ou_texto, dict):
             dados = dados_ou_texto
             etimologia = dados.get("etimologia")
@@ -211,53 +109,33 @@ class JanelaPrincipal(QMainWindow):
             nome_ingles = dados.get("nome_ingles")
             conservacao = dados.get("conservacao")
             
-            # --- Construção do HTML Rico ---
             html = "<div style='line-height: 1.4;'>"
             
-            # 1. Taxonomia (Subtítulo discreto)
             if ordem and familia:
                 html += f"<div style='color: #6B7280; font-size: 10px; margin-bottom: 2px;'>{ordem.upper()} • {familia.upper()}</div>"
             
-            # 2. Nome em Inglês (Destaque)
             if nome_ingles:
                 html += f"<div style='font-weight: bold; font-size: 13px; color: #1F2937; margin-bottom: 4px;'>{nome_ingles}</div>"
             
-            # 3. Status de Conservação (Badge Colorido)
             if conservacao:
-                cor_bg = "#E5E7EB" # Cinza default
+                cor_bg = "#E5E7EB"
                 cor_txt = "#374151"
-                
-                # Lógica de Cores IUCN
                 c_lower = conservacao.lower()
                 if "pouco preocupante" in c_lower or "quase ameaçada" in c_lower:
-                    cor_bg = "#D1FAE5" # Verde claro
-                    cor_txt = "#065F46" # Verde escuro
+                    cor_bg = "#D1FAE5"; cor_txt = "#065F46"
                 elif "vulnerável" in c_lower:
-                    cor_bg = "#FEF3C7" # Amarelo
-                    cor_txt = "#92400E" # Laranja escuro
-                elif "perigo" in c_lower or "ameaçada" in c_lower: # Abrange "Em perigo", "Criticamente..."
-                    cor_bg = "#FEE2E2" # Vermelho claro
-                    cor_txt = "#991B1B" # Vermelho escuro
+                    cor_bg = "#FEF3C7"; cor_txt = "#92400E"
+                elif "perigo" in c_lower or "ameaçada" in c_lower:
+                    cor_bg = "#FEE2E2"; cor_txt = "#991B1B"
 
                 html += f"<span style='background-color: {cor_bg}; color: {cor_txt}; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold;'>{conservacao.upper()}</span><br>"
             
-            # 4. Etimologia (Texto)
             if etimologia:
                 html += f"<div style='margin-top: 8px; font-size: 11px; color: #4B5563;'><i>{etimologia}</i></div>"
             
             html += "</div>"
-            
             self.lbl_etimologia_texto.setText(html)
-            # Título dinâmico não existe como atributo direto na classe atual (lbl_titulo é local no _configurar_ui), 
-            # então mantemos apenas o texto rico.
-            
-            # Atualiza nome comum se disponível e ainda não definido
-            if dados.get("nome_comum"):
-                # Opcional: atualizar o nome comum se a IA não deu um bom
-                pass
-
         else:
-            # Legado (str)
             self.lbl_etimologia_texto.setText(dados_ou_texto)
             
         self.frame_etimologia.setVisible(True)
@@ -277,12 +155,11 @@ class JanelaPrincipal(QMainWindow):
         layout_esquerda = QVBoxLayout()
         layout_esquerda.setSpacing(20)
         
-        # Branding Header (Icon + Text)
+        # Branding Header
         layout_branding = QHBoxLayout()
         layout_branding.setSpacing(12)
         layout_branding.setAlignment(Qt.AlignLeft)
         
-        # Logo Icon
         caminho_logo_painel = self._obter_caminho_asset("logo_ave.svg")
         lbl_logo = QLabel()
         if os.path.exists(caminho_logo_painel):
@@ -294,13 +171,11 @@ class JanelaPrincipal(QMainWindow):
         
         layout_branding.addWidget(lbl_logo)
         
-        # Text Column
         layout_textos_header = QVBoxLayout()
         layout_textos_header.setSpacing(0)
         
         lbl_titulo_app = QLabel("iBirder")
         lbl_titulo_app.setStyleSheet("color: #1F2937; font-size: 24px; font-weight: bold; font-family: 'Segoe UI';")
-        
         lbl_subtitulo = QLabel("IA para BirdWatching")
         lbl_subtitulo.setStyleSheet("color: #6B7280; font-size: 14px; font-weight: normal; font-family: 'Segoe UI';")
         
@@ -308,7 +183,7 @@ class JanelaPrincipal(QMainWindow):
         layout_textos_header.addWidget(lbl_subtitulo)
         
         layout_branding.addLayout(layout_textos_header)
-        layout_branding.addStretch() # Push everything to the left
+        layout_branding.addStretch()
         
         layout_esquerda.addLayout(layout_branding)
 
@@ -316,18 +191,20 @@ class JanelaPrincipal(QMainWindow):
         if os.path.exists(caminho_icone_janela):
             self.setWindowIcon(QIcon(caminho_icone_janela))
 
-        # Layout de Comparação em Grid para Alinhamento Perfeito
-        layout_imagens = QGridLayout()
-        layout_imagens.setSpacing(10)
-        # Permite que as colunas cresçam igualmente
-        layout_imagens.setColumnStretch(0, 1)
-        layout_imagens.setColumnStretch(1, 1)
-        layout_imagens.setRowStretch(0, 1) # Imagens expandem verticalmente
+        # Layout de Imagens (Horizontal 50/50 com Stretch)
+        layout_imagens = QHBoxLayout()
+        layout_imagens.setSpacing(15) 
+        # Não usamos QGridLayout pois QHBoxLayout lida melhor com stretch igual
 
-        # --- Coluna 0 (Esquerda) ---
-        self.area_drop = AreaDrop(self._carregar_imagem)
-        layout_imagens.addWidget(self.area_drop, 0, 0) # Row 0, Col 0 (Imagem)
+        # --- Coluna Esquerda (User) ---
+        layout_col_user = QVBoxLayout()
+        self.card_user = ImageCardWidget()
+        self.card_user.set_placeholder("Arraste e solte uma foto aqui\n\nou clique para selecionar")
+        self.card_user.set_on_drop(self._carregar_imagem)
+        self.card_user.set_on_click(self._abrir_seletor_arquivo)
         
+        layout_col_user.addWidget(self.card_user, stretch=1) # Stretch vertical para o card
+
         self.btn_google_lens = QPushButton("Pesquisar com Google Lens")
         self.btn_google_lens.setCursor(Qt.PointingHandCursor)
         self.btn_google_lens.setEnabled(False)
@@ -344,11 +221,17 @@ class JanelaPrincipal(QMainWindow):
             }
         """)
         self.btn_google_lens.clicked.connect(self._abrir_google_lens)
-        layout_imagens.addWidget(self.btn_google_lens, 1, 0) # Row 1, Col 0 (Botão)
+        layout_col_user.addWidget(self.btn_google_lens)
         
-        # --- Coluna 1 (Direita) ---
-        self.area_referencia = AreaReferencia()
-        layout_imagens.addWidget(self.area_referencia, 0, 1) # Row 0, Col 1 (Imagem)
+        layout_imagens.addLayout(layout_col_user, stretch=1) # 50% largura
+
+        # --- Coluna Direita (Referência) ---
+        layout_col_ref = QVBoxLayout()
+        self.card_ref = ImageCardWidget()
+        self.card_ref.set_placeholder("Aguardando a identificação da ave.")
+        # Reference card doesn't need click/drop actions usually
+        
+        layout_col_ref.addWidget(self.card_ref, stretch=1) # Stretch vertical
 
         self.btn_fonte = QPushButton("Abrir Fonte")
         self.btn_fonte.setCursor(Qt.PointingHandCursor)
@@ -367,12 +250,9 @@ class JanelaPrincipal(QMainWindow):
             }
         """)
         self.btn_fonte.clicked.connect(lambda: QDesktopServices.openUrl(self.btn_fonte.property("url_alvo")))
-        layout_imagens.addWidget(self.btn_fonte, 1, 1) # Row 1, Col 1 (Botão)
-
-        self.btn_fonte.clicked.connect(lambda: QDesktopServices.openUrl(self.btn_fonte.property("url_alvo")))
-        layout_imagens.addWidget(self.btn_fonte, 1, 1) # Row 1, Col 1 (Botão)
-
-        # lbl_referencia_creditos removido do layout (agora é overlay)
+        layout_col_ref.addWidget(self.btn_fonte)
+        
+        layout_imagens.addLayout(layout_col_ref, stretch=1) # 50% largura
         
         layout_esquerda.addLayout(layout_imagens)
         
@@ -383,15 +263,14 @@ class JanelaPrincipal(QMainWindow):
         
         layout_principal.addLayout(layout_esquerda, stretch=3)
 
-        # --- LADO DIREITO (Wrapper) ---
+        # --- LADO DIREITO (Painel Lateral) ---
         layout_coluna_direita = QVBoxLayout()
         layout_coluna_direita.setSpacing(10)
         
-        # Botão Ajuda (Header Global)
+        # Botões Header (Reload + Ajuda)
         layout_ajuda = QHBoxLayout()
         layout_ajuda.addStretch()
         
-        # Botão Reload (Novo)
         self.btn_reload = QPushButton()
         self.btn_reload.setFixedSize(40, 40)
         self.btn_reload.setProperty("class", "icon-btn")
@@ -438,9 +317,8 @@ class JanelaPrincipal(QMainWindow):
         layout_direito.setSpacing(30)
         layout_direito.setContentsMargins(25, 35, 25, 25)
         
-        # Grupo Resultados dentro do Painel
-        grupo_resultados = QGroupBox("") # Sem título
-
+        # Grupo Resultados
+        grupo_resultados = QGroupBox("") 
         layout_res = QVBoxLayout()
         layout_res.setSpacing(15)
         
@@ -469,25 +347,13 @@ class JanelaPrincipal(QMainWindow):
         font_input = QFont("Segoe UI", 12)
         font_input.setItalic(True)
         self.input_especie.setFont(font_input)
-        self.input_especie.setStyleSheet("""
-            QLineEdit {
-                background-color: transparent;
-                border: 1px solid #D1D5DB;
-                border-radius: 6px;
-                padding: 4px;
-                color: #374151;
-                font-style: normal; /* Normal ao digitar */
-            }
-            QLineEdit:focus {
-                border: 1px solid #10B981;
-            }
-        """)
+        self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #374151; font-style: normal;")
         self.input_especie.returnPressed.connect(self._realizar_busca_manual)
         
         self.btn_search = QPushButton()
         self.btn_search.setCursor(Qt.PointingHandCursor)
         self.btn_search.setFixedSize(32, 32)
-        self.btn_search.setStyleSheet("background-color: transparent; border: none;") # Transparente e solto
+        self.btn_search.setStyleSheet("background-color: transparent; border: none;") 
         
         caminho_lupa = self._obter_caminho_asset("search_loupe.svg")
         if os.path.exists(caminho_lupa):
@@ -513,19 +379,19 @@ class JanelaPrincipal(QMainWindow):
         
         self.btn_wiki = QPushButton("WikiAves")
         self.btn_wiki.setCursor(Qt.PointingHandCursor)
-        self.btn_wiki.setStyleSheet("background-color: #F97316; border: none;") # Orange for WikiAves
+        self.btn_wiki.setStyleSheet("background-color: #F97316; border: none;") 
         self.btn_wiki.clicked.connect(self._buscar_wikiaves)
         layout_botoes.addWidget(self.btn_wiki)
         
         self.btn_ebird = QPushButton("eBird")
         self.btn_ebird.setCursor(Qt.PointingHandCursor)
-        self.btn_ebird.setStyleSheet("background-color: #65A30D; border: none;") # Green for eBird
+        self.btn_ebird.setStyleSheet("background-color: #65A30D; border: none;")
         self.btn_ebird.clicked.connect(self._buscar_ebird)
         layout_botoes.addWidget(self.btn_ebird)
 
         self.btn_google = QPushButton("Google")
         self.btn_google.setCursor(Qt.PointingHandCursor)
-        self.btn_google.setStyleSheet("background-color: #3B82F6; border: none;") # Blue for Google
+        self.btn_google.setStyleSheet("background-color: #3B82F6; border: none;")
         self.btn_google.clicked.connect(self._buscar_google)
         layout_botoes.addWidget(self.btn_google)
         
@@ -558,7 +424,6 @@ class JanelaPrincipal(QMainWindow):
         
         self.frame_etimologia.setVisible(False)
         layout_res.addWidget(self.frame_etimologia)
-        # -------------------------------------------
         
         grupo_resultados.setLayout(layout_res)
         layout_direito.addWidget(grupo_resultados)
@@ -576,27 +441,7 @@ class JanelaPrincipal(QMainWindow):
             QMainWindow { background-color: #F0F2F5; }
             QFrame.painel { background-color: #FFFFFF; border-radius: 12px; border: 1px solid #D1D5DB; }
             
-            /* Textos Gerais */
             QLabel { color: #1F2937; font-family: "Segoe UI"; }
-            
-            /* Dropzone (Estilo Unificado com Referência) */
-            QLabel.dropzone { 
-                border: 1px solid #E5E7EB; 
-                border-radius: 12px; 
-                background-color: #F9FAFB; 
-                color: #9CA3AF; 
-                font-size: 14px; 
-            }
-            QLabel.dropzone:hover { background-color: #F3F4F6; border-color: #D1D5DB; }
-            
-            /* Area Referencia */
-            QLabel.referencia {
-                border: 1px solid #E5E7EB;
-                border-radius: 12px;
-                background-color: #F9FAFB;
-                color: #9CA3AF;
-                font-size: 14px;
-            }
             
             /* Botões */
             QPushButton { 
@@ -646,14 +491,12 @@ class JanelaPrincipal(QMainWindow):
     def _buscar_wikiaves(self):
         sciname = self._obter_sciname_atual()
         if sciname and "Inconclusiva" not in sciname:
-            # Busca no WikiAves
             url = f"https://www.wikiaves.com.br/index.php?t=s&s={sciname}"
             QDesktopServices.openUrl(url)
 
     def _buscar_ebird(self):
         sciname = self._obter_sciname_atual()
         if sciname and "Inconclusiva" not in sciname:
-            # Busca no Google restringindo ao eBird (mais confiável que url direta sem código)
             url = f"https://www.google.com/search?q={sciname}+site:ebird.org"
             QDesktopServices.openUrl(url)
 
@@ -672,15 +515,12 @@ class JanelaPrincipal(QMainWindow):
         if self.dados_identificacao_atual is None:
              self.dados_identificacao_atual = {}
              
-        # Atualiza dicionario atual para que os botões externos funcionem com o novo termo
         self.dados_identificacao_atual["nome_cientifico"] = texto
         self.lbl_nome_comum.setText("...")
         
-        # Dispara enriquecimento
         self._iniciar_busca_imagem(texto)
         self._iniciar_busca_etimologia(texto)
         
-        # Reabilita botões se estavam ocultos (caso venha de um estado Inconclusivo)
         self.btn_wiki.setVisible(True)
         self.btn_google.setVisible(True)
         self.btn_ebird.setVisible(True)
@@ -688,26 +528,20 @@ class JanelaPrincipal(QMainWindow):
     def _abrir_google_lens(self):
         if not self.caminho_imagem_atual:
              return
-
-        # 1. Copia caminho da imagem para o clipboard
+        
         clipboard = QApplication.clipboard()
         clipboard.setText(self.caminho_imagem_atual)
-        
-        # 2. Abre o Google Lens
         QDesktopServices.openUrl("https://lens.google.com/upload")
         
-        # 3. Verifica Persistência "Não exibir novamente"
         settings = QSettings("iBirder", "App")
         dont_show = settings.value("lens_dont_show_again", False, type=bool)
         
         if dont_show:
             return
 
-        # 4. Exibe Instruções Customizadas
         msg = QMessageBox(self)
         msg.setWindowTitle("iBirder - Pesquisa Visual")
         
-        # Estilização para garantir fundo claro e texto legível
         msg.setStyleSheet("""
             QMessageBox {
                 background-color: #F9FAFB;
@@ -755,59 +589,34 @@ class JanelaPrincipal(QMainWindow):
         msg.setIcon(QMessageBox.Information)
         msg.addButton("Entendi", QMessageBox.AcceptRole)
         
-        # Checkbox "Não exibir novamente"
         chk_dont_show = QCheckBox("Não exibir esta mensagem novamente", msg)
         msg.setCheckBox(chk_dont_show)
-        
         msg.exec()
         
         if chk_dont_show.isChecked():
             settings.setValue("lens_dont_show_again", True)
 
     def _carregar_imagem(self, caminho: str):
-        # 1. Reset da Interface (Limpeza Visual para Nova Identificação)
-        self.lbl_nome_comum.setText("-")
-        self.lbl_descricao.setText("-")
-        self.lbl_confianca.setText("-")
-        self.input_especie.clear()
-        self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #374151; font-style: normal;")
-        
-        self.area_referencia.set_placeholder("Aguardando a identificação da ave.")
-        self.area_referencia.setPixmap(QPixmap())
-        self.area_referencia.set_overlay_text(None)
-        self.btn_fonte.setEnabled(False)
-        
-        self.frame_etimologia.setVisible(False)
-        self.btn_wiki.setVisible(True) # Mantém visível por padrão ou oculta? O reset original do código apenas limparva textos.
-        # Vamos ocultar botões externos até ter resultado, para dar feedback de "novo processo"
-        self.btn_wiki.setVisible(False)
-        self.btn_google.setVisible(False)
-        self.btn_ebird.setVisible(False)
+        self._resetar_interface() # Limpa tudo primeiro
 
         self.caminho_imagem_atual = caminho
-        self.area_drop.caminho_imagem = caminho # Atualiza caminho no widget de drop
+        # Carrega no card (e configura drag)
+        self.card_user.set_image_path(caminho) 
         
-        # Persistência da pasta
+        # Persistência
         folder = str(Path(caminho).parent)
         settings = QSettings("iBirder", "App")
         settings.setValue("last_folder", folder)
         
-        pixmap = QPixmap(caminho)
-        if not pixmap.isNull():
-            # setPixmap agora tratará o redimensionamento automaticamente
-            self.area_drop.setPixmap(pixmap)
-        
         self.status_bar.showMessage(f"Imagem: {Path(caminho).name}")
-        self.btn_google_lens.setEnabled(True) # Habilita o botão do Lens
+        self.btn_google_lens.setEnabled(True)
         self._identificar_ave()
 
     def _identificar_ave(self):
         if not self.caminho_imagem_atual:
             return
 
-        # Check AI Status (v0.16.1)
         if self.ai_status == 'RESTART_REQUIRED':
-             # ... (código existente de restart)
              msg = QMessageBox()
              msg.setIcon(QMessageBox.Information)
              msg.setWindowTitle("Reinicialização Necessária")
@@ -818,18 +627,14 @@ class JanelaPrincipal(QMainWindow):
 
         self.lbl_nome_comum.setText("...")
         self.lbl_descricao.setText("-")
-        
-        # Garante placeholder visível (não define "..." como texto)
         self.input_especie.clear() 
         self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #374151; font-style: normal;") 
         
-        self.area_referencia.set_placeholder("aguardando identificação da espécie...")
+        self.card_ref.set_placeholder("aguardando identificação da espécie...")
         self.status_bar.showMessage("Iniciando IA Local...")
         
-        # Desabilita interação básica durante processamento
-        self.area_drop.setEnabled(False)
+        self.card_user.setAcceptDrops(False) # Bloqueia novos drops durante processamento
         
-        # Inicia Worker Local
         self.worker_local = LocalIdentificationWorker(self.caminho_imagem_atual)
         self.worker_local.progress_updated.connect(self._ao_progresso_identificacao)
         self.worker_local.identification_complete.connect(self._ao_concluir_identificacao)
@@ -840,7 +645,7 @@ class JanelaPrincipal(QMainWindow):
         self.status_bar.showMessage(mensagem)
 
     def _ao_concluir_identificacao(self, resultado):
-        self.area_drop.setEnabled(True)
+        self.card_user.setAcceptDrops(True)
         self._atualizar_info_ave(resultado)
 
     def _atualizar_info_ave(self, dados: dict):
@@ -849,11 +654,8 @@ class JanelaPrincipal(QMainWindow):
         nc = dados.get("nome_comum", "-")
         raw_sci = dados.get("nome_cientifico", "")
         
-        # Rigor Taxonômico: Apenas Binômio (Gênero espécie) e sem parênteses
         import re
-        # Remove conteúdo entre parenteses/colchetes
         sci_clean = re.sub(r'[\(\[].*?[\)\]]', '', raw_sci)
-        # Pega apenas as duas primeiras palavras
         parts = sci_clean.strip().split()
         if len(parts) >= 2:
             sci = f"{parts[0]} {parts[1]}"
@@ -864,86 +666,64 @@ class JanelaPrincipal(QMainWindow):
         conf = dados.get("confianca", 0.0)
         status_msg = dados.get("status_msg", "")
         
-        # 1. Atualizar Textos
         self.lbl_nome_comum.setText(nc)
         
-        # O Input de Espécie só deve ser preenchido se houver identificação válida.
-        # Nunca preencher com status de erro ou mensagens.
         if "Inconclusiva" not in status_msg and "Baixa" not in status_msg and sci:
-            # Rigor Taxonômico (Regra Estrita v0.16.5)
-            # 1. Remover parênteses e conteúdo interno (autores, anos)
             sci_clean = re.sub(r'[\(\[].*?[\)\]]', '', sci).strip()
-            # 2. Formatação Binomial: Gênero Capitalizado, espécie minúscula
             parts = sci_clean.split()
             if len(parts) >= 2:
                 sci_formatted = f"{parts[0].capitalize()} {parts[1].lower()}"
             else:
                 sci_formatted = sci_clean.capitalize()
 
-            # Aplica itálico ao nome científico confirmado
             self.input_especie.setText(sci_formatted)
-            # Força o itálico sobrepondo qualquer CSS global, mantendo fundo transparente, borda e cor
             self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #374151; font-style: italic;")
             
-            # Garante que usamos o formatado para buscas subsequentes
             if self.dados_identificacao_atual:
                 self.dados_identificacao_atual["nome_cientifico"] = sci_formatted
-
         else:
-             # Mantém limpo para mostrar o placeholder
              self.input_especie.clear()
              self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #374151; font-style: normal;")
         
         self.lbl_descricao.setText(desc)
         
-        # 2. Atualizar Status Bar e Confiança
         if status_msg == "Baixa confiança":
             self.lbl_confianca.setText(f"{conf*100:.1f}% (Baixa)")
-            self.lbl_confianca.setStyleSheet("color: #EF4444") # Vermelho
+            self.lbl_confianca.setStyleSheet("color: #EF4444")
             self.status_bar.showMessage("Identificação inconclusiva.")
             
-            # 3. Mode Inconclusivo: Bloquear Botões Externos
             self.btn_wiki.setVisible(False)
             self.btn_google.setVisible(False)
             self.btn_ebird.setVisible(False)
             
-            # Limpar área de referência já que não temos espécie válida
-            self.area_referencia.set_placeholder("Busca visual suspensa")
-            self.area_referencia.setPixmap(QPixmap())
-            self.area_referencia.set_overlay_text(None)
+            self.card_ref.set_placeholder("Busca visual suspensa")
+            self.card_ref.set_pixmap(None)
+            self.card_ref.set_overlay_text(None)
             
-            # Instrução Fixa (Sobrepõe a do worker para garantir o texto solicitado)
             self.lbl_descricao.setText("Não foi possível identificar com segurança.\n\nTente o botão do Google Lens abaixo para uma análise visual.")
             self.btn_google_lens.setEnabled(True)
 
         else:
-            # Modo Sucesso
             self.lbl_confianca.setText(f"{conf*100:.1f}%")
-            self.lbl_confianca.setStyleSheet("color: #059669") # Verde
+            self.lbl_confianca.setStyleSheet("color: #059669")
             self.status_bar.showMessage("Identificação concluída.")
             
-            # Reabilita botões
             self.btn_wiki.setVisible(True)
             self.btn_google.setVisible(True)
             self.btn_ebird.setVisible(True)
             
-            # (Texto de referência já definido no início do processo)
-
-            # Iniciar Workers de Enriquecimento (WikiAves, Imagens, etc)
             if sci:
                 self._iniciar_busca_imagem(sci)
         
-        # Log para debug
         if status_msg:
              print(f"[UI] Status de Identificação: {status_msg}")
 
     def _ao_erro_identificacao(self, erro_msg):
-        self.area_drop.setEnabled(True)
+        self.card_user.setAcceptDrops(True)
         self.status_bar.showMessage("Falha na identificação.")
         DialogoAviso("Erro de Identificação", erro_msg, self).exec()
 
     def _abrir_seletor_arquivo(self):
-        # Garante foco na janela principal antes de abrir o diálogo
         self.activateWindow()
         self.raise_()
         
@@ -957,16 +737,21 @@ class JanelaPrincipal(QMainWindow):
             self._carregar_imagem(path)
 
     def _resetar_interface(self):
-        # Mantido apenas para compatibilidade se algo ainda chamar, mas btn_nova agora chama seletor e _carregar_imagem faz o reset
         self.caminho_imagem_atual = None
-        self.area_referencia.setText("Aguardando a identificação da ave.")
-        self.area_referencia.setPixmap(QPixmap())
-        self.area_drop.setPixmap(QPixmap()) # Limpa imagem anterior
-        self.area_drop.setText("Arraste e solte uma foto aqui\n\nou clique para selecionar")
-        self.area_drop.caminho_imagem = None
-        self.lbl_referencia_creditos.setText("")
+        
+        # User Card Reset
+        self.card_user.set_image_path(None)
+        self.card_user.set_placeholder("Arraste e solte uma foto aqui\n\nou clique para selecionar")
+        
+        # Ref Card Reset
+        self.card_ref.set_image_path(None)
+        self.card_ref.set_placeholder("Aguardando a identificação da ave.")
+        self.card_ref.set_overlay_text(None)
+        
         self.btn_fonte.setEnabled(False)
         self.input_especie.clear()
+        self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #374151; font-style: normal;")
+        
         self.lbl_nome_comum.setText("-")
         self.lbl_descricao.setText("-")
         self.lbl_confianca.setText("-")
