@@ -25,110 +25,70 @@ class WikiAvesWorker(QThread):
         self.raw_name = species_name
 
     def run(self):
-        import time
-        from urllib.parse import quote
-        
         print(f"[WIKIAVES] Worker iniciado para: {self.species_name}")
-        if not BeautifulSoup:
-            self.error_occurred.emit("Erro interno: dependência ausente (bs4).")
-            return
-
+        
+        resultado = {
+            "descricao": "Descrição indisponível.",
+            "link_wikiaves": "",
+            "etimologia": None,
+            "nome_ingles": None,
+            "familia": None,
+            "ordem": None,
+            "conservacao": None,
+            "nome_comum": None,
+            "imagem_url": None
+        }
+        
         try:
-            # 1. Configuração de Sessão e Headers (Baseado no Relatório Técnico)
-            session = requests.Session()
+            # 1. Obter Descrição e Link via JSON API (Prioridade Máxima / Blindado)
+            from core.wikiaves_client import WikiAvesClient
+            client = WikiAvesClient()
+            desc, url_fonte = client.get_description(self.species_name)
             
-            # Headers completos para mimetizar um navegador real (Chrome)
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-                'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
-                'Connection': 'keep-alive',
-                'Referer': 'https://www.wikiaves.com.br/'
-            }
-            session.headers.update(headers)
+            resultado["descricao"] = desc
+            resultado["link_wikiaves"] = url_fonte
             
-            # 2. Estratégia de Conexão (v0.15.2: Fix URL & API Fallback)
-            # URL de busca correta: index.php?t=s&s={termo} (Seguindo o relatório)
-            search_url = f"https://www.wikiaves.com.br/index.php?t=s&s={quote(self.species_name)}"
-            print(f"[TRACE 1] Iniciando busca via Session: {search_url}")
-            
-            resp = session.get(search_url, timeout=15)
-            
-            final_url = None
-            soup_wa = None
-            
-            # Caso A: Redirect automático para /wiki/ (Sucesso)
-            if "/wiki/" in resp.url and resp.status_code == 200:
-                 final_url = resp.url
-                 soup_wa = BeautifulSoup(resp.text, 'html.parser')
-                 print(f"[TRACE 2] Redirecionamento automático detectado: {final_url}")
-            
-            # Caso B: API Fallback ("Pulo do Gato")
-            else:
-                 print(f"[TRACE 2] Redirect falhou (URL: {resp.url}). Tentando API getBusca...")
-                 api_url = f"https://www.wikiaves.com.br/getBusca.php?tm=s&t=s&term={quote(self.species_name)}"
-                 try:
-                     r_api = session.get(api_url, timeout=10)
-                     if r_api.status_code == 200 and r_api.text.strip().startswith("["):
-                         data = r_api.json()
-                         if data and isinstance(data, list) and len(data) > 0:
-                             item = data[0]
-                             if "link" in item:
-                                 link = item["link"]
-                                 if not link.startswith("http"):
-                                     link = "https://www.wikiaves.com.br/" + link.lstrip("/")
-                                 
-                                 print(f"[TRACE 3] Link encontrado via API: {link}")
-                                 final_url = link
-                                 
-                                 time.sleep(1.5) # Delay ético (Relatório sugere ~1.5s)
-                                 r_page = session.get(final_url, timeout=10)
-                                 if r_page.status_code == 200:
-                                     soup_wa = BeautifulSoup(r_page.text, 'html.parser')
-                 except Exception as e:
-                     print(f"[DEBUG] Erro na API getBusca: {e}")
+            desc_len = len(desc) if desc else 0
+            print(f"[WIKIAVES] Cliente retornou: {desc_len} chars, URL: {url_fonte}")
 
-            if not soup_wa:
-                # Debug Dump
-                
-                # Debug Dump (v0.15.2)
-                try:
-                    import os
-                    debug_path = "temp/search_fail_debug.html"
-                    os.makedirs("temp", exist_ok=True)
-                    with open(debug_path, "w", encoding="utf-8") as f:
-                        f.write(resp.text)
-                    print(f"[DEBUG] HTML salvo em {debug_path}")
-                except Exception as ex:
-                    print(f"[DEBUG] Falha ao salvar dump: {ex}")
-                
-                self.error_occurred.emit("Espécie não encontrada no WikiAves.")
-                return
-
-            # 3. Parsing (Método Auxiliar v0.15.1)
-            dados = self._parse_page(soup_wa, final_url)
-            
-            # [NEW] Scraping Direcionado (v0.2.1)
+            # 2. Tentar Scraping Legado para Etimologia/Dados Extras (Opcional)
+            # Se falhar, não impede o retorno da descrição.
             try:
-                from core.wikiaves_client import WikiAvesClient
-                client = WikiAvesClient()
-                desc, url_fonte = client.get_description(self.species_name)
-                dados["descricao"] = desc
-                if url_fonte:
-                    dados["link_wikiaves"] = url_fonte
-            except Exception as e:
-                print(f"[WIKIAVES] Erro ao obter descrição: {e}")
-                dados["descricao"] = "Descrição indisponível."
+                if url_fonte and "wikiaves.com.br/wiki/" in url_fonte:
+                    # Reutiliza a URL descoberta pelo cliente seguro
+                    self._executar_legado(url_fonte, resultado)
+                else:
+                     # Tenta busca manual se o cliente não achou URL (improvável)
+                     # Mantendo compatibilidade com lógica antiga apenas se necessário
+                     pass
+            except Exception as e_legado:
+                 print(f"[WIKIAVES] Erro no scraping legado (não crítico): {e_legado}")
 
-            if any(dados.values()):
-                self.etymology_found.emit(dados)
-            else:
-                self.error_occurred.emit("Nenhum dado encontrado.")
+            # 3. Emitir Resultado
+            self.etymology_found.emit(resultado)
 
         except Exception as e:
-            import traceback
-            print(f"[ERRO FATAL] {traceback.format_exc()}")
-            self.error_occurred.emit("Erro ao conectar ao WikiAves.")
+            print(f"[ERRO FATAL WIKIAVES] {e}")
+            # Emite o que temos (pelo menos a descrição dita 'indisponível')
+            self.etymology_found.emit(resultado)
+
+    def _executar_legado(self, url, resultado):
+        """Executa lógica parecida com a original para extrair etimologia da URL conhecida."""
+        # Configuração de Sessão Rápida
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+             'Referer': 'https://www.wikiaves.com.br/'
+        })
+        
+        resp = session.get(url, timeout=10)
+        if resp.status_code == 200:
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            dados_extras = self._parse_page(soup, url)
+            # Mescla dados extras se existirem
+            for k, v in dados_extras.items():
+                if v:
+                    resultado[k] = v
 
     def _parse_page(self, soup, url):
         """Extrai dados da página seguindo lógica robusta do serviço legado."""
