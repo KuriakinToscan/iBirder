@@ -141,7 +141,10 @@ class JanelaPrincipal(QMainWindow):
 
     def _iniciar_busca_imagem(self, nome_cientifico):
         # Reset visual
-        self.area_referencia.setText("Buscando ref...")
+        # Não sobrescrever texto se já estiver "aguardando identificação..."
+        if not self.area_referencia.text().startswith("aguardando"):
+             self.area_referencia.setText("Buscando ref...")
+             
         self.area_referencia.setPixmap(QPixmap())
         self.lbl_referencia_creditos.setText("")
         
@@ -443,7 +446,9 @@ class JanelaPrincipal(QMainWindow):
         
         self.input_especie = QLineEdit()
         self.input_especie.setPlaceholderText("pesquise ou digite")
-        self.input_especie.setFont(QFont("Segoe UI", 12))
+        font_input = QFont("Segoe UI", 12)
+        font_input.setItalic(True)
+        self.input_especie.setFont(font_input)
         self.input_especie.setStyleSheet("""
             QLineEdit {
                 background-color: transparent;
@@ -708,6 +713,17 @@ class JanelaPrincipal(QMainWindow):
                 font-size: 11px;
                 margin-top: 10px;
             }
+            QCheckBox::indicator {
+                border: 1px solid #9CA3AF;
+                background: white;
+                width: 14px;
+                height: 14px;
+                border-radius: 2px;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #374151;
+                border-color: #374151;
+            }
         """)
         
         msg.setText("O Google Lens foi aberto no seu navegador.")
@@ -784,6 +800,7 @@ class JanelaPrincipal(QMainWindow):
         # Garante placeholder visível (não define "..." como texto)
         self.input_especie.clear() 
         
+        self.area_referencia.setText("aguardando identificação da espécie...")
         self.status_bar.showMessage("Iniciando IA Local...")
         
         # Desabilita interação básica durante processamento
@@ -866,8 +883,7 @@ class JanelaPrincipal(QMainWindow):
             self.btn_google.setVisible(True)
             self.btn_ebird.setVisible(True)
             
-            # Texto da Referência: Feedback visual
-            self.area_referencia.setText("aguardando identificação da espécie...")
+            # (Texto de referência já definido no início do processo)
 
             # Iniciar Workers de Enriquecimento (WikiAves, Imagens, etc)
             if sci:
