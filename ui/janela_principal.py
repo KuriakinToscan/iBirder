@@ -330,6 +330,30 @@ class JanelaPrincipal(QMainWindow):
         layout_res.addWidget(self.lbl_descricao)
         layout_res.addWidget(self.lbl_confianca)
         
+        # Botões de Busca Externa
+        layout_botoes = QHBoxLayout()
+        layout_botoes.setSpacing(10)
+        
+        self.btn_wiki = QPushButton("WikiAves")
+        self.btn_wiki.setCursor(Qt.PointingHandCursor)
+        self.btn_wiki.setStyleSheet("background-color: #F97316; border: none;") # Orange for WikiAves
+        self.btn_wiki.clicked.connect(self._buscar_wikiaves)
+        layout_botoes.addWidget(self.btn_wiki)
+        
+        self.btn_ebird = QPushButton("eBird")
+        self.btn_ebird.setCursor(Qt.PointingHandCursor)
+        self.btn_ebird.setStyleSheet("background-color: #65A30D; border: none;") # Green for eBird
+        self.btn_ebird.clicked.connect(self._buscar_ebird)
+        layout_botoes.addWidget(self.btn_ebird)
+
+        self.btn_google = QPushButton("Google")
+        self.btn_google.setCursor(Qt.PointingHandCursor)
+        self.btn_google.setStyleSheet("background-color: #3B82F6; border: none;") # Blue for Google
+        self.btn_google.clicked.connect(self._buscar_google)
+        layout_botoes.addWidget(self.btn_google)
+        
+        layout_res.addLayout(layout_botoes)
+        
         # --- Card Etimologia ---
         self.frame_etimologia = QFrame()
         self.frame_etimologia.setObjectName("frame_etimologia")
@@ -437,6 +461,29 @@ class JanelaPrincipal(QMainWindow):
     def _abrir_manual(self):
         janela_manual = JanelaManual(self)
         janela_manual.exec()
+
+    def _obter_sciname_atual(self):
+        return self.dados_identificacao_atual.get("nome_cientifico", "")
+
+    def _buscar_wikiaves(self):
+        sciname = self._obter_sciname_atual()
+        if sciname and "Inconclusiva" not in sciname:
+            # Busca no WikiAves
+            url = f"https://www.wikiaves.com.br/index.php?t=s&s={sciname}"
+            QDesktopServices.openUrl(url)
+
+    def _buscar_ebird(self):
+        sciname = self._obter_sciname_atual()
+        if sciname and "Inconclusiva" not in sciname:
+            # Busca no Google restringindo ao eBird (mais confiável que url direta sem código)
+            url = f"https://www.google.com/search?q={sciname}+site:ebird.org"
+            QDesktopServices.openUrl(url)
+
+    def _buscar_google(self):
+        sciname = self._obter_sciname_atual()
+        if sciname and "Inconclusiva" not in sciname:
+            url = f"https://www.google.com/search?q={sciname}"
+            QDesktopServices.openUrl(url)
 
     def _abrir_google_lens(self):
         # Abre a página do Google Lens (ou Images) para o usuário fazer upload manual
