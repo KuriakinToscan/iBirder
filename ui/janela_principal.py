@@ -144,6 +144,12 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_etimologia_texto.setText(erro_msg)
         self.frame_etimologia.setVisible(True)
 
+    def _ajustar_altura_descricao(self):
+        """Ajusta a altura do campo de descrição conforme o conteúdo."""
+        doc_height = self.txt_descricao.document().size().height()
+        margins = self.txt_descricao.contentsMargins().top() + self.txt_descricao.contentsMargins().bottom() + 15
+        self.txt_descricao.setFixedHeight(int(doc_height + margins))
+
     def _configurar_ui(self):
         widget_central = QWidget()
         self.setCentralWidget(widget_central)
@@ -260,7 +266,10 @@ class JanelaPrincipal(QMainWindow):
         self.txt_descricao = QTextEdit()
         self.txt_descricao.setReadOnly(True)
         self.txt_descricao.setPlaceholderText("Descrição da espécie...")
-        self.txt_descricao.setMaximumHeight(120)  # Limita altura para não empurrar cards
+        self.txt_descricao.setMinimumHeight(60) 
+        self.txt_descricao.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.txt_descricao.textChanged.connect(self._ajustar_altura_descricao)
+        
         self.txt_descricao.setStyleSheet("""
             QTextEdit {
                 background-color: #F8F9FA;
