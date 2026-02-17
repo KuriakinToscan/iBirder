@@ -21,6 +21,37 @@ from core.wikiaves_worker import WikiAvesWorker
 import logging
 from core.logger import save_crash_log
 
+class LensUploaderWorker(QThread):
+    finished = Signal(str)
+    error = Signal(str)
+
+    def __init__(self, image_path):
+        super().__init__()
+        self.image_path = image_path
+
+    def run(self):
+        try:
+            url = "https://lens.google.com/v3/upload"
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+            
+            with open(self.image_path, 'rb') as f:
+                name = os.path.basename(self.image_path)
+                files = {'encoded_image': (name, f, 'image/jpeg')}
+                params = {'ep': 'ccm'} 
+                
+                # O requests segue redirects por padrão. A URL final será a página de resultados.
+                response = requests.post(url, files=files, params=params, headers=headers, allow_redirects=True)
+                
+                if response.status_code == 200:
+                    self.finished.emit(response.url)
+                else:
+                    self.error.emit(f"Status HTTP {response.status_code}")
+                    
+        except Exception as e:
+            self.error.emit(str(e))
+
 class AreaDrop(QLabel):
     def __init__(self, callback_arquivo_carregado):
         super().__init__()
