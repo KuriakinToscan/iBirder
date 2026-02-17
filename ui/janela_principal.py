@@ -33,10 +33,7 @@ class AreaDrop(QLabel):
         self.setAcceptDrops(True)
         self.setMinimumSize(250, 250)
         self.setProperty("class", "dropzone") 
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.caminho_imagem = None
-        self.setProperty("class", "dropzone") 
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         self.caminho_imagem = None
         self.drag_start_pos = None
         self._original_pixmap = None
@@ -129,8 +126,7 @@ class AreaReferencia(QLabel):
         self.setAlignment(Qt.AlignCenter)
         self.setMinimumSize(250, 250)
         self.setProperty("class", "referencia")
-        self.setProperty("class", "referencia")
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         self._original_pixmap = None
 
     def setPixmap(self, pixmap):
