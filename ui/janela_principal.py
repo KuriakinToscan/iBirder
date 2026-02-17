@@ -147,7 +147,7 @@ class JanelaPrincipal(QMainWindow):
              
         self.area_referencia.setPixmap(QPixmap())
         self.lbl_referencia_creditos.setText("")
-        self.btn_fonte.setVisible(False) # Esconde botão de fonte durante nova busca
+        self.btn_fonte.setEnabled(False) # Desabilita durante nova busca
              
         self.area_referencia.setPixmap(QPixmap())
         self.lbl_referencia_creditos.setText("")
@@ -196,8 +196,9 @@ class JanelaPrincipal(QMainWindow):
             
             if url_fonte:
                 self.btn_fonte.setProperty("url_alvo", url_fonte)
-                self.btn_fonte.setVisible(True)
                 self.btn_fonte.setEnabled(True)
+            else:
+                self.btn_fonte.setEnabled(False)
 
     def _ao_encontrar_etimologia(self, dados_ou_texto):
         # Suporte legado e novo (dict)
@@ -360,7 +361,8 @@ class JanelaPrincipal(QMainWindow):
         # Botão Fonte (Simetria com botão Lens)
         self.btn_fonte = QPushButton("Abrir Fonte")
         self.btn_fonte.setCursor(Qt.PointingHandCursor)
-        self.btn_fonte.setVisible(False) # Inicialmente oculto
+        self.btn_fonte.setVisible(True) # Sempre visível para manter simetria
+        self.btn_fonte.setEnabled(False) # Habilita apenas com link válido
         self.btn_fonte.setStyleSheet("""
             QPushButton {
                 background-color: #ffffff;
@@ -783,7 +785,7 @@ class JanelaPrincipal(QMainWindow):
         self.area_referencia.setText("aguardando identificação da ave")
         self.area_referencia.setPixmap(QPixmap())
         self.lbl_referencia_creditos.setText("")
-        self.btn_fonte.setVisible(False)
+        self.btn_fonte.setEnabled(False)
         
         self.frame_etimologia.setVisible(False)
         self.btn_wiki.setVisible(True) # Mantém visível por padrão ou oculta? O reset original do código apenas limparva textos.
@@ -972,7 +974,7 @@ class JanelaPrincipal(QMainWindow):
         self.area_drop.setText("Arraste e solte uma foto aqui\n\nou clique para selecionar")
         self.area_drop.caminho_imagem = None
         self.lbl_referencia_creditos.setText("")
-        self.btn_fonte.setVisible(False)
+        self.btn_fonte.setEnabled(False)
         self.input_especie.clear()
         self.lbl_nome_comum.setText("-")
         self.lbl_descricao.setText("-")
