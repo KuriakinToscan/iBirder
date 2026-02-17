@@ -1,5 +1,6 @@
 import sys
 import os
+import requests
 from pathlib import Path
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
@@ -7,7 +8,7 @@ from PySide6.QtWidgets import (
     QFrame, QStatusBar, QApplication, QSizePolicy, QGraphicsDropShadowEffect,
     QMessageBox
 )
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, QThread, Signal
 from PySide6.QtGui import QPixmap, QFont, QDragEnterEvent, QDropEvent, QIcon, QColor, QPainter, QAction, QDesktopServices
 
 # Importações do Core
@@ -586,15 +587,34 @@ class JanelaPrincipal(QMainWindow):
         self.btn_ebird.setVisible(True)
 
     def _abrir_google_lens(self):
-        # 1. Copia a imagem para a área de transferência para facilitar o "Colar"
-        if self.caminho_imagem_atual:
-            img = QPixmap(self.caminho_imagem_atual).toImage()
-            QApplication.clipboard().setImage(img)
-            self.status_bar.showMessage("Imagem copiada! Pressione Ctrl+V no site do Google Lens/Images.")
+        if not self.caminho_imagem_atual:
+             return
 
-        # 2. Abre a URL solicitada de upload
-        # Nota: Navegadores modernos podem não permitir abrir direto o dialog de arquivo,
-        # mas essa URL é a rota correta para "Search by Image"
+        # Feedback visual imediato
+        self.status_bar.showMessage("Enviando imagem para o Google Lens... Aguarde.")
+        self.btn_google_lens.setEnabled(False)
+        self.btn_google_lens.setText("Enviando...")
+        
+        # Inicia Worker
+        self.lens_worker = LensUploaderWorker(self.caminho_imagem_atual)
+        self.lens_worker.finished.connect(self._on_lens_sucesso)
+        self.lens_worker.error.connect(self._on_lens_erro)
+        # Cleanup sempre roda (lambda para descartar args do signal)
+        self.lens_worker.finished.connect(lambda _: self._resetar_btn_lens())
+        self.lens_worker.error.connect(lambda _: self._resetar_btn_lens())
+        self.lens_worker.start()
+
+    def _resetar_btn_lens(self):
+        self.btn_google_lens.setEnabled(True)
+        self.btn_google_lens.setText("Pesquisar com Google Lens")
+
+    def _on_lens_sucesso(self, url):
+        self.status_bar.showMessage("Abrindo resultados do Google Lens...")
+        QDesktopServices.openUrl(url)
+        
+    def _on_lens_erro(self, erro):
+        self.status_bar.showMessage(f"Erro no Lens: {erro}. Abrindo upload manual...")
+        # Fallback para o metodo manual se falhar o automático
         QDesktopServices.openUrl("https://www.google.com/searchbyimage/upload")
 
     def _carregar_imagem(self, caminho: str):
