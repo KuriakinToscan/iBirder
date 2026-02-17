@@ -6,8 +6,8 @@ class ModelManager:
     # Google's "Birds V1" TFLite model (trained on iNaturalist)
     # Actually MobileNet based, but often referred to in these contexts.
     # Using the standard accessible URLs.
-    URL_MODEL = "https://raw.githubusercontent.com/google-coral/project-bird-feeder/master/bird_feeder/model/aiy_vision_classifier_birds_V1_3.tflite"
-    URL_LABELS = "https://raw.githubusercontent.com/google-coral/project-bird-feeder/master/bird_feeder/model/aiy_birds_V1_labelmap.csv"
+    URL_MODEL = "https://raw.githubusercontent.com/google-coral/test_data/master/mobilenet_v2_1.0_224_inat_bird_quant.tflite"
+    URL_LABELS = "https://raw.githubusercontent.com/google-coral/test_data/master/inat_bird_labels.txt"
     
     def __init__(self):
         self.assets_dir = Path(__file__).parent.parent / "assets" / "models"
@@ -45,6 +45,7 @@ class ModelManager:
             return
 
         print(f'[MODELO] Baixando: {url}')
+        print(f'[MODELO] Fonte atualizada: {url}')
         try:
             headers = {'User-Agent': 'Mozilla/5.0'}
             response = requests.get(url, stream=True, headers=headers)
