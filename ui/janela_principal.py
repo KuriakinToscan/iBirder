@@ -597,14 +597,17 @@ class JanelaPrincipal(QMainWindow):
         # 2. Abre o Google Lens
         QDesktopServices.openUrl("https://lens.google.com/upload")
         
-        # 3. Exibe Instruções
-        QMessageBox.information(
-            self,
-            "iBirder - Pesquisa Visual",
-            "O Google Lens foi aberto no seu navegador.\n\n"
-            "Agora, arraste a foto do iBirder ou copie e cole (Ctrl+V) a imagem na página para identificar.\n"
-            "(O caminho da imagem foi copiado para sua área de transferência)"
+        # 3. Exibe Instruções Customizadas
+        msg = QMessageBox(self)
+        msg.setWindowTitle("iBirder - Pesquisa Visual")
+        msg.setText("O Google Lens foi aberto no seu navegador.")
+        msg.setInformativeText(
+            "Agora, <b>arraste a foto do iBirder</b> ou copie e cole (Ctrl+V) a imagem na página para identificar.<br><br>"
+            "<i>(O caminho da imagem foi copiado para sua área de transferência)</i>"
         )
+        msg.setIcon(QMessageBox.Information)
+        msg.addButton("Entendi", QMessageBox.AcceptRole)
+        msg.exec()
 
     def _carregar_imagem(self, caminho: str):
         self.caminho_imagem_atual = caminho
