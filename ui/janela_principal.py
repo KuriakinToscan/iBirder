@@ -595,7 +595,7 @@ class JanelaPrincipal(QMainWindow):
         # 2. Abre a URL solicitada de upload
         # Nota: Navegadores modernos podem não permitir abrir direto o dialog de arquivo,
         # mas essa URL é a rota correta para "Search by Image"
-        QDesktopServices.openUrl("https://images.google.com/searchbyimage/upload")
+        QDesktopServices.openUrl("https://www.google.com/searchbyimage/upload")
 
     def _carregar_imagem(self, caminho: str):
         self.caminho_imagem_atual = caminho

@@ -134,7 +134,23 @@ class LocalIdentificationWorker(QThread):
             
             try:
                 # EfficientDet-Lite geralmente usa índices diretos.
-                label_name = labels[idx] 
+                raw_label = labels[idx]
+                
+                # --- Regra Taxonômica Rigorosa ---
+                # 1. Remover sufixos ou nomes comuns em parênteses
+                # Ex: "Passer domesticus (House Sparrow)" -> "Passer domesticus"
+                clean_name = raw_label.split('(')[0].strip()
+                
+                # 2. Enforce Binomial Case: "Genus species"
+                parts = clean_name.split()
+                if len(parts) >= 2:
+                    # Reconstrói apenas as duas primeiras partes (Binômio) com Casing correto
+                    genus = parts[0].capitalize()
+                    species = parts[1].lower()
+                    label_name = f"{genus} {species}"
+                else:
+                    # Caso monocromático ou erro, apenas Capitaliza
+                    label_name = clean_name.capitalize()
                 
                 # Resultado
                 resultado = {
