@@ -63,7 +63,7 @@ class JanelaPrincipal(QMainWindow):
         self.nome_icone_janela = nome_icone_janela
         self.ai_status = ai_status
         
-        self.setWindowTitle("iBirder (Offline/Local)")
+        self.setWindowTitle("iBirder")
         self.resize(1100, 700)
         
         self.caminho_imagem_atual = None
@@ -212,6 +212,10 @@ class JanelaPrincipal(QMainWindow):
             lbl_logo = QLabel("iBirder")
             lbl_logo.setFont(QFont("Segoe UI Light", 32))
             layout_esquerda.addWidget(lbl_logo)
+        
+        lbl_subtitle = QLabel("IA para BirdWatching")
+        lbl_subtitle.setStyleSheet("color: #6B7280; font-size: 16px; font-weight: bold; margin-bottom: 4px;")
+        layout_esquerda.addWidget(lbl_subtitle)
 
         caminho_icone_janela = self._obter_caminho_asset(self.nome_icone_janela)
         if os.path.exists(caminho_icone_janela):
@@ -241,7 +245,7 @@ class JanelaPrincipal(QMainWindow):
         layout_esquerda.addLayout(layout_imagens)
         
         # Botão Google Lens (Permanente)
-        self.btn_google_lens = QPushButton("Pesquisar com Google Lens 🔍")
+        self.btn_google_lens = QPushButton("Pesquisar com Google Lens")
         self.btn_google_lens.setCursor(Qt.PointingHandCursor)
         self.btn_google_lens.setEnabled(False) # Habilita ao carregar imagem
         self.btn_google_lens.setStyleSheet("""
@@ -280,9 +284,8 @@ class JanelaPrincipal(QMainWindow):
         
         # Cabeçalho
         layout_cabecalho = QHBoxLayout()
-        lbl_controle = QLabel("Identificação Local")
-        lbl_controle.setFont(QFont("Segoe UI Semibold", 20))
-        layout_cabecalho.addWidget(lbl_controle)
+        # lbl_controle = QLabel("Identificação Local") # Removido
+        # layout_cabecalho.addWidget(lbl_controle)
         
         layout_cabecalho.addStretch()
         
@@ -304,7 +307,7 @@ class JanelaPrincipal(QMainWindow):
         layout_direito.addLayout(layout_cabecalho)
         
         # Grupo Resultados
-        grupo_resultados = QGroupBox("RESULTADOS (IA LOCAL)")
+        grupo_resultados = QGroupBox("TAXONÔMICO")
         layout_res = QVBoxLayout()
         layout_res.setSpacing(15)
         
@@ -321,10 +324,34 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_descricao.setObjectName("lbl_descricao")
         self.lbl_descricao.setWordWrap(True)
 
-        layout_res.addWidget(QLabel("Nome Científico (IA):"))
-        self.lbl_nome_cientifico = QLabel("-") # Novo label explicito
-        self.lbl_nome_cientifico.setFont(QFont("Segoe UI", 12, QFont.Bold))
-        layout_res.addWidget(self.lbl_nome_cientifico)
+        layout_res.addWidget(QLabel("Nome Científico:"))
+
+        # Container de Busca Manual
+        container_busca = QHBoxLayout()
+        container_busca.setContentsMargins(0, 0, 0, 0)
+        
+        self.input_especie = QLineEdit()
+        self.input_especie.setPlaceholderText("Gavião-real, Harpia harpyja...")
+        self.input_especie.setFont(QFont("Segoe UI", 12))
+        self.input_especie.returnPressed.connect(self._realizar_busca_manual)
+        
+        self.btn_search = QPushButton()
+        self.btn_search.setCursor(Qt.PointingHandCursor)
+        self.btn_search.setFixedSize(36, 36)
+        
+        caminho_lupa = self._obter_caminho_asset("search_loupe.svg")
+        if os.path.exists(caminho_lupa):
+             self.btn_search.setIcon(QIcon(caminho_lupa))
+             self.btn_search.setIconSize(QSize(20, 20))
+        else:
+             self.btn_search.setText("🔍")
+             
+        self.btn_search.clicked.connect(self._realizar_busca_manual)
+        
+        container_busca.addWidget(self.input_especie)
+        container_busca.addWidget(self.btn_search)
+        
+        layout_res.addLayout(container_busca)
 
         layout_res.addWidget(QLabel("Info:"))
         layout_res.addWidget(self.lbl_descricao)
@@ -485,6 +512,28 @@ class JanelaPrincipal(QMainWindow):
             url = f"https://www.google.com/search?q={sciname}"
             QDesktopServices.openUrl(url)
 
+    def _realizar_busca_manual(self):
+        texto = self.input_especie.text().strip()
+        if not texto:
+             return
+        
+        self.status_bar.showMessage(f"Busca manual: {texto}")
+        if self.dados_identificacao_atual is None:
+             self.dados_identificacao_atual = {}
+             
+        # Atualiza dicionario atual para que os botões externos funcionem com o novo termo
+        self.dados_identificacao_atual["nome_cientifico"] = texto
+        self.lbl_nome_comum.setText("...")
+        
+        # Dispara enriquecimento
+        self._iniciar_busca_imagem(texto)
+        self._iniciar_busca_etimologia(texto)
+        
+        # Reabilita botões se estavam ocultos (caso venha de um estado Inconclusivo)
+        self.btn_wiki.setVisible(True)
+        self.btn_google.setVisible(True)
+        self.btn_ebird.setVisible(True)
+
     def _abrir_google_lens(self):
         # Abre a página do Google Lens (ou Images) para o usuário fazer upload manual
         # Infelizmente não há API pública simples para upload direto local -> web via GET.
@@ -517,7 +566,7 @@ class JanelaPrincipal(QMainWindow):
 
         self.lbl_nome_comum.setText("...")
         self.lbl_descricao.setText("-")
-        self.lbl_nome_cientifico.setText("...")
+        self.input_especie.setText("...")
         self.status_bar.showMessage("Iniciando IA Local...")
         
         # Desabilita interação básica durante processamento
@@ -548,7 +597,7 @@ class JanelaPrincipal(QMainWindow):
         
         # 1. Atualizar Textos
         self.lbl_nome_comum.setText(nc)
-        self.lbl_nome_cientifico.setText(sci)
+        self.input_especie.setText(sci)
         self.lbl_descricao.setText(desc)
         
         # 2. Atualizar Status Bar e Confiança
@@ -601,7 +650,8 @@ class JanelaPrincipal(QMainWindow):
         self.area_referencia.setPixmap(QPixmap())
         self.area_drop.setPixmap(QPixmap())
         self.area_drop.setText("Arraste e solte uma foto aqui\n\nou clique para selecionar")
-        self.lbl_nome_cientifico.setText("-")
+        self.area_drop.setText("Arraste e solte uma foto aqui\n\nou clique para selecionar")
+        self.input_especie.clear()
         self.lbl_nome_comum.setText("-")
         self.lbl_descricao.setText("-")
         self.lbl_confianca.setText("-")
