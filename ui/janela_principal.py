@@ -472,13 +472,14 @@ class JanelaPrincipal(QMainWindow):
         self.input_especie.setStyleSheet("""
             QLineEdit {
                 background-color: transparent;
-                border: none;
-                border-bottom: 1px solid #E5E7EB; /* Linha sutil para guiar */
+                border: 1px solid #D1D5DB;
+                border-radius: 6px;
+                padding: 4px;
                 color: #374151;
                 font-style: normal; /* Normal ao digitar */
             }
             QLineEdit:focus {
-                border-bottom: 2px solid #10B981;
+                border: 1px solid #10B981;
             }
         """)
         self.input_especie.returnPressed.connect(self._realizar_busca_manual)
@@ -769,7 +770,7 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_descricao.setText("-")
         self.lbl_confianca.setText("-")
         self.input_especie.clear()
-        self.input_especie.setStyleSheet("background: transparent; border: none; font-style: normal;")
+        self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; font-style: normal;")
         
         self.area_referencia.set_placeholder("Aguardando a identificação da ave.")
         self.area_referencia.setPixmap(QPixmap())
@@ -820,7 +821,7 @@ class JanelaPrincipal(QMainWindow):
         
         # Garante placeholder visível (não define "..." como texto)
         self.input_especie.clear() 
-        self.input_especie.setStyleSheet("background: transparent; border: none; font-style: normal;") 
+        self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; font-style: normal;") 
         
         self.area_referencia.set_placeholder("aguardando identificação da espécie...")
         self.status_bar.showMessage("Iniciando IA Local...")
@@ -881,8 +882,8 @@ class JanelaPrincipal(QMainWindow):
 
             # Aplica itálico ao nome científico confirmado
             self.input_especie.setText(sci_formatted)
-            # Força o itálico sobrepondo qualquer CSS global, mantendo fundo transparente
-            self.input_especie.setStyleSheet("background: transparent; border: none; font-style: italic;")
+            # Força o itálico sobrepondo qualquer CSS global, mantendo fundo transparente e borda
+            self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; font-style: italic;")
             
             # Garante que usamos o formatado para buscas subsequentes
             if self.dados_identificacao_atual:
@@ -891,7 +892,7 @@ class JanelaPrincipal(QMainWindow):
         else:
              # Mantém limpo para mostrar o placeholder
              self.input_especie.clear()
-             self.input_especie.setStyleSheet("background: transparent; border: none; font-style: normal;")
+             self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; font-style: normal;")
         
         self.lbl_descricao.setText(desc)
         
