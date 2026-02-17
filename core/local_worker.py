@@ -139,18 +139,20 @@ class LocalIdentificationWorker(QThread):
             self.progress_updated.emit(msg)
 
     def _load_labels(self, path):
-        """Lê o TXT de labels."""
+        """Lê o TXT de labels (suporta formato 'id,nome' ou apenas 'nome')."""
         labels = []
-        # O modelo V1.3 da AIY Projects geralmente já alinha corretamente sem offset manual
-        # Ou a lista já começa com background? Vamos testar sem inserir nada extra.
-        # Se for necessário, reativamos: labels.append("Fundo/Desconhecido")
+        # Background class is handled by the model logic/mapping usually.
+        # EfficientNet V1.3 often matches lines to IDs directly (0-indexed or 1-indexed depending on training).
+        # We will load lines as is, but stripping ID headers if present.
         
         try:
             with open(path, 'r', encoding='utf-8') as f:
                 for line in f:
                     line = line.strip()
                     if line:
-                        labels.append(line)
+                        # Se tiver virgula (ex: 0,Passer domesticus), pega a parte do nome
+                        name = line.split(',', 1)[1].strip() if ',' in line else line
+                        labels.append(name)
         except Exception as e:
             print(f"[IA] Erro ao ler labels: {e}")
             

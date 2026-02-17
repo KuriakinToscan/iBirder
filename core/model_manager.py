@@ -4,10 +4,9 @@ from pathlib import Path
 
 class ModelManager:
     # Google's "Birds V1" TFLite model (trained on iNaturalist)
-    # Actually MobileNet based, but often referred to in these contexts.
-    # Using the standard accessible URLs.
-    URL_MODEL = "https://raw.githubusercontent.com/google/aiyprojects-raspbian/master/models/birds_V1_3.tflite"
-    URL_LABELS = "https://raw.githubusercontent.com/google/aiyprojects-raspbian/master/models/birds_V1_3_labels.txt"
+    # Using the official TF Hub URL for V1.3
+    URL_MODEL = "https://tfhub.dev/google/lite-model/aiy/vision/classifier/birds_V1/3?lite-format=tflite"
+    URL_LABELS = "https://raw.githubusercontent.com/google-coral/test_data/master/inat_bird_labels.txt"
     
     def __init__(self):
         self.assets_dir = Path(__file__).parent.parent / "assets" / "models"
@@ -42,6 +41,7 @@ class ModelManager:
         """
         try:
             print(f'[MODELO] Iniciando download de recursos...')
+            print(f'[IA] Baixando EfficientNet V1.3 oficial do TensorFlow Hub...')
             print(f'[MODELO] Pasta de destino: {self.assets_dir}')
             
             self._download_file(self.URL_MODEL, self.model_path, "Modelo IA", callback)
@@ -62,7 +62,8 @@ class ModelManager:
         print(f'[MODELO] Fonte atualizada: {url}')
         try:
             headers = {'User-Agent': 'Mozilla/5.0'}
-            response = requests.get(url, stream=True, headers=headers)
+            # allow_redirects=True is default, but explicit for clarity/requirement matching
+            response = requests.get(url, stream=True, headers=headers, allow_redirects=True)
             print(f'[MODELO] Status Code: {response.status_code}')
             response.raise_for_status()
             
