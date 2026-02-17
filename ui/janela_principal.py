@@ -494,6 +494,7 @@ class JanelaPrincipal(QMainWindow):
         self.caminho_imagem_atual = caminho
         pixmap = QPixmap(caminho)
         if not pixmap.isNull():
+            # Usa SmoothTransformation para garantir alta qualidade visual na UI
             self.area_drop.setPixmap(pixmap.scaled(self.area_drop.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
         
         self.status_bar.showMessage(f"Imagem: {Path(caminho).name}")

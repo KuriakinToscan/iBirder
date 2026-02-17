@@ -62,13 +62,17 @@ class LocalIdentificationWorker(QThread):
             height = input_details[0]['shape'][1]
             width = input_details[0]['shape'][2]
             
-            # Redimensionamento com LANCZOS (Melhor qualidade)
+            # 3. Pré-processamento
+            # Carrega imagem original em memória (sem alterar arquivo)
             img = Image.open(self.image_path).convert('RGB')
-            img = img.resize((width, height), Image.Resampling.LANCZOS)
+            
+            # Redimensionamento de Alta Qualidade (LANCZOS)
+            # Crucial para manter detalhes de plumagem e bico ao reduzir para 224x224
+            img_resized = img.resize((width, height), Image.Resampling.LANCZOS)
             
             # Check input type
             input_type = input_details[0]['dtype']
-            img_array = np.array(img, dtype=input_type)
+            img_array = np.array(img_resized, dtype=input_type) # Use img_resized here
             
             # Normalization
             if input_type == np.float32:
