@@ -607,9 +607,8 @@ class JanelaPrincipal(QMainWindow):
                 border: 1px solid #E5E7EB; 
                 border-radius: 12px; 
                 background-color: #F9FAFB; 
-                color: #4B5563; 
+                color: #9CA3AF; 
                 font-size: 14px; 
-                font-weight: bold; 
             }
             QLabel.dropzone:hover { background-color: #F3F4F6; border-color: #D1D5DB; }
             
