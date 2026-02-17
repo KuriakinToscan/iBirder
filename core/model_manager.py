@@ -6,8 +6,8 @@ class ModelManager:
     # Google's "Birds V1" TFLite model (trained on iNaturalist)
     # Actually MobileNet based, but often referred to in these contexts.
     # Using the standard accessible URLs.
-    URL_MODEL = "https://raw.githubusercontent.com/google-coral/test_data/master/mobilenet_v2_1.0_224_inat_bird_quant.tflite"
-    URL_LABELS = "https://raw.githubusercontent.com/google-coral/test_data/master/inat_bird_labels.txt"
+    URL_MODEL = "https://raw.githubusercontent.com/google/aiyprojects-raspbian/master/models/birds_V1_3.tflite"
+    URL_LABELS = "https://raw.githubusercontent.com/google/aiyprojects-raspbian/master/models/birds_V1_3_labels.txt"
     
     def __init__(self):
         self.assets_dir = Path(__file__).parent.parent / "assets" / "models"
@@ -18,7 +18,21 @@ class ModelManager:
         self.assets_dir.mkdir(parents=True, exist_ok=True)
 
     def check_resources(self):
-        """Retorna True se todos os arquivos necessários existem."""
+        """Retorna True se todos os arquivos necessários existem e são válidos."""
+        # Se o modelo existir mas for pequeno (< 15MB), provavelmente é o MobileNet V2 antigo.
+        # O EfficientNet/V1.3 costuma ter ~30MB. Vamos forçar o re-download.
+        if self.model_path.exists():
+            size_mb = self.model_path.stat().st_size / (1024 * 1024)
+            if size_mb < 15:
+                print(f"[MODELO] Arquivo existente é muito pequeno ({size_mb:.2f} MB). Removendo para baixar versão correta...")
+                try:
+                    os.remove(self.model_path)
+                    if self.labels_path.exists():
+                        os.remove(self.labels_path)
+                except Exception as e:
+                    print(f"[MODELO] Erro ao remover arquivo antigo: {e}")
+                return False
+
         return self.model_path.exists() and self.labels_path.exists()
 
     def download_resources(self, callback=None):

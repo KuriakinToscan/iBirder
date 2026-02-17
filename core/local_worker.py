@@ -118,7 +118,7 @@ class LocalIdentificationWorker(QThread):
                 resultado = {
                     "nome_cientifico": label_name,
                     "nome_comum": "Analisando...", 
-                    "descricao": "Identificado localmente (MobileNet V2).",
+                    "descricao": "Identificado localmente (EfficientNet V1.3).",
                     "confianca": float(confidence)
                 }
                 
@@ -139,10 +139,11 @@ class LocalIdentificationWorker(QThread):
             self.progress_updated.emit(msg)
 
     def _load_labels(self, path):
-        """Lê o TXT de labels e retorna lista com offset 0 = Background."""
+        """Lê o TXT de labels."""
         labels = []
-        # Adiciona Background class no index 0
-        labels.append("Fundo/Desconhecido")
+        # O modelo V1.3 da AIY Projects geralmente já alinha corretamente sem offset manual
+        # Ou a lista já começa com background? Vamos testar sem inserir nada extra.
+        # Se for necessário, reativamos: labels.append("Fundo/Desconhecido")
         
         try:
             with open(path, 'r', encoding='utf-8') as f:
