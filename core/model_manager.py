@@ -6,8 +6,8 @@ class ModelManager:
     # Google's "Birds V1" TFLite model (trained on iNaturalist)
     # Actually MobileNet based, but often referred to in these contexts.
     # Using the standard accessible URLs.
-    URL_MODEL = "https://storage.googleapis.com/download.tensorflow.org/models/tflite/aiy_vision_classifier_birds_V1_3.tflite"
-    URL_LABELS = "https://storage.googleapis.com/download.tensorflow.org/models/tflite/aiy_vision_classifier_birds_V1_3.csv"
+    URL_MODEL = "https://raw.githubusercontent.com/google-coral/project-bird-feeder/master/bird_feeder/model/aiy_vision_classifier_birds_V1_3.tflite"
+    URL_LABELS = "https://raw.githubusercontent.com/google-coral/project-bird-feeder/master/bird_feeder/model/aiy_birds_V1_labelmap.csv"
     
     def __init__(self):
         self.assets_dir = Path(__file__).parent.parent / "assets" / "models"
@@ -46,7 +46,8 @@ class ModelManager:
 
         print(f'[MODELO] Baixando: {url}')
         try:
-            response = requests.get(url, stream=True)
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            response = requests.get(url, stream=True, headers=headers)
             print(f'[MODELO] Status Code: {response.status_code}')
             response.raise_for_status()
             
