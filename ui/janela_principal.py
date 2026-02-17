@@ -240,6 +240,23 @@ class JanelaPrincipal(QMainWindow):
         
         layout_esquerda.addLayout(layout_imagens)
         
+        # Botão Google Lens (Permanente)
+        self.btn_google_lens = QPushButton("Pesquisar com Google Lens 🔍")
+        self.btn_google_lens.setCursor(Qt.PointingHandCursor)
+        self.btn_google_lens.setEnabled(False) # Habilita ao carregar imagem
+        self.btn_google_lens.setStyleSheet("""
+            QPushButton {
+                background-color: #ffffff;
+                color: #374151;
+                border: 1px solid #d1d5db;
+            }
+            QPushButton:hover {
+                background-color: #f3f4f6;
+            }
+        """)
+        self.btn_google_lens.clicked.connect(self._abrir_google_lens)
+        layout_esquerda.addWidget(self.btn_google_lens)
+        
         self.btn_nova = QPushButton("Nova Identificação")
         self.btn_nova.setCursor(Qt.PointingHandCursor)
         self.btn_nova.clicked.connect(self._resetar_interface)
@@ -421,12 +438,19 @@ class JanelaPrincipal(QMainWindow):
         janela_manual = JanelaManual(self)
         janela_manual.exec()
 
+    def _abrir_google_lens(self):
+        # Abre a página do Google Lens (ou Images) para o usuário fazer upload manual
+        # Infelizmente não há API pública simples para upload direto local -> web via GET.
+        QDesktopServices.openUrl("https://lens.google.com/")
+
     def _carregar_imagem(self, caminho: str):
         self.caminho_imagem_atual = caminho
         pixmap = QPixmap(caminho)
         if not pixmap.isNull():
             self.area_drop.setPixmap(pixmap.scaled(self.area_drop.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        
         self.status_bar.showMessage(f"Imagem: {Path(caminho).name}")
+        self.btn_google_lens.setEnabled(True) # Habilita o botão do Lens
         self._identificar_ave()
 
     def _identificar_ave(self):
@@ -497,7 +521,7 @@ class JanelaPrincipal(QMainWindow):
             
             # Instrução Adicional (já está na descrição, mas reforçamos se precisar)
             if "Google Lens" not in desc:
-                 self.lbl_descricao.setText(f"{desc}\n\nDica: Utilize o Google Lens para uma busca visual.")
+                 self.lbl_descricao.setText(f"{desc}\n\nDica: Tente o botão do Google Lens abaixo.")
 
         else:
             # Modo Sucesso
@@ -534,4 +558,5 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_descricao.setText("-")
         self.lbl_confianca.setText("-")
         self.frame_etimologia.setVisible(False) 
+        self.btn_google_lens.setEnabled(False)
         self.status_bar.showMessage("Pronto (Local)")
