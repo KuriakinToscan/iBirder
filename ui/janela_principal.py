@@ -125,7 +125,7 @@ class AreaDrop(QLabel):
 class AreaReferencia(QLabel):
     def __init__(self):
         super().__init__()
-        self.setText("Referência")
+        self.setText("Aguardando a identificação da ave.")
         self.setAlignment(Qt.AlignCenter)
         self.setMinimumSize(250, 250)
         self.setProperty("class", "referencia")
@@ -172,7 +172,7 @@ class JanelaPrincipal(QMainWindow):
         # Reset visual
         # Texto inicial ajustado
         if not self.area_referencia.text().startswith("aguardando"):
-             self.area_referencia.setText("aguardando identificação da ave")
+             self.area_referencia.setText("Aguardando a identificação da ave.")
              
         self.area_referencia.setPixmap(QPixmap())
         self.lbl_referencia_creditos.setText("")
@@ -799,7 +799,7 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_confianca.setText("-")
         self.input_especie.clear()
         
-        self.area_referencia.setText("aguardando identificação da ave")
+        self.area_referencia.setText("Aguardando a identificação da ave.")
         self.area_referencia.setPixmap(QPixmap())
         self.lbl_referencia_creditos.setText("")
         self.btn_fonte.setEnabled(False)
@@ -985,7 +985,7 @@ class JanelaPrincipal(QMainWindow):
     def _resetar_interface(self):
         # Mantido apenas para compatibilidade se algo ainda chamar, mas btn_nova agora chama seletor e _carregar_imagem faz o reset
         self.caminho_imagem_atual = None
-        self.area_referencia.setText("aguardando identificação da ave")
+        self.area_referencia.setText("Aguardando a identificação da ave.")
         self.area_referencia.setPixmap(QPixmap())
         self.area_drop.setPixmap(QPixmap()) # Limpa imagem anterior
         self.area_drop.setText("Arraste e solte uma foto aqui\n\nou clique para selecionar")
