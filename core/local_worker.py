@@ -58,21 +58,25 @@ class LocalIdentificationWorker(QThread):
             # 3. Processar Imagem
             self.progress_updated.emit("Analisando imagem...")
             
-            # Check expected shape
+            # Check expected shape (EfficientDet-Lite models have dynamic shapes usually, but TFLite has fixed signature)
             height = input_details[0]['shape'][1]
             width = input_details[0]['shape'][2]
             
+            # Redimensionamento com LANCZOS (Melhor qualidade)
             img = Image.open(self.image_path).convert('RGB')
-            img = img.resize((width, height))
+            img = img.resize((width, height), Image.Resampling.LANCZOS)
             
-            # Check input type (float vs int)
+            # Check input type
             input_type = input_details[0]['dtype']
             img_array = np.array(img, dtype=input_type)
             
             # Normalization
+            # EfficientDet-Lite quantizado (uint8) espera [0, 255].
+            # Se for float32, geralmente espera [-1, 1] ou [0, 1].
+            # Como o user pediu para manter lógica 0-255 se apropriado, vamos verificar o tipo.
             if input_type == np.float32:
-                # Standard normalization for MobileNet models: (img - 127.5) / 127.5
-                img_array = (np.float32(img_array) - 127.5) / 127.5
+                 # Normalização padrão se for float (-1 a 1)
+                 img_array = (np.float32(img_array) - 127.5) / 127.5
 
             # Add batch dimension
             input_data = np.expand_dims(img_array, axis=0)
@@ -81,17 +85,44 @@ class LocalIdentificationWorker(QThread):
             interpreter.set_tensor(input_details[0]['index'], input_data)
             interpreter.invoke()
 
-            output_data = interpreter.get_tensor(output_details[0]['index'])
-            results = np.squeeze(output_data)
-
-            # 5. Interpretar Resultados
-            top_k = results.argsort()[-1:][::-1] # Pegar o top 1
-            idx = top_k[0]
-            confidence = float(results[idx])
+            # 5. Interpretar Resultados (EfficientDet-Lite Output Tensors)
+            # Geralmente:
+            # 0: Detection Boxes [1, N, 4]
+            # 1: Detection Classes [1, N]
+            # 2: Detection Scores [1, N]
+            # 3: Number of Detections [1]
             
-            # Se for uint8, desnormalizar confiança (0-255 -> 0.0-1.0)
-            if output_details[0]['dtype'] == np.uint8:
-                confidence = confidence / 255.0
+            # Vamos tentar inferir dinamicamente ou usar índices fixos sugeridos pelo user
+            # User disse: Classes = output_details[1], Scores = output_details[2]
+            
+            # Validar se o modelo realmente tem múltiplas saídas (se for o V1.3 antigo, vai dar erro aqui)
+            if len(output_details) >= 3:
+                # Lógica EfficientDet (Object Detection)
+                boxes = interpreter.get_tensor(output_details[0]['index'])[0] # Bounding boxes
+                classes = interpreter.get_tensor(output_details[1]['index'])[0] # Class indices
+                scores = interpreter.get_tensor(output_details[2]['index'])[0] # Confidence scores
+                # count = interpreter.get_tensor(output_details[3]['index'])[0]
+                
+                # Pegar a detecção com maior score
+                best_idx = np.argmax(scores)
+                idx = int(classes[best_idx])
+                confidence = float(scores[best_idx])
+                
+                print(f"[IA] EfficientDet: Melhor classe {idx} com score {confidence:.2f}")
+                
+            else:
+                # Fallback para Classificação (EfficientNet/MobileNet) se o download não tiver atualizado para EfficientDet
+                # output_details[0] = [1, NUM_CLASSES]
+                output_data = interpreter.get_tensor(output_details[0]['index'])
+                results = np.squeeze(output_data)
+                top_k = results.argsort()[-1:][::-1]
+                idx = top_k[0]
+                confidence = float(results[idx])
+                
+                # Se for uint8, desnormalizar (0-255 -> 0.0-1.0)
+                if output_details[0]['dtype'] == np.uint8:
+                     confidence = confidence / 255.0
+                print(f"[IA] Classifier: Classe {idx} com score {confidence:.2f}")
 
             elapsed = time.time() - start_time
             print(f"[IA] Inferência local em {elapsed:.2f}s. Confiança: {confidence:.2f}")
@@ -104,21 +135,15 @@ class LocalIdentificationWorker(QThread):
             labels = self._load_labels(manager.labels_path)
             print(f'[IA] Labels carregados: {len(labels)}')
             
-            # Ajuste para Background Class (MobileNet V2 do Google Coral usa index 0 para background)
-            # O arquivo .txt não tem o background, então o index 0 do modelo 
-            # corresponde ao primeiro item da lista ou ao background?
-            # Geralmente modelos treinados no iNaturalist pelo Google Coral:
-            # Index 0 = Background
-            # Index 1 = Primeira ave do arquivo txt
-            
             try:
-                label_name = labels[idx] # Tenta acessar direto (a lista já terá o offset corrigido)
+                # EfficientDet-Lite geralmente usa índices diretos.
+                label_name = labels[idx] 
                 
                 # Resultado
                 resultado = {
                     "nome_cientifico": label_name,
                     "nome_comum": "Analisando...", 
-                    "descricao": "Identificado localmente (EfficientNet V1.3).",
+                    "descricao": "Identificado localmente (EfficientDet-Lite).",
                     "confianca": float(confidence)
                 }
                 
