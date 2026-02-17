@@ -4,7 +4,8 @@ from pathlib import Path
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
     QPushButton, QGroupBox, QFileDialog, QLineEdit,
-    QFrame, QStatusBar, QApplication, QSizePolicy, QGraphicsDropShadowEffect
+    QFrame, QStatusBar, QApplication, QSizePolicy, QGraphicsDropShadowEffect,
+    QMessageBox
 )
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QPixmap, QFont, QDragEnterEvent, QDropEvent, QIcon, QColor, QPainter, QAction, QDesktopServices
@@ -57,9 +58,10 @@ class AreaReferencia(QLabel):
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
 class JanelaPrincipal(QMainWindow):
-    def __init__(self, nome_icone_janela="logo_ave.svg", modo_inicial="online"):
+    def __init__(self, nome_icone_janela="logo_ave.svg", modo_inicial="online", ai_status="READY"):
         super().__init__()
         self.nome_icone_janela = nome_icone_janela
+        self.ai_status = ai_status
         
         self.setWindowTitle("iBirder (Offline/Local)")
         self.resize(1100, 700)
@@ -430,6 +432,16 @@ class JanelaPrincipal(QMainWindow):
     def _identificar_ave(self):
         if not self.caminho_imagem_atual:
             return
+
+        # Check AI Status (v0.16.1)
+        if self.ai_status == 'RESTART_REQUIRED':
+             msg = QMessageBox()
+             msg.setIcon(QMessageBox.Information)
+             msg.setWindowTitle("Reinicialização Necessária")
+             msg.setText("Os componentes de Inteligência Artificial foram instalados com sucesso!\n\nPor favor, feche e abra o iBirder novamente para ativar o novo sistema.")
+             msg.addButton("Entendi, vou reiniciar", QMessageBox.AcceptRole)
+             msg.exec()
+             return
 
         self.lbl_nome_comum.setText("...")
         self.lbl_descricao.setText("-")

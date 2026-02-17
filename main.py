@@ -186,6 +186,16 @@ if __name__ == "__main__":
     # 0. Self-Healing
     garantir_dependencias()
 
+    # Checagem de Status da IA (Pós-Instalação)
+    global AI_ENGINE_STATUS
+    AI_ENGINE_STATUS = 'READY'
+    try:
+        import tensorflow
+        from PIL import Image
+    except ImportError:
+        AI_ENGINE_STATUS = 'RESTART_REQUIRED'
+        # Não impedimos o app de abrir, apenas sinalizamos
+
     # 1. Init Logger
     logger = setup_logger()
 
@@ -211,7 +221,7 @@ if __name__ == "__main__":
     app.setStyle("Fusion")
 
     # 5. Inicia Janela Principal (Modo Local)
-    janela = JanelaPrincipal(nome_icone_janela=nome_icone)
+    janela = JanelaPrincipal(nome_icone_janela=nome_icone, ai_status=AI_ENGINE_STATUS)
     janela.show()
 
     sys.exit(app.exec())
