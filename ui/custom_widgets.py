@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QWidget, QSizePolicy, QApplication
-from PySide6.QtCore import Qt, QSize, QRectF, QMimeData, QUrl
+from PySide6.QtCore import Qt, QSize, QRectF, QMimeData, QUrl, QPoint
 from PySide6.QtGui import (
     QPainter, QPixmap, QColor, QFont, QPen, QPainterPath, 
     QFontMetrics, QDrag, QDragEnterEvent, QDropEvent
@@ -138,7 +138,7 @@ class ImageCardWidget(QWidget):
         drag.setMimeData(mime_data)
         if self.pixmap:
              drag.setPixmap(self.pixmap.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-             drag.setHotSpot(QSize(32, 32).toPoint())
+             drag.setHotSpot(QPoint(32, 32))
         
         drag.exec(Qt.CopyAction)
 
