@@ -123,6 +123,11 @@ class LocalIdentificationWorker(QThread):
                 self.error_occurred.emit(f"Erro: Índice {idx} não encontrado nos labels.")
 
         except Exception as e:
+            print("-" * 50)
+            print("[ERRO FATAL] Detalhes da falha no download/inferência:")
+            import traceback
+            traceback.print_exc()
+            print("-" * 50)
             self.error_occurred.emit(f"Erro na análise: {str(e)}")
 
     def _emit_download_progress(self, msg):
