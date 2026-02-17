@@ -515,11 +515,24 @@ class JanelaPrincipal(QMainWindow):
         if self.dados_identificacao_atual is None:
              self.dados_identificacao_atual = {}
              
-        self.dados_identificacao_atual["nome_cientifico"] = texto
+        # Formatação Taxonômica Rigorosa
+        import re
+        sci_clean = re.sub(r'[\(\[].*?[\)\]]', '', texto).strip()
+        parts = sci_clean.split()
+        if len(parts) >= 2:
+            sci_formatted = f"{parts[0].capitalize()} {parts[1].lower()}"
+        else:
+            sci_formatted = sci_clean.capitalize()
+            
+        # Atualiza Campo e Estilo
+        self.input_especie.setText(sci_formatted)
+        self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #374151; font-style: italic;")
+
+        self.dados_identificacao_atual["nome_cientifico"] = sci_formatted
         self.lbl_nome_comum.setText("...")
         
-        self._iniciar_busca_imagem(texto)
-        self._iniciar_busca_etimologia(texto)
+        self._iniciar_busca_imagem(sci_formatted)
+        self._iniciar_busca_etimologia(sci_formatted)
         
         self.btn_wiki.setVisible(True)
         self.btn_google.setVisible(True)
