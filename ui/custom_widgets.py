@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QWidget, QSizePolicy
 from PySide6.QtCore import Qt, QSize, QRectF
-from PySide6.QtGui import QPainter, QPixmap, QColor, QFont, QPen, QPainterPath
+from PySide6.QtGui import QPainter, QPixmap, QColor, QFont, QPen, QPainterPath, QFontMetrics
 
 class ImageCardWidget(QWidget):
     """
@@ -42,6 +42,10 @@ class ImageCardWidget(QWidget):
 
     def set_overlay_text(self, text):
         self.text_overlay = text
+        if text:
+            self.setToolTip(text) # Tooltip mostra o texto completo
+        else:
+            self.setToolTip("")
         self.update()
 
     def paintEvent(self, event):
@@ -96,7 +100,16 @@ class ImageCardWidget(QWidget):
                 painter.setFont(QFont("Segoe UI", 8)) # 10px ~ 8pt
                 
                 text_rect = overlay_rect.adjusted(10, 0, -10, 0) # Padding lateral
-                painter.drawText(text_rect, Qt.AlignRight | Qt.AlignVCenter, self.text_overlay)
+                
+                # Calcular texto elidido (...) se for muito longo
+                metrics = QFontMetrics(painter.font())
+                elided_text = metrics.elidedText(
+                    self.text_overlay, 
+                    Qt.ElideRight, 
+                    int(text_rect.width())
+                )
+                
+                painter.drawText(text_rect, Qt.AlignRight | Qt.AlignVCenter, elided_text)
                 
         else:
             # Desenhar Placeholder
