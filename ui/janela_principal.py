@@ -608,7 +608,7 @@ class JanelaPrincipal(QMainWindow):
 
         self.status_bar.showMessage("Gerando link público temporário para o Lens... Aguarde.")
         self.btn_google_lens.setEnabled(False)
-        self.btn_google_lens.setText("Enviando...")
+        self.btn_google_lens.setText("Preparando busca visual...")
         
         self.lens_worker = LensPublicUploaderWorker(self.caminho_imagem_atual)
         self.lens_worker.finished.connect(self._on_lens_sucesso)
