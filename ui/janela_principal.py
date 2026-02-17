@@ -245,10 +245,39 @@ class JanelaPrincipal(QMainWindow):
         layout_imagens = QHBoxLayout()
         layout_imagens.setSpacing(15)
 
+        # ---------------------------------------------------------
+        # COLUNA 1: Área de Drop + Botão Lens (Largura simétrica)
+        # ---------------------------------------------------------
+        layout_coluna_esquerda = QVBoxLayout()
+        layout_coluna_esquerda.setSpacing(10)
+
         self.area_drop = AreaDrop(self._carregar_imagem)
-        layout_imagens.addWidget(self.area_drop, stretch=1)
+        layout_coluna_esquerda.addWidget(self.area_drop)
         
-        # Wrapper vertical para imagem de referência + créditos
+        # Botão Google Lens (Agora dentro da coluna da imagem)
+        self.btn_google_lens = QPushButton("Pesquisar com Google Lens")
+        self.btn_google_lens.setCursor(Qt.PointingHandCursor)
+        self.btn_google_lens.setEnabled(False) # Habilita ao carregar imagem
+        self.btn_google_lens.setStyleSheet("""
+            QPushButton {
+                background-color: #ffffff;
+                color: #374151;
+                border: 1px solid #d1d5db;
+                padding: 10px;
+                font-size: 13px;
+            }
+            QPushButton:hover {
+                background-color: #f3f4f6;
+            }
+        """)
+        self.btn_google_lens.clicked.connect(self._abrir_google_lens)
+        layout_coluna_esquerda.addWidget(self.btn_google_lens)
+        
+        layout_imagens.addLayout(layout_coluna_esquerda, stretch=1)
+        
+        # ---------------------------------------------------------
+        # COLUNA 2: Referência + Créditos
+        # ---------------------------------------------------------
         layout_ref_wrapper = QVBoxLayout()
         layout_ref_wrapper.setSpacing(5)
         
@@ -260,26 +289,13 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_referencia_creditos.setStyleSheet("color: #6B7280; font-size: 10px;")
         layout_ref_wrapper.addWidget(self.lbl_referencia_creditos)
         
+        # Espaçador para alinhar com o botão da esquerda? 
+        # Não, ReferenceImageWorker não tem botão embaixo, então fica vago ou esticado.
+        # Para ficar alinhado no topo, addStretch pode ser util, mas Default é expandir.
+        
         layout_imagens.addLayout(layout_ref_wrapper, stretch=1)
         
         layout_esquerda.addLayout(layout_imagens)
-        
-        # Botão Google Lens (Permanente)
-        self.btn_google_lens = QPushButton("Pesquisar com Google Lens")
-        self.btn_google_lens.setCursor(Qt.PointingHandCursor)
-        self.btn_google_lens.setEnabled(False) # Habilita ao carregar imagem
-        self.btn_google_lens.setStyleSheet("""
-            QPushButton {
-                background-color: #ffffff;
-                color: #374151;
-                border: 1px solid #d1d5db;
-            }
-            QPushButton:hover {
-                background-color: #f3f4f6;
-            }
-        """)
-        self.btn_google_lens.clicked.connect(self._abrir_google_lens)
-        layout_esquerda.addWidget(self.btn_google_lens)
         
         self.btn_nova = QPushButton("Nova Identificação")
         self.btn_nova.setCursor(Qt.PointingHandCursor)
@@ -570,9 +586,16 @@ class JanelaPrincipal(QMainWindow):
         self.btn_ebird.setVisible(True)
 
     def _abrir_google_lens(self):
-        # Abre a página do Google Lens (ou Images) para o usuário fazer upload manual
-        # Infelizmente não há API pública simples para upload direto local -> web via GET.
-        QDesktopServices.openUrl("https://lens.google.com/")
+        # 1. Copia a imagem para a área de transferência para facilitar o "Colar"
+        if self.caminho_imagem_atual:
+            img = QPixmap(self.caminho_imagem_atual).toImage()
+            QApplication.clipboard().setImage(img)
+            self.status_bar.showMessage("Imagem copiada! Pressione Ctrl+V no site do Google Lens/Images.")
+
+        # 2. Abre a URL solicitada de upload
+        # Nota: Navegadores modernos podem não permitir abrir direto o dialog de arquivo,
+        # mas essa URL é a rota correta para "Search by Image"
+        QDesktopServices.openUrl("https://images.google.com/searchbyimage/upload")
 
     def _carregar_imagem(self, caminho: str):
         self.caminho_imagem_atual = caminho
