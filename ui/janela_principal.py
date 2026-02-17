@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-    QPushButton, QGroupBox, QFileDialog, QLineEdit,
+    QPushButton, QGroupBox, QFileDialog, QLineEdit, QTextEdit,
     QFrame, QStatusBar, QApplication, QSizePolicy, QGraphicsDropShadowEffect,
     QMessageBox, QCheckBox, QGridLayout
 )
@@ -255,6 +255,25 @@ class JanelaPrincipal(QMainWindow):
         layout_imagens.addLayout(layout_col_ref, stretch=1) # 50% largura
         
         layout_esquerda.addLayout(layout_imagens)
+        
+        # --- Campo de Descrição Rica (v0.2.1) ---
+        self.txt_descricao = QTextEdit()
+        self.txt_descricao.setReadOnly(True)
+        self.txt_descricao.setPlaceholderText("Descrição da espécie...")
+        self.txt_descricao.setMaximumHeight(120)  # Limita altura para não empurrar cards
+        self.txt_descricao.setStyleSheet("""
+            QTextEdit {
+                background-color: #F8F9FA;
+                border: 1px solid #E5E7EB;
+                border-radius: 12px;
+                padding: 10px;
+                color: #4B5563;
+                font-size: 13px;
+                font-family: "Segoe UI";
+            }
+        """)
+        
+        layout_esquerda.addWidget(self.txt_descricao)
         
         self.btn_nova = QPushButton("Nova Identificação")
         self.btn_nova.setCursor(Qt.PointingHandCursor)
