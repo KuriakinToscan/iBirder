@@ -149,7 +149,6 @@ class JanelaPrincipal(QMainWindow):
         self.btn_fonte.setEnabled(False) # Desabilita durante nova busca
              
         self.area_referencia.setPixmap(QPixmap())
-        self.lbl_referencia_creditos.setText("")
         
         self.frame_etimologia.setVisible(False) # Reset etimologia
 
