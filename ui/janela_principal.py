@@ -905,9 +905,9 @@ class JanelaPrincipal(QMainWindow):
             self.btn_ebird.setVisible(False)
             
             # Limpar área de referência já que não temos espécie válida
-            self.area_referencia.setText("Busca visual suspensa")
+            self.area_referencia.set_placeholder("Busca visual suspensa")
             self.area_referencia.setPixmap(QPixmap())
-            self.lbl_referencia_creditos.setText("")
+            self.area_referencia.set_overlay_text(None)
             
             # Instrução Fixa (Sobrepõe a do worker para garantir o texto solicitado)
             self.lbl_descricao.setText("Não foi possível identificar com segurança.\n\nTente o botão do Google Lens abaixo para uma análise visual.")
