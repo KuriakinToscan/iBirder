@@ -381,9 +381,13 @@ class JanelaPrincipal(QMainWindow):
         self.btn_reload.setProperty("class", "icon-btn")
         self.btn_reload.setCursor(Qt.PointingHandCursor)
         self.btn_reload.setToolTip("Recarregar / Limpar")
-        # Reuse existing logic or simple text icon if asset missing
-        self.btn_reload.setText("⟳")
-        self.btn_reload.setFont(QFont("Segoe UI", 16, QFont.Bold))
+        caminho_reload = self._obter_caminho_asset("icon_reload.svg")
+        if os.path.exists(caminho_reload):
+            self.btn_reload.setIcon(QIcon(caminho_reload))
+            self.btn_reload.setIconSize(QSize(24, 24))
+        else:
+            self.btn_reload.setText("⟳")
+            self.btn_reload.setFont(QFont("Segoe UI", 16, QFont.Bold))
         self.btn_reload.clicked.connect(self._resetar_interface)
         
         layout_ajuda.addWidget(self.btn_reload)
@@ -844,11 +848,17 @@ class JanelaPrincipal(QMainWindow):
         # 1. Atualizar Textos
         self.lbl_nome_comum.setText(nc)
         
-        # Aplica itálico ao nome científico
-        self.input_especie.setText(sci)
-        font_italic = self.input_especie.font()
-        font_italic.setItalic(True)
-        self.input_especie.setFont(font_italic)
+        # O Input de Espécie só deve ser preenchido se houver identificação válida.
+        # Nunca preencher com status de erro ou mensagens.
+        if "Inconclusiva" not in status_msg and "Baixa" not in status_msg and sci:
+            # Aplica itálico ao nome científico confirmado
+            self.input_especie.setText(sci)
+            font_italic = self.input_especie.font()
+            font_italic.setItalic(True)
+            self.input_especie.setFont(font_italic)
+        else:
+             # Mantém limpo para mostrar o placeholder
+             self.input_especie.clear()
         
         self.lbl_descricao.setText(desc)
         
