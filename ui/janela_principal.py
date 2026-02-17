@@ -20,37 +20,7 @@ from ui.worker_referencia import ReferenceImageWorker
 from core.wikiaves_worker import WikiAvesWorker
 import logging
 from core.logger import save_crash_log
-
-class LensUploaderWorker(QThread):
-    finished = Signal(str)
-    error = Signal(str)
-
-    def __init__(self, image_path):
-        super().__init__()
-        self.image_path = image_path
-
-    def run(self):
-        try:
-            url = "https://lens.google.com/v3/upload"
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            }
-            
-            with open(self.image_path, 'rb') as f:
-                name = os.path.basename(self.image_path)
-                files = {'encoded_image': (name, f, 'image/jpeg')}
-                params = {'ep': 'ccm'} 
-                
-                # O requests segue redirects por padrão. A URL final será a página de resultados.
-                response = requests.post(url, files=files, params=params, headers=headers, allow_redirects=True)
-                
-                if response.status_code == 200:
-                    self.finished.emit(response.url)
-                else:
-                    self.error.emit(f"Status HTTP {response.status_code}")
-                    
-        except Exception as e:
-            self.error.emit(str(e))
+from core.web_bridge import GoogleLensBridge
 
 class AreaDrop(QLabel):
     def __init__(self, callback_arquivo_carregado):
@@ -621,32 +591,23 @@ class JanelaPrincipal(QMainWindow):
         if not self.caminho_imagem_atual:
              return
 
-        # Feedback visual imediato
-        self.status_bar.showMessage("Enviando imagem para o Google Lens... Aguarde.")
-        self.btn_google_lens.setEnabled(False)
-        self.btn_google_lens.setText("Enviando...")
+        self.status_bar.showMessage("Iniciando ponte local para Google Lens...")
         
-        # Inicia Worker
-        self.lens_worker = LensUploaderWorker(self.caminho_imagem_atual)
-        self.lens_worker.finished.connect(self._on_lens_sucesso)
-        self.lens_worker.error.connect(self._on_lens_erro)
-        # Cleanup sempre roda (lambda para descartar args do signal)
-        self.lens_worker.finished.connect(lambda _: self._resetar_btn_lens())
-        self.lens_worker.error.connect(lambda _: self._resetar_btn_lens())
-        self.lens_worker.start()
-
-    def _resetar_btn_lens(self):
-        self.btn_google_lens.setEnabled(True)
-        self.btn_google_lens.setText("Pesquisar com Google Lens")
-
-    def _on_lens_sucesso(self, url):
-        self.status_bar.showMessage("Abrindo resultados do Google Lens...")
-        QDesktopServices.openUrl(url)
-        
-    def _on_lens_erro(self, erro):
-        self.status_bar.showMessage(f"Erro no Lens: {erro}. Abrindo upload manual...")
-        # Fallback para o metodo manual se falhar o automático
-        QDesktopServices.openUrl("https://www.google.com/searchbyimage/upload")
+        try:
+            # Inicia servidor local temporário (dura 30s)
+            bridge = GoogleLensBridge(port=5800)
+            local_url = bridge.start(self.caminho_imagem_atual)
+            
+            # Cria a URL mágica do Lens apontando para o localhost
+            lens_url = f"https://lens.google.com/uploadbyurl?url={local_url}"
+            
+            self.status_bar.showMessage("Abrindo navegador...")
+            QDesktopServices.openUrl(lens_url)
+            
+        except Exception as e:
+            logger.error(f"Erro ao iniciar bridge: {e}")
+            self.status_bar.showMessage("Erro na automação. Abrindo modo manual.")
+            QDesktopServices.openUrl("https://www.google.com/searchbyimage/upload")
 
     def _carregar_imagem(self, caminho: str):
         self.caminho_imagem_atual = caminho
