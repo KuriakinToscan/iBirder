@@ -97,6 +97,7 @@ class JanelaPrincipal(QMainWindow):
         if url_fonte:
             self.btn_fonte.setProperty("url_alvo", url_fonte)
             self.btn_fonte.setEnabled(True)
+            self.btn_fonte.setText("Abrir no iNaturalist")
         else:
             self.btn_fonte.setEnabled(False)
 
@@ -151,11 +152,11 @@ class JanelaPrincipal(QMainWindow):
                 
                 self.txt_descricao.setPlainText(texto_desc)
                 
-            # Atualizar Botão Fonte (Prioridade para WikiAves se identificado)
-            if link_src:
-                self.btn_fonte.setProperty("url_alvo", link_src)
-                self.btn_fonte.setEnabled(True)
-                self.btn_fonte.setText("Abrir no WikiAves")
+            # Atualizar Botão Fonte (Removido overwriting por WikiAves)
+            # if link_src:
+            #     self.btn_fonte.setProperty("url_alvo", link_src)
+            #     self.btn_fonte.setEnabled(True)
+            #     self.btn_fonte.setText("Abrir no WikiAves")
                 
         else:
             self.lbl_etimologia_texto.setText(dados_ou_texto)
