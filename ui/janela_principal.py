@@ -24,39 +24,22 @@ from core.wikiaves_worker import WikiAvesWorker
 import logging
 from core.logger import save_crash_log
 
-class AreaDrop(QLabel):
-    def sizeHint(self):
-        return QSize(1, 1)
+from core.logger import save_crash_log
+from ui.custom_widgets import ImageCardWidget
 
-    def minimumSizeHint(self):
-        return QSize(1, 1)
-
+class AreaDrop(ImageCardWidget):
     def __init__(self, callback_arquivo_carregado):
         super().__init__()
         self.callback = callback_arquivo_carregado
-        self.setText("Arraste e solte uma foto aqui\n\nou clique para selecionar")
-        self.setAlignment(Qt.AlignCenter)
+        self.set_placeholder("Arraste e solte uma foto aqui\n\nou clique para selecionar")
         self.setAcceptDrops(True)
-        self.setMinimumSize(250, 250)
-        self.setProperty("class", "dropzone") 
-        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         self.caminho_imagem = None
         self.drag_start_pos = None
-        self._original_pixmap = None
 
     def setPixmap(self, pixmap):
-        self._original_pixmap = pixmap
-        # Chama resizeEvent manualmente para aplicar escala
-        if pixmap and not pixmap.isNull():
-            super().setPixmap(pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        else:
-            super().setPixmap(QPixmap())
+        self.set_pixmap(pixmap)
 
-    def resizeEvent(self, event: QResizeEvent):
-        if self._original_pixmap and not self._original_pixmap.isNull():
-            scaled = self._original_pixmap.scaled(event.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            super().setPixmap(scaled)
-        super().resizeEvent(event)
+    # resizeEvent removido (gerido pelo ImageCardWidget)
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
@@ -125,34 +108,13 @@ class AreaDrop(QLabel):
         # Executa o arrasto (CopyAction para o navegador entender como arquivo)
         drag.exec(Qt.CopyAction)
 
-class AreaReferencia(QLabel):
-    def sizeHint(self):
-        return QSize(1, 1)
-
-    def minimumSizeHint(self):
-        return QSize(1, 1)
-
+class AreaReferencia(ImageCardWidget):
     def __init__(self):
         super().__init__()
-        self.setText("Aguardando a identificação da ave.")
-        self.setAlignment(Qt.AlignCenter)
-        self.setMinimumSize(250, 250)
-        self.setProperty("class", "referencia")
-        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
-        self._original_pixmap = None
+        self.set_placeholder("Aguardando a identificação da ave.")
 
     def setPixmap(self, pixmap):
-        self._original_pixmap = pixmap
-        if pixmap and not pixmap.isNull():
-            super().setPixmap(pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        else:
-            super().setPixmap(QPixmap())
-
-    def resizeEvent(self, event: QResizeEvent):
-        if self._original_pixmap and not self._original_pixmap.isNull():
-            scaled = self._original_pixmap.scaled(event.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            super().setPixmap(scaled)
-        super().resizeEvent(event)
+        self.set_pixmap(pixmap)
 
 class JanelaPrincipal(QMainWindow):
     def __init__(self, nome_icone_janela="logo_ave.svg", modo_inicial="online", ai_status="READY"):
@@ -179,11 +141,11 @@ class JanelaPrincipal(QMainWindow):
     def _iniciar_busca_imagem(self, nome_cientifico):
         # Reset visual
         # Texto inicial ajustado
-        if not self.area_referencia.text().startswith("aguardando"):
-             self.area_referencia.setText("Aguardando a identificação da ave.")
+        if not self.area_referencia.text_placeholder.startswith("Aguardando"):
+             self.area_referencia.set_placeholder("Aguardando a identificação da ave.")
              
         self.area_referencia.setPixmap(QPixmap())
-        self.lbl_referencia_creditos.setText("")
+        self.area_referencia.set_overlay_text(None)
         self.btn_fonte.setEnabled(False) # Desabilita durante nova busca
              
         self.area_referencia.setPixmap(QPixmap())
@@ -203,7 +165,7 @@ class JanelaPrincipal(QMainWindow):
             
         self.worker_referencia = ReferenceImageWorker(nome_cientifico)
         self.worker_referencia.image_found.connect(self._ao_encontrar_imagem_referencia)
-        self.worker_referencia.search_failed.connect(lambda: self.area_referencia.setText("Sem referência"))
+        self.worker_referencia.search_failed.connect(lambda: self.area_referencia.set_placeholder("Sem referência"))
         self.worker_referencia.start()
         
         # Iniciar etimologia também
@@ -226,10 +188,13 @@ class JanelaPrincipal(QMainWindow):
     def _ao_encontrar_imagem_referencia(self, path, creditos, url_fonte=""):
         pixmap = QPixmap(path)
         if not pixmap.isNull():
-            # setPixmap agora tratará o redimensionamento automaticamente via resizeEvent
+            # setPixmap agora tratará o redimensionamento automaticamente via paintEvent do ImageCardWidget
             self.area_referencia.setPixmap(pixmap) 
-            self.area_referencia.setText("")
-            self.lbl_referencia_creditos.setText(creditos)
+            # self.area_referencia.setText("") # Removido, gerenciado pelo placeholder
+            if creditos:
+                 self.area_referencia.set_overlay_text(f"Foto: {creditos}")
+            else:
+                 self.area_referencia.set_overlay_text(None)
             
             if url_fonte:
                 self.btn_fonte.setProperty("url_alvo", url_fonte)
@@ -405,10 +370,10 @@ class JanelaPrincipal(QMainWindow):
         self.btn_fonte.clicked.connect(lambda: QDesktopServices.openUrl(self.btn_fonte.property("url_alvo")))
         layout_imagens.addWidget(self.btn_fonte, 1, 1) # Row 1, Col 1 (Botão)
 
-        self.lbl_referencia_creditos = QLabel("")
-        self.lbl_referencia_creditos.setAlignment(Qt.AlignRight)
-        self.lbl_referencia_creditos.setStyleSheet("color: #6B7280; font-size: 10px;")
-        layout_imagens.addWidget(self.lbl_referencia_creditos, 2, 1) # Row 2, Col 1 (Créditos)
+        self.btn_fonte.clicked.connect(lambda: QDesktopServices.openUrl(self.btn_fonte.property("url_alvo")))
+        layout_imagens.addWidget(self.btn_fonte, 1, 1) # Row 1, Col 1 (Botão)
+
+        # lbl_referencia_creditos removido do layout (agora é overlay)
         
         layout_esquerda.addLayout(layout_imagens)
         
