@@ -463,18 +463,60 @@ class JanelaPrincipal(QMainWindow):
 
     def _ao_concluir_identificacao(self, resultado):
         self.area_drop.setEnabled(True)
-        self.status_bar.showMessage("Identificado.")
+        self._atualizar_info_ave(resultado)
+
+    def _atualizar_info_ave(self, dados: dict):
+        self.dados_identificacao_atual = dados
         
-        nome_cientifico = resultado.get("nome_cientifico", "?")
-        conf = resultado.get("confianca", 0.0)
+        nc = dados.get("nome_comum", "-")
+        sci = dados.get("nome_cientifico", "")
+        desc = dados.get("descricao", "")
+        conf = dados.get("confianca", 0.0)
+        status_msg = dados.get("status_msg", "")
         
-        self.lbl_nome_cientifico.setText(nome_cientifico)
-        self.lbl_descricao.setText(resultado.get("descricao", "-"))
-        self.lbl_confianca.setText(f"Confiança: {conf:.1%}")
+        # 1. Atualizar Textos
+        self.lbl_nome_comum.setText(nc)
+        self.lbl_nome_cientifico.setText(sci)
+        self.lbl_descricao.setText(desc)
         
-        # Agora busca detalhes adicionais no WikiAves
-        if nome_cientifico and "?" not in nome_cientifico:
-             self._iniciar_busca_imagem(nome_cientifico)
+        # 2. Atualizar Status Bar e Confiança
+        if status_msg == "Baixa confiança":
+            self.lbl_confianca.setText(f"{conf*100:.1f}% (Baixa)")
+            self.lbl_confianca.setStyleSheet("color: #EF4444") # Vermelho
+            self.status_bar.showMessage("Identificação inconclusiva.")
+            
+            # 3. Mode Inconclusivo: Bloquear Botões Externos
+            self.btn_wiki.setVisible(False)
+            self.btn_google.setVisible(False)
+            self.btn_ebird.setVisible(False)
+            
+            # Limpar área de referência já que não temos espécie válida
+            self.area_referencia.setText("Busca visual suspensa")
+            self.area_referencia.setPixmap(QPixmap())
+            self.lbl_referencia_creditos.setText("")
+            
+            # Instrução Adicional (já está na descrição, mas reforçamos se precisar)
+            if "Google Lens" not in desc:
+                 self.lbl_descricao.setText(f"{desc}\n\nDica: Utilize o Google Lens para uma busca visual.")
+
+        else:
+            # Modo Sucesso
+            self.lbl_confianca.setText(f"{conf*100:.1f}%")
+            self.lbl_confianca.setStyleSheet("color: #059669") # Verde
+            self.status_bar.showMessage("Identificação concluída.")
+            
+            # Reativar botões
+            self.btn_wiki.setVisible(True)
+            self.btn_google.setVisible(True)
+            self.btn_ebird.setVisible(True)
+            
+            # Iniciar Workers de Enriquecimento (WikiAves, Imagens, etc)
+            if sci:
+                self._iniciar_busca_imagem(sci)
+        
+        # Log para debug
+        if status_msg:
+             print(f"[UI] Status de Identificação: {status_msg}")
 
     def _ao_erro_identificacao(self, erro_msg):
         self.area_drop.setEnabled(True)

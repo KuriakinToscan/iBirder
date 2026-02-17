@@ -21,7 +21,7 @@ class LocalIdentificationWorker(QThread):
         super().__init__()
         self.image_path = image_path
         self._stopped = False
-        self.min_confidence = 0.50 # 50% threshold
+        self.min_confidence = 0.70 # 70% threshold
 
     def run(self):
         if not tf:
@@ -58,7 +58,7 @@ class LocalIdentificationWorker(QThread):
             # 3. Processar Imagem
             self.progress_updated.emit("Analisando imagem...")
             
-            # Check expected shape (EfficientDet-Lite models have dynamic shapes usually, but TFLite has fixed signature)
+            # Check expected shape
             height = input_details[0]['shape'][1]
             width = input_details[0]['shape'][2]
             
@@ -71,9 +71,6 @@ class LocalIdentificationWorker(QThread):
             img_array = np.array(img, dtype=input_type)
             
             # Normalization
-            # EfficientDet-Lite quantizado (uint8) espera [0, 255].
-            # Se for float32, geralmente espera [-1, 1] ou [0, 1].
-            # Como o user pediu para manter lógica 0-255 se apropriado, vamos verificar o tipo.
             if input_type == np.float32:
                  # Normalização padrão se for float (-1 a 1)
                  img_array = (np.float32(img_array) - 127.5) / 127.5
@@ -86,22 +83,11 @@ class LocalIdentificationWorker(QThread):
             interpreter.invoke()
 
             # 5. Interpretar Resultados (EfficientDet-Lite Output Tensors)
-            # Geralmente:
-            # 0: Detection Boxes [1, N, 4]
-            # 1: Detection Classes [1, N]
-            # 2: Detection Scores [1, N]
-            # 3: Number of Detections [1]
-            
-            # Vamos tentar inferir dinamicamente ou usar índices fixos sugeridos pelo user
-            # User disse: Classes = output_details[1], Scores = output_details[2]
-            
-            # Validar se o modelo realmente tem múltiplas saídas (se for o V1.3 antigo, vai dar erro aqui)
             if len(output_details) >= 3:
                 # Lógica EfficientDet (Object Detection)
-                boxes = interpreter.get_tensor(output_details[0]['index'])[0] # Bounding boxes
+                # 0: Boxes, 1: Classes, 2: Scores, 3: Count
                 classes = interpreter.get_tensor(output_details[1]['index'])[0] # Class indices
                 scores = interpreter.get_tensor(output_details[2]['index'])[0] # Confidence scores
-                # count = interpreter.get_tensor(output_details[3]['index'])[0]
                 
                 # Pegar a detecção com maior score
                 best_idx = np.argmax(scores)
@@ -111,8 +97,7 @@ class LocalIdentificationWorker(QThread):
                 print(f"[IA] EfficientDet: Melhor classe {idx} com score {confidence:.2f}")
                 
             else:
-                # Fallback para Classificação (EfficientNet/MobileNet) se o download não tiver atualizado para EfficientDet
-                # output_details[0] = [1, NUM_CLASSES]
+                # Fallback para Classificação (EfficientNet/MobileNet)
                 output_data = interpreter.get_tensor(output_details[0]['index'])
                 results = np.squeeze(output_data)
                 top_k = results.argsort()[-1:][::-1]
@@ -128,7 +113,15 @@ class LocalIdentificationWorker(QThread):
             print(f"[IA] Inferência local em {elapsed:.2f}s. Confiança: {confidence:.2f}")
 
             if confidence < self.min_confidence:
-                 self.error_occurred.emit("Não foi possível identificar com certeza.")
+                 # Em vez de erro, retornamos um resultado "Inconclusivo" para a UI tratar
+                 resultado = {
+                    "nome_cientifico": "Identificação Inconclusiva",
+                    "nome_comum": "Não foi possível identificar com segurança",
+                    "descricao": "A foto pode estar pouco nítida ou a ave está muito distante.",
+                    "confianca": float(confidence),
+                    "status_msg": "Baixa confiança"
+                 }
+                 self.identification_complete.emit(resultado)
                  return
 
             # Carregar Labels
