@@ -12,8 +12,10 @@ from PySide6.QtGui import (
     QPixmap, QFont, QDragEnterEvent, QDropEvent, QIcon, QColor, 
     QPainter, QAction, QDesktopServices, QDrag, QResizeEvent, QPalette
 )
+from PySide6.QtWebEngineWidgets import QWebEngineView
 
 # Importações do Core
+from core.geo_utils import extract_lat_lon
 from core.local_worker import LocalIdentificationWorker
 from ui.janela_manual import JanelaManual
 from ui.dialogo_aviso import DialogoAviso
@@ -316,6 +318,46 @@ class JanelaPrincipal(QMainWindow):
         self.btn_nova.setCursor(Qt.PointingHandCursor)
         self.btn_nova.clicked.connect(self._abrir_seletor_arquivo)
         layout_esquerda.addWidget(self.btn_nova)
+        
+        # --- NOVO: Seção Geográfica (v0.3.1) ---
+        layout_geo = QHBoxLayout()
+        layout_geo.setSpacing(15)
+        
+        # Caminho do Template de Mapa
+        if getattr(sys, 'frozen', False):
+             base_path = Path(sys._MEIPASS)
+        else:
+             base_path = Path(__file__).parent
+        
+        url_template = QUrl.fromLocalFile(str(base_path / "map_template.html"))
+        
+        # Card Localização
+        layout_card_loc = QVBoxLayout()
+        lbl_titulo_loc = QLabel("Localização do Registro")
+        lbl_titulo_loc.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 4px;")
+        layout_card_loc.addWidget(lbl_titulo_loc)
+        
+        self.map_registro = QWebEngineView()
+        self.map_registro.setMinimumSize(100, 150)
+        self.map_registro.load(url_template)
+        layout_card_loc.addWidget(self.map_registro)
+        
+        layout_geo.addLayout(layout_card_loc, stretch=1)
+        
+        # Card Distribuição
+        layout_card_map = QVBoxLayout()
+        lbl_titulo_map = QLabel("Distribuição da Espécie (fonte eBird)")
+        lbl_titulo_map.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 4px;")
+        layout_card_map.addWidget(lbl_titulo_map)
+        
+        self.map_distribuicao = QWebEngineView()
+        self.map_distribuicao.setMinimumSize(100, 150)
+        self.map_distribuicao.load(url_template)
+        layout_card_map.addWidget(self.map_distribuicao)
+        
+        layout_geo.addLayout(layout_card_map, stretch=1)
+        
+        layout_esquerda.addLayout(layout_geo, stretch=2) # Stretch menor que imagens (3)
         
         layout_principal.addLayout(layout_esquerda, stretch=3)
 
@@ -715,6 +757,21 @@ class JanelaPrincipal(QMainWindow):
         
         self.status_bar.showMessage(f"Imagem: {Path(caminho).name}")
         self.btn_google_lens.setEnabled(True)
+        
+        # --- Geo (v0.3.1) ---
+        lat_lon = extract_lat_lon(caminho)
+        if lat_lon:
+            lat, lon = lat_lon
+            # Atualiza Maps via JS invoke
+            js = f"updateMap({lat}, {lon}, 15);"
+            self.map_registro.page().runJavaScript(js)
+            self.map_distribuicao.page().runJavaScript(js)
+        else:
+             # Reseta ou mostra global
+             js = "updateMap(null, null, 2);"
+             self.map_registro.page().runJavaScript(js)
+             self.map_distribuicao.page().runJavaScript(js)
+             
         self._identificar_ave()
 
     def _identificar_ave(self):
