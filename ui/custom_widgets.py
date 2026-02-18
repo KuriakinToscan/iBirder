@@ -202,6 +202,8 @@ class ImageCardWidget(QWidget):
         
         else:
             # Placeholder
-            painter.setPen(self.text_color)
-            painter.setFont(QFont("Segoe UI", 10))
+            painter.setPen(QColor("#4B5563"))
+            font_placeholder = QFont("Segoe UI", 12)
+            font_placeholder.setItalic(True)
+            painter.setFont(font_placeholder)
             painter.drawText(rect, Qt.AlignCenter, self.text_placeholder)

@@ -7,10 +7,10 @@ from PySide6.QtWidgets import (
     QFrame, QStatusBar, QApplication, QSizePolicy, QGraphicsDropShadowEffect,
     QMessageBox, QCheckBox, QGridLayout
 )
-from PySide6.QtCore import Qt, QSize, QThread, Signal, QSettings, QMimeData, QUrl
+from PySide6.QtCore import Qt, QSize, QThread, Signal, QSettings, QMimeData, QUrl, QTimer
 from PySide6.QtGui import (
     QPixmap, QFont, QDragEnterEvent, QDropEvent, QIcon, QColor, 
-    QPainter, QAction, QDesktopServices, QDrag, QResizeEvent
+    QPainter, QAction, QDesktopServices, QDrag, QResizeEvent, QPalette
 )
 
 # Importações do Core
@@ -35,7 +35,12 @@ class JanelaPrincipal(QMainWindow):
         self.dados_identificacao_atual = {}
 
         self._configurar_ui()
+        self._configurar_ui()
         self._aplicar_estilo()
+        
+        # Ajuste inicial de alturas
+        # QTimer.singleShot(100, lambda: self._ajustar_altura_etimologia())
+        # QTimer.singleShot(100, lambda: self._ajustar_altura_descricao())
 
     def _obter_caminho_asset(self, nome_arquivo):
         if getattr(sys, 'frozen', False):
@@ -143,13 +148,20 @@ class JanelaPrincipal(QMainWindow):
         """Ajusta a altura do campo de descrição conforme o conteúdo."""
         doc_height = self.txt_descricao.document().size().height()
         margins = self.txt_descricao.contentsMargins().top() + self.txt_descricao.contentsMargins().bottom() + 15
-        self.txt_descricao.setFixedHeight(int(doc_height + margins))
+        self.txt_descricao.setFixedHeight(max(int(doc_height + 10), 45))
 
     def _ajustar_altura_etimologia(self):
         """Ajusta a altura do campo de etimologia conforme o conteúdo."""
         doc_height = self.txt_etimologia.document().size().height()
-        margins = self.txt_etimologia.contentsMargins().top() + self.txt_etimologia.contentsMargins().bottom() + 10
-        self.txt_etimologia.setFixedHeight(int(doc_height + margins))
+        # Ajuste fino para evitar scrollbar e espaço extra (padding css + margem segurança)
+        self.txt_etimologia.setFixedHeight(max(int(doc_height + 10), 45))
+
+    def resizeEvent(self, event):
+        """Recalcula altura dos campos de texto ao redimensionar a janela."""
+        # Usa timer para garantir que o layout já foi atualizado e a largura dos campos está correta
+        QTimer.singleShot(0, self._ajustar_altura_etimologia)
+        QTimer.singleShot(0, self._ajustar_altura_descricao)
+        super().resizeEvent(event)
 
     def _configurar_ui(self):
         widget_central = QWidget()
@@ -205,6 +217,11 @@ class JanelaPrincipal(QMainWindow):
 
         # --- Coluna Esquerda (User) ---
         layout_col_user = QVBoxLayout()
+        
+        lbl_titulo_user = QLabel("Imagem Pesquisada")
+        lbl_titulo_user.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 4px;")
+        layout_col_user.addWidget(lbl_titulo_user)
+
         self.card_user = ImageCardWidget()
         self.card_user.set_placeholder("Arraste e solte uma foto aqui\n\nou clique para selecionar")
         self.card_user.set_on_drop(self._carregar_imagem)
@@ -234,6 +251,11 @@ class JanelaPrincipal(QMainWindow):
 
         # --- Coluna Direita (Referência) ---
         layout_col_ref = QVBoxLayout()
+        
+        lbl_titulo_ref = QLabel("Imagem Referência")
+        lbl_titulo_ref.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 4px;")
+        layout_col_ref.addWidget(lbl_titulo_ref)
+
         self.card_ref = ImageCardWidget()
         self.card_ref.set_placeholder("Aguardando a identificação da ave.")
         # Reference card doesn't need click/drop actions usually
@@ -264,10 +286,14 @@ class JanelaPrincipal(QMainWindow):
         layout_esquerda.addLayout(layout_imagens)
         
         # --- Campo de Descrição Rica (v0.2.1) ---
+        lbl_titulo_desc = QLabel('Descrição da Espécie <i>(WikiAves)</i>')
+        lbl_titulo_desc.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-top: 8px;")
+        layout_esquerda.addWidget(lbl_titulo_desc)
+
         self.txt_descricao = QTextEdit()
         self.txt_descricao.setReadOnly(True)
         self.txt_descricao.setPlaceholderText("Descrição da espécie...")
-        self.txt_descricao.setMinimumHeight(60) 
+        self.txt_descricao.setMinimumHeight(45) 
         self.txt_descricao.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.txt_descricao.textChanged.connect(self._ajustar_altura_descricao)
         
@@ -276,10 +302,11 @@ class JanelaPrincipal(QMainWindow):
                 background-color: #F8F9FA;
                 border: 1px solid #E5E7EB;
                 border-radius: 12px;
-                padding: 10px;
+                padding: 6px;
                 color: #4B5563;
-                font-size: 13px;
+                font-size: 12px;
                 font-family: "Segoe UI";
+                font-style: italic;
             }
         """)
         
@@ -364,7 +391,12 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_descricao.setObjectName("lbl_descricao")
         self.lbl_descricao.setWordWrap(True)
 
-        layout_res.addWidget(QLabel("Nome Científico:"))
+        self.lbl_descricao.setWordWrap(True)
+        
+        # Label Nome Científico Padronizado
+        lbl_titulo_nc = QLabel("Nome Científico")
+        lbl_titulo_nc.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-top: 8px;")
+        layout_res.addWidget(lbl_titulo_nc)
 
         # Container de Busca Manual
         container_busca = QHBoxLayout()
@@ -373,10 +405,14 @@ class JanelaPrincipal(QMainWindow):
         
         self.input_especie = QLineEdit()
         self.input_especie.setPlaceholderText("pesquise ou digite")
-        font_input = QFont("Segoe UI", 12)
-        font_input.setItalic(True)
-        self.input_especie.setFont(font_input)
-        self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #374151; font-style: normal;")
+        # Força a cor do placeholder para #4B5563
+        palette = self.input_especie.palette()
+        palette.setColor(self.input_especie.foregroundRole(), QColor("#4B5563"))
+        palette.setColor(QPalette.PlaceholderText, QColor("#4B5563"))
+        palette.setColor(QPalette.Text, QColor("#4B5563"))
+        self.input_especie.setPalette(palette)
+        
+        self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #4B5563; font-style: italic; font-size: 12px; font-family: 'Segoe UI';")
         self.input_especie.returnPressed.connect(self._realizar_busca_manual)
         
         self.btn_search = QPushButton()
@@ -399,7 +435,7 @@ class JanelaPrincipal(QMainWindow):
         layout_res.addLayout(container_busca)
 
         # --- NOVOS CAMPOS: ETIMOLOGIA (Abaixo do Nome Científico) ---
-        self.lbl_titulo_etimologia = QLabel("Etimologia")
+        self.lbl_titulo_etimologia = QLabel('Etimologia <i>(WikiAves)</i>')
         self.lbl_titulo_etimologia.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-top: 8px;")
         self.lbl_titulo_etimologia.setVisible(True)
         layout_res.addWidget(self.lbl_titulo_etimologia)
@@ -407,7 +443,7 @@ class JanelaPrincipal(QMainWindow):
         self.txt_etimologia = QTextEdit()
         self.txt_etimologia.setReadOnly(True)
         self.txt_etimologia.setPlaceholderText("Aguardando identificação...")
-        self.txt_etimologia.setMinimumHeight(40) 
+        self.txt_etimologia.setMinimumHeight(30) 
         self.txt_etimologia.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.txt_etimologia.textChanged.connect(self._ajustar_altura_etimologia)
         self.txt_etimologia.setStyleSheet("""
@@ -704,7 +740,8 @@ class JanelaPrincipal(QMainWindow):
         self.txt_etimologia.setVisible(True)
         
         self.input_especie.clear() 
-        self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #374151; font-style: normal;") 
+        self.input_especie.clear() 
+        self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #4B5563; font-style: italic; font-size: 12px; font-family: 'Segoe UI';")  
         
         self.card_ref.set_placeholder("aguardando identificação da espécie...")
         self.status_bar.showMessage("Iniciando IA Local...")
@@ -759,7 +796,7 @@ class JanelaPrincipal(QMainWindow):
                 self.dados_identificacao_atual["nome_cientifico"] = sci_formatted
         else:
              self.input_especie.clear()
-             self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #374151; font-style: normal;")
+             self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #4B5563; font-style: italic; font-size: 12px; font-family: 'Segoe UI';")
         
         self.lbl_descricao.setText(desc)
         
@@ -826,7 +863,7 @@ class JanelaPrincipal(QMainWindow):
         
         self.btn_fonte.setEnabled(False)
         self.input_especie.clear()
-        self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #374151; font-style: normal;")
+        self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #4B5563; font-style: italic; font-size: 12px; font-family: 'Segoe UI';")
         
         self.lbl_nome_comum.setText("-")
         self.lbl_descricao.setText("-")
