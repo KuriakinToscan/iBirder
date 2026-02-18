@@ -18,7 +18,7 @@ from core.local_worker import LocalIdentificationWorker
 from ui.janela_manual import JanelaManual
 from ui.dialogo_aviso import DialogoAviso
 from ui.worker_referencia import ReferenceImageWorker
-from core.wikiaves_worker import WikiAvesWorker
+from core.inaturalist_worker import INaturalistWorker
 from core.logger import save_crash_log
 from ui.custom_widgets import ImageCardWidget
 
@@ -68,22 +68,22 @@ class JanelaPrincipal(QMainWindow):
         self.worker_referencia.search_failed.connect(lambda: self.card_ref.set_placeholder("Sem referência"))
         self.worker_referencia.start()
         
-        # Iniciar etimologia também
-        self._iniciar_busca_etimologia(nome_cientifico)
+        # Iniciar worker de informações da espécie (iNaturalist)
+        self._iniciar_busca_info_especie(nome_cientifico)
 
-    def _iniciar_busca_etimologia(self, nome_cientifico):
-        if getattr(self, "worker_wiki", None) is not None:
+    def _iniciar_busca_info_especie(self, nome_cientifico):
+        if getattr(self, "worker_species", None) is not None:
              try:
-                 if self.worker_wiki.isRunning():
-                     self.worker_wiki.quit()
-                     self.worker_wiki.wait()
-                 self.worker_wiki.deleteLater()
+                 if self.worker_species.isRunning():
+                     self.worker_species.quit()
+                     self.worker_species.wait()
+                 self.worker_species.deleteLater()
              except: pass
 
-        self.worker_wiki = WikiAvesWorker(nome_cientifico)
-        self.worker_wiki.etymology_found.connect(self._ao_encontrar_etimologia)
-        self.worker_wiki.error_occurred.connect(self._ao_erro_wikiaves)
-        self.worker_wiki.start()
+        self.worker_species = INaturalistWorker(nome_cientifico)
+        self.worker_species.info_found.connect(self._ao_receber_info_especie)
+        self.worker_species.error_occurred.connect(self._ao_erro_api)
+        self.worker_species.start()
 
     def _ao_encontrar_imagem_referencia(self, path, creditos, url_fonte=""):
         # set_image_path carrega o pixmap e prepara para drag
@@ -97,74 +97,74 @@ class JanelaPrincipal(QMainWindow):
         if url_fonte:
             self.btn_fonte.setProperty("url_alvo", url_fonte)
             self.btn_fonte.setEnabled(True)
-            self.btn_fonte.setText("Abrir no iNaturalist")
+            self.btn_fonte.setText("Abrir Fonte")
         else:
             self.btn_fonte.setEnabled(False)
 
-    def _ao_encontrar_etimologia(self, dados_ou_texto):
-        if isinstance(dados_ou_texto, dict):
-            dados = dados_ou_texto
-            etimologia = dados.get("etimologia")
-            familia = dados.get("familia")
-            ordem = dados.get("ordem")
-            nome_ingles = dados.get("nome_ingles")
-            conservacao = dados.get("conservacao")
-            
-            html = "<div style='line-height: 1.4;'>"
-            
-            if ordem and familia:
-                html += f"<div style='color: #6B7280; font-size: 10px; margin-bottom: 2px;'>{ordem.upper()} • {familia.upper()}</div>"
-            
-            if nome_ingles:
-                html += f"<div style='font-weight: bold; font-size: 13px; color: #1F2937; margin-bottom: 4px;'>{nome_ingles}</div>"
-            
-            if conservacao:
-                cor_bg = "#E5E7EB"
-                cor_txt = "#374151"
-                c_lower = conservacao.lower()
-                if "pouco preocupante" in c_lower or "quase ameaçada" in c_lower:
-                    cor_bg = "#D1FAE5"; cor_txt = "#065F46"
-                elif "vulnerável" in c_lower:
-                    cor_bg = "#FEF3C7"; cor_txt = "#92400E"
-                elif "perigo" in c_lower or "ameaçada" in c_lower:
-                    cor_bg = "#FEE2E2"; cor_txt = "#991B1B"
+    def _ao_receber_info_especie(self, dados):
+        # Adaptado para o novo formato do INaturalistWorker
+        etimologia = dados.get("etimologia") # Mantido compatibilidade caso venha nulo
+        familia = dados.get("familia")
+        ordem = dados.get("ordem")
+        nome_ingles = dados.get("nome_ingles")
+        conservacao = dados.get("conservacao")
+        
+        html = "<div style='line-height: 1.4;'>"
+        
+        # Como o iNaturalist API padrão não retorna ordem/familia/status simples na busca de taxon,
+        # esses campos provavelmente virão vazios, mas mantemos a lógica caso um dia voltem ou o worker seja expandido.
+        if ordem and familia:
+            html += f"<div style='color: #6B7280; font-size: 10px; margin-bottom: 2px;'>{ordem.upper()} • {familia.upper()}</div>"
+        
+        if nome_ingles:
+            html += f"<div style='font-weight: bold; font-size: 13px; color: #1F2937; margin-bottom: 4px;'>{nome_ingles}</div>"
+        
+        if conservacao:
+            cor_bg = "#E5E7EB"
+            cor_txt = "#374151"
+            c_lower = conservacao.lower()
+            if "pouco preocupante" in c_lower or "quase ameaçada" in c_lower:
+                cor_bg = "#D1FAE5"; cor_txt = "#065F46"
+            elif "vulnerável" in c_lower:
+                cor_bg = "#FEF3C7"; cor_txt = "#92400E"
+            elif "perigo" in c_lower or "ameaçada" in c_lower:
+                cor_bg = "#FEE2E2"; cor_txt = "#991B1B"
 
-                html += f"<span style='background-color: {cor_bg}; color: {cor_txt}; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold;'>{conservacao.upper()}</span><br>"
+            html += f"<span style='background-color: {cor_bg}; color: {cor_txt}; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold;'>{conservacao.upper()}</span><br>"
+        
+        # Etimologia provavelmente será vazia, mas se implementar no futuro, já está aqui.
+        if etimologia:
+            html += f"<div style='margin-top: 8px; font-size: 11px; color: #4B5563;'><i>{etimologia}</i></div>"
+        
+        html += "</div>"
+        self.lbl_etimologia_texto.setText(html)
+        
+        # Preencher Descrição
+        descricao = dados.get("descricao", "")
+        link_src = dados.get("link_fonte", "")
+        nome_comum_api = dados.get("nome_comum")
+
+        # Atualizar nome comum na interface se a API trouxe um melhor
+        if nome_comum_api and nome_comum_api != "-":
+             self.lbl_nome_comum.setText(nome_comum_api)
+
+        if descricao:
+            texto_desc = descricao
+            if link_src:
+                texto_desc += f"\n\nFonte: iNaturalist"
             
-            if etimologia:
-                html += f"<div style='margin-top: 8px; font-size: 11px; color: #4B5563;'><i>{etimologia}</i></div>"
+            self.txt_descricao.setPlainText(texto_desc)
             
-            html += "</div>"
-            self.lbl_etimologia_texto.setText(html)
-            
-            # [NEW] Preencher Descrição (v0.2.1)
-            descricao = dados.get("descricao", "")
-            img_src = dados.get("imagem_url", "")
-            link_src = dados.get("link_wikiaves", "")
-            
-            if descricao:
-                texto_desc = descricao
-                # Créditos
-                if link_src:
-                    texto_desc += f"\n\nFonte: WikiAves"
-                else:
-                    texto_desc += "\n\nFonte: WikiAves (www.wikiaves.com.br)"
-                
-                self.txt_descricao.setPlainText(texto_desc)
-                
-            # Atualizar Botão Fonte (Removido overwriting por WikiAves)
-            # if link_src:
-            #     self.btn_fonte.setProperty("url_alvo", link_src)
-            #     self.btn_fonte.setEnabled(True)
-            #     self.btn_fonte.setText("Abrir no WikiAves")
-                
-        else:
-            self.lbl_etimologia_texto.setText(dados_ou_texto)
+        # Atualizar Botão Fonte (Prioridade para o link do iNaturalist)
+        if link_src:
+            self.btn_fonte.setProperty("url_alvo", link_src)
+            self.btn_fonte.setEnabled(True)
+            self.btn_fonte.setText("Abrir no iNaturalist")
             
         self.frame_etimologia.setVisible(True)
 
-    def _ao_erro_wikiaves(self, erro_msg):
-        self.lbl_etimologia_texto.setText(erro_msg)
+    def _ao_erro_api(self, erro_msg):
+        self.lbl_etimologia_texto.setText(f"Erro: {erro_msg}")
         self.frame_etimologia.setVisible(True)
 
     def _ajustar_altura_descricao(self):
@@ -583,7 +583,7 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_nome_comum.setText("...")
         
         self._iniciar_busca_imagem(sci_formatted)
-        self._iniciar_busca_etimologia(sci_formatted)
+        self._iniciar_busca_info_especie(sci_formatted)
         
         self.btn_wiki.setVisible(True)
         self.btn_google.setVisible(True)
