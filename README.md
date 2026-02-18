@@ -1,7 +1,7 @@
 # 🐦 iBirder
 ### Identificador Inteligente de Aves para Drone e Fotografia
 
-![Logo](assets/logo_ave.png)
+![Logo](assets/logo_ave.svg)
 
 O **iBirder** é uma ferramenta profissional e minimalista projetada para ornitólogos, fotógrafos de natureza e operadores de drone. Ele utiliza Inteligência Artificial de ponta para identificar espécies de aves em fotos e gravar os dados científicos diretamente nos metadados (EXIF/IPTC) do arquivo.
 
