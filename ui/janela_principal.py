@@ -18,7 +18,7 @@ from core.local_worker import LocalIdentificationWorker
 from ui.janela_manual import JanelaManual
 from ui.dialogo_aviso import DialogoAviso
 from ui.worker_referencia import ReferenceImageWorker
-from core.inaturalist_worker import INaturalistWorker
+from core.buscador_worker import BuscadorWorker
 from core.logger import save_crash_log
 from ui.custom_widgets import ImageCardWidget
 
@@ -51,7 +51,13 @@ class JanelaPrincipal(QMainWindow):
         self.card_ref.set_overlay_text(None)
         self.btn_fonte.setEnabled(False) 
         
-        self.frame_etimologia.setVisible(False)
+        self.txt_descricao.clear() # Reset descrição anterior
+        
+        # Reset para estado "Aguardando"
+        self.txt_etimologia.clear()
+        self.txt_etimologia.setPlaceholderText("Aguardando identificação...")
+        self.lbl_titulo_etimologia.setVisible(True)
+        self.txt_etimologia.setVisible(True)
 
         # Para worker anterior se existir
         if getattr(self, "worker_referencia", None) is not None:
@@ -80,7 +86,7 @@ class JanelaPrincipal(QMainWindow):
                  self.worker_species.deleteLater()
              except: pass
 
-        self.worker_species = INaturalistWorker(nome_cientifico)
+        self.worker_species = BuscadorWorker(nome_cientifico)
         self.worker_species.info_found.connect(self._ao_receber_info_especie)
         self.worker_species.error_occurred.connect(self._ao_erro_api)
         self.worker_species.start()
@@ -102,66 +108,32 @@ class JanelaPrincipal(QMainWindow):
             self.btn_fonte.setEnabled(False)
 
     def _ao_receber_info_especie(self, dados):
-        # Adaptado para o novo formato do INaturalistWorker
-        etimologia = dados.get("etimologia") # Mantido compatibilidade caso venha nulo
-        familia = dados.get("familia")
-        ordem = dados.get("ordem")
-        nome_ingles = dados.get("nome_ingles")
-        conservacao = dados.get("conservacao")
+        # Mapeamento do BuscadorBlindado
+        # dados['nome_cientifico'] -> Etimologia
+        # dados['caracteristicas'] -> Descrição
         
-        html = "<div style='line-height: 1.4;'>"
-        
-        # Como o iNaturalist API padrão não retorna ordem/familia/status simples na busca de taxon,
-        # esses campos provavelmente virão vazios, mas mantemos a lógica caso um dia voltem ou o worker seja expandido.
-        if ordem and familia:
-            html += f"<div style='color: #6B7280; font-size: 10px; margin-bottom: 2px;'>{ordem.upper()} • {familia.upper()}</div>"
-        
-        if nome_ingles:
-            html += f"<div style='font-weight: bold; font-size: 13px; color: #1F2937; margin-bottom: 4px;'>{nome_ingles}</div>"
-        
-        if conservacao:
-            cor_bg = "#E5E7EB"
-            cor_txt = "#374151"
-            c_lower = conservacao.lower()
-            if "pouco preocupante" in c_lower or "quase ameaçada" in c_lower:
-                cor_bg = "#D1FAE5"; cor_txt = "#065F46"
-            elif "vulnerável" in c_lower:
-                cor_bg = "#FEF3C7"; cor_txt = "#92400E"
-            elif "perigo" in c_lower or "ameaçada" in c_lower:
-                cor_bg = "#FEE2E2"; cor_txt = "#991B1B"
+        etimologia_texto = dados.get("nome_cientifico", "")
+        caracteristicas = dados.get("caracteristicas", "")
 
-            html += f"<span style='background-color: {cor_bg}; color: {cor_txt}; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold;'>{conservacao.upper()}</span><br>"
-        
-        # Etimologia provavelmente será vazia, mas se implementar no futuro, já está aqui.
-        if etimologia:
-            html += f"<div style='margin-top: 8px; font-size: 11px; color: #4B5563;'><i>{etimologia}</i></div>"
-        
-        html += "</div>"
-        self.lbl_etimologia_texto.setText(html)
-        
-        # Preencher Descrição
-        descricao = dados.get("descricao", "")
-        link_src = dados.get("link_fonte", "")
-        nome_comum_api = dados.get("nome_comum")
+        # Atualiza Campo Etimologia
+        # Atualiza Campo Etimologia
+        if etimologia_texto and etimologia_texto != "Não encontrado":
+            self.txt_etimologia.setPlainText(etimologia_texto)
+        elif etimologia_texto == "Não encontrado":
+            self.txt_etimologia.setPlaceholderText("Etimologia não disponível.")
+            self.txt_etimologia.clear()
 
-        # Atualizar nome comum na interface se a API trouxe um melhor
-        if nome_comum_api and nome_comum_api != "-":
-             self.lbl_nome_comum.setText(nome_comum_api)
-
-        if descricao:
-            texto_desc = descricao
-            if link_src:
-                texto_desc += f"\n\nFonte: iNaturalist"
-            
-            self.txt_descricao.setPlainText(texto_desc)
-            
-        # Atualizar Botão Fonte (Prioridade para o link do iNaturalist)
-        if link_src:
-            self.btn_fonte.setProperty("url_alvo", link_src)
+        # Atualiza Campo Descrição (Rodapé)
+        if caracteristicas and caracteristicas != "Não encontrado":
+            self.txt_descricao.setPlainText(caracteristicas)
+            self.btn_fonte.setText("Abrir no WikiAves")
             self.btn_fonte.setEnabled(True)
-            self.btn_fonte.setText("Abrir no iNaturalist")
             
-        self.frame_etimologia.setVisible(True)
+            # Se quiser linkar direto, precisaríamos que o bot retornasse o link.
+            # O BuscadorBlindado retorna dados, mas o Worker atual só passa 'dados'.
+            # Vamos ajustar se necessário, mas por enquanto, assume-se que o usuário pode clicar no "WikiAves" botão existente.
+            
+        self.frame_etimologia.setVisible(False) # Esconde o antigo frame do iNaturalist se ainda visível
 
     def _ao_erro_api(self, erro_msg):
         self.lbl_etimologia_texto.setText(f"Erro: {erro_msg}")
@@ -172,6 +144,12 @@ class JanelaPrincipal(QMainWindow):
         doc_height = self.txt_descricao.document().size().height()
         margins = self.txt_descricao.contentsMargins().top() + self.txt_descricao.contentsMargins().bottom() + 15
         self.txt_descricao.setFixedHeight(int(doc_height + margins))
+
+    def _ajustar_altura_etimologia(self):
+        """Ajusta a altura do campo de etimologia conforme o conteúdo."""
+        doc_height = self.txt_etimologia.document().size().height()
+        margins = self.txt_etimologia.contentsMargins().top() + self.txt_etimologia.contentsMargins().bottom() + 10
+        self.txt_etimologia.setFixedHeight(int(doc_height + margins))
 
     def _configurar_ui(self):
         widget_central = QWidget()
@@ -419,6 +397,33 @@ class JanelaPrincipal(QMainWindow):
         container_busca.addWidget(self.btn_search)
         
         layout_res.addLayout(container_busca)
+
+        # --- NOVOS CAMPOS: ETIMOLOGIA (Abaixo do Nome Científico) ---
+        self.lbl_titulo_etimologia = QLabel("Etimologia")
+        self.lbl_titulo_etimologia.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-top: 8px;")
+        self.lbl_titulo_etimologia.setVisible(True)
+        layout_res.addWidget(self.lbl_titulo_etimologia)
+
+        self.txt_etimologia = QTextEdit()
+        self.txt_etimologia.setReadOnly(True)
+        self.txt_etimologia.setPlaceholderText("Aguardando identificação...")
+        self.txt_etimologia.setMinimumHeight(40) 
+        self.txt_etimologia.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.txt_etimologia.textChanged.connect(self._ajustar_altura_etimologia)
+        self.txt_etimologia.setStyleSheet("""
+            QTextEdit {
+                background-color: #F9FAFB;
+                border: 1px solid #E5E7EB;
+                border-radius: 6px;
+                padding: 6px;
+                color: #4B5563;
+                font-size: 12px;
+                font-style: italic;
+            }
+        """)
+        self.txt_etimologia.setVisible(True)
+        layout_res.addWidget(self.txt_etimologia)
+        # -------------------------------------------------------------
 
         layout_res.addWidget(QLabel("Info:"))
         layout_res.addWidget(self.lbl_descricao)
@@ -691,6 +696,13 @@ class JanelaPrincipal(QMainWindow):
 
         self.lbl_nome_comum.setText("...")
         self.lbl_descricao.setText("-")
+        self.txt_descricao.clear() # Limpa descrição rica
+        
+        self.txt_etimologia.clear()
+        self.txt_etimologia.setPlaceholderText("Aguardando identificação...")
+        self.lbl_titulo_etimologia.setVisible(True)
+        self.txt_etimologia.setVisible(True)
+        
         self.input_especie.clear() 
         self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #374151; font-style: normal;") 
         
@@ -819,6 +831,13 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_nome_comum.setText("-")
         self.lbl_descricao.setText("-")
         self.lbl_confianca.setText("-")
+        
+        self.txt_descricao.clear()
+        self.txt_etimologia.clear()
+        self.txt_etimologia.setPlaceholderText("Aguardando identificação...")
+        self.lbl_titulo_etimologia.setVisible(True)
+        self.txt_etimologia.setVisible(True)
+        
         self.frame_etimologia.setVisible(False) 
         self.btn_google_lens.setEnabled(False)
         self.status_bar.showMessage("Pronto (Local)")

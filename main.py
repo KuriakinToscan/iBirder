@@ -17,7 +17,7 @@ from ui.janela_principal import JanelaPrincipal
 # Imports do Core
 from core.logger import setup_logger, save_crash_log, cleanup_session_log
 from core.utils import limpar_temp_inteligente
-from core.wikiaves_worker import WikiAvesWorker
+# from core.wikiaves_worker import WikiAvesWorker # Removed in v0.2.1 migration
 
 # Tenta importar o script de setup para criar atalhos
 try:
@@ -28,7 +28,8 @@ except ImportError:
 # Configuração do AppUserModelID (Apenas Windows)
 if platform.system() == "Windows":
     try:
-        myappid = 'ibirder.v0.16.0.local'
+        # ID único para dissociar do ícone do Python
+        myappid = 'ibirder.app.visualizacao.v1.0'
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     except Exception:
         pass 
@@ -168,7 +169,9 @@ def garantir_dependencias():
         'PIL': 'Pillow',
         'requests': 'requests',
         'tensorflow': 'tensorflow-cpu',
-        'numpy': 'numpy'
+        'numpy': 'numpy',
+        'selenium': 'selenium',
+        'webdriver_manager': 'webdriver-manager'
     }
     
     for import_name, package_name in libs.items():

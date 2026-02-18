@@ -172,7 +172,7 @@ class BuscadorBlindado:
 
         dados = {}
 
-        # 🔹 Nome Científico
+        # 🔹 Nome Científico (Que contém a Etimologia no WikiAves)
         sec_nome = soup.find("h2", id="nome_cientifico")
         if sec_nome:
             div_nome = sec_nome.find_next("div", class_="level2")
@@ -183,12 +183,19 @@ class BuscadorBlindado:
         else:
             dados["nome_cientifico"] = "Não encontrado"
 
-        # 🔹 Características
+        # 🔹 Características (Refinado: Apenas texto dentro da tag <p>)
         sec_carac = soup.find("h2", id="caracteristicas")
         if sec_carac:
             div_carac = sec_carac.find_next("div", class_="level2")
             if div_carac:
-                dados["caracteristicas"] = div_carac.get_text(separator=" ", strip=True)
+                # Pega APENAS o primeiro parágrafo. Ignora players de áudio e botões subsequentes.
+                paragrafo = div_carac.find("p")
+                
+                if paragrafo:
+                    # separator="\n" garante que tags <br> virem quebras de linha
+                    dados["caracteristicas"] = paragrafo.get_text(separator="\n", strip=True)
+                else:
+                    dados["caracteristicas"] = "Descrição não disponível."
             else:
                 dados["caracteristicas"] = "Não encontrado"
         else:
@@ -217,37 +224,3 @@ class BuscadorBlindado:
 
     def fechar(self):
         self.driver.quit()
-
-
-# ==================================================
-# EXECUÇÃO
-# ==================================================
-
-if __name__ == "__main__":
-
-    bot = None
-
-    try:
-        bot = BuscadorBlindado()
-
-        for ave in AVES_ALVO:
-
-            link = bot.buscar_link_wikiaves(ave)
-
-            if link:
-                dados = bot.extrair_dados_especie(link)
-
-                print("\n==============================")
-                print(f"🐦 Espécie: {ave}")
-                print("\n📌 NOME CIENTÍFICO:")
-                print(dados["nome_cientifico"])
-                print("\n📌 CARACTERÍSTICAS:")
-                print(dados["caracteristicas"])
-                print("==============================\n")
-
-    except Exception as e:
-        print(f"Erro fatal: {e}")
-
-    finally:
-        if bot:
-            bot.fechar()
