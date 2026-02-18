@@ -337,9 +337,9 @@ class JanelaPrincipal(QMainWindow):
         lbl_titulo_loc.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 4px;")
         layout_card_loc.addWidget(lbl_titulo_loc)
         
-        self.map_registro = QWebEngineView()
+        self.map_registro = MapWidget()
         self.map_registro.setMinimumSize(100, 150)
-        self.map_registro.load(url_template)
+        self.map_registro.show_placeholder_message("Aguardando imagem com GPS...")
         layout_card_loc.addWidget(self.map_registro)
         
         layout_geo.addLayout(layout_card_loc, stretch=1)
@@ -350,9 +350,9 @@ class JanelaPrincipal(QMainWindow):
         lbl_titulo_map.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 4px;")
         layout_card_map.addWidget(lbl_titulo_map)
         
-        self.map_distribuicao = QWebEngineView()
+        self.map_distribuicao = MapWidget()
         self.map_distribuicao.setMinimumSize(100, 150)
-        self.map_distribuicao.load(url_template)
+        self.map_distribuicao.show_placeholder_message("Aguardando identificação da espécie...")
         layout_card_map.addWidget(self.map_distribuicao)
         
         layout_geo.addLayout(layout_card_map, stretch=1)
@@ -759,18 +759,27 @@ class JanelaPrincipal(QMainWindow):
         self.btn_google_lens.setEnabled(True)
         
         # --- Geo (v0.3.1) ---
-        lat_lon = extract_lat_lon(caminho)
-        if lat_lon:
-            lat, lon = lat_lon
-            # Atualiza Maps via JS invoke
-            js = f"updateMap({lat}, {lon}, 15);"
-            self.map_registro.page().runJavaScript(js)
-            self.map_distribuicao.page().runJavaScript(js)
+        coords = extract_lat_lon(caminho)
+        if coords:
+            lat, lon = coords
+            print(f"[MAPA] Coordenadas encontradas: {lat}, {lon}")
+            
+            # Atualiza mapas com as coordenadas reais
+            if self.map_registro:
+                self.map_registro.update_map(lat, lon, zoom=15, add_marker=True)
+                
+            if self.map_distribuicao:
+                self.map_distribuicao.update_map(lat, lon, zoom=5, add_marker=False)
+                
         else:
-             # Reseta ou mostra global
-             js = "updateMap(null, null, 2);"
-             self.map_registro.page().runJavaScript(js)
-             self.map_distribuicao.page().runJavaScript(js)
+            print("[MAPA] Sem dados GPS. Exibindo mensagem de aviso.")
+            msg_erro = "Dados de localização não disponíveis na imagem"
+            
+            if self.map_registro:
+                self.map_registro.show_placeholder_message(msg_erro)
+                
+            if self.map_distribuicao:
+                self.map_distribuicao.show_placeholder_message(msg_erro)
              
         self._identificar_ave()
 
