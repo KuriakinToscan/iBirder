@@ -22,6 +22,7 @@ from ui.dialogo_aviso import DialogoAviso
 from ui.worker_referencia import ReferenceImageWorker
 from core.buscador_worker import BuscadorWorker
 from core.logger import save_crash_log
+from ui.widgets.map_widget import MapWidget
 from ui.custom_widgets import ImageCardWidget
 
 class JanelaPrincipal(QMainWindow):
@@ -319,45 +320,15 @@ class JanelaPrincipal(QMainWindow):
         self.btn_nova.clicked.connect(self._abrir_seletor_arquivo)
         layout_esquerda.addWidget(self.btn_nova)
         
-        # --- NOVO: Seção Geográfica (v0.3.1) ---
-        layout_geo = QHBoxLayout()
-        layout_geo.setSpacing(15)
+        # --- NOVO: Mapa Único (v0.3.3) ---
+        lbl_titulo_geo = QLabel("Localização Geográfica")
+        lbl_titulo_geo.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 4px;")
+        layout_esquerda.addWidget(lbl_titulo_geo)
         
-        # Caminho do Template de Mapa
-        if getattr(sys, 'frozen', False):
-             base_path = Path(sys._MEIPASS)
-        else:
-             base_path = Path(__file__).parent
-        
-        url_template = QUrl.fromLocalFile(str(base_path / "map_template.html"))
-        
-        # Card Localização
-        layout_card_loc = QVBoxLayout()
-        lbl_titulo_loc = QLabel("Localização do Registro")
-        lbl_titulo_loc.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 4px;")
-        layout_card_loc.addWidget(lbl_titulo_loc)
-        
-        self.map_registro = MapWidget()
-        self.map_registro.setMinimumSize(100, 150)
-        self.map_registro.show_placeholder_message("Aguardando imagem com GPS...")
-        layout_card_loc.addWidget(self.map_registro)
-        
-        layout_geo.addLayout(layout_card_loc, stretch=1)
-        
-        # Card Distribuição
-        layout_card_map = QVBoxLayout()
-        lbl_titulo_map = QLabel("Distribuição da Espécie (fonte eBird)")
-        lbl_titulo_map.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 4px;")
-        layout_card_map.addWidget(lbl_titulo_map)
-        
-        self.map_distribuicao = MapWidget()
-        self.map_distribuicao.setMinimumSize(100, 150)
-        self.map_distribuicao.show_placeholder_message("Aguardando identificação da espécie...")
-        layout_card_map.addWidget(self.map_distribuicao)
-        
-        layout_geo.addLayout(layout_card_map, stretch=1)
-        
-        layout_esquerda.addLayout(layout_geo, stretch=2) # Stretch menor que imagens (3)
+        self.map_principal = MapWidget()
+        self.map_principal.setMinimumHeight(350) 
+        self.map_principal.show_placeholder_message("Aguardando dados de Localização")
+        layout_esquerda.addWidget(self.map_principal)
         
         layout_principal.addLayout(layout_esquerda, stretch=3)
 
@@ -559,6 +530,23 @@ class JanelaPrincipal(QMainWindow):
         self.frame_etimologia.setVisible(False)
         layout_res.addWidget(self.frame_etimologia)
         
+        # --- NOVO: Card Vocalizações (v0.3.3) ---
+        grupo_audio = QGroupBox("")
+        grupo_audio.setStyleSheet("margin-top: 10px; padding-top: 10px;")
+        layout_audio = QVBoxLayout()
+        
+        lbl_titulo_audio = QLabel("Vocalizações")
+        lbl_titulo_audio.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 4px;")
+        layout_audio.addWidget(lbl_titulo_audio)
+        
+        self.lbl_audio_placeholder = QLabel("Áudio não carregado")
+        self.lbl_audio_placeholder.setAlignment(Qt.AlignCenter)
+        self.lbl_audio_placeholder.setStyleSheet("color: #9CA3AF; font-style: italic; border: 1px dashed #D1D5DB; border-radius: 4px; padding: 20px;")
+        layout_audio.addWidget(self.lbl_audio_placeholder)
+        
+        grupo_audio.setLayout(layout_audio)
+        layout_res.addWidget(grupo_audio)
+        
         grupo_resultados.setLayout(layout_res)
         layout_direito.addWidget(grupo_resultados)
         layout_direito.addStretch()
@@ -759,27 +747,21 @@ class JanelaPrincipal(QMainWindow):
         self.btn_google_lens.setEnabled(True)
         
         # --- Geo (v0.3.1) ---
+        # --- Geo (v0.3.3) ---
         coords = extract_lat_lon(caminho)
         if coords:
             lat, lon = coords
             print(f"[MAPA] Coordenadas encontradas: {lat}, {lon}")
             
-            # Atualiza mapas com as coordenadas reais
-            if self.map_registro:
-                self.map_registro.update_map(lat, lon, zoom=15, add_marker=True)
-                
-            if self.map_distribuicao:
-                self.map_distribuicao.update_map(lat, lon, zoom=5, add_marker=False)
+            if self.map_principal:
+                self.map_principal.update_map(lat, lon, zoom=13, add_marker=True)
                 
         else:
             print("[MAPA] Sem dados GPS. Exibindo mensagem de aviso.")
             msg_erro = "Dados de localização não disponíveis na imagem"
             
-            if self.map_registro:
-                self.map_registro.show_placeholder_message(msg_erro)
-                
-            if self.map_distribuicao:
-                self.map_distribuicao.show_placeholder_message(msg_erro)
+            if self.map_principal:
+                self.map_principal.show_placeholder_message(msg_erro)
              
         self._identificar_ave()
 
