@@ -191,42 +191,35 @@ class JanelaPrincipal(QMainWindow):
         sciname = raw_sciname if sciname_valido else None
         
         if self.map_principal:
-             # Precisamos das coordenadas atuais. 
-             # Como o MapWidget não expõe getter fácil do Folium, 
-             # idealmente deveríamos ter guardado 'self.current_lat_lon' na classe.
-             pass 
-             # Vamos assumir que o usuário carregou a imagem e o mapa já tem o marker.
-             # Mas para adicionar a camada GBIF, precisamos chamar update_map novamente.
-             # O problema é: quais coordenadas?
-             # Solução Rápida: Extrair novamente da imagem ou usar a última salva.
-             
-             lat, lon = None, None
-             
-             if self.caminho_imagem_atual:
-                 coords = extract_lat_lon(self.caminho_imagem_atual)
-                 if coords:
-                     lat, lon = coords
-                 
-             if not lat and getattr(self, "ultima_localizacao_manual", None):
-                 lat, lon = self.ultima_localizacao_manual
-             
-             # Fallback para as coordenadas atuais da classe se já definidas
-             if not lat and self.lat_atual and self.lon_atual:
-                  lat, lon = self.lat_atual, self.lon_atual
+             # Atualização do Mapa com Camada GBIF (Desacoplado do GPS)
+             # Usa coordenadas da classe (já extraídas no carregamento ou manual)
+             lat = self.lat_atual
+             lon = self.lon_atual
+             add_marker = True
+             zoom_level = 10
 
-             if lat and lon:
-                print(f"[UI] Atualizando Widget de Mapa... (GBIF: {sciname})")
-                try:
-                    # Se tivermos nome cientifico valido, o mapa mostrará o layer GBIF
-                    self.map_principal.update_map(lat, lon, zoom=10, add_marker=True, scientific_name=sciname)
-                    
-                    # Geo (v0.3.11) - Se já temos coordenadas, atualizamos o painel
-                    self._atualizar_geo_info(lat, lon)
-                    print("[UI] Mapa e GeoAnalyst atualizados.")
-                except Exception as e:
-                    print(f"[UI] ERRO ao atualizar mapa: {e}")
+             # Fallback: Se não tem coords, usa Centro do Brasil apenas para mostrar a distribuição
+             if lat is None or lon is None:
+                 lat = -15.7801
+                 lon = -47.9292
+                 add_marker = False
+                 zoom_level = 4
+                 print("[UI] Sem GPS: Usando fallback (Centro BR) para exibir mapa de distribuição.")
+
+             print(f"[UI] Atualizando Widget de Mapa... (GBIF: {sciname}) [Lat: {lat}, Lon: {lon}]")
+             try:
+                 self.map_principal.update_map(lat, lon, zoom=zoom_level, add_marker=add_marker, scientific_name=sciname)
+                 
+                 # GeoAnalyst: Só roda se tivermos localização real (marker=True)
+                 if add_marker:
+                     self._atualizar_geo_info(lat, lon)
+                     print("[UI] GeoAnalyst atualizado com dados reais.")
+                 
+                 print("[UI] Mapa renderizado com sucesso.")
+             except Exception as e:
+                 print(f"[UI] ERRO CRÍTICO ao atualizar mapa: {e}")
             
-             print("[UI] --- PROCESSO FINALIZADO ---\n")
+             print("[UI] --- PROCESSO DE IDENTIFICAÇÃO FINALIZADO ---\n")
         
     def _ao_erro_api(self, erro_msg):
         print(f"[UI] Erro na API (Info Espécie): {erro_msg}")
