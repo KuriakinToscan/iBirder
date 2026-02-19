@@ -888,49 +888,47 @@ class JanelaPrincipal(QMainWindow):
         # Carrega no card (e configura drag)
         self.card_user.set_image_path(caminho) 
         
-        # --- Extração de Metadados (EXIF) v0.3.12 ---
+        # --- Extração de Metadados (EXIF) v0.3.14 (Granular & Safe) ---
         autor_exif = "Autor desconhecido"
         data_exif = "Data não disponível"
         
+        exif_raw = None
         try:
             with Image.open(caminho) as img:
-                exif_data = img._getexif()
-                if exif_data:
-                    # Mapear Tags (Código -> Nome)
-                    exif = {ExifTags.TAGS.get(k, k): v for k, v in exif_data.items()}
-                    
-                    # 1. Autor
-                    # Tags comuns: Artist (315), XPAuthor (40093 - Windows)
-                    # XPAuthor é codificado em bytes UCS-2 (UTF-16LE)
-                    artist = exif.get("Artist")
-                    xp_author = exif.get("XPAuthor")
-                    
-                    if artist:
-                         autor_exif = f"Nome: {str(artist).strip()}"
-                    elif xp_author:
-                         try:
-                             # XP tags geralmente são bytes com null terminator
-                             autor_exif = xp_author.decode("utf-16le").replace('\x00', '').strip()
-                         except:
-                             pass
-                    
-                    if not autor_exif:
-                         autor_exif = "Autor desconhecido"
-                         
-                    # 2. Data
-                    # Tag: DateTimeOriginal (36867) -> formato "YYYY:MM:DD HH:MM:SS"
-                    date_str = exif.get("DateTimeOriginal")
-                    if date_str:
-                         try:
-                             dt = datetime.strptime(date_str, "%Y:%m:%d %H:%M:%S")
-                             data_exif = dt.strftime("%d/%m/%Y - %H:%M")
-                         except:
-                             pass
-                             
-        except Exception as e:
-            # Silently fail for metadata, defaults are set
-            # print(f"Erro ao ler EXIF: {e}") 
+                exif_raw = img._getexif()
+        except Exception:
             pass
+            
+        if exif_raw:
+            # Mapear Tags (Código -> Nome)
+            try:
+                exif = {ExifTags.TAGS.get(k, k): v for k, v in exif_raw.items()}
+            except Exception:
+                exif = {}
+
+            # 1. Autor (Isolado)
+            try:
+                artist = exif.get("Artist")
+                xp_author = exif.get("XPAuthor")
+                
+                if artist:
+                     autor_exif = f"Nome: {str(artist).strip()}"
+                elif xp_author:
+                     # XP tags geralmente são bytes com null terminator
+                     if isinstance(xp_author, bytes):
+                        val = xp_author.decode("utf-16le").replace('\x00', '').strip()
+                        if val: autor_exif = f"Nome: {val}"
+            except Exception:
+                pass # Mantém default "Autor desconhecido"
+            
+            # 2. Data (Isolado)
+            try:
+                date_str = exif.get("DateTimeOriginal")
+                if date_str:
+                     dt = datetime.strptime(date_str, "%Y:%m:%d %H:%M:%S")
+                     data_exif = dt.strftime("%d/%m/%Y - %H:%M")
+            except Exception:
+                pass # Mantém default "Data não disponível"
 
         self.card_user.set_overlay_details(autor_exif, data_exif)
         
@@ -1038,12 +1036,15 @@ class JanelaPrincipal(QMainWindow):
         
         self.card_user.setAcceptDrops(False) # Bloqueia novos drops durante processamento
         
-        self.worker_local = LocalIdentificationWorker(self.caminho_imagem_atual)
-        self.worker_local.progress_updated.connect(self._ao_progresso_identificacao)
-        self.worker_local.identification_complete.connect(self._ao_concluir_identificacao)
-        self.worker_local.error_occurred.connect(self._ao_erro_identificacao)
-        self.worker_local.start()
-        
+        try:
+            self.worker_local = LocalIdentificationWorker(self.caminho_imagem_atual)
+            self.worker_local.progress_updated.connect(self._ao_progresso_identificacao)
+            self.worker_local.identification_complete.connect(self._ao_concluir_identificacao)
+            self.worker_local.error_occurred.connect(self._ao_erro_identificacao)
+            self.worker_local.start()
+        except Exception as e:
+            self._ao_erro_identificacao(f"Falha ao iniciar worker: {e}")
+
     def _ao_progresso_identificacao(self, mensagem):
         self.status_bar.showMessage(mensagem)
 
@@ -1177,6 +1178,17 @@ class JanelaPrincipal(QMainWindow):
             self._carregar_imagem(path)
 
     def _resetar_interface(self):
+        # Stop Workers
+        for worker_name in ["worker_local", "geo_worker"]:
+            old_worker = getattr(self, worker_name, None)
+            if old_worker is not None:
+                if old_worker.isRunning():
+                    old_worker.requestInterruption()
+                    old_worker.quit()
+                    old_worker.wait()
+                old_worker.deleteLater()
+                setattr(self, worker_name, None)
+
         self.caminho_imagem_atual = None
         self.lat_atual = None
         self.lon_atual = None
