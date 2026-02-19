@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
     QPushButton, QGroupBox, QFileDialog, QLineEdit, QTextEdit,
     QFrame, QStatusBar, QApplication, QSizePolicy, QGraphicsDropShadowEffect,
-    QMessageBox, QCheckBox, QGridLayout
+    QMessageBox, QCheckBox, QGridLayout, QScrollArea
 )
 from PySide6.QtCore import Qt, QSize, QThread, Signal, QSettings, QMimeData, QUrl, QTimer
 from PySide6.QtGui import (
@@ -167,8 +167,18 @@ class JanelaPrincipal(QMainWindow):
         super().resizeEvent(event)
 
     def _configurar_ui(self):
+        # Container Principal com Scroll
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        # Garante fundo claro na área de scroll
+        self.scroll_area.setStyleSheet("QScrollArea { border: none; background-color: #F0F2F5; }")
+
         widget_central = QWidget()
-        self.setCentralWidget(widget_central)
+        # Garante que o widget interno também tenha fundo claro
+        widget_central.setStyleSheet("background-color: #F0F2F5;")
+        self.scroll_area.setWidget(widget_central)
+        self.setCentralWidget(self.scroll_area)
+
         layout_principal = QHBoxLayout(widget_central)
         layout_principal.setContentsMargins(30, 30, 30, 30)
         layout_principal.setSpacing(30)
@@ -524,6 +534,24 @@ class JanelaPrincipal(QMainWindow):
         
         grupo_audio.setLayout(layout_audio)
         layout_res.addWidget(grupo_audio)
+
+        # --- NOVO: Card Informações Geográficas (v0.3.5) ---
+        grupo_geo = QGroupBox("")
+        grupo_geo.setStyleSheet("margin-top: 10px; padding-top: 10px;")
+        layout_geo = QVBoxLayout()
+        
+        lbl_titulo_geo_card = QLabel("Informações Geográficas")
+        lbl_titulo_geo_card.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 4px;")
+        layout_geo.addWidget(lbl_titulo_geo_card)
+        
+        self.lbl_geo_placeholder = QLabel("Localização não detectada")
+        self.lbl_geo_placeholder.setAlignment(Qt.AlignCenter)
+        self.lbl_geo_placeholder.setStyleSheet("color: #9CA3AF; font-style: italic; border: 1px dashed #D1D5DB; border-radius: 4px; padding: 20px;")
+        layout_geo.addWidget(self.lbl_geo_placeholder)
+        
+        grupo_geo.setLayout(layout_geo)
+        layout_res.addWidget(grupo_geo)
+        # ---------------------------------------------------
         
         grupo_resultados.setLayout(layout_res)
         layout_direito.addWidget(grupo_resultados)
