@@ -18,6 +18,9 @@ class BuscadorWorker(QThread):
             
             if link:
                 dados = bot.extrair_dados_especie(link)
+                # Injetar o nome original usado na busca para uso no GBIF
+                # O WikiAves retorna a ETIMOLOGIA no campo 'nome_cientifico', o que quebra o GBIF.
+                dados['original_scientific_name'] = self.scientific_name
                 self.info_found.emit(dados)
             else:
                 self.error_occurred.emit("Espécie não encontrada no WikiAves.")

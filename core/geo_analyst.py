@@ -4,10 +4,22 @@ from geopy.geocoders import Nominatim
 from shapely.geometry import shape, Point
 
 class GeoAnalyst:
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(GeoAnalyst, cls).__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+
     def __init__(self):
+        if self._initialized:
+            return
+            
         self.geolocator = Nominatim(user_agent="ibirder_app_v0.3.11")
         self.biomes_data = None
         self._load_biomes()
+        self._initialized = True
 
     def _load_biomes(self):
         print("[GEO] Carregando arquivo de biomas (GeoJSON)...")
@@ -36,7 +48,7 @@ class GeoAnalyst:
             if polygon.contains(point):
                 # Tenta recuperar o nome em propriedades comuns
                 props = feature.get('properties', {})
-                return props.get('name_biome') or props.get('Name') or props.get('bioma') or "Desconhecido"
+                return props.get('NOM_BIOMA') or props.get('name_biome') or props.get('Name') or props.get('bioma') or "Desconhecido"
         
         return "Fora de área mapeada"
 
