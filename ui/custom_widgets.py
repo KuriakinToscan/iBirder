@@ -24,7 +24,9 @@ class ImageCardWidget(QWidget):
         self.pixmap = None
         self.image_path = None # Caminho do arquivo atual (para drag out)
         self.text_placeholder = "..."
-        self.text_overlay = None
+        self.text_overlay = None # Tooltip only now basically
+        self.text_overlay_left = None
+        self.text_overlay_right = None
         self.on_drop_callback = None # Função (path) quando arquivo é solto
         self.on_click_callback = None # Função () quando clicado (se vazio)
         
@@ -77,11 +79,18 @@ class ImageCardWidget(QWidget):
         self.update()
 
     def set_overlay_text(self, text):
+        # Mantido para compatibilidade, define como tooltip
         self.text_overlay = text
         if text:
             self.setToolTip(text)
         else:
             self.setToolTip("")
+        self.update()
+        
+    def set_overlay_details(self, left_text, right_text):
+        """Define textos para a barra inferior (EXIF)."""
+        self.text_overlay_left = left_text
+        self.text_overlay_right = right_text
         self.update()
         
     def set_on_drop(self, callback):
@@ -122,7 +131,7 @@ class ImageCardWidget(QWidget):
         try:
             tamanho_mb = os.path.getsize(self.image_path) / (1024 * 1024)
             if tamanho_mb > 15:
-                print(f"[Drag] Imagem grande ({tamanho_mb:.1f}MB). Comprimindo para temp...")
+                # print(f"[Drag] Imagem grande ({tamanho_mb:.1f}MB). Comprimindo para temp...")
                 temp_dir = tempfile.gettempdir()
                 nome_temp = f"ibirder_lens_optimized_{os.path.basename(self.image_path)}"
                 caminho_temp = os.path.join(temp_dir, nome_temp)
@@ -130,9 +139,9 @@ class ImageCardWidget(QWidget):
                 if self.pixmap and not self.pixmap.isNull():
                     self.pixmap.save(caminho_temp, "JPG", 85)
                     caminho_final = caminho_temp
-                    print(f"[Drag] Imagem comprimida salva em: {caminho_final}")
-        except Exception as e:
-            print(f"[Drag] Erro na otimização: {e}")
+                    # print(f"[Drag] Imagem comprimida salva em: {caminho_final}")
+        except Exception:
+            pass
             
         mime_data.setUrls([QUrl.fromLocalFile(caminho_final)])
         drag.setMimeData(mime_data)
@@ -184,21 +193,43 @@ class ImageCardWidget(QWidget):
             painter.setClipPath(path)
             painter.drawPixmap(x, y, scaled)
             
-            # 3. Overlay
-            if self.text_overlay:
+            # 3. Overlay (Barra Inferior)
+            # Mostra se houver overlay_text (tooltip legacy) OU se tiver detalhes (EXIF)
+            if self.text_overlay or (self.text_overlay_left or self.text_overlay_right):
                 h_overlay = 28
                 r_overlay = QRectF(0, self.height() - h_overlay, self.width(), h_overlay)
                 
+                # Se for só tooltip legacy e mouse não estiver em cima, talvez não devesse mostrar?
+                # Mas seguimos o padrão visual.
+                
+                # Para EXIF, sempre mostra a barra
                 painter.fillRect(r_overlay, self.overlay_bg_color)
                 
                 painter.setPen(self.overlay_text_color)
-                painter.setFont(QFont("Segoe UI", 8))
+                painter.setFont(QFont("Segoe UI", 9)) # Fonte um pouco maior para leitura
                 
-                r_text = r_overlay.adjusted(10, 0, -10, 0)
                 metrics = QFontMetrics(painter.font())
-                elided = metrics.elidedText(self.text_overlay, Qt.ElideRight, int(r_text.width()))
+                margin_x = 10
                 
-                painter.drawText(r_text, Qt.AlignRight | Qt.AlignVCenter, elided)
+                # Texto Esquerda (Autor)
+                if self.text_overlay_left:
+                    r_left = r_overlay.adjusted(margin_x, 0, -self.width()/2, 0)
+                    str_left = metrics.elidedText(self.text_overlay_left, Qt.ElideRight, int(r_left.width()))
+                    painter.drawText(r_left, Qt.AlignLeft | Qt.AlignVCenter, str_left)
+                
+                # Texto Direita (Data) ou Texto legado (Créditos)
+                # Se tiver text_overlay (legado/tooltip), usa ele na direita se não tiver right específico?
+                # Pelo spec, ImageCardWidget é usado para ambos. 
+                # Ref: usa set_overlay_text para créditos.
+                # User: "Alinhado à direita: Data e Hora".
+                
+                text_r = self.text_overlay_right if self.text_overlay_right else self.text_overlay
+                
+                if text_r:
+                    # Ajusta retangulo para direita
+                    r_right = r_overlay.adjusted(self.width()/2, 0, -margin_x, 0)
+                    str_right = metrics.elidedText(text_r, Qt.ElideLeft, int(r_right.width()))
+                    painter.drawText(r_right, Qt.AlignRight | Qt.AlignVCenter, str_right)
         
         else:
             # Placeholder
