@@ -13,6 +13,10 @@ from PySide6.QtGui import (
     QPainter, QAction, QDesktopServices, QDrag, QResizeEvent, QPalette
 )
 from PySide6.QtWebEngineWidgets import QWebEngineView
+from PIL import Image, ExifTags
+from datetime import datetime
+from PIL import Image, ExifTags
+from datetime import datetime
 
 # Importações do Core
 from core.geo_utils import extract_lat_lon
@@ -272,7 +276,7 @@ class JanelaPrincipal(QMainWindow):
 
         # --- LADO ESQUERDO ---
         layout_esquerda = QVBoxLayout()
-        layout_esquerda.setSpacing(10)
+        layout_esquerda.setSpacing(5)
         
         # Branding Header
         layout_branding = QHBoxLayout()
@@ -312,14 +316,14 @@ class JanelaPrincipal(QMainWindow):
 
         # Layout de Imagens (Horizontal 50/50 com Stretch)
         layout_imagens = QHBoxLayout()
-        layout_imagens.setSpacing(8) 
+        layout_imagens.setSpacing(4) 
         # Não usamos QGridLayout pois QHBoxLayout lida melhor com stretch igual
 
         # --- Coluna Esquerda (User) ---
         layout_col_user = QVBoxLayout()
         
         lbl_titulo_user = QLabel("Imagem Pesquisada")
-        lbl_titulo_user.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 4px;")
+        lbl_titulo_user.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 2px;")
         layout_col_user.addWidget(lbl_titulo_user)
 
         self.card_user = ImageCardWidget()
@@ -883,6 +887,52 @@ class JanelaPrincipal(QMainWindow):
         self.caminho_imagem_atual = caminho
         # Carrega no card (e configura drag)
         self.card_user.set_image_path(caminho) 
+        
+        # --- Extração de Metadados (EXIF) v0.3.12 ---
+        autor_exif = "Autor desconhecido"
+        data_exif = "Data não disponível"
+        
+        try:
+            with Image.open(caminho) as img:
+                exif_data = img._getexif()
+                if exif_data:
+                    # Mapear Tags (Código -> Nome)
+                    exif = {ExifTags.TAGS.get(k, k): v for k, v in exif_data.items()}
+                    
+                    # 1. Autor
+                    # Tags comuns: Artist (315), XPAuthor (40093 - Windows)
+                    # XPAuthor é codificado em bytes UCS-2 (UTF-16LE)
+                    artist = exif.get("Artist")
+                    xp_author = exif.get("XPAuthor")
+                    
+                    if artist:
+                         autor_exif = str(artist).strip()
+                    elif xp_author:
+                         try:
+                             # XP tags geralmente são bytes com null terminator
+                             autor_exif = xp_author.decode("utf-16le").replace('\x00', '').strip()
+                         except:
+                             pass
+                    
+                    if not autor_exif:
+                         autor_exif = "Autor desconhecido"
+                         
+                    # 2. Data
+                    # Tag: DateTimeOriginal (36867) -> formato "YYYY:MM:DD HH:MM:SS"
+                    date_str = exif.get("DateTimeOriginal")
+                    if date_str:
+                         try:
+                             dt = datetime.strptime(date_str, "%Y:%m:%d %H:%M:%S")
+                             data_exif = dt.strftime("%d/%m/%Y - %H:%M")
+                         except:
+                             pass
+                             
+        except Exception as e:
+            # Silently fail for metadata, defaults are set
+            # print(f"Erro ao ler EXIF: {e}") 
+            pass
+
+        self.card_user.set_overlay_details(autor_exif, data_exif)
         
         # Persistência
         folder = str(Path(caminho).parent)

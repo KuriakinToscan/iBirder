@@ -29,7 +29,7 @@ class MapWidget(QWebEngineView):
         """
         self.setHtml(html)
 
-    def update_map(self, lat, lon, zoom=10, add_marker=False, scientific_name=None):
+    def update_map(self, lat, lon, zoom=5, add_marker=False, scientific_name=None):
         try:
             from core.gbif_client import get_gbif_taxon_key
             
@@ -40,7 +40,8 @@ class MapWidget(QWebEngineView):
             folium.TileLayer('OpenStreetMap', name='Mapa', control=True).add_to(m)
             folium.TileLayer(
                 tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                attr='Esri', name='Satélite', control=True
+                attr='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community', 
+                name='Satélite', control=True
             ).add_to(m)
 
             # GBIF Layer (Always present for control visibility)
@@ -54,7 +55,8 @@ class MapWidget(QWebEngineView):
                     species_url = f"https://www.gbif.org/species/{taxon_key}"
                     attr_html = f'<a href="{species_url}" style="font-weight:bold; color:#005fa8; text-decoration:none;">Dados: GBIF 🔗</a>'
                     
-                    gbif_url = f"https://api.gbif.org/v2/map/occurrence/density/{{z}}/{{x}}/{{y}}@1x.png?taxonKey={taxon_key}&basisOfRecord=HUMAN_OBSERVATION&basisOfRecord=OBSERVATION&bin=hex&hexPerTile=70&style=purpleYellow.poly"
+                    # v0.3.12: Reduced hexPerTile to 35 (larger hexagons)
+                    gbif_url = f"https://api.gbif.org/v2/map/occurrence/density/{{z}}/{{x}}/{{y}}@1x.png?taxonKey={taxon_key}&basisOfRecord=HUMAN_OBSERVATION&basisOfRecord=OBSERVATION&bin=hex&hexPerTile=35&style=purpleYellow.poly"
             
             if not gbif_url:
                 # Transparent tile for "Empty" state, so the layer control still shows "Dist. Geográfica"
