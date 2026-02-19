@@ -235,18 +235,7 @@ class JanelaPrincipal(QMainWindow):
         self.btn_google_lens = QPushButton("Pesquisar com Google Lens")
         self.btn_google_lens.setCursor(Qt.PointingHandCursor)
         self.btn_google_lens.setEnabled(False)
-        self.btn_google_lens.setStyleSheet("""
-            QPushButton {
-                background-color: #ffffff;
-                color: #374151;
-                border: 1px solid #d1d5db;
-                padding: 10px;
-                font-size: 13px;
-            }
-            QPushButton:hover {
-                background-color: #f3f4f6;
-            }
-        """)
+        # Estilo global será aplicado
         self.btn_google_lens.clicked.connect(self._abrir_google_lens)
         layout_col_user.addWidget(self.btn_google_lens)
         
@@ -269,18 +258,7 @@ class JanelaPrincipal(QMainWindow):
         self.btn_fonte.setCursor(Qt.PointingHandCursor)
         self.btn_fonte.setVisible(True)
         self.btn_fonte.setEnabled(False)
-        self.btn_fonte.setStyleSheet("""
-            QPushButton {
-                background-color: #ffffff;
-                color: #374151;
-                border: 1px solid #d1d5db;
-                padding: 10px;
-                font-size: 13px;
-            }
-            QPushButton:hover {
-                background-color: #f3f4f6;
-            }
-        """)
+        # Estilo global será aplicado
         self.btn_fonte.clicked.connect(lambda: QDesktopServices.openUrl(self.btn_fonte.property("url_alvo")))
         layout_col_ref.addWidget(self.btn_fonte)
         
@@ -484,19 +462,19 @@ class JanelaPrincipal(QMainWindow):
         
         self.btn_wiki = QPushButton("WikiAves")
         self.btn_wiki.setCursor(Qt.PointingHandCursor)
-        self.btn_wiki.setStyleSheet("background-color: #F97316; border: none;") 
+        # Estilo Global
         self.btn_wiki.clicked.connect(self._buscar_wikiaves)
         layout_botoes.addWidget(self.btn_wiki)
         
         self.btn_ebird = QPushButton("eBird")
         self.btn_ebird.setCursor(Qt.PointingHandCursor)
-        self.btn_ebird.setStyleSheet("background-color: #65A30D; border: none;")
+        # Estilo Global
         self.btn_ebird.clicked.connect(self._buscar_ebird)
         layout_botoes.addWidget(self.btn_ebird)
 
         self.btn_google = QPushButton("Google")
         self.btn_google.setCursor(Qt.PointingHandCursor)
-        self.btn_google.setStyleSheet("background-color: #3B82F6; border: none;")
+        # Estilo Global
         self.btn_google.clicked.connect(self._buscar_google)
         layout_botoes.addWidget(self.btn_google)
         
