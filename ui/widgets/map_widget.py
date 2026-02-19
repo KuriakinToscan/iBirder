@@ -22,7 +22,6 @@ class MapWidget(QWebEngineView):
         <html>
         <body style="display:flex; justify-content:center; align-items:center; height:100%; margin:0; font-family:'Segoe UI', sans-serif; background-color:#f0f2f5; color:#6b7280;">
             <div style="text-align:center;">
-                <div style="font-size:48px; margin-bottom:10px;">🗺️</div>
                 <div style="font-size:14px;">{message}</div>
             </div>
         </body>
