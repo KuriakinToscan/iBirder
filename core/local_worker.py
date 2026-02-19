@@ -12,6 +12,9 @@ except ImportError:
 
 from core.model_manager import ModelManager
 
+# Global Cache for TFLite Interpreter
+_interpreter_cache = None
+
 class LocalIdentificationWorker(QThread):
     progress_updated = Signal(str)
     identification_complete = Signal(dict)
@@ -24,6 +27,7 @@ class LocalIdentificationWorker(QThread):
         self.min_confidence = 0.70 # 70% threshold
 
     def run(self):
+        global _interpreter_cache
         if not tf:
              self.error_occurred.emit("TensorFlow não está instalado. Reinicie o app.")
              return
@@ -43,13 +47,14 @@ class LocalIdentificationWorker(QThread):
             if self._stopped:
                 return
 
-            # 2. Carregar Modelo
-            self.progress_updated.emit("Carregando cérebro digital...")
+            # 2. Carregar Modelo (Cache Global)
             start_time = time.time()
+            if _interpreter_cache is None:
+                self.progress_updated.emit("Carregando cérebro digital...")
+                _interpreter_cache = tf.lite.Interpreter(model_path=str(manager.model_path))
+                _interpreter_cache.allocate_tensors()
             
-            # Load TFLite model and allocate tensors.
-            interpreter = tf.lite.Interpreter(model_path=str(manager.model_path))
-            interpreter.allocate_tensors()
+            interpreter = _interpreter_cache
 
             # Get input and output tensors.
             input_details = interpreter.get_input_details()

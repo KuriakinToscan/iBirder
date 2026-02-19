@@ -56,6 +56,8 @@ class JanelaPrincipal(QMainWindow):
         
         self.caminho_imagem_atual = None
         self.dados_identificacao_atual = {}
+        self.lat_atual = None
+        self.lon_atual = None
 
         self._configurar_ui()
         self._configurar_ui()
@@ -92,16 +94,22 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_titulo_etimologia.setVisible(True)
         self.txt_etimologia.setVisible(True)
 
-        # Para worker anterior se existir
-        if getattr(self, "worker_referencia", None) is not None:
+    def _iniciar_busca_imagem(self, nome_cientifico):
+        # Limpeza segura do worker anterior
+        old_worker_ref = getattr(self, "worker_referencia", None)
+        if old_worker_ref is not None:
             try:
-                if self.worker_referencia.isRunning():
-                    self.worker_referencia.quit()
-                    self.worker_referencia.wait()
-                self.worker_referencia.deleteLater()
-            except RuntimeError:
-                pass 
+                old_worker_ref.image_found.disconnect()
+                old_worker_ref.search_failed.disconnect()
+            except: pass
             
+            if old_worker_ref.isRunning():
+                old_worker_ref.requestInterruption()
+                old_worker_ref.quit()
+                old_worker_ref.finished.connect(old_worker_ref.deleteLater)
+            else:
+                old_worker_ref.deleteLater()
+
         self.worker_referencia = ReferenceImageWorker(nome_cientifico)
         self.worker_referencia.image_found.connect(self._ao_encontrar_imagem_referencia)
         self.worker_referencia.search_failed.connect(lambda: self.card_ref.set_placeholder("Sem referência"))
@@ -111,13 +119,21 @@ class JanelaPrincipal(QMainWindow):
         self._iniciar_busca_info_especie(nome_cientifico)
 
     def _iniciar_busca_info_especie(self, nome_cientifico):
-        if getattr(self, "worker_species", None) is not None:
+        # Limpeza segura do worker anterior
+        old_worker = getattr(self, "worker_species", None)
+        if old_worker is not None:
              try:
-                 if self.worker_species.isRunning():
-                     self.worker_species.quit()
-                     self.worker_species.wait()
-                 self.worker_species.deleteLater()
+                 old_worker.info_found.disconnect()
+                 old_worker.error_occurred.disconnect()
              except: pass
+
+             if old_worker.isRunning():
+                 old_worker.requestInterruption()
+                 old_worker.quit()
+                 # O antigo worker se autodestruirá quando terminar
+                 old_worker.finished.connect(old_worker.deleteLater)
+             else:
+                 old_worker.deleteLater()
 
         self.worker_species = BuscadorWorker(nome_cientifico)
         self.worker_species.info_found.connect(self._ao_receber_info_especie)
@@ -166,8 +182,16 @@ class JanelaPrincipal(QMainWindow):
 
         # --- ATUALIZAR MAPA COM GBIF (v0.3.8) ---
         # Se temos nome científico e o mapa está ativo, atualizamos a camada
-        sciname = dados.get("nome_cientifico", "")
-        if sciname and self.map_principal:
+        # IMPORTANTE: Usar o nome original, pois 'nome_cientifico' do WikiAves contém a etimologia.
+        raw_sciname = dados.get("original_scientific_name") or dados.get("nome_cientifico", "")
+        
+        # Validação Robusta para evitar chamadas inúteis ao GBIF
+        termos_invalidos = ["Não encontrado", "Inconclusiva", "Baixa confiança", "Erro", "Analisando..."]
+        sciname_valido = raw_sciname and not any(termo in raw_sciname for termo in termos_invalidos)
+        
+        sciname = raw_sciname if sciname_valido else None
+        
+        if self.map_principal:
              # Precisamos das coordenadas atuais. 
              # Como o MapWidget não expõe getter fácil do Folium, 
              # idealmente deveríamos ter guardado 'self.current_lat_lon' na classe.
@@ -177,33 +201,29 @@ class JanelaPrincipal(QMainWindow):
              # O problema é: quais coordenadas?
              # Solução Rápida: Extrair novamente da imagem ou usar a última salva.
              
+             lat, lon = None, None
+             
              if self.caminho_imagem_atual:
                  coords = extract_lat_lon(self.caminho_imagem_atual)
                  if coords:
                      lat, lon = coords
-                     self.map_principal.update_map(lat, lon, zoom=10, add_marker=True, scientific_name=sciname)
                  
-                 # Se foi localização manual, não temos como recuperar fácil da imagem.
-                 # Deveriamos ter salvo em self.ultima_localizacao_manual
-             
-             if getattr(self, "ultima_localizacao_manual", None):
+             if not lat and getattr(self, "ultima_localizacao_manual", None):
                  lat, lon = self.ultima_localizacao_manual
-                 self.map_principal.update_map(lat, lon, zoom=10, add_marker=True, scientific_name=sciname)
              
-             if self.lat_atual and self.lon_atual:
-                print("[UI] Coordenadas disponíveis. Chamando GeoAnalyst...")
-                # Geo (v0.3.11) - Se já temos coordenadas, atualizamos o painel
-                self._atualizar_geo_info(self.lat_atual, self.lon_atual)
-                print("[UI] GeoAnalyst iniciado (Thread).")
-             else:
-                print("[UI] Sem coordenadas GPS. GeoAnalyst pulado.")
-                
-             if self.map_principal and self.lat_atual and self.lon_atual:
-                print("[UI] Atualizando Widget de Mapa...")
+             # Fallback para as coordenadas atuais da classe se já definidas
+             if not lat and self.lat_atual and self.lon_atual:
+                  lat, lon = self.lat_atual, self.lon_atual
+
+             if lat and lon:
+                print(f"[UI] Atualizando Widget de Mapa... (GBIF: {sciname})")
                 try:
-                    # Se tivermos nome cientifico (já verificado acima), o mapa mostrará o layer GBIF
-                    self.map_principal.update_map(self.lat_atual, self.lon_atual, zoom=10, add_marker=True, scientific_name=sciname if sciname else None)
-                    print("[UI] Mapa atualizado com sucesso.")
+                    # Se tivermos nome cientifico valido, o mapa mostrará o layer GBIF
+                    self.map_principal.update_map(lat, lon, zoom=10, add_marker=True, scientific_name=sciname)
+                    
+                    # Geo (v0.3.11) - Se já temos coordenadas, atualizamos o painel
+                    self._atualizar_geo_info(lat, lon)
+                    print("[UI] Mapa e GeoAnalyst atualizados.")
                 except Exception as e:
                     print(f"[UI] ERRO ao atualizar mapa: {e}")
             
@@ -252,12 +272,12 @@ class JanelaPrincipal(QMainWindow):
         self.setCentralWidget(self.scroll_area)
 
         layout_principal = QHBoxLayout(widget_central)
-        layout_principal.setContentsMargins(30, 30, 30, 30)
-        layout_principal.setSpacing(30)
+        layout_principal.setContentsMargins(15, 15, 15, 15)
+        layout_principal.setSpacing(15)
 
         # --- LADO ESQUERDO ---
         layout_esquerda = QVBoxLayout()
-        layout_esquerda.setSpacing(20)
+        layout_esquerda.setSpacing(10)
         
         # Branding Header
         layout_branding = QHBoxLayout()
@@ -297,7 +317,7 @@ class JanelaPrincipal(QMainWindow):
 
         # Layout de Imagens (Horizontal 50/50 com Stretch)
         layout_imagens = QHBoxLayout()
-        layout_imagens.setSpacing(15) 
+        layout_imagens.setSpacing(8) 
         # Não usamos QGridLayout pois QHBoxLayout lida melhor com stretch igual
 
         # --- Coluna Esquerda (User) ---
@@ -483,13 +503,13 @@ class JanelaPrincipal(QMainWindow):
         self.painel_direito.setGraphicsEffect(sombra)
 
         layout_direito = QVBoxLayout(self.painel_direito)
-        layout_direito.setSpacing(30)
-        layout_direito.setContentsMargins(25, 35, 25, 25)
+        layout_direito.setSpacing(15)
+        layout_direito.setContentsMargins(12, 18, 12, 12)
         
         # Grupo Resultados
         grupo_resultados = QGroupBox("") 
         layout_res = QVBoxLayout()
-        layout_res.setSpacing(15)
+        layout_res.setSpacing(8)
         
         self.lbl_nome_comum = QLabel("-")
         self.lbl_nome_comum.setObjectName("lbl_nome_comum")
@@ -702,8 +722,8 @@ class JanelaPrincipal(QMainWindow):
             QGroupBox { 
                 border: 1px solid #E5E7EB; 
                 border-radius: 8px; 
-                margin-top: 24px; 
-                padding-top: 24px; 
+                margin-top: 12px; 
+                padding-top: 12px; 
                 font-weight: bold; 
                 font-size: 12px; 
                 background-color: #FFFFFF; 
@@ -882,6 +902,8 @@ class JanelaPrincipal(QMainWindow):
         coords = extract_lat_lon(caminho)
         if coords:
             lat, lon = coords
+            self.lat_atual = lat
+            self.lon_atual = lon
             print(f"[MAPA] Coordenadas encontradas: {lat}, {lon}")
             
             if self.map_principal:
@@ -897,6 +919,10 @@ class JanelaPrincipal(QMainWindow):
             self._atualizar_geo_info(lat, lon)
                 
         else:
+            # Se não tem na imagem, verifica se tem manual anterior para manter como atual
+            if getattr(self, "ultima_localizacao_manual", None):
+                 self.lat_atual, self.lon_atual = self.ultima_localizacao_manual
+            
             print("[MAPA] Sem dados GPS. Exibindo mensagem de aviso.")
             msg_erro = "Dados de localização não disponíveis na imagem"
             
@@ -915,6 +941,8 @@ class JanelaPrincipal(QMainWindow):
         if dialog.exec():
             lat, lon = dialog.get_coordinates()
             if lat is not None and lon is not None:
+                self.lat_atual = lat
+                self.lon_atual = lon
                 # Atualizar mapa
                 if self.map_principal:
                     # Se já temos espécie identificada, passamos o nome para o GBIF
@@ -1065,6 +1093,17 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_geo_details.setText("🔄 Analisando local e bioma...")
         self.lbl_geo_details.setVisible(True)
         
+        # Limpeza Segura do Worker Anterior
+        old_geo_worker = getattr(self, "geo_worker", None)
+        if old_geo_worker is not None:
+            if old_geo_worker.isRunning():
+                old_geo_worker.requestInterruption()
+                old_geo_worker.quit()
+                old_geo_worker.finished.connect(old_geo_worker.deleteLater)
+            else:
+                old_geo_worker.deleteLater()
+        
+        # Instancia como atributo da classe
         self.geo_worker = GeoWorker(lat, lon)
         self.geo_worker.finished.connect(self._ao_concluir_geo_analise)
         self.geo_worker.start()
@@ -1095,6 +1134,8 @@ class JanelaPrincipal(QMainWindow):
 
     def _resetar_interface(self):
         self.caminho_imagem_atual = None
+        self.lat_atual = None
+        self.lon_atual = None
         
         # User Card Reset
         self.card_user.set_image_path(None)
@@ -1121,4 +1162,6 @@ class JanelaPrincipal(QMainWindow):
         
         self.frame_etimologia.setVisible(False) 
         self.btn_google_lens.setEnabled(False)
+        if self.map_principal:
+             self.map_principal.show_placeholder_message("Aguardando dados de Localização")
         self.status_bar.showMessage("Pronto (Local)")
