@@ -952,7 +952,7 @@ class JanelaPrincipal(QMainWindow):
             if self.map_principal:
                 # Mapa atualiza apenas com coordenadas por enquanto. 
                 # O nome científico virá depois, na identificação.
-                self.map_principal.update_map(lat, lon, zoom=10, add_marker=True)
+                self.map_principal.update_map(lat, lon, zoom=6, add_marker=True)
                 
             # Atualiza card geo
             self.lbl_geo_placeholder.setText(f"Lat: {lat:.4f}, Lon: {lon:.4f} (GPS)")
@@ -990,7 +990,7 @@ class JanelaPrincipal(QMainWindow):
                 if self.map_principal:
                     # Se já temos espécie identificada, passamos o nome para o GBIF
                     sciname = self.dados_identificacao_atual.get("nome_cientifico")
-                    self.map_principal.update_map(lat, lon, zoom=10, add_marker=True, scientific_name=sciname)
+                    self.map_principal.update_map(lat, lon, zoom=6, add_marker=True, scientific_name=sciname)
                 
                 # Atualizar card geográfico
                 self.lbl_geo_placeholder.setText(f"Lat: {lat:.4f}, Lon: {lon:.4f} (Manual)")

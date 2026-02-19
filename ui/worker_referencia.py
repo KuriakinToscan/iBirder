@@ -62,6 +62,13 @@ class ReferenceImageWorker(QThread):
             # Fallback para atribuição se não existir
             attribution = default_photo.get('attribution', '(c) iNaturalist')
             
+            # Limpeza v0.3.15: Remover info redundante de upload
+            if attribution and ", uploaded by" in attribution:
+                try:
+                    attribution = attribution.split(", uploaded by")[0]
+                except:
+                    pass
+            
             if not img_url:
                 self.search_failed.emit()
                 return
