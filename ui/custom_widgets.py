@@ -199,10 +199,6 @@ class ImageCardWidget(QWidget):
                 h_overlay = 28
                 r_overlay = QRectF(0, self.height() - h_overlay, self.width(), h_overlay)
                 
-                # Se for só tooltip legacy e mouse não estiver em cima, talvez não devesse mostrar?
-                # Mas seguimos o padrão visual.
-                
-                # Para EXIF, sempre mostra a barra
                 painter.fillRect(r_overlay, self.overlay_bg_color)
                 
                 painter.setPen(self.overlay_text_color)
@@ -211,25 +207,26 @@ class ImageCardWidget(QWidget):
                 metrics = QFontMetrics(painter.font())
                 margin_x = 10
                 
-                # Texto Esquerda (Autor)
-                if self.text_overlay_left:
-                    r_left = r_overlay.adjusted(margin_x, 0, -self.width()/2, 0)
-                    str_left = metrics.elidedText(self.text_overlay_left, Qt.ElideRight, int(r_left.width()))
-                    painter.drawText(r_left, Qt.AlignLeft | Qt.AlignVCenter, str_left)
+                # MODO 1: Detalhes Duplos (EXIF - Esquerda e Direita)
+                if self.text_overlay_left or self.text_overlay_right:
+                    # Texto Esquerda (Autor)
+                    if self.text_overlay_left:
+                        r_left = r_overlay.adjusted(margin_x, 0, -self.width()/2, 0)
+                        str_left = metrics.elidedText(self.text_overlay_left, Qt.ElideRight, int(r_left.width()))
+                        painter.drawText(r_left, Qt.AlignLeft | Qt.AlignVCenter, str_left)
+                    
+                    # Texto Direita (Data)
+                    if self.text_overlay_right:
+                        r_right = r_overlay.adjusted(self.width()/2, 0, -margin_x, 0)
+                        str_right = metrics.elidedText(self.text_overlay_right, Qt.ElideLeft, int(r_right.width()))
+                        painter.drawText(r_right, Qt.AlignRight | Qt.AlignVCenter, str_right)
                 
-                # Texto Direita (Data) ou Texto legado (Créditos)
-                # Se tiver text_overlay (legado/tooltip), usa ele na direita se não tiver right específico?
-                # Pelo spec, ImageCardWidget é usado para ambos. 
-                # Ref: usa set_overlay_text para créditos.
-                # User: "Alinhado à direita: Data e Hora".
-                
-                text_r = self.text_overlay_right if self.text_overlay_right else self.text_overlay
-                
-                if text_r:
-                    # Ajusta retangulo para direita
-                    r_right = r_overlay.adjusted(self.width()/2, 0, -margin_x, 0)
-                    str_right = metrics.elidedText(text_r, Qt.ElideLeft, int(r_right.width()))
-                    painter.drawText(r_right, Qt.AlignRight | Qt.AlignVCenter, str_right)
+                # MODO 2: Texto Simples (Referência/Créditos)
+                # Alinhado à esquerda com elisão à direita
+                elif self.text_overlay:
+                    r_text = r_overlay.adjusted(margin_x, 0, -margin_x, 0)
+                    str_elided = metrics.elidedText(self.text_overlay, Qt.ElideRight, int(r_text.width()))
+                    painter.drawText(r_text, Qt.AlignLeft | Qt.AlignVCenter, str_elided)
         
         else:
             # Placeholder

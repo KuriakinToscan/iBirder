@@ -906,7 +906,7 @@ class JanelaPrincipal(QMainWindow):
                     xp_author = exif.get("XPAuthor")
                     
                     if artist:
-                         autor_exif = str(artist).strip()
+                         autor_exif = f"Nome: {str(artist).strip()}"
                     elif xp_author:
                          try:
                              # XP tags geralmente são bytes com null terminator
