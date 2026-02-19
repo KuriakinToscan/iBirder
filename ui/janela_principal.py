@@ -163,14 +163,15 @@ class JanelaPrincipal(QMainWindow):
                  coords = extract_lat_lon(self.caminho_imagem_atual)
                  if coords:
                      lat, lon = coords
-                     self.map_principal.update_map(lat, lon, zoom=10, add_marker=True, scientific_name=sciname)
+                     # v0.3.9: Zoom 6
+                     self.map_principal.update_map(lat, lon, zoom=6, add_marker=True, scientific_name=sciname)
                  
                  # Se foi localização manual, não temos como recuperar fácil da imagem.
                  # Deveriamos ter salvo em self.ultima_localizacao_manual
              
              if getattr(self, "ultima_localizacao_manual", None):
                  lat, lon = self.ultima_localizacao_manual
-                 self.map_principal.update_map(lat, lon, zoom=10, add_marker=True, scientific_name=sciname)
+                 self.map_principal.update_map(lat, lon, zoom=6, add_marker=True, scientific_name=sciname)
 
     def _ao_erro_api(self, erro_msg):
         self.lbl_etimologia_texto.setText(f"Erro: {erro_msg}")
@@ -348,25 +349,23 @@ class JanelaPrincipal(QMainWindow):
         self.map_principal.show_placeholder_message("Aguardando dados de Localização")
         layout_esquerda.addWidget(self.map_principal)
         
-        # --- Botão Definir Localização Manualmente (v0.3.8 - Persistente e Estilizado) ---
-        self.btn_set_location = QPushButton("📍 Definir Localização Manualmente")
+        lbl_mapa = QLabel("Localização Geográfica")
+        lbl_mapa.setStyleSheet("font-size: 14px; font-weight: bold; color: #374151; margin-bottom: 5px;")
+        layout_esquerda.addWidget(lbl_mapa)
+        
+        self.map_principal = MapWidget()
+        self.map_principal.setMinimumHeight(350) 
+        self.map_principal.show_placeholder_message("Aguardando dados de Localização")
+        layout_esquerda.addWidget(self.map_principal)
+        
+        # --- Botão Definir Localização Manualmente (v0.3.9 - Texto Limpo e Estilo Unificado) ---
+        self.btn_set_location = QPushButton("Definir Localização Manualmente")
         self.btn_set_location.setCursor(Qt.PointingHandCursor)
-        self.btn_set_location.setVisible(True) # Sempre visível agora
+        self.btn_set_location.setVisible(True) 
         self.btn_set_location.clicked.connect(self._abrir_dialogo_localizacao)
         
-        # Estilo Padronizado (Dark Gray) - Igual aos outros botões de ação
-        self.btn_set_location.setStyleSheet("""
-            QPushButton {
-                background-color: #374151; 
-                color: white; 
-                border-radius: 8px; 
-                padding: 10px; 
-                font-weight: bold;
-                font-family: "Segoe UI";
-                margin-top: 10px;
-            }
-            QPushButton:hover { background-color: #1F2937; }
-        """)
+        # Estilo Global já cuida do básico, apenas margem aqui
+        self.btn_set_location.setStyleSheet("margin-top: 10px;")
         layout_esquerda.addWidget(self.btn_set_location)
         # -------------------------------------------------------
         
@@ -856,7 +855,8 @@ class JanelaPrincipal(QMainWindow):
                 if self.map_principal:
                     # Se já temos espécie identificada, passamos o nome para o GBIF
                     sciname = self.dados_identificacao_atual.get("nome_cientifico")
-                    self.map_principal.update_map(lat, lon, zoom=10, add_marker=True, scientific_name=sciname)
+                    # v0.3.9: Zoom 6 (Regional)
+                    self.map_principal.update_map(lat, lon, zoom=6, add_marker=True, scientific_name=sciname)
                 
                 # Atualizar card geográfico
                 self.lbl_geo_placeholder.setText(f"Lat: {lat:.4f}, Lon: {lon:.4f} (Manual)")

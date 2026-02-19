@@ -30,40 +30,36 @@ class MapWidget(QWebEngineView):
         """
         self.setHtml(html)
 
-    def update_map(self, lat, lon, zoom=10, add_marker=False, scientific_name=None):
+    def update_map(self, lat, lon, zoom=6, add_marker=False, scientific_name=None):
+        # NOTA: Zoom padrão alterado para 6 (Regional)
         try:
             from core.gbif_client import get_gbif_taxon_key
-            
-            # Create Folium Map
             m = folium.Map(location=[lat, lon], zoom_start=zoom, control_scale=True, tiles=None)
             
-            # Base Layers
+            # Camadas Base
             folium.TileLayer('OpenStreetMap', name='Mapa', control=True).add_to(m)
             folium.TileLayer(
                 tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
                 attr='Esri', name='Satélite', control=True
             ).add_to(m)
 
-            # GBIF Layer (Overlay)
+            # Camada GBIF
             if scientific_name:
                 taxon_key = get_gbif_taxon_key(scientific_name)
                 if taxon_key:
-                    # Attribution Link
-                    species_url = f"https://www.gbif.org/species/{taxon_key}"
-                    attr_html = f'<a href="{species_url}" target="_blank" style="font-weight:bold; color:#005fa8; text-decoration:none;">Dados: GBIF 🔗</a>'
-                    
-                    gbif_url = f"https://api.gbif.org/v2/map/occurrence/density/{{z}}/{{x}}/{{y}}@1x.png?taxonKey={taxon_key}&bin=hex&hexPerTile=30&style=classic.poly"
-                    
+                    link = f"https://www.gbif.org/species/{taxon_key}"
+                    attr = f'<a href="{link}" target="_blank" style="color:#005fa8; font-weight:bold; text-decoration:none;">Dados: GBIF 🔗</a>'
                     folium.TileLayer(
-                        tiles=gbif_url, attr=attr_html, name='Dist. Geográfica (GBIF)',
-                        overlay=True, control=True, show=True
+                        tiles=f"https://api.gbif.org/v2/map/occurrence/density/{{z}}/{{x}}/{{y}}@1x.png?taxonKey={taxon_key}&bin=hex&hexPerTile=30&style=classic.poly",
+                        attr=attr, name='Dist Geográfica - GBIF', overlay=True, control=True, show=True
                     ).add_to(m)
 
+            # Novo Marcador: Ícone de Câmera Vermelha
             if add_marker:
                 folium.Marker(
                     [lat, lon], 
-                    icon=folium.Icon(color="red", icon="info-sign"),
-                    tooltip="Local da Foto"
+                    tooltip="Local do Registro",
+                    icon=folium.Icon(color="red", icon="camera", prefix="fa")
                 ).add_to(m)
 
             folium.LayerControl(position='topright', collapsed=False).add_to(m)
@@ -71,6 +67,5 @@ class MapWidget(QWebEngineView):
             data = io.BytesIO()
             m.save(data, close_file=False)
             self.setHtml(data.getvalue().decode())
-            
         except Exception as e:
             self.setHtml(f"<html><body>Error loading map: {e}</body></html>")

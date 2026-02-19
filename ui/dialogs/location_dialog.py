@@ -1,10 +1,21 @@
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
-    QPushButton, QListWidget, QMessageBox
+    QPushButton, QListWidget, QMessageBox, QListWidgetItem
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer, QThread, Signal
 from PySide6.QtGui import QIcon
 from core.geo_utils import search_location
+
+class BuscaWorker(QThread):
+    finished = Signal(list)
+    
+    def __init__(self, query):
+        super().__init__()
+        self.query = query
+        
+    def run(self):
+        resultados = search_location(self.query)
+        self.finished.emit(resultados)
 
 class LocationDialog(QDialog):
     def __init__(self, parent=None):
@@ -33,6 +44,9 @@ class LocationDialog(QDialog):
         """)
         
         self.selected_coords = None # (lat, lon)
+        self.timer_busca = QTimer()
+        self.timer_busca.setSingleShot(True)
+        self.timer_busca.timeout.connect(self._executar_busca)
         
         layout = QVBoxLayout(self)
         layout.setSpacing(15)
@@ -42,18 +56,10 @@ class LocationDialog(QDialog):
         lbl_instrucao.setStyleSheet("font-weight: bold;")
         layout.addWidget(lbl_instrucao)
         
-        container_busca = QHBoxLayout()
         self.input_busca = QLineEdit()
-        self.input_busca.setPlaceholderText("Ex: Parque Ibirapuera, São Paulo...")
-        self.input_busca.returnPressed.connect(self._buscar)
-        
-        btn_buscar = QPushButton("Buscar")
-        btn_buscar.setCursor(Qt.PointingHandCursor)
-        btn_buscar.clicked.connect(self._buscar)
-        
-        container_busca.addWidget(self.input_busca)
-        container_busca.addWidget(btn_buscar)
-        layout.addLayout(container_busca)
+        self.input_busca.setPlaceholderText("Ex: Parque Ibirapuera, São Paulo... (Busca automática)")
+        self.input_busca.textChanged.connect(self._on_text_changed)
+        layout.addWidget(self.input_busca)
         
         # --- Resultados ---
         lbl_resultados = QLabel("Resultados:")
@@ -84,32 +90,30 @@ class LocationDialog(QDialog):
         self.btn_confirmar.setEnabled(False)
         self.btn_confirmar.clicked.connect(self._confirmar)
         layout.addWidget(self.btn_confirmar)
-
-    def _buscar(self):
+        
+    def _on_text_changed(self):
+        self.timer_busca.start(1000) # 1s debounce
+        
+    def _executar_busca(self):
         query = self.input_busca.text().strip()
-        if not query: return
+        if len(query) < 3: return
         
         self.lista_resultados.clear()
         self.lista_resultados.addItem("Buscando...")
-        # Simplificação: rodando síncrono para MVP. Ideal seria thread/worker.
-        QMessageBox.information(self, "Buscando", "Aguarde enquanto buscamos a localização...")
         
-        resultados = search_location(query)
+        self.worker = BuscaWorker(query)
+        self.worker.finished.connect(self._on_busca_finished)
+        self.worker.start()
         
+    def _on_busca_finished(self, resultados):
         self.lista_resultados.clear()
         if not resultados:
             self.lista_resultados.addItem("Nenhum local encontrado.")
             return
 
         for res in resultados:
-            item_text = res['address']
-            # Armazena dados no item (poderia usar UserRole, mas vamos simplificar pelo índice correspondente se precisasse,
-            # mas QListWidgetItem não guarda dados arbitrarios fácil sem subclass.
-            # Vamos usar um atributo oculto ou lista paralela.)
-            # Melhor: Usar setData com Qt.UserRole
-            from PySide6.QtWidgets import QListWidgetItem
-            item = QListWidgetItem(item_text)
-            item.setData(Qt.UserRole, res) # Guarda o dict completo
+            item = QListWidgetItem(res['address'])
+            item.setData(Qt.UserRole, res)
             self.lista_resultados.addItem(item)
             
     def _item_selecionado(self, item):
@@ -121,7 +125,6 @@ class LocationDialog(QDialog):
             self.btn_confirmar.setEnabled(True)
             
     def _confirmar(self):
-        # Permite edição manual também
         try:
             lat = float(self.input_lat.text().replace(',', '.'))
             lon = float(self.input_lon.text().replace(',', '.'))
