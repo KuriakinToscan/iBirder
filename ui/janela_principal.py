@@ -1150,10 +1150,20 @@ class JanelaPrincipal(QMainWindow):
         if not hasattr(self, 'lbl_geo_details'):
              return
 
+        lat = details.get('lat')
+        lon = details.get('lon')
+        
+        # Formatação Lat/Lon segura
+        lat_str = f"{lat:.5f}" if isinstance(lat, float) else "?"
+        lon_str = f"{lon:.5f}" if isinstance(lon, float) else "?"
+
         texto = f"""
-        <b>Local:</b> {details.get('cidade','-')} - {details.get('estado','-')}<br>
-        <b>Bioma:</b> {details.get('bioma','-')} 🌿<br>
-        <span style='font-size:11px; color:#6B7280;'>{details.get('localidade','')}</span>
+        <b>Coordenadas:</b> {lat_str}, {lon_str}<br>
+        <b>País:</b> {details.get('pais', '-')}<br>
+        <b>Estado:</b> {details.get('estado', '-')}<br>
+        <b>Município:</b> {details.get('municipio', '-')}<br>
+        <b>Localidade/Bairro:</b> {details.get('localidade', '-')}<br>
+        <b>Bioma:</b> {details.get('bioma', '-')}<br>
         """
         self.lbl_geo_details.setText(texto)
 

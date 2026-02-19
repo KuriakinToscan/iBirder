@@ -53,11 +53,18 @@ class GeoAnalyst:
         return "Fora de área mapeada"
 
     def get_full_details(self, lat, lon):
-        """Retorna dicionário completo: Endereço + Bioma"""
+        """Retorna dicionário completo: Endereço Estruturado + Bioma"""
         print(f"[GEO] Iniciando análise para Lat: {lat}, Lon: {lon}")
+        
+        # Inicializa com valores padrão
         details = {
-            "pais": "Desconhecido", "estado": "-", 
-            "cidade": "-", "localidade": "-", "bioma": "-"
+            "lat": lat,
+            "lon": lon,
+            "pais": "Não identificado",
+            "estado": "Não identificado", 
+            "municipio": "Não identificado", 
+            "localidade": "Não identificada", 
+            "bioma": "Não identificado"
         }
 
         # 1. Busca Administrativa (Online)
@@ -65,12 +72,34 @@ class GeoAnalyst:
             print("[GEO] Consultando API Nominatim (Endereço)...")
             location = self.geolocator.reverse((lat, lon), exactly_one=True, language='pt-br')
             if location:
-                print(f"[GEO] Endereço encontrado: {location.address[:30]}...")
                 address = location.raw.get('address', {})
-                details["pais"] = address.get('country', '')
-                details["estado"] = address.get('state', '')
-                details["cidade"] = address.get('city') or address.get('town') or address.get('village', '')
-                details["localidade"] = address.get('suburb') or address.get('neighbourhood') or address.get('road', '')
+                
+                # País e Estado
+                details["pais"] = address.get('country', list(details.values())[2])
+                details["estado"] = address.get('state', list(details.values())[3])
+                
+                # Município (Cascata)
+                details["municipio"] = (
+                    address.get('city') or 
+                    address.get('town') or 
+                    address.get('municipality') or 
+                    address.get('county') or 
+                    "Não identificado"
+                )
+                
+                # Localidade/Bairro (Cascata)
+                details["localidade"] = (
+                    address.get('suburb') or 
+                    address.get('neighbourhood') or 
+                    address.get('village') or 
+                    address.get('hamlet') or 
+                    address.get('locality') or 
+                    address.get('isolated_dwelling') or 
+                    address.get('allotment') or 
+                    "Não identificada"
+                )
+                
+                print(f"[GEO] Endereço estruturado obtido.")
         except Exception as e:
             print(f"[GEO] Erro na API Nominatim: {e}")
 

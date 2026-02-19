@@ -119,6 +119,7 @@ class ImageCardWidget(QWidget):
         if path:
             self.image_path = path
         self.update()
+        self._update_expand_button()
 
     def set_image_path(self, path):
         """Carrega imagem do caminho e define como atual."""
