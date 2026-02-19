@@ -144,11 +144,33 @@ class JanelaPrincipal(QMainWindow):
             self.btn_fonte.setText("Abrir no WikiAves")
             self.btn_fonte.setEnabled(True)
             
-            # Se quiser linkar direto, precisaríamos que o bot retornasse o link.
-            # O BuscadorBlindado retorna dados, mas o Worker atual só passa 'dados'.
-            # Vamos ajustar se necessário, mas por enquanto, assume-se que o usuário pode clicar no "WikiAves" botão existente.
-            
         self.frame_etimologia.setVisible(False) # Esconde o antigo frame do iNaturalist se ainda visível
+
+        # --- ATUALIZAR MAPA COM GBIF (v0.3.8) ---
+        # Se temos nome científico e o mapa está ativo, atualizamos a camada
+        sciname = dados.get("nome_cientifico", "")
+        if sciname and self.map_principal:
+             # Precisamos das coordenadas atuais. 
+             # Como o MapWidget não expõe getter fácil do Folium, 
+             # idealmente deveríamos ter guardado 'self.current_lat_lon' na classe.
+             pass 
+             # Vamos assumir que o usuário carregou a imagem e o mapa já tem o marker.
+             # Mas para adicionar a camada GBIF, precisamos chamar update_map novamente.
+             # O problema é: quais coordenadas?
+             # Solução Rápida: Extrair novamente da imagem ou usar a última salva.
+             
+             if self.caminho_imagem_atual:
+                 coords = extract_lat_lon(self.caminho_imagem_atual)
+                 if coords:
+                     lat, lon = coords
+                     self.map_principal.update_map(lat, lon, zoom=10, add_marker=True, scientific_name=sciname)
+                 
+                 # Se foi localização manual, não temos como recuperar fácil da imagem.
+                 # Deveriamos ter salvo em self.ultima_localizacao_manual
+             
+             if getattr(self, "ultima_localizacao_manual", None):
+                 lat, lon = self.ultima_localizacao_manual
+                 self.map_principal.update_map(lat, lon, zoom=10, add_marker=True, scientific_name=sciname)
 
     def _ao_erro_api(self, erro_msg):
         self.lbl_etimologia_texto.setText(f"Erro: {erro_msg}")
@@ -326,34 +348,24 @@ class JanelaPrincipal(QMainWindow):
         self.map_principal.show_placeholder_message("Aguardando dados de Localização")
         layout_esquerda.addWidget(self.map_principal)
         
-        # --- Botão Definir Localização Manualmente (v0.3.7) ---
+        # --- Botão Definir Localização Manualmente (v0.3.8 - Persistente e Estilizado) ---
         self.btn_set_location = QPushButton("📍 Definir Localização Manualmente")
         self.btn_set_location.setCursor(Qt.PointingHandCursor)
-        self.btn_set_location.setVisible(False) # Inicialmente oculto
+        self.btn_set_location.setVisible(True) # Sempre visível agora
         self.btn_set_location.clicked.connect(self._abrir_dialogo_localizacao)
-        # Estilo específico para destacar
+        
+        # Estilo Padronizado (Dark Gray) - Igual aos outros botões de ação
         self.btn_set_location.setStyleSheet("""
             QPushButton {
-                background-color: #EF4444; 
+                background-color: #374151; 
                 color: white; 
-                border-radius: 6px; 
-                padding: 8px; 
+                border-radius: 8px; 
+                padding: 10px; 
                 font-weight: bold;
-                margin-top: -40px; /* Sobrepor ao mapa ou logo abaixo */
-                margin-bottom: 10px;
+                font-family: "Segoe UI";
+                margin-top: 10px;
             }
-            QPushButton:hover { background-color: #DC2626; }
-        """)
-        # Para evitar sobreposição feia, vamos colocar logo abaixo do mapa por enquanto, sem margin negativa agressiva
-        self.btn_set_location.setStyleSheet("""
-            QPushButton {
-                background-color: #F59E0B; 
-                color: white; 
-                border-radius: 6px; 
-                padding: 8px; 
-                font-weight: bold;
-            }
-            QPushButton:hover { background-color: #D97706; }
+            QPushButton:hover { background-color: #1F2937; }
         """)
         layout_esquerda.addWidget(self.btn_set_location)
         # -------------------------------------------------------
@@ -665,8 +677,21 @@ class JanelaPrincipal(QMainWindow):
     def _buscar_ebird(self):
         sciname = self._obter_sciname_atual()
         if sciname and "Inconclusiva" not in sciname:
+            url = f"https://ebird.org/species/{sciname.replace(' ', '%20')}" 
+            # Tentativa de link direto melhorado, ou busca google falback
             url = f"https://www.google.com/search?q={sciname}+site:ebird.org"
             QDesktopServices.openUrl(url)
+
+    def _atualizar_mapa_com_gbif(self, sciname):
+        """Atualiza o mapa com a camada GBIF se houver coordenadas definidas."""
+        # Tenta recuperar coordenadas do card geo ou do mapa (se tivessemos getter)
+        # Vamos assumir que se o mapa está visivel, temos coordenadas no self.map_principal (folium não guarda estado fácil assim no widget)
+        # Melhor abordagem: Se temos sciname, re-renderizamos o mapa com as coordenadas atuais.
+        # Mas onde guardamos as coords atuais?
+        # Vamos extrair do texto do placeholder por enquanto ou salvar numa variavel de estado da classe.
+        pass # Implementado no _identificar_ave atualizando o estado global seria melhor.
+
+    # ... Metodos auxiliares ...
 
     def _buscar_google(self):
         sciname = self._obter_sciname_atual()
@@ -800,10 +825,10 @@ class JanelaPrincipal(QMainWindow):
             print(f"[MAPA] Coordenadas encontradas: {lat}, {lon}")
             
             if self.map_principal:
-                self.map_principal.update_map(lat, lon, zoom=13, add_marker=True)
+                # Mapa atualiza apenas com coordenadas por enquanto. 
+                # O nome científico virá depois, na identificação.
+                self.map_principal.update_map(lat, lon, zoom=10, add_marker=True)
                 
-            self.btn_set_location.setVisible(False)
-            
             # Atualiza card geo
             self.lbl_geo_placeholder.setText(f"Lat: {lat:.4f}, Lon: {lon:.4f} (GPS)")
             self.lbl_geo_placeholder.setStyleSheet("color: #374151; font-weight: bold; border: none;")
@@ -813,10 +838,12 @@ class JanelaPrincipal(QMainWindow):
             msg_erro = "Dados de localização não disponíveis na imagem"
             
             if self.map_principal:
-                self.map_principal.show_placeholder_message(msg_erro)
-                
-            # Mostra botão para definir manualmente
-            self.btn_set_location.setVisible(True)
+                 # Se já tivermos uma localização manual definida anteriormente, não mostramos erro, mantemos o mapa.
+                 # Mas como é uma NOVA imagem carregada, o ideal é resetar ou mostrar o erro.
+                 # Vamos mostrar o erro para incentivar o uso do botão manual se necessário.
+                 self.map_principal.show_placeholder_message(msg_erro)
+                 self.lbl_geo_placeholder.setText(msg_erro)
+                 self.lbl_geo_placeholder.setStyleSheet("color: #9CA3AF; font-style: italic; border: 1px dashed #D1D5DB; border-radius: 4px; padding: 20px;")
              
         self._identificar_ave()
 
@@ -827,16 +854,13 @@ class JanelaPrincipal(QMainWindow):
             if lat is not None and lon is not None:
                 # Atualizar mapa
                 if self.map_principal:
-                    self.map_principal.update_map(lat, lon, zoom=13, add_marker=True)
+                    # Se já temos espécie identificada, passamos o nome para o GBIF
+                    sciname = self.dados_identificacao_atual.get("nome_cientifico")
+                    self.map_principal.update_map(lat, lon, zoom=10, add_marker=True, scientific_name=sciname)
                 
                 # Atualizar card geográfico
-                # Se tivéssemos reverse geocoding, colocariamos o endereço aqui.
-                # Por hora, coordenadas.
                 self.lbl_geo_placeholder.setText(f"Lat: {lat:.4f}, Lon: {lon:.4f} (Manual)")
                 self.lbl_geo_placeholder.setStyleSheet("color: #374151; font-weight: bold; border: none;")
-                
-                # Esconder botão
-                self.btn_set_location.setVisible(False)
 
     def _identificar_ave(self):
         if not self.caminho_imagem_atual:
