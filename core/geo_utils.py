@@ -33,3 +33,34 @@ def extract_lat_lon(image_path):
     except Exception as e:
         print(f"Erro ao ler EXIF: {e}")
         return None
+
+try:
+    from geopy.geocoders import Nominatim
+except ImportError:
+    Nominatim = None
+
+def search_location(query, user_agent="ibirder_app_v0.3.7"):
+    """
+    Busca coordenadas para um determinado local (cidade, endereço, etc).
+    Retorna uma lista de dicionários: [{'address': str, 'lat': float, 'lon': float}, ...]
+    """
+    if Nominatim is None:
+        print("Geopy não instalado. Instale com 'pip install geopy'.")
+        return []
+
+    try:
+        geolocator = Nominatim(user_agent=user_agent)
+        locations = geolocator.geocode(query, exactly_one=False, limit=5, language='pt')
+        
+        results = []
+        if locations:
+            for loc in locations:
+                results.append({
+                    'address': loc.address,
+                    'lat': loc.latitude,
+                    'lon': loc.longitude
+                })
+        return results
+    except Exception as e:
+        print(f"Erro na busca de localização: {e}")
+        return []

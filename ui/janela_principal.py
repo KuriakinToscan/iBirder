@@ -23,7 +23,9 @@ from ui.worker_referencia import ReferenceImageWorker
 from core.buscador_worker import BuscadorWorker
 from core.logger import save_crash_log
 from ui.widgets.map_widget import MapWidget
+from ui.widgets.map_widget import MapWidget
 from ui.custom_widgets import ImageCardWidget
+from ui.dialogs.location_dialog import LocationDialog
 
 class JanelaPrincipal(QMainWindow):
     def __init__(self, nome_icone_janela="logo_ave.svg", modo_inicial="online", ai_status="READY"):
@@ -58,6 +60,11 @@ class JanelaPrincipal(QMainWindow):
         self.card_ref.set_pixmap(None)
         self.card_ref.set_overlay_text(None)
         self.btn_fonte.setEnabled(False) 
+        
+        # Reset mapa e botão de location se for nova busca por texto (manual)
+        # Se for por imagem, o _carregar_imagem lida com isso.
+        # Mas aqui é _iniciar_busca_imagem(nome_cientifico), chamado após identificação ou busca manual de texto.
+        # Não devemos resetar a localização aqui se ela veio da imagem carregada.
         
         self.txt_descricao.clear() # Reset descrição anterior
         
@@ -318,6 +325,38 @@ class JanelaPrincipal(QMainWindow):
         self.map_principal.setMinimumHeight(350) 
         self.map_principal.show_placeholder_message("Aguardando dados de Localização")
         layout_esquerda.addWidget(self.map_principal)
+        
+        # --- Botão Definir Localização Manualmente (v0.3.7) ---
+        self.btn_set_location = QPushButton("📍 Definir Localização Manualmente")
+        self.btn_set_location.setCursor(Qt.PointingHandCursor)
+        self.btn_set_location.setVisible(False) # Inicialmente oculto
+        self.btn_set_location.clicked.connect(self._abrir_dialogo_localizacao)
+        # Estilo específico para destacar
+        self.btn_set_location.setStyleSheet("""
+            QPushButton {
+                background-color: #EF4444; 
+                color: white; 
+                border-radius: 6px; 
+                padding: 8px; 
+                font-weight: bold;
+                margin-top: -40px; /* Sobrepor ao mapa ou logo abaixo */
+                margin-bottom: 10px;
+            }
+            QPushButton:hover { background-color: #DC2626; }
+        """)
+        # Para evitar sobreposição feia, vamos colocar logo abaixo do mapa por enquanto, sem margin negativa agressiva
+        self.btn_set_location.setStyleSheet("""
+            QPushButton {
+                background-color: #F59E0B; 
+                color: white; 
+                border-radius: 6px; 
+                padding: 8px; 
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #D97706; }
+        """)
+        layout_esquerda.addWidget(self.btn_set_location)
+        # -------------------------------------------------------
         
         layout_principal.addLayout(layout_esquerda, stretch=3)
 
@@ -763,14 +802,41 @@ class JanelaPrincipal(QMainWindow):
             if self.map_principal:
                 self.map_principal.update_map(lat, lon, zoom=13, add_marker=True)
                 
+            self.btn_set_location.setVisible(False)
+            
+            # Atualiza card geo
+            self.lbl_geo_placeholder.setText(f"Lat: {lat:.4f}, Lon: {lon:.4f} (GPS)")
+            self.lbl_geo_placeholder.setStyleSheet("color: #374151; font-weight: bold; border: none;")
+                
         else:
             print("[MAPA] Sem dados GPS. Exibindo mensagem de aviso.")
             msg_erro = "Dados de localização não disponíveis na imagem"
             
             if self.map_principal:
                 self.map_principal.show_placeholder_message(msg_erro)
+                
+            # Mostra botão para definir manualmente
+            self.btn_set_location.setVisible(True)
              
         self._identificar_ave()
+
+    def _abrir_dialogo_localizacao(self):
+        dialog = LocationDialog(self)
+        if dialog.exec():
+            lat, lon = dialog.get_coordinates()
+            if lat is not None and lon is not None:
+                # Atualizar mapa
+                if self.map_principal:
+                    self.map_principal.update_map(lat, lon, zoom=13, add_marker=True)
+                
+                # Atualizar card geográfico
+                # Se tivéssemos reverse geocoding, colocariamos o endereço aqui.
+                # Por hora, coordenadas.
+                self.lbl_geo_placeholder.setText(f"Lat: {lat:.4f}, Lon: {lon:.4f} (Manual)")
+                self.lbl_geo_placeholder.setStyleSheet("color: #374151; font-weight: bold; border: none;")
+                
+                # Esconder botão
+                self.btn_set_location.setVisible(False)
 
     def _identificar_ave(self):
         if not self.caminho_imagem_atual:
