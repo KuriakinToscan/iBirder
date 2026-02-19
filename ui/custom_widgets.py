@@ -1,11 +1,14 @@
-from PySide6.QtWidgets import QWidget, QSizePolicy, QApplication
+from PySide6.QtWidgets import QWidget, QSizePolicy, QApplication, QPushButton
 from PySide6.QtCore import Qt, QSize, QRectF, QMimeData, QUrl, QPoint
 from PySide6.QtGui import (
     QPainter, QPixmap, QColor, QFont, QPen, QPainterPath, 
-    QFontMetrics, QDrag, QDragEnterEvent, QDropEvent
+    QFontMetrics, QDrag, QDragEnterEvent, QDropEvent, QIcon, QCursor
 )
 import os
+import sys
+from pathlib import Path
 import tempfile
+from ui.dialogs.expanded_image_dialog import ExpandedImageDialog
 
 class ImageCardWidget(QWidget):
     """
@@ -47,6 +50,60 @@ class ImageCardWidget(QWidget):
         # Habilitar Drop
         self.setAcceptDrops(True)
 
+        # --- Botão Expandir (Lightbox) ---
+        self.btn_expand = QPushButton(self)
+        self.btn_expand.setCursor(QCursor(Qt.PointingHandCursor))
+        self.btn_expand.setFixedSize(32, 32)
+        self.btn_expand.hide() # Inicialmente oculto
+        
+        icon_path = self._get_asset_path("icon_expandejanela.svg")
+        if icon_path:
+            self.btn_expand.setIcon(QIcon(icon_path))
+            self.btn_expand.setIconSize(QSize(20, 20))
+        else:
+            self.btn_expand.setText("⤢")
+            
+        self.btn_expand.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(255, 255, 255, 0.8);
+                border-radius: 6px;
+                border: 1px solid #D1D5DB;
+            }
+            QPushButton:hover {
+                background-color: #FFFFFF;
+                border-color: #9CA3AF;
+            }
+        """)
+        self.btn_expand.clicked.connect(self._open_expanded_view)
+
+    def _get_asset_path(self, filename):
+        if getattr(sys, 'frozen', False):
+             base_path = Path(sys._MEIPASS)
+        else:
+             # iBirder/ui/custom_widgets.py -> iBirder/assets
+             base_path = Path(__file__).parent.parent / 'assets'
+        
+        full_path = base_path / filename
+        return str(full_path) if full_path.exists() else None
+
+    def _open_expanded_view(self):
+        if self.pixmap and not self.pixmap.isNull():
+            dialog = ExpandedImageDialog(self.pixmap, self.window()) # Parent = Main Window para modal correto
+            dialog.exec()
+
+    def resizeEvent(self, event):
+        """Posiciona o botão de expandir no canto superior direito."""
+        super().resizeEvent(event)
+        margin = 8
+        x = self.width() - self.btn_expand.width() - margin
+        y = margin
+        self.btn_expand.move(x, y)
+        self.btn_expand.raise_()
+
+    def _update_expand_button(self):
+        """Mostra o botão apenas se houver imagem válida."""
+        has_image = self.pixmap is not None and not self.pixmap.isNull()
+        self.btn_expand.setVisible(has_image)
     def sizeHint(self):
         """Retorna (1,1) para obrigar o layout a distribuir espaço igualmente."""
         return QSize(1, 1)
@@ -73,6 +130,7 @@ class ImageCardWidget(QWidget):
             self.image_path = None
             self.pixmap = None
             self.update()
+        self._update_expand_button()
 
     def set_placeholder(self, text):
         self.text_placeholder = text
