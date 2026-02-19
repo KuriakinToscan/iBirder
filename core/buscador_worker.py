@@ -6,8 +6,8 @@ class BuscadorWorker(QThread):
     info_found = Signal(dict)
     error_occurred = Signal(str)
 
-    def __init__(self, scientific_name):
-        super().__init__()
+    def __init__(self, scientific_name, parent=None):
+        super().__init__(parent)
         self.scientific_name = scientific_name
 
     def run(self):

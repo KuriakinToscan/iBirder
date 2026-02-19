@@ -31,8 +31,8 @@ from core.geo_analyst import GeoAnalyst
 class GeoWorker(QThread):
     finished = Signal(dict)
     
-    def __init__(self, lat, lon):
-        super().__init__()
+    def __init__(self, lat, lon, parent=None):
+        super().__init__(parent)
         self.lat = lat
         self.lon = lon
         
@@ -59,7 +59,6 @@ class JanelaPrincipal(QMainWindow):
         self.lat_atual = None
         self.lon_atual = None
 
-        self._configurar_ui()
         self._configurar_ui()
         self._aplicar_estilo()
         
@@ -94,7 +93,6 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_titulo_etimologia.setVisible(True)
         self.txt_etimologia.setVisible(True)
 
-    def _iniciar_busca_imagem(self, nome_cientifico):
         # Limpeza segura do worker anterior
         old_worker_ref = getattr(self, "worker_referencia", None)
         if old_worker_ref is not None:
@@ -106,11 +104,10 @@ class JanelaPrincipal(QMainWindow):
             if old_worker_ref.isRunning():
                 old_worker_ref.requestInterruption()
                 old_worker_ref.quit()
-                old_worker_ref.finished.connect(old_worker_ref.deleteLater)
-            else:
-                old_worker_ref.deleteLater()
+                old_worker_ref.wait() # Bloqueia brevemente para garantir parada
+            old_worker_ref.deleteLater()
 
-        self.worker_referencia = ReferenceImageWorker(nome_cientifico)
+        self.worker_referencia = ReferenceImageWorker(nome_cientifico, parent=self)
         self.worker_referencia.image_found.connect(self._ao_encontrar_imagem_referencia)
         self.worker_referencia.search_failed.connect(lambda: self.card_ref.set_placeholder("Sem referência"))
         self.worker_referencia.start()
@@ -130,12 +127,10 @@ class JanelaPrincipal(QMainWindow):
              if old_worker.isRunning():
                  old_worker.requestInterruption()
                  old_worker.quit()
-                 # O antigo worker se autodestruirá quando terminar
-                 old_worker.finished.connect(old_worker.deleteLater)
-             else:
-                 old_worker.deleteLater()
+                 old_worker.wait() # Bloqueia brevemente para garantir parada
+             old_worker.deleteLater()
 
-        self.worker_species = BuscadorWorker(nome_cientifico)
+        self.worker_species = BuscadorWorker(nome_cientifico, parent=self)
         self.worker_species.info_found.connect(self._ao_receber_info_especie)
         self.worker_species.error_occurred.connect(self._ao_erro_api)
         self.worker_species.start()
@@ -1099,12 +1094,11 @@ class JanelaPrincipal(QMainWindow):
             if old_geo_worker.isRunning():
                 old_geo_worker.requestInterruption()
                 old_geo_worker.quit()
-                old_geo_worker.finished.connect(old_geo_worker.deleteLater)
-            else:
-                old_geo_worker.deleteLater()
+                old_geo_worker.wait() # Bloqueia brevemente para garantir parada
+            old_geo_worker.deleteLater()
         
-        # Instancia como atributo da classe
-        self.geo_worker = GeoWorker(lat, lon)
+        # Instancia como atributo da classe com PARENT para evitar GC prematuro
+        self.geo_worker = GeoWorker(lat, lon, parent=self)
         self.geo_worker.finished.connect(self._ao_concluir_geo_analise)
         self.geo_worker.start()
         

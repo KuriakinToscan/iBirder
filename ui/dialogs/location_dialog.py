@@ -1,10 +1,25 @@
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
-    QPushButton, QListWidget, QMessageBox
+    QPushButton, QListWidget, QMessageBox, QListWidgetItem
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QIcon
 from core.geo_utils import search_location
+
+class SearchLocationWorker(QThread):
+    results_found = Signal(list)
+    error_occurred = Signal(str)
+
+    def __init__(self, query, parent=None):
+        super().__init__(parent)
+        self.query = query
+
+    def run(self):
+        try:
+            results = search_location(self.query)
+            self.results_found.emit(results)
+        except Exception as e:
+            self.error_occurred.emit(str(e))
 
 class LocationDialog(QDialog):
     def __init__(self, parent=None):
@@ -33,6 +48,7 @@ class LocationDialog(QDialog):
         """)
         
         self.selected_coords = None # (lat, lon)
+        self.search_worker = None
         
         layout = QVBoxLayout(self)
         layout.setSpacing(15)
@@ -47,12 +63,12 @@ class LocationDialog(QDialog):
         self.input_busca.setPlaceholderText("Ex: Parque Ibirapuera, São Paulo...")
         self.input_busca.returnPressed.connect(self._buscar)
         
-        btn_buscar = QPushButton("Buscar")
-        btn_buscar.setCursor(Qt.PointingHandCursor)
-        btn_buscar.clicked.connect(self._buscar)
+        self.btn_buscar = QPushButton("Buscar")
+        self.btn_buscar.setCursor(Qt.PointingHandCursor)
+        self.btn_buscar.clicked.connect(self._buscar)
         
         container_busca.addWidget(self.input_busca)
-        container_busca.addWidget(btn_buscar)
+        container_busca.addWidget(self.btn_buscar)
         layout.addLayout(container_busca)
         
         # --- Resultados ---
@@ -91,26 +107,40 @@ class LocationDialog(QDialog):
         
         self.lista_resultados.clear()
         self.lista_resultados.addItem("Buscando...")
-        # Simplificação: rodando síncrono para MVP. Ideal seria thread/worker.
-        QMessageBox.information(self, "Buscando", "Aguarde enquanto buscamos a localização...")
+        self.btn_buscar.setEnabled(False)
         
-        resultados = search_location(query)
-        
+        # Safe Reassignment Logic
+        if self.search_worker is not None:
+            if self.search_worker.isRunning():
+                self.search_worker.requestInterruption()
+                self.search_worker.quit()
+                self.search_worker.wait()
+            self.search_worker.deleteLater()
+            
+        self.search_worker = SearchLocationWorker(query, parent=self)
+        self.search_worker.results_found.connect(self._ao_receber_resultados)
+        self.search_worker.error_occurred.connect(self._ao_erro_busca)
+        self.search_worker.start()
+
+    def _ao_receber_resultados(self, resultados):
+        self.btn_buscar.setEnabled(True)
         self.lista_resultados.clear()
+        
         if not resultados:
             self.lista_resultados.addItem("Nenhum local encontrado.")
             return
 
         for res in resultados:
             item_text = res['address']
-            # Armazena dados no item (poderia usar UserRole, mas vamos simplificar pelo índice correspondente se precisasse,
-            # mas QListWidgetItem não guarda dados arbitrarios fácil sem subclass.
-            # Vamos usar um atributo oculto ou lista paralela.)
-            # Melhor: Usar setData com Qt.UserRole
-            from PySide6.QtWidgets import QListWidgetItem
             item = QListWidgetItem(item_text)
             item.setData(Qt.UserRole, res) # Guarda o dict completo
             self.lista_resultados.addItem(item)
+
+    def _ao_erro_busca(self, erro_msg):
+        self.btn_buscar.setEnabled(True)
+        self.lista_resultados.clear()
+        self.lista_resultados.addItem(f"Erro: {erro_msg}")
+        QMessageBox.warning(self, "Erro na Busca", erro_msg)
             
     def _item_selecionado(self, item):
         dados = item.data(Qt.UserRole)
