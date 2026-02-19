@@ -1,8 +1,8 @@
 import sys
 from pathlib import Path
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QPushButton, QApplication, QSizePolicy
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QPushButton, QApplication, QSizePolicy, QGraphicsDropShadowEffect, QFrame
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QIcon, QCursor
+from PySide6.QtGui import QIcon, QCursor, QColor
 from ui.widgets.zoomable_view import ZoomableView
 
 class ExpandedImageDialog(QDialog):
@@ -15,24 +15,42 @@ class ExpandedImageDialog(QDialog):
         super().__init__(parent)
         
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
-        self.setAttribute(Qt.WA_TranslucentBackground) # Fundo transparente para bordas arredondadas/sombra se quisermos
+        self.setAttribute(Qt.WA_TranslucentBackground)
         
-        # Layout Principal
+        # Layout Principal com Margem para Sombra
         self.layout_principal = QVBoxLayout(self)
-        self.layout_principal.setContentsMargins(0, 0, 0, 0)
+        self.layout_principal.setContentsMargins(20, 20, 20, 20) # Margem para a sombra
         self.layout_principal.setSpacing(0)
         
-        # Estilo do Container (Fundo Escuro)
-        self.setStyleSheet("QDialog { background-color: rgba(0, 0, 0, 0.9); border-radius: 12px; }")
+        # Container (Moldura)
+        self.container = QFrame()
+        self.container.setObjectName("container_lightbox")
+        self.container.setStyleSheet("""
+            QFrame#container_lightbox {
+                background-color: #FFFFFF;
+                border: 1px solid #D1D5DB;
+                border-radius: 12px;
+            }
+        """)
+        
+        # Sombra
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(30)
+        shadow.setColor(QColor(0, 0, 0, 60))
+        shadow.setOffset(0, 5)
+        self.container.setGraphicsEffect(shadow)
+        
+        layout_container = QVBoxLayout(self.container)
+        layout_container.setContentsMargins(2, 2, 2, 2) # Pequena margem interna
         
         # 1. Widget de Visualização
-        self.viewer = ZoomableView(pixmap, self)
-        # O viewer precisa ter fundo transparente para mesclar com o dialog escuro ou próprio fundo
+        self.viewer = ZoomableView(pixmap, self.container)
         self.viewer.setStyleSheet("background: transparent;")
-        self.layout_principal.addWidget(self.viewer)
+        layout_container.addWidget(self.viewer)
+        
+        self.layout_principal.addWidget(self.container)
 
-        # 2. Botão Fechar (Flutuante na lógica, mas aqui no layout sobreposto ou absoluto)
-        # Para simplificar e garantir que fique sobre o viewer, vamos instanciar com PARENT = self e mover manualmente no resizeEvent
+        # 2. Botão Fechar (Flutuante)
         self.btn_close = QPushButton(self)
         self.btn_close.setCursor(QCursor(Qt.PointingHandCursor))
         self.btn_close.setFixedSize(40, 40)
@@ -45,15 +63,17 @@ class ExpandedImageDialog(QDialog):
         else:
             self.btn_close.setText("X")
             
+        # Estilo Escuro (Contraste no fundo branco)
         self.btn_close.setStyleSheet("""
             QPushButton {
-                background-color: rgba(255, 255, 255, 0.2);
+                background-color: #374151;
                 border-radius: 20px;
-                border: 1px solid rgba(255, 255, 255, 0.3);
+                border: 1px solid #1F2937;
                 color: white;
+                font-weight: bold;
             }
             QPushButton:hover {
-                background-color: rgba(255, 255, 255, 0.4);
+                background-color: #1F2937;
             }
         """)
         self.btn_close.clicked.connect(self.close)
@@ -63,19 +83,16 @@ class ExpandedImageDialog(QDialog):
         w = int(screen_geo.width() * 0.70)
         h = int(screen_geo.height() * 0.70)
         self.resize(w, h)
-        
-        # Centralizar (opcional, o Qt já tenta centralizar dialogs)
-        # self.move(screen_geo.center() - self.rect().center())
 
     def resizeEvent(self, event):
-        """Posiciona o botão de fechar no canto superior direito."""
+        """Posiciona o botão de fechar no canto superior direito (dentro da margem visual)."""
         super().resizeEvent(event)
-        margin = 20
-        # x = largura - largura_botao - margem
-        x = self.width() - self.btn_close.width() - margin
-        y = margin
+        # Ajuste para ficar sobre o canto do container, considerando as margens do dialog
+        margin_dialog = 10 # Um pouco para fora da borda visual fica bonito
+        x = self.width() - self.btn_close.width() - margin_dialog
+        y = margin_dialog
         self.btn_close.move(x, y)
-        self.btn_close.raise_() # Garante que fique no topo
+        self.btn_close.raise_()
 
     def _get_asset_path(self, filename):
         """Helper para localizar assets (compatível com PyInstaller)."""
