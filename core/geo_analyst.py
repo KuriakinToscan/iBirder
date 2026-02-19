@@ -10,17 +10,18 @@ class GeoAnalyst:
         self._load_biomes()
 
     def _load_biomes(self):
-        """Carrega o GeoJSON de biomas na memória (Cache)"""
+        print("[GEO] Carregando arquivo de biomas (GeoJSON)...")
         try:
             # Ajuste o caminho conforme a estrutura do usuário
             path = os.path.join("Geo", "biomas.geojson")
             if os.path.exists(path):
                 with open(path, 'r', encoding='utf-8') as f:
                     self.biomes_data = json.load(f)
+                print(f"[GEO] Sucesso! {len(self.biomes_data['features'])} polígonos carregados.")
             else:
-                print(f"[GEO] Arquivo de biomas não encontrado em: {path}")
+                print(f"[GEO] ERRO: Arquivo não encontrado em {path}")
         except Exception as e:
-            print(f"[GEO] Erro ao carregar biomas: {e}")
+            print(f"[GEO] ERRO CRÍTICO ao carregar JSON: {e}")
 
     def get_biome(self, lat, lon):
         """Verifica em qual polígono do GeoJSON o ponto cai."""
@@ -41,6 +42,7 @@ class GeoAnalyst:
 
     def get_full_details(self, lat, lon):
         """Retorna dicionário completo: Endereço + Bioma"""
+        print(f"[GEO] Iniciando análise para Lat: {lat}, Lon: {lon}")
         details = {
             "pais": "Desconhecido", "estado": "-", 
             "cidade": "-", "localidade": "-", "bioma": "-"
@@ -48,8 +50,10 @@ class GeoAnalyst:
 
         # 1. Busca Administrativa (Online)
         try:
+            print("[GEO] Consultando API Nominatim (Endereço)...")
             location = self.geolocator.reverse((lat, lon), exactly_one=True, language='pt-br')
             if location:
+                print(f"[GEO] Endereço encontrado: {location.address[:30]}...")
                 address = location.raw.get('address', {})
                 details["pais"] = address.get('country', '')
                 details["estado"] = address.get('state', '')
@@ -60,7 +64,9 @@ class GeoAnalyst:
 
         # 2. Busca Ecológica (Offline)
         try:
+            print("[GEO] Calculando Bioma (Geometria)...")
             details["bioma"] = self.get_biome(lat, lon)
+            print(f"[GEO] Bioma detectado: {details['bioma']}")
         except Exception as e:
              print(f"[GEO] Erro ao processar bioma: {e}")
              details["bioma"] = "Erro no processamento"

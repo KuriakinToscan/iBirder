@@ -189,8 +189,27 @@ class JanelaPrincipal(QMainWindow):
              if getattr(self, "ultima_localizacao_manual", None):
                  lat, lon = self.ultima_localizacao_manual
                  self.map_principal.update_map(lat, lon, zoom=10, add_marker=True, scientific_name=sciname)
-
-    def _ao_erro_api(self, erro_msg):
+             
+             if self.lat_atual and self.lon_atual:
+                print("[UI] Coordenadas disponíveis. Chamando GeoAnalyst...")
+                # Geo (v0.3.11) - Se já temos coordenadas, atualizamos o painel
+                self._atualizar_geo_info(self.lat_atual, self.lon_atual)
+                print("[UI] GeoAnalyst iniciado (Thread).")
+             else:
+                print("[UI] Sem coordenadas GPS. GeoAnalyst pulado.")
+                
+             if self.map_principal and self.lat_atual and self.lon_atual:
+                print("[UI] Atualizando Widget de Mapa...")
+                try:
+                    # Se tivermos nome cientifico (já verificado acima), o mapa mostrará o layer GBIF
+                    self.map_principal.update_map(self.lat_atual, self.lon_atual, zoom=10, add_marker=True, scientific_name=sciname if sciname else None)
+                    print("[UI] Mapa atualizado com sucesso.")
+                except Exception as e:
+                    print(f"[UI] ERRO ao atualizar mapa: {e}")
+            
+             print("[UI] --- PROCESSO FINALIZADO ---\n")
+        
+    def _ao_erro_identificacao(self, erro_msg):
         self.lbl_etimologia_texto.setText(f"Erro: {erro_msg}")
         self.frame_etimologia.setVisible(True)
 
@@ -955,6 +974,8 @@ class JanelaPrincipal(QMainWindow):
         self._atualizar_info_ave(resultado)
 
     def _atualizar_info_ave(self, dados: dict):
+        print("\n[UI] --- INICIANDO ATUALIZAÇÃO DA INTERFACE ---")
+        print(f"[UI] Dados recebidos do WikiAves. Link: {dados.get('link_origem')}")
         self.dados_identificacao_atual = dados
         
         nc = dados.get("nome_comum", "-")
