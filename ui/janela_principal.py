@@ -349,7 +349,7 @@ class JanelaPrincipal(QMainWindow):
         layout_esquerda.addWidget(self.map_principal)
         
         # --- Botão Definir Localização Manualmente (v0.3.8 - Persistente e Estilizado) ---
-        self.btn_set_location = QPushButton("📍 Definir Localização Manualmente")
+        self.btn_set_location = QPushButton("Definir Localização Manualmente")
         self.btn_set_location.setCursor(Qt.PointingHandCursor)
         self.btn_set_location.setVisible(True) # Sempre visível agora
         self.btn_set_location.clicked.connect(self._abrir_dialogo_localizacao)
