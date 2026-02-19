@@ -20,8 +20,8 @@ class LocalIdentificationWorker(QThread):
     identification_complete = Signal(dict)
     error_occurred = Signal(str)
 
-    def __init__(self, image_path):
-        super().__init__()
+    def __init__(self, image_path, parent=None):
+        super().__init__(parent)
         self.image_path = image_path
         self._stopped = False
         self.min_confidence = 0.70 # 70% threshold

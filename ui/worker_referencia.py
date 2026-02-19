@@ -12,8 +12,8 @@ class ReferenceImageWorker(QThread):
     image_found = Signal(str, str, str) 
     search_failed = Signal()
 
-    def __init__(self, species_name):
-        super().__init__()
+    def __init__(self, species_name, parent=None):
+        super().__init__(parent)
         self.species_name = species_name
 
     def run(self):
