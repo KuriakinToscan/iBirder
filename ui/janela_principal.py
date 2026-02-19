@@ -1025,9 +1025,34 @@ class JanelaPrincipal(QMainWindow):
              print(f"[UI] Status de Identificação: {status_msg}")
 
     def _ao_erro_identificacao(self, erro_msg):
+        self.status_bar.showMessage("Erro na identificação.")
         self.card_user.setAcceptDrops(True)
-        self.status_bar.showMessage("Falha na identificação.")
-        DialogoAviso("Erro de Identificação", erro_msg, self).exec()
+        self.lbl_nome_comum.setText("Erro")
+        self.lbl_descricao.setText(erro_msg)
+        self.lbl_etimologia_texto.setText("Ocorreu um erro durante a identificação local.")
+        
+    def _atualizar_geo_info(self, lat, lon):
+        """Inicia worker para buscar detalhes administrativos e bioma."""
+        if not hasattr(self, 'lbl_geo_details'):
+             return
+
+        self.lbl_geo_details.setText("🔄 Analisando local e bioma...")
+        self.lbl_geo_details.setVisible(True)
+        
+        self.geo_worker = GeoWorker(lat, lon)
+        self.geo_worker.finished.connect(self._ao_concluir_geo_analise)
+        self.geo_worker.start()
+        
+    def _ao_concluir_geo_analise(self, details):
+        if not hasattr(self, 'lbl_geo_details'):
+             return
+
+        texto = f"""
+        <b>Local:</b> {details.get('cidade','-')} - {details.get('estado','-')}<br>
+        <b>Bioma:</b> {details.get('bioma','-')} 🌿<br>
+        <span style='font-size:11px; color:#6B7280;'>{details.get('localidade','')}</span>
+        """
+        self.lbl_geo_details.setText(texto)
 
     def _abrir_seletor_arquivo(self):
         self.activateWindow()
