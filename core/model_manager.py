@@ -18,8 +18,10 @@ class ModelManager:
 
     def check_resources(self):
         """Retorna True se todos os arquivos necessários existem e são válidos."""
-            # Se o modelo existir mas for muito pequeno (< 3MB), pode estar corrompido.
-            # O EfficientNet Lite0 tem aprox 3.4MB - 4MB.
+        # Se o modelo existir mas for muito pequeno (< 3MB), pode estar corrompido.
+        # O EfficientNet Lite0 tem aprox 3.4MB - 4MB.
+        if self.model_path.exists():
+            size_mb = self.model_path.stat().st_size / (1024 * 1024)
             # Ajustado para 3MB para evitar re-download desnecessário se o arquivo for valido.
             if size_mb < 3:
                 print(f"[MODELO] Arquivo existente é muito pequeno ({size_mb:.2f} MB). Removendo para baixar versão correta...")
