@@ -209,6 +209,11 @@ class JanelaPrincipal(QMainWindow):
             
              print("[UI] --- PROCESSO FINALIZADO ---\n")
         
+    def _ao_erro_api(self, erro_msg):
+        print(f"[UI] Erro na API (Info Espécie): {erro_msg}")
+        self.lbl_etimologia_texto.setText(f"Erro ao buscar informações: {erro_msg}")
+        self.frame_etimologia.setVisible(True)
+
     def _ao_erro_identificacao(self, erro_msg):
         self.lbl_etimologia_texto.setText(f"Erro: {erro_msg}")
         self.frame_etimologia.setVisible(True)
