@@ -26,6 +26,24 @@ from ui.widgets.map_widget import MapWidget
 from ui.widgets.map_widget import MapWidget
 from ui.custom_widgets import ImageCardWidget
 from ui.dialogs.location_dialog import LocationDialog
+from core.geo_analyst import GeoAnalyst
+
+class GeoWorker(QThread):
+    finished = Signal(dict)
+    
+    def __init__(self, lat, lon):
+        super().__init__()
+        self.lat = lat
+        self.lon = lon
+        
+    def run(self):
+        # Instancia aqui para carregar biomas em background (thread segura)
+        # Nota: Idealmente GeoAnalyst seria singleton ou carregado uma vez, 
+        # mas seguindo instruções, instanciamos/usamos no fluxo.
+        # Se o loading for pesado, vai ocorrer aqui sem travar UI.
+        analyst = GeoAnalyst()
+        details = analyst.get_full_details(self.lat, self.lon)
+        self.finished.emit(details)
 
 class JanelaPrincipal(QMainWindow):
     def __init__(self, nome_icone_janela="logo_ave.svg", modo_inicial="online", ai_status="READY"):
@@ -368,6 +386,24 @@ class JanelaPrincipal(QMainWindow):
             QPushButton:hover { background-color: #1F2937; }
         """)
         layout_esquerda.addWidget(self.btn_set_location)
+        
+        # --- Painel de Informações Geo (v0.3.11) ---
+        self.lbl_geo_details = QLabel()
+        self.lbl_geo_details.setWordWrap(True)
+        self.lbl_geo_details.setTextFormat(Qt.RichText)
+        self.lbl_geo_details.setStyleSheet("""
+            QLabel {
+                background-color: #F3F4F6;
+                border-radius: 8px;
+                padding: 10px;
+                color: #374151;
+                font-size: 13px;
+                border: 1px solid #E5E7EB;
+                margin-top: 5px;
+            }
+        """)
+        self.lbl_geo_details.setVisible(False) # Só mostra quando tiver dados
+        layout_esquerda.addWidget(self.lbl_geo_details)
         # -------------------------------------------------------
         
         layout_principal.addLayout(layout_esquerda, stretch=3)
@@ -832,6 +868,9 @@ class JanelaPrincipal(QMainWindow):
             # Atualiza card geo
             self.lbl_geo_placeholder.setText(f"Lat: {lat:.4f}, Lon: {lon:.4f} (GPS)")
             self.lbl_geo_placeholder.setStyleSheet("color: #374151; font-weight: bold; border: none;")
+            
+            # GeoAnalyst (v0.3.11)
+            self._atualizar_geo_info(lat, lon)
                 
         else:
             print("[MAPA] Sem dados GPS. Exibindo mensagem de aviso.")
@@ -861,6 +900,15 @@ class JanelaPrincipal(QMainWindow):
                 # Atualizar card geográfico
                 self.lbl_geo_placeholder.setText(f"Lat: {lat:.4f}, Lon: {lon:.4f} (Manual)")
                 self.lbl_geo_placeholder.setStyleSheet("color: #374151; font-weight: bold; border: none;")
+                
+                self._atualizar_geo_info(lat, lon)
+                
+                # Salva a localização manual para ser usada ao recarregar imagem ou atualizar mapa
+                self.ultima_localizacao_manual = (lat, lon)
+                
+                # Oculta o botão se a localização foi definida com sucesso
+                self.btn_set_location.setVisible(False)           
+        self._identificar_ave()
 
     def _identificar_ave(self):
         if not self.caminho_imagem_atual:
