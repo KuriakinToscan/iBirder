@@ -174,8 +174,9 @@ class JanelaPrincipal(QMainWindow):
         self.scroll_area.setStyleSheet("QScrollArea { border: none; background-color: #F0F2F5; }")
 
         widget_central = QWidget()
-        # Garante que o widget interno também tenha fundo claro
-        widget_central.setStyleSheet("background-color: #F0F2F5;")
+        widget_central.setObjectName("container_rolagem")
+        # Garante que o widget interno também tenha fundo claro, mas sem afetar filhos
+        widget_central.setStyleSheet("#container_rolagem { background-color: #F0F2F5; }")
         self.scroll_area.setWidget(widget_central)
         self.setCentralWidget(self.scroll_area)
 
