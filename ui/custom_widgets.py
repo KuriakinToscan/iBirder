@@ -6,6 +6,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtWebEngineWidgets import QWebEngineView
+from PySide6.QtWebEngineCore import QWebEnginePage
 import os
 import sys
 from pathlib import Path
@@ -297,20 +298,35 @@ class ImageCardWidget(QWidget):
             painter.setFont(font_placeholder)
             painter.drawText(rect, Qt.AlignCenter, self.text_placeholder)
 
+class AudioPage(QWebEnginePage):
+    def __init__(self, parent=None):
+         super().__init__(parent)
+         self.on_play_callback = None
+    
+    def javaScriptConsoleMessage(self, level, message, lineNumber, sourceID):
+         if message == "AUDIO_PLAYED" and hasattr(self, 'on_play_callback') and self.on_play_callback:
+              self.on_play_callback()
+
 class AudioPlayerWidget(QWidget):
-    def __init__(self, url, autor, fonte, tipo_canto="", distancia_texto="", parent=None):
+    def __init__(self, url, autor, fonte, tipo_canto="", distancia_texto="", audio_data=None, on_play=None, parent=None):
         super().__init__(parent)
         self.url = url
         self.autor = autor
         self.fonte = fonte
         self.tipo_canto = tipo_canto
         self.distancia_texto = distancia_texto
+        self.audio_data = audio_data
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)
         
         # Player HTML5 Embutido
         self.webview = QWebEngineView()
+        self.page = AudioPage(self.webview)
+        if hasattr(on_play, '__call__'):
+             self.page.on_play_callback = lambda: on_play(self.audio_data)
+        self.webview.setPage(self.page)
+        
         self.webview.setFixedHeight(40)
         self.webview.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         
@@ -338,7 +354,7 @@ class AudioPlayerWidget(QWidget):
             </style>
         </head>
         <body>
-            <audio controls controlsList="nodownload">
+            <audio controls controlsList="nodownload" onplay="console.log('AUDIO_PLAYED')">
                 <source src="{self.url}">
                 Seu navegador não suporta o elemento de áudio.
             </audio>

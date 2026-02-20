@@ -69,116 +69,129 @@ class AudioWorker(QThread):
             self.search_failed.emit()
 
     def _search_xeno_canto(self):
-        """Busca gravações de qualidade A e B no Xeno-canto no Brasil."""
+        """Busca gravações no Xeno-canto com urllib encode e fallback de qualidade."""
+        import urllib.parse
         try:
-            url = "https://xeno-canto.org/api/2/recordings"
-            # Buscando de forma abrangente no Brasil e qualidades boas para ter pool para filtrar
-            query = f"{self.scientific_name} cnt:Brazil"
-            params = {'query': query}
+            headers = {"User-Agent": "iBirder-App/1.0"}
+            recordings = []
+            qualidades = ["q:A", "q:B"]
             
-            resp = requests.get(url, params=params, timeout=10)
-            if resp.status_code != 200:
-                print(f"[AUDIO] Erro Xeno-canto: {resp.status_code}")
-                return []
+            # Buscar por qualidade reduzindo o filtro se não achar nada
+            for q in qualidades:
+                raw_query = f"{self.scientific_name} cnt:brazil {q}"
+                quoted_query = urllib.parse.quote(raw_query)
+                url = f"https://xeno-canto.org/api/2/recordings?query={quoted_query}"
                 
-            data = resp.json()
-            recordings = data.get('recordings', [])
+                print(f"[AUDIO] Xeno-canto request: {url}")
+                resp = requests.get(url, headers=headers, timeout=10)
+                
+                if resp.status_code == 200:
+                    data = resp.json()
+                    recs = data.get('recordings', [])
+                    if recs:
+                        recordings = recs
+                        print(f"[AUDIO] Encontradas {len(recordings)} gravações usando {q}.")
+                        break
             
             if not recordings:
                 return []
 
-            # 1. Enriquecer gravações com distância e extrair tipo
-            processed_recs = []
+            # 1. Enriquecer gravações e agrupar em baldes por tipo
+            baldes_por_tipo = {}
             for rec in recordings:
-                # Filtrar qualidade A ou B apenas
-                if rec.get('q') not in ['A', 'B']:
-                    continue
-
-                rec_lat = rec.get('lat')
-                rec_lng = rec.get('lng')
-                
-                try:
-                    r_lat = float(rec_lat) if rec_lat else None
-                    r_lng = float(rec_lng) if rec_lng else None
-                except ValueError:
+                # Tratar Coordenadas GPS (Blidar nulls)
+                str_lat = rec.get('lat')
+                str_lng = rec.get('lng')
+                if str_lat and str_lng and str_lat != "null" and str_lng != "null":
+                    try:
+                        r_lat, r_lng = float(str_lat), float(str_lng)
+                    except ValueError:
+                        r_lat, r_lng = None, None
+                else:
                     r_lat, r_lng = None, None
 
                 dist = haversine_distance(self.lat, self.lon, r_lat, r_lng)
                 
+                raw_type = str(rec.get('type', '')).lower().strip()
+                # Remove espaços duplos e trailing spaces
+                raw_type = " ".join(raw_type.split())
+                
                 # Normaliza o tipo (primeiro item se houver multiplos separados por virgula)
-                raw_type = str(rec.get('type', '')).lower()
                 primeiro_tipo = [t.strip() for t in raw_type.split(',') if t.strip()]
                 main_type = primeiro_tipo[0] if primeiro_tipo else 'unknown'
                 
-                # Mapeia tipos principais que queremos se houver match solto
+                # Mapeia tipos principais
                 clean_type = 'other'
                 for target_type in ['song', 'begging call', 'flight call', 'alarm call']:
                      if target_type in main_type:
                          clean_type = target_type
                          break
-                # Trata 'call' separado para não conflitar com 'x call'
+                
+                # Evita sobrescrever 'song' ou calls genéricos
                 if clean_type == 'other' and 'call' in main_type and 'song' not in main_type:
                      clean_type = 'call'
 
-                processed_recs.append({
+                item_data = {
                     'raw': rec,
-                    'dist': dist,
-                    'q': rec.get('q'),
+                    'distancia': dist,
                     'type': clean_type,
+                    'q': rec.get('q'),
                     'lat': r_lat,
                     'lon': r_lng
-                })
+                }
+                
+                if clean_type not in baldes_por_tipo:
+                     baldes_por_tipo[clean_type] = []
+                baldes_por_tipo[clean_type].append(item_data)
 
-            # 2. Ordenar: Qualidade A > Menor Distância, depois Qualidade B > Menor distância
-            processed_recs.sort(key=lambda x: (0 if x['q'] == 'A' else 1, x['dist']))
-
-            # 3. Selecionar diversidade: 1 de cada tipo principal se disponível, até max 4
+            # 2. Selecionar o Campeão: O mais próximo de cada balde
             selected = []
-            types_seen = set()
-            
-            for pr in processed_recs:
-                 if len(selected) >= 4:
-                     break
-                 if pr['type'] not in types_seen:
-                     selected.append(pr)
-                     types_seen.add(pr['type'])
+            for t_type, balde in baldes_por_tipo.items():
+                balde.sort(key=lambda x: x['distancia']) # Menor distancia primeiro
+                selected.append(balde[0])
 
-            # Fazer uma segunda passada se não atingiu diversidade pra pegar os melhores q sobraram
-            if len(selected) < 2:
-                 for pr in processed_recs:
-                      if len(selected) >= 3: break
-                      if pr not in selected:
-                           selected.append(pr)
+            # Ordenar por distancia de volta apenas para visualização
+            selected.sort(key=lambda x: x['distancia'])
 
-            # Formatar output
+            # Limitar a no max 4
+            selected = selected[:4]
+
+            # 3. Formatar output
             audios = []
             for item in selected:
                 rec = item['raw']
                 file_url = rec.get('file')
+                base_link = "https://xeno-canto.org/" + str(rec.get('id', ''))
+                
                 if file_url:
                     tipo_str = TRADUCOES_TIPO.get(item['type'], item['type'].capitalize())
                     if tipo_str == 'Other':
                          tipo_str = str(rec.get('type')).capitalize()
                     
-                    dist_str = f" ({int(item['dist'])}km)" if item['dist'] != float('inf') else ""
+                    dist_str = f" ({int(item['distancia'])}km)" if item['distancia'] != float('inf') else ""
                          
                     audios.append({
                         'url': file_url,
                         'autor': rec.get('rec', 'Desconhecido'),
+                        'licenca': rec.get('lic', 'CC BY-NC'),
                         'fonte': 'Xeno-canto',
                         'tipo_canto': tipo_str,
                         'distancia_texto': dist_str,
+                        'distancia': item['distancia'],
                         'lat': item['lat'],
-                        'lon': item['lon']
+                        'lon': item['lon'],
+                        'link_web': base_link,
+                        'q': item['q']
                     })
             
             if audios:
-                print(f"[AUDIO] Encontrados {len(audios)} áudios diversificados no Xeno-canto.")
+                print(f"[AUDIO] Retornadas {len(audios)} vocalizações (campeões).")
             
             return audios
 
         except Exception as e:
             print(f"[AUDIO] Erro na busca Xeno-canto: {e}")
+            traceback.print_exc()
             return []
 
     def _search_inaturalist(self):
