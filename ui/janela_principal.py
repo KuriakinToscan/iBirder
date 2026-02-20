@@ -33,6 +33,7 @@ from ui.dialogs.location_dialog import LocationDialog
 from core.geo_analyst import GeoAnalyst
 from core.session_logger import SessionLogger
 from core.iucn_worker import IUCNWorker
+from core.ebird_worker import EBirdWorker
 
 class GeoWorker(QThread):
     finished = Signal(dict)
@@ -472,8 +473,30 @@ class JanelaPrincipal(QMainWindow):
             }
         """)
 
+        self.btn_config_ebird = QPushButton("⚙️ Configurações eBird")
+        self.btn_config_ebird.setCursor(Qt.PointingHandCursor)
+        self.btn_config_ebird.clicked.connect(self._abrir_configuracoes_ebird)
+        self.btn_config_ebird.setStyleSheet("""
+            QPushButton {
+                background-color: #F3F4F6;
+                color: #374151;
+                border: 1px solid #D1D5DB;
+                border-radius: 8px;
+                padding: 10px;
+                font-weight: 500;
+                font-size: 11px;
+                margin-top: 10px;
+            }
+            QPushButton:hover {
+                background-color: #E5E7EB;
+                border-color: #9CA3AF;
+            }
+        """)
+        
         layout_map_botoes.addWidget(self.btn_set_location, stretch=2)
         layout_map_botoes.addWidget(self.btn_config_iucn, stretch=1)
+        layout_map_botoes.addWidget(self.btn_config_ebird)
+        
         layout_esquerda.addLayout(layout_map_botoes)
         
         # --- Painel de Informações Geo (v0.3.11) ---
@@ -1204,6 +1227,7 @@ class JanelaPrincipal(QMainWindow):
                 self._iniciar_busca_imagem(sci)
                 self._buscar_audio(sci) # v0.4.0
                 self._buscar_iucn(sci)  # v0.3.19
+                self._buscar_ebird(sci) # v0.3.21
                 
             # LOGGING DE SESSÃO: ETAPA 1 (v0.3.16)
             valor = float(conf) if conf else 0.0
@@ -1380,6 +1404,14 @@ class JanelaPrincipal(QMainWindow):
             if sci and "Inconclusiva" not in sci:
                 self._buscar_iucn(sci)
 
+    def _abrir_configuracoes_ebird(self):
+        from ui.dialogs.ebird_settings import EBirdSettingsDialog
+        dlg = EBirdSettingsDialog(self)
+        if dlg.exec() == QDialog.Accepted:
+            sci = self._obter_sciname_atual()
+            if sci and "Inconclusiva" not in sci:
+                self._buscar_ebird(sci)
+
     def _buscar_iucn(self, scientific_name):
         old_iucn_worker = getattr(self, "iucn_worker", None)
         if old_iucn_worker:
@@ -1394,6 +1426,31 @@ class JanelaPrincipal(QMainWindow):
     def _ao_concluir_iucn(self, results):
         self.last_iucn_data = results
         self._registrar_dados_geo_iucn()
+
+    def _buscar_ebird(self, scientific_name):
+        old_ebird_worker = getattr(self, "ebird_worker", None)
+        if old_ebird_worker:
+            old_ebird_worker.quit()
+            old_ebird_worker.wait()
+            old_ebird_worker.deleteLater()
+            
+        self.ebird_worker = EBirdWorker(scientific_name, lat=self.lat_atual, lon=self.lon_atual, parent=self)
+        self.ebird_worker.finished.connect(self._ao_concluir_ebird)
+        self.ebird_worker.start()
+        
+    def _ao_concluir_ebird(self, results):
+        if hasattr(self, 'session_logger'):
+            self.session_logger.atualizar_ultimo_registro({
+                "nome_ingles": results.get("nome_ingles", ""),
+                "classe": results.get("classe", "Aves"),
+                "ordem": results.get("ordem", ""),
+                "familia": results.get("familia", ""),
+                "ebird_code": results.get("ebird_code", ""),
+                "raridade_regional": results.get("raridade_regional", ""),
+                "link_ebird": results.get("link_ebird", "")
+            })
+            print("[UI] Etapa 5 (eBird/Clements) integrada ao SessionLogger.")
+
 
     def _registrar_dados_geo_iucn(self):
         geo = getattr(self, 'last_geo_data', {})
