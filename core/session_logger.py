@@ -54,3 +54,24 @@ class SessionLogger:
                 print("[SessionLogger] Caderneta temporária limpa com sucesso.")
         except Exception as e:
             print(f"[SessionLogger] Atenção: não foi possível remover o tmp {self.filepath}: {e}")
+
+    def atualizar_ultimo_registro(self, novos_dados: dict):
+        """Atualiza o último registro gravado no arquivo JSON com as novas chaves/valores."""
+        try:
+            if not os.path.exists(self.filepath):
+                return
+                
+            with open(self.filepath, 'r', encoding='utf-8') as f:
+                sessao_atual = json.load(f)
+                
+            if sessao_atual and isinstance(sessao_atual, list):
+                # Recupera a última entrada (Etapa 1) e injeta/sobrescreve os dados da Etapa 2
+                sessao_atual[-1].update(novos_dados)
+                
+                with open(self.filepath, 'w', encoding='utf-8') as f:
+                    json.dump(sessao_atual, f, indent=4, ensure_ascii=False)
+                    
+                print(f"[SessionLogger] Último registro atualizado com sucesso. (+{len(novos_dados)} chaves)")
+        except Exception as e:
+            print(f"[SessionLogger] Erro ao atualizar_ultimo_registro: {e}")
+            traceback.print_exc()

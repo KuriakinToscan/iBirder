@@ -176,12 +176,20 @@ class JanelaPrincipal(QMainWindow):
                  self.btn_fonte.setEnabled(False)
 
     def _ao_receber_info_especie(self, dados):
-        # Mapeamento do BuscadorBlindado
-        # dados['nome_cientifico'] -> Etimologia
-        # dados['caracteristicas'] -> Descrição
-        
-        etimologia_texto = dados.get("nome_cientifico", "")
+        # Mapeamento do BuscadorBlindado (Agora com chaves nativas corretas - v0.3.17)
+        etimologia_texto = dados.get("etimologia", "")
         caracteristicas = dados.get("caracteristicas", "")
+        
+        # LOGGING DE SESSÃO: ETAPA 2 (v0.3.17)
+        dados_etapa_2 = {
+            "link_origem": dados.get("link_origem", ""),
+            "descricao": caracteristicas,
+            "nome_comum": dados.get("nome_comum", ""),
+            "etimologia": etimologia_texto
+        }
+        
+        if hasattr(self, 'session_logger'):
+            self.session_logger.atualizar_ultimo_registro(dados_etapa_2)
 
         # Atualiza Campo Etimologia
         # Atualiza Campo Etimologia

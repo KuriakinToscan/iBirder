@@ -172,16 +172,24 @@ class BuscadorBlindado:
 
         dados = {}
 
-        # 🔹 Nome Científico (Que contém a Etimologia no WikiAves)
+        # 🔹 Nome Comum (Título Principal h1)
+        # O .strip() no get_text previne espaços e quebras indesejadas
+        tag_h1 = soup.find("h1", id="titulo")
+        if tag_h1:
+             dados["nome_comum"] = tag_h1.get_text(separator=" ", strip=True)
+        else:
+             dados["nome_comum"] = "Não encontrado"
+
+        # 🔹 Etimologia (Que o WikiAves chama de nome_cientifico)
         sec_nome = soup.find("h2", id="nome_cientifico")
         if sec_nome:
             div_nome = sec_nome.find_next("div", class_="level2")
             if div_nome:
-                dados["nome_cientifico"] = div_nome.get_text(separator=" ", strip=True)
+                dados["etimologia"] = div_nome.get_text(separator=" ", strip=True)
             else:
-                dados["nome_cientifico"] = "Não encontrado"
+                dados["etimologia"] = "Não encontrado"
         else:
-            dados["nome_cientifico"] = "Não encontrado"
+            dados["etimologia"] = "Não encontrado"
 
         # 🔹 Características (Refinado: Apenas texto dentro da tag <p>)
         sec_carac = soup.find("h2", id="caracteristicas")
