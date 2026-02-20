@@ -2,7 +2,6 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWebEngineCore import QWebEnginePage
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtCore import QUrl
-import folium
 import io
 
 class ExternalLinkPage(QWebEnginePage):
@@ -32,6 +31,7 @@ class MapWidget(QWebEngineView):
     def update_map(self, lat, lon, zoom=5, add_marker=False, scientific_name=None, audio_markers=None):
         try:
             from modules.step3_geography.gbif_client import get_gbif_taxon_key
+            import folium
             
             # Create Folium Map
             m = folium.Map(location=[lat, lon], zoom_start=zoom, control_scale=True, tiles=None)

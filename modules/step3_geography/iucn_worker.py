@@ -2,7 +2,6 @@ import os
 import requests
 import json
 import traceback
-import geopandas as gpd
 from PySide6.QtCore import QThread, Signal, QSettings
 
 class IUCNWorker(QThread):
@@ -92,6 +91,7 @@ class IUCNWorker(QThread):
                 export_path = os.path.join(self.export_dir, filename)
 
                 if os.path.exists(self.shape_path):
+                    import geopandas as gpd
                     print(f"[IUCN Worker] Carregando Shapefile Base: {self.shape_path}")
                     gdf = gpd.read_file(self.shape_path)
                     
