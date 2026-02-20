@@ -1,8 +1,12 @@
 Pillow
-requests
-tensorflow-cpu
-numpy
+PySide6
 beautifulsoup4
-selenium
-webdriver-manager
 folium
+geopandas
+geopy
+numpy
+requests
+selenium
+shapely
+tensorflow-cpu
+webdriver-manager
