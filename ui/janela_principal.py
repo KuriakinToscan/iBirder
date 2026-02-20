@@ -1450,6 +1450,13 @@ class JanelaPrincipal(QMainWindow):
                 "link_ebird": results.get("link_ebird", "")
             })
             print("[UI] Etapa 5 (eBird/Clements) integrada ao SessionLogger.")
+            
+            # Preparar persistência EXIF (Futuro v0.3.22+)
+            # from core.exif_manager import EXIFManager
+            # exif_manager = EXIFManager()
+            # Se a imagem tiver um caminho salvo no widget card principal, passarremos.
+            # exif_manager.escrever_metadados_completos(self.card_user.image_path, self.session_logger.obter_ultimo_registro())
+            print("[EXIF] Módulo placeholder preparado para receber dados (Etapa Final).")
 
 
     def _registrar_dados_geo_iucn(self):
