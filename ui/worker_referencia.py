@@ -58,7 +58,7 @@ class ReferenceImageWorker(QThread):
                 return
 
             # Extração de Dados
-            img_url = default_photo.get('medium_url')
+            img_url = default_photo.get('large_url') or default_photo.get('medium_url')
             # Fallback para atribuição se não existir
             attribution = default_photo.get('attribution', '(c) iNaturalist')
             

@@ -55,11 +55,11 @@ class ExpandedImageDialog(QDialog):
         self.btn_close.setCursor(QCursor(Qt.PointingHandCursor))
         self.btn_close.setFixedSize(36, 36)
         
-        # Estilo "Ghost" (Limpo e Moderno)
+        # Estilo "Ghost" com Fundo Semi-Transparente (Melhor Visibilidade)
         self.btn_close.setStyleSheet("""
             QPushButton {
-                background-color: transparent;
-                color: #9CA3AF;
+                background-color: rgba(255, 255, 255, 0.5);
+                color: #374151;
                 font-weight: bold;
                 font-family: "Segoe UI", sans-serif;
                 font-size: 18px;
@@ -67,8 +67,8 @@ class ExpandedImageDialog(QDialog):
                 border: none;
             }
             QPushButton:hover {
-                background-color: #F3F4F6;
-                color: #EF4444; /* Vermelho suave no hover */
+                background-color: rgba(255, 255, 255, 0.9);
+                color: #EF4444;
             }
         """)
         self.btn_close.clicked.connect(self.close)

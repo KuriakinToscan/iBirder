@@ -148,12 +148,28 @@ class JanelaPrincipal(QMainWindow):
         else:
              self.card_ref.set_overlay_text(None)
         
-        if url_fonte:
-            self.btn_fonte.setProperty("url_alvo", url_fonte)
+        if self.dados_identificacao_atual and "nome_cientifico" in self.dados_identificacao_atual:
+            sciname = self.dados_identificacao_atual["nome_cientifico"]
+            # Limpar nome para URL (remover autor/ano se houver, embora o regex já deva ter limpado)
+            # O ideal é usar o nome limpo que já temos
+            import re
+            sci_clean = re.sub(r'[\(\[].*?[\)\]]', '', sciname).strip()
+            
+            url_wa = f"https://www.wikiaves.com.br/index.php?t=s&s={sci_clean}"
+            
+            self.btn_fonte.setProperty("url_alvo", url_wa)
             self.btn_fonte.setEnabled(True)
-            self.btn_fonte.setText("Abrir Fonte")
+            self.btn_fonte.setText("Abrir no WikiAves")
         else:
-            self.btn_fonte.setEnabled(False)
+            # Fallback se não tivermos nome (ex: apenas carregou imagem sem ID ainda?)
+            # Mas esse método é chamado pelo worker que achou a imagem COM BASE no nome.
+            # Se url_fonte original existir, usamos como fallback ultimo caso
+            if url_fonte:
+                 self.btn_fonte.setProperty("url_alvo", url_fonte)
+                 self.btn_fonte.setEnabled(True)
+                 self.btn_fonte.setText("Abrir Fonte")
+            else:
+                 self.btn_fonte.setEnabled(False)
 
     def _ao_receber_info_especie(self, dados):
         # Mapeamento do BuscadorBlindado
