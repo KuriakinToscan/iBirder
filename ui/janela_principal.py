@@ -25,10 +25,10 @@ from ui.janela_manual import JanelaManual
 from ui.dialogo_aviso import DialogoAviso
 from ui.worker_referencia import ReferenceImageWorker
 from core.buscador_worker import BuscadorWorker
+from core.audio_worker import AudioWorker
 from core.logger import save_crash_log
 from ui.widgets.map_widget import MapWidget
-from ui.widgets.map_widget import MapWidget
-from ui.custom_widgets import ImageCardWidget
+from ui.custom_widgets import ImageCardWidget, AudioPlayerWidget
 from ui.dialogs.location_dialog import LocationDialog
 from core.geo_analyst import GeoAnalyst
 
@@ -923,12 +923,12 @@ class JanelaPrincipal(QMainWindow):
                 xp_author = exif.get("XPAuthor")
                 
                 if artist:
-                     autor_exif = f"Nome: {str(artist).strip()}"
+                     autor_exif = f"Autor: {str(artist).strip()}"
                 elif xp_author:
                      # XP tags geralmente são bytes com null terminator
                      if isinstance(xp_author, bytes):
                         val = xp_author.decode("utf-16le").replace('\x00', '').strip()
-                        if val: autor_exif = f"Nome: {val}"
+                        if val: autor_exif = f"Autor: {val}"
             except Exception:
                 pass # Mantém default "Autor desconhecido"
             
@@ -1155,6 +1155,7 @@ class JanelaPrincipal(QMainWindow):
             
             if sci:
                 self._iniciar_busca_imagem(sci)
+                self._buscar_audio(sci) # v0.4.0
         
         if status_msg:
              print(f"[UI] Status de Identificação: {status_msg}")
@@ -1166,6 +1167,84 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_descricao.setText(erro_msg)
         self.lbl_etimologia_texto.setText("Ocorreu um erro durante a identificação local.")
         
+    # --- Áudio Player (v0.4.0) ---
+
+    def _buscar_audio(self, scientific_name):
+        """Inicia busca de áudio (Xeno-canto/iNat)."""
+        # Limpar worker anterior
+        old_worker = getattr(self, "audio_worker", None)
+        if old_worker:
+            old_worker.quit()
+            old_worker.wait()
+            old_worker.deleteLater()
+            
+        self.lbl_audio_placeholder.setText("Buscando vocalizações...")
+        self.lbl_audio_placeholder.setVisible(True)
+        
+        # Injetar localização atual para geofencing dos aúdios (se disponível)
+        lat = getattr(self, "lat_atual", None)
+        lon = getattr(self, "lon_atual", None)
+        
+        self.audio_worker = AudioWorker(scientific_name, lat=lat, lon=lon, parent=self)
+        self.audio_worker.audio_found.connect(self._ao_encontrar_audio)
+        self.audio_worker.search_failed.connect(self._ao_erro_audio)
+        self.audio_worker.start()
+
+    def _ao_encontrar_audio(self, resultados):
+        """Recebe lista de áudios e cria os players."""
+        self.lbl_audio_placeholder.setVisible(False)
+        
+        # Recuperar o layout do grupo de áudio
+        # self.grupo_audio está em self.layout_direito -> ...
+        # Precisamos acessar o layout onde os players serão inseridos.
+        # No init, criamos: grupo_audio = QGroupBox... layout_audio = QVBoxLayout()
+        # Mas não guardamos self.layout_audio como atributo.
+        # Vamos achar pelo findChild ou guardar no init. 
+        # Como não posso editar o init agora facilmente sem ver tudo, vou tentar achar o widget container.
+        # O widget placeholder é self.lbl_audio_placeholder. O parent dele é o layout ou widget?
+        # Layouts não são parents de widgets. O parent do lbl_audio_placeholder é o grupo? Não, o addWidget não reparenta sempre.
+        # O QGroupBox 'grupo_audio' (que não é self) tem o layout.
+        
+        # Correção: O 'grupo_audio' não foi salvo em self. Apenas adicionado ao layout.
+        # Mas 'self.lbl_audio_placeholder' está lá. Podemos pegar o layout dele.
+        layout = self.lbl_audio_placeholder.parentWidget().layout()
+        if not layout:
+            return
+
+        # Adiciona players
+        audio_markers = []
+        for audio in resultados:
+            player = AudioPlayerWidget(
+                audio['url'], 
+                audio['autor'], 
+                audio['fonte'], 
+                audio.get('tipo_canto', ''), 
+                audio.get('distancia_texto', '')
+            )
+            layout.addWidget(player)
+            
+            # Adiciona coordenadas para o mapa
+            if audio.get('lat') is not None and audio.get('lon') is not None:
+                audio_markers.append({
+                     'lat': audio['lat'],
+                     'lon': audio['lon'],
+                     'title': f"{audio.get('tipo_canto')} - {audio['autor']}"
+                })
+            
+            # Guardar referencia para limpeza futura
+            if not hasattr(self, 'active_audio_players'):
+                self.active_audio_players = []
+            self.active_audio_players.append(player)
+            
+        # Atualiza o mapa se tivermos novos marcadores e já existir a tela principal montada
+        if audio_markers and self.map_principal:
+             sci = self._obter_sciname_atual()
+             self.map_principal.update_map(self.lat_atual, self.lon_atual, zoom=6, add_marker=True, scientific_name=sci, audio_markers=audio_markers)
+            
+    def _ao_erro_audio(self):
+        self.lbl_audio_placeholder.setText("Nenhuma gravação encontrada.")
+        self.lbl_audio_placeholder.setVisible(True)
+
     def _atualizar_geo_info(self, lat, lon):
         """Inicia worker para buscar detalhes administrativos e bioma."""
         if not hasattr(self, 'lbl_geo_details'):
@@ -1225,7 +1304,7 @@ class JanelaPrincipal(QMainWindow):
 
     def _resetar_interface(self):
         # Stop Workers
-        for worker_name in ["worker_local", "geo_worker"]:
+        for worker_name in ["worker_local", "geo_worker", "audio_worker"]:
             old_worker = getattr(self, worker_name, None)
             if old_worker is not None:
                 if old_worker.isRunning():
@@ -1234,6 +1313,22 @@ class JanelaPrincipal(QMainWindow):
                     old_worker.wait()
                 old_worker.deleteLater()
                 setattr(self, worker_name, None)
+
+        # Limpeza de Players de Áudio (v0.4.0)
+        if hasattr(self, 'active_audio_players'):
+            for player in self.active_audio_players:
+                try:
+                    player.stop()
+                    player.setParent(None)
+                    player.deleteLater()
+                except:
+                    pass
+            self.active_audio_players = []
+        
+        # Resetar placeholder de áudio
+        if hasattr(self, 'lbl_audio_placeholder'):
+            self.lbl_audio_placeholder.setText("Áudio não carregado")
+            self.lbl_audio_placeholder.setVisible(True)
 
         self.caminho_imagem_atual = None
         self.lat_atual = None

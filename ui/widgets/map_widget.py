@@ -29,7 +29,7 @@ class MapWidget(QWebEngineView):
         """
         self.setHtml(html)
 
-    def update_map(self, lat, lon, zoom=5, add_marker=False, scientific_name=None):
+    def update_map(self, lat, lon, zoom=5, add_marker=False, scientific_name=None, audio_markers=None):
         try:
             from core.gbif_client import get_gbif_taxon_key
             
@@ -100,9 +100,17 @@ class MapWidget(QWebEngineView):
             if add_marker:
                 folium.Marker(
                     [lat, lon], 
-                    icon=folium.Icon(color="red", icon="info-sign"),
-                    tooltip="Local da Foto"
+                    icon=folium.Icon(color="red", icon="camera", prefix="glyphicon"),
+                    tooltip="Local da Foto (Alvo)"
                 ).add_to(m)
+                
+            if audio_markers:
+                 for am in audio_markers:
+                      folium.Marker(
+                           [am['lat'], am['lon']],
+                           icon=folium.Icon(color="purple", icon="music", prefix="glyphicon"),
+                           tooltip=am.get('title', 'Áudio Gravado')
+                      ).add_to(m)
 
             folium.LayerControl(position='topright', collapsed=False).add_to(m)
             

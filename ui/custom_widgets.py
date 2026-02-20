@@ -1,9 +1,11 @@
-from PySide6.QtWidgets import QWidget, QSizePolicy, QApplication, QPushButton
+from PySide6.QtWidgets import QWidget, QSizePolicy, QApplication, QPushButton, QHBoxLayout, QLabel, QVBoxLayout
 from PySide6.QtCore import Qt, QSize, QRectF, QMimeData, QUrl, QPoint
 from PySide6.QtGui import (
     QPainter, QPixmap, QColor, QFont, QPen, QPainterPath, 
     QFontMetrics, QDrag, QDragEnterEvent, QDropEvent, QIcon, QCursor
 )
+from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
+from PySide6.QtWebEngineWidgets import QWebEngineView
 import os
 import sys
 from pathlib import Path
@@ -294,3 +296,94 @@ class ImageCardWidget(QWidget):
             font_placeholder.setItalic(True)
             painter.setFont(font_placeholder)
             painter.drawText(rect, Qt.AlignCenter, self.text_placeholder)
+
+class AudioPlayerWidget(QWidget):
+    def __init__(self, url, autor, fonte, tipo_canto="", distancia_texto="", parent=None):
+        super().__init__(parent)
+        self.url = url
+        self.autor = autor
+        self.fonte = fonte
+        self.tipo_canto = tipo_canto
+        self.distancia_texto = distancia_texto
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(6, 6, 6, 6)
+        
+        # Player HTML5 Embutido
+        self.webview = QWebEngineView()
+        self.webview.setFixedHeight(40)
+        self.webview.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        
+        # Custom HTML para o player de áudio nativo do navegador
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{
+                    margin: 0;
+                    padding: 0;
+                    background-color: transparent;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    height: 100vh;
+                    overflow: hidden;
+                }}
+                audio {{
+                    width: 100%;
+                    max-height: 40px;
+                    outline: none;
+                }}
+            </style>
+        </head>
+        <body>
+            <audio controls controlsList="nodownload">
+                <source src="{self.url}">
+                Seu navegador não suporta o elemento de áudio.
+            </audio>
+        </body>
+        </html>
+        """
+        self.webview.setHtml(html)
+        # webview tem background branco by default
+        self.webview.setStyleSheet("background: transparent; border: none;")
+        self.webview.page().setBackgroundColor(Qt.transparent)
+        
+        layout_infos = QVBoxLayout()
+        layout_infos.setSpacing(2)
+        
+        info_html = f"<b>Autor:</b> {self.autor}<br><b>Fonte:</b> {self.fonte}"
+        if self.tipo_canto:
+             info_html += f"<br><b>Tipo:</b> {self.tipo_canto}{self.distancia_texto}"
+
+        lbl_info = QLabel(info_html)
+        lbl_info.setStyleSheet("color: #4B5563; font-size: 11px;")
+        
+        self.btn_source = QPushButton("Ver Link")
+        self.btn_source.setCursor(Qt.PointingHandCursor)
+        self.btn_source.setStyleSheet("""
+            QPushButton {
+                 background: transparent;
+                 color: #3B82F6;
+                 text-decoration: underline;
+                 border: none;
+                 font-size: 11px;
+                 padding: 0px;
+                 text-align: left;
+            }
+            QPushButton:hover {
+                 color: #2563EB;
+            }
+        """)
+        self.btn_source.clicked.connect(self._open_link)
+        
+        layout_infos.addWidget(lbl_info)
+        layout_infos.addWidget(self.btn_source)
+        
+        layout.addWidget(self.webview, stretch=1)
+        layout.addLayout(layout_infos)
+        
+    def _open_link(self):
+        from PySide6.QtGui import QDesktopServices
+        QDesktopServices.openUrl(QUrl(self.url))
