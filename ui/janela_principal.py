@@ -950,8 +950,19 @@ class JanelaPrincipal(QMainWindow):
                 self.map_principal.update_map(lat, lon, zoom=6, add_marker=True)
                 
             # Atualiza card geo
-            self.lbl_geo_placeholder.setText(f"Lat: {lat:.4f}, Lon: {lon:.4f} (GPS)")
-            self.lbl_geo_placeholder.setStyleSheet("color: #374151; font-weight: bold; border: none;")
+            # Atualiza card geo
+            self.lbl_geo_details.setVisible(True)
+            self.lbl_geo_details.setText(f"Lat: {lat:.4f}, Lon: {lon:.4f} (Processando...)")
+            self.lbl_geo_details.setStyleSheet("""
+                QLabel {
+                    background-color: #F9FAFB;
+                    border: 1px solid #E5E7EB;
+                    border-radius: 6px;
+                    padding: 6px;
+                    color: #374151;
+                    font-size: 12px;
+                }
+            """)
             
             # GeoAnalyst (v0.3.11)
             self._atualizar_geo_info(lat, lon)
@@ -969,8 +980,10 @@ class JanelaPrincipal(QMainWindow):
                  # Mas como é uma NOVA imagem carregada, o ideal é resetar ou mostrar o erro.
                  # Vamos mostrar o erro para incentivar o uso do botão manual se necessário.
                  self.map_principal.show_placeholder_message(msg_erro)
-                 self.lbl_geo_placeholder.setText(msg_erro)
-                 self.lbl_geo_placeholder.setStyleSheet("color: #9CA3AF; font-style: italic; border: 1px dashed #D1D5DB; border-radius: 4px; padding: 20px;")
+                 self.map_principal.show_placeholder_message(msg_erro)
+                 self.lbl_geo_details.setVisible(True)
+                 self.lbl_geo_details.setText("Localização não detectada na imagem.")
+                 self.lbl_geo_details.setStyleSheet("color: #9CA3AF; font-style: italic; border: 1px dashed #D1D5DB; border-radius: 6px; padding: 10px;")
              
         self._identificar_ave()
 
@@ -988,8 +1001,19 @@ class JanelaPrincipal(QMainWindow):
                     self.map_principal.update_map(lat, lon, zoom=6, add_marker=True, scientific_name=sciname)
                 
                 # Atualizar card geográfico
-                self.lbl_geo_placeholder.setText(f"Lat: {lat:.4f}, Lon: {lon:.4f} (Manual)")
-                self.lbl_geo_placeholder.setStyleSheet("color: #374151; font-weight: bold; border: none;")
+                # Atualizar card geográfico
+                self.lbl_geo_details.setVisible(True)
+                self.lbl_geo_details.setText(f"Lat: {lat:.4f}, Lon: {lon:.4f} (Manual)")
+                self.lbl_geo_details.setStyleSheet("""
+                    QLabel {
+                        background-color: #F9FAFB;
+                        border: 1px solid #E5E7EB;
+                        border-radius: 6px;
+                        padding: 6px;
+                        color: #374151;
+                        font-size: 12px;
+                    }
+                """)
                 
                 self._atualizar_geo_info(lat, lon)
                 
