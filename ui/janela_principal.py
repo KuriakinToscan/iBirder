@@ -19,21 +19,21 @@ from PIL import Image, ExifTags
 from datetime import datetime
 
 # Importações do Core
-from core.geo_utils import extract_lat_lon
-from core.local_worker import LocalIdentificationWorker
-from ui.janela_manual import JanelaManual
+from modules.step3_geography.geo_utils import extract_lat_lon
+from modules.step1_identity.id_worker import LocalIdentificationWorker
+from modules.step1_identity.finder_ui import JanelaManual
 from ui.dialogo_aviso import DialogoAviso
-from ui.worker_referencia import ReferenceImageWorker
-from core.buscador_worker import BuscadorWorker
-from core.audio_worker import AudioWorker
+from modules.step1_identity.worker_referencia import ReferenceImageWorker
+from modules.step2_biology.wiki_worker import BuscadorWorker
+from modules.step4_vocalization.audio_worker import AudioWorker
 from core.logger import save_crash_log
 from ui.widgets.map_widget import MapWidget
 from ui.custom_widgets import ImageCardWidget, AudioPlayerWidget
 from ui.dialogs.location_dialog import LocationDialog
-from core.geo_analyst import GeoAnalyst
+from modules.step3_geography.geo_analyst import GeoAnalyst
 from core.session_logger import SessionLogger
-from core.iucn_worker import IUCNWorker
-from core.ebird_worker import EBirdWorker
+from modules.step3_geography.iucn_worker import IUCNWorker
+from modules.step5_taxonomy.ebird_worker import EBirdWorker
 
 class GeoWorker(QThread):
     finished = Signal(dict)
@@ -60,6 +60,18 @@ class JanelaPrincipal(QMainWindow):
         
         # Logging de Sessão Temporária (v0.3.15)
         self.session_logger = SessionLogger()
+        
+        # O Cérebro do Aplicativo (Orchestrator via Feature-Based Architecture)
+        from core.orchestrator import Orchestrator
+        self.orchestrator = Orchestrator(self.session_logger, parent=self)
+        self.orchestrator.step1_identificacao_concluida.connect(self._ao_concluir_identificacao)
+        self.orchestrator.step1_identificacao_erro.connect(self._ao_erro_identificacao)
+        self.orchestrator.step1_progress_updated.connect(self._ao_progresso_identificacao)
+        self.orchestrator.step2_wiki_concluida.connect(self._ao_receber_info_especie)
+        self.orchestrator.step3_iucn_concluida.connect(self._ao_concluir_iucn)
+        self.orchestrator.step4_audio_concluido.connect(self._ao_encontrar_audio)
+        self.orchestrator.step4_audio_erro.connect(self._ao_erro_audio)
+        self.orchestrator.step5_ebird_concluido.connect(self._ao_concluir_ebird)
         
         self.setWindowTitle("iBirder")
         self.resize(1100, 700)
@@ -122,28 +134,10 @@ class JanelaPrincipal(QMainWindow):
         self.worker_referencia.search_failed.connect(lambda: self.card_ref.set_placeholder("Sem referência"))
         self.worker_referencia.start()
         
-        # Iniciar worker de informações da espécie (iNaturalist)
-        self._iniciar_busca_info_especie(nome_cientifico)
+        self.worker_referencia.start()
+        
+        # A busca de biologia via iNaturalist/WikiAves foi transferida para o Orchestrator
 
-    def _iniciar_busca_info_especie(self, nome_cientifico):
-        # Limpeza segura do worker anterior
-        old_worker = getattr(self, "worker_species", None)
-        if old_worker is not None:
-             try:
-                 old_worker.info_found.disconnect()
-                 old_worker.error_occurred.disconnect()
-             except: pass
-
-             if old_worker.isRunning():
-                 old_worker.requestInterruption()
-                 old_worker.quit()
-                 old_worker.wait() # Bloqueia brevemente para garantir parada
-             old_worker.deleteLater()
-
-        self.worker_species = BuscadorWorker(nome_cientifico, parent=self)
-        self.worker_species.info_found.connect(self._ao_receber_info_especie)
-        self.worker_species.error_occurred.connect(self._ao_erro_api)
-        self.worker_species.start()
 
     def _ao_encontrar_imagem_referencia(self, path, creditos, url_fonte=""):
         # set_image_path carrega o pixmap e prepara para drag
@@ -875,7 +869,7 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_nome_comum.setText("...")
         
         self._iniciar_busca_imagem(sci_formatted)
-        self._iniciar_busca_info_especie(sci_formatted)
+        self.orchestrator.start_cascade_from_step2(sci_formatted)
         
         self.btn_wiki.setVisible(True)
         self.btn_google.setVisible(True)
@@ -1142,13 +1136,9 @@ class JanelaPrincipal(QMainWindow):
         self.card_user.setAcceptDrops(False) # Bloqueia novos drops durante processamento
         
         try:
-            self.worker_local = LocalIdentificationWorker(self.caminho_imagem_atual)
-            self.worker_local.progress_updated.connect(self._ao_progresso_identificacao)
-            self.worker_local.identification_complete.connect(self._ao_concluir_identificacao)
-            self.worker_local.error_occurred.connect(self._ao_erro_identificacao)
-            self.worker_local.start()
+            self.orchestrator.start_pipeline_identificacao(self.caminho_imagem_atual)
         except Exception as e:
-            self._ao_erro_identificacao(f"Falha ao iniciar worker: {e}")
+            self._ao_erro_identificacao(f"Falha ao iniciar orchestrator: {e}")
 
     def _ao_progresso_identificacao(self, mensagem):
         self.status_bar.showMessage(mensagem)
@@ -1225,9 +1215,6 @@ class JanelaPrincipal(QMainWindow):
             
             if sci:
                 self._iniciar_busca_imagem(sci)
-                self._buscar_audio(sci) # v0.4.0
-                self._buscar_iucn(sci)  # v0.3.19
-                self._buscar_ebird(sci) # v0.3.21
                 
             # LOGGING DE SESSÃO: ETAPA 1 (v0.3.16)
             valor = float(conf) if conf else 0.0
@@ -1252,24 +1239,7 @@ class JanelaPrincipal(QMainWindow):
         
     # --- Áudio Player (v0.4.0) ---
 
-    def _buscar_audio(self, scientific_name):
-        """Inicia busca de áudio (Xeno-canto/iNat)."""
-        # Limpar worker anterior
-        old_worker = getattr(self, "audio_worker", None)
-        if old_worker:
-            old_worker.quit()
-            old_worker.wait()
-            old_worker.deleteLater()
-            
-        self.lbl_audio_placeholder.setText("Buscando vocalizações...")
-        self.lbl_audio_placeholder.setVisible(True)
-        
-        # Injetar localização atual para geofencing dos aúdios (se disponível)
-        
-        self.audio_worker = AudioWorker(scientific_name, lat=self.lat_atual, lon=self.lon_atual, parent=self)
-        self.audio_worker.audio_found.connect(self._ao_encontrar_audio)
-        self.audio_worker.search_failed.connect(self._ao_erro_audio)
-        self.audio_worker.start()
+    # A busca de áudio foi encapsulada no Orchestrator
 
     def _ao_encontrar_audio(self, resultados):
         """Recebe lista de áudios e cria os players."""
@@ -1396,47 +1366,29 @@ class JanelaPrincipal(QMainWindow):
 
     # --- IUCN e Integração Geoespacial (v0.3.19) ---
     def _abrir_configuracoes_iucn(self):
-        from ui.dialogs.iucn_settings import IUCNSettingsDialog
+        from modules.step3_geography.iucn_ui import IUCNSettingsDialog
         dlg = IUCNSettingsDialog(self)
         if dlg.exec() == QDialog.Accepted:
             # Re-disparar worker caso chave inserida no meio de uma sessao
             sci = self._obter_sciname_atual()
             if sci and "Inconclusiva" not in sci:
-                self._buscar_iucn(sci)
+                if hasattr(self, 'orchestrator'):
+                    self.orchestrator.start_step3_geography(sci)
 
     def _abrir_configuracoes_ebird(self):
-        from ui.dialogs.ebird_settings import EBirdSettingsDialog
+        from modules.step5_taxonomy.ebird_ui import EBirdSettingsDialog
         dlg = EBirdSettingsDialog(self)
         if dlg.exec() == QDialog.Accepted:
             sci = self._obter_sciname_atual()
             if sci and "Inconclusiva" not in sci:
-                self._buscar_ebird(sci)
-
-    def _buscar_iucn(self, scientific_name):
-        old_iucn_worker = getattr(self, "iucn_worker", None)
-        if old_iucn_worker:
-            old_iucn_worker.quit()
-            old_iucn_worker.wait()
-            old_iucn_worker.deleteLater()
-            
-        self.iucn_worker = IUCNWorker(scientific_name, parent=self)
-        self.iucn_worker.finished.connect(self._ao_concluir_iucn)
-        self.iucn_worker.start()
+                if hasattr(self, 'orchestrator'):
+                    self.orchestrator.start_step5_taxonomy(sci)
         
     def _ao_concluir_iucn(self, results):
         self.last_iucn_data = results
         self._registrar_dados_geo_iucn()
 
-    def _buscar_ebird(self, scientific_name):
-        old_ebird_worker = getattr(self, "ebird_worker", None)
-        if old_ebird_worker:
-            old_ebird_worker.quit()
-            old_ebird_worker.wait()
-            old_ebird_worker.deleteLater()
-            
-        self.ebird_worker = EBirdWorker(scientific_name, lat=self.lat_atual, lon=self.lon_atual, parent=self)
-        self.ebird_worker.finished.connect(self._ao_concluir_ebird)
-        self.ebird_worker.start()
+    # A busca do ebird foi movida para o Orchestrator
         
     def _ao_concluir_ebird(self, results):
         if hasattr(self, 'session_logger'):
@@ -1452,7 +1404,7 @@ class JanelaPrincipal(QMainWindow):
             print("[UI] Etapa 5 (eBird/Clements) integrada ao SessionLogger.")
             
             # Preparar persistência EXIF (Futuro v0.3.22+)
-            # from core.exif_manager import EXIFManager
+            # from modules.step6_persistence.exif_manager import EXIFManager
             # exif_manager = EXIFManager()
             # Se a imagem tiver um caminho salvo no widget card principal, passarremos.
             # exif_manager.escrever_metadados_completos(self.card_user.image_path, self.session_logger.obter_ultimo_registro())
@@ -1465,7 +1417,7 @@ class JanelaPrincipal(QMainWindow):
         
         if not geo and not iucn: return
         
-        from core.gbif_client import get_gbif_taxon_key
+        from modules.step3_geography.gbif_client import get_gbif_taxon_key
         sciname = self._obter_sciname_atual()
         link_gbif = ""
         if sciname:
