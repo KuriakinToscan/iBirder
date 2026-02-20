@@ -32,6 +32,7 @@ from ui.custom_widgets import ImageCardWidget, AudioPlayerWidget
 from ui.dialogs.location_dialog import LocationDialog
 from core.geo_analyst import GeoAnalyst
 from core.session_logger import SessionLogger
+from core.iucn_worker import IUCNWorker
 
 class GeoWorker(QThread):
     finished = Signal(dict)
@@ -1178,6 +1179,7 @@ class JanelaPrincipal(QMainWindow):
             if sci:
                 self._iniciar_busca_imagem(sci)
                 self._buscar_audio(sci) # v0.4.0
+                self._buscar_iucn(sci)  # v0.3.19
                 
             # LOGGING DE SESSÃO: ETAPA 1 (v0.3.16)
             valor = float(conf) if conf else 0.0
@@ -1301,6 +1303,9 @@ class JanelaPrincipal(QMainWindow):
         self.geo_worker.start()
         
     def _ao_concluir_geo_analise(self, details):
+        self.last_geo_data = details
+        self._registrar_dados_geo_iucn()
+        
         if not hasattr(self, 'lbl_geo_details'):
              return
 
@@ -1321,6 +1326,55 @@ class JanelaPrincipal(QMainWindow):
         """
         self.lbl_geo_details.setText(texto)
         self.lbl_geo_details.setVisible(True)
+
+    # --- IUCN e Integração Geoespacial (v0.3.19) ---
+    def _buscar_iucn(self, scientific_name):
+        old_iucn_worker = getattr(self, "iucn_worker", None)
+        if old_iucn_worker:
+            old_iucn_worker.quit()
+            old_iucn_worker.wait()
+            old_iucn_worker.deleteLater()
+            
+        self.iucn_worker = IUCNWorker(scientific_name, parent=self)
+        self.iucn_worker.finished.connect(self._ao_concluir_iucn)
+        self.iucn_worker.start()
+        
+    def _ao_concluir_iucn(self, results):
+        self.last_iucn_data = results
+        self._registrar_dados_geo_iucn()
+
+    def _registrar_dados_geo_iucn(self):
+        geo = getattr(self, 'last_geo_data', {})
+        iucn = getattr(self, 'last_iucn_data', {})
+        
+        if not geo and not iucn: return
+        
+        from core.gbif_client import get_gbif_taxon_key
+        sciname = self._obter_sciname_atual()
+        link_gbif = ""
+        if sciname:
+            try:
+                # Opcional: Pegar a key rapidamente (isso é blocante mas rápido, e o user n se importa com latência de API rapida aqui)
+                taxon_key = get_gbif_taxon_key(sciname)
+                if taxon_key:
+                    link_gbif = f"https://www.gbif.org/species/{taxon_key}"
+            except: pass
+
+        dados = {
+            "lat": self.lat_atual,
+            "lon": self.lon_atual,
+            "pais": geo.get("pais", "-"),
+            "estado": geo.get("estado", "-"),
+            "municipio": geo.get("municipio", "-"),
+            "bioma": geo.get("bioma", "-"),
+            "iucn_status": iucn.get("iucn_status", "Não Avaliado"),
+            "link_gbif": link_gbif,
+            "link_iucn": iucn.get("link_iucn", ""),
+            "caminho_geojson": iucn.get("geojson_path", "")
+        }
+        
+        if hasattr(self, 'session_logger'):
+             self.session_logger.atualizar_ultimo_registro(dados)
 
     def _abrir_seletor_arquivo(self):
         self.activateWindow()
@@ -1363,6 +1417,13 @@ class JanelaPrincipal(QMainWindow):
             self.lbl_audio_placeholder.setText("Áudio não carregado")
             self.lbl_audio_placeholder.setVisible(True)
 
+        self.worker_species = None
+        self.audio_worker = None
+        self.geo_worker = None
+        self.iucn_worker = None
+        self.last_geo_data = {}
+        self.last_iucn_data = {}
+        
         self.caminho_imagem_atual = None
         self.lat_atual = None
         self.lon_atual = None
