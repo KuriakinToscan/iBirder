@@ -31,6 +31,7 @@ from ui.widgets.map_widget import MapWidget
 from ui.custom_widgets import ImageCardWidget, AudioPlayerWidget
 from ui.dialogs.location_dialog import LocationDialog
 from core.geo_analyst import GeoAnalyst
+from core.session_logger import SessionLogger
 
 class GeoWorker(QThread):
     finished = Signal(dict)
@@ -54,6 +55,9 @@ class JanelaPrincipal(QMainWindow):
         super().__init__()
         self.nome_icone_janela = nome_icone_janela
         self.ai_status = ai_status
+        
+        # Logging de Sessão Temporária (v0.3.15)
+        self.session_logger = SessionLogger()
         
         self.setWindowTitle("iBirder")
         self.resize(1100, 700)
@@ -821,6 +825,16 @@ class JanelaPrincipal(QMainWindow):
         self.btn_google.setVisible(True)
         self.btn_ebird.setVisible(True)
 
+        # LOGGING DE SESSÃO: ETAPA 1 (v0.3.16)
+        dados_etapa_1 = {
+             "nome_cientifico": sci_formatted,
+             "descricao": "Identificação inserida manualmente pelo usuário.",
+             "status_msg": "Busca Direta",
+             "confianca": "Identificado pelo usuário"
+        }
+        if hasattr(self, 'session_logger'):
+             self.session_logger.registrar_identificacao(dados_etapa_1)
+
     def _abrir_google_lens(self):
         if not self.caminho_imagem_atual:
              return
@@ -1156,6 +1170,17 @@ class JanelaPrincipal(QMainWindow):
             if sci:
                 self._iniciar_busca_imagem(sci)
                 self._buscar_audio(sci) # v0.4.0
+                
+            # LOGGING DE SESSÃO: ETAPA 1 (v0.3.16)
+            valor = float(conf) if conf else 0.0
+            dados_etapa_1 = {
+                 "nome_cientifico": self.dados_identificacao_atual.get("nome_cientifico", ""),
+                 "descricao": desc,
+                 "status_msg": status_msg,
+                 "confianca": f"{valor*100:.1f}%"
+            }
+            if hasattr(self, 'session_logger'):
+                 self.session_logger.registrar_identificacao(dados_etapa_1)
         
         if status_msg:
              print(f"[UI] Status de Identificação: {status_msg}")
@@ -1362,3 +1387,9 @@ class JanelaPrincipal(QMainWindow):
         if self.map_principal:
              self.map_principal.show_placeholder_message("Aguardando dados de Localização")
         self.status_bar.showMessage("Pronto (Local)")
+
+    def closeEvent(self, event):
+        """Sobrescreve o fechamento para limpar a caderneta de campo temporária."""
+        if hasattr(self, 'session_logger'):
+            self.session_logger.limpar_sessao()
+        event.accept()
