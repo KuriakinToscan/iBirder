@@ -424,22 +424,7 @@ class JanelaPrincipal(QMainWindow):
         layout_esquerda.addWidget(self.btn_set_location)
         
         # --- Painel de Informações Geo (v0.3.11) ---
-        self.lbl_geo_details = QLabel()
-        self.lbl_geo_details.setWordWrap(True)
-        self.lbl_geo_details.setTextFormat(Qt.RichText)
-        self.lbl_geo_details.setStyleSheet("""
-            QLabel {
-                background-color: #F3F4F6;
-                border-radius: 8px;
-                padding: 10px;
-                color: #374151;
-                font-size: 13px;
-                border: 1px solid #E5E7EB;
-                margin-top: 5px;
-            }
-        """)
-        self.lbl_geo_details.setVisible(False) # Só mostra quando tiver dados
-        layout_esquerda.addWidget(self.lbl_geo_details)
+        # --- (Removido Painel Info Geo daqui - Movido para coluna direita v0.3.19) ---
         # -------------------------------------------------------
         
         layout_principal.addLayout(layout_esquerda, stretch=3)
@@ -660,18 +645,35 @@ class JanelaPrincipal(QMainWindow):
         layout_res.addWidget(grupo_audio)
 
         # --- NOVO: Card Informações Geográficas (v0.3.5) ---
+        # --- NOVO: Card Dados Geográficos (v0.3.19 - Realocado) ---
         grupo_geo = QGroupBox("")
         grupo_geo.setStyleSheet("margin-top: 10px; padding-top: 10px;")
         layout_geo = QVBoxLayout()
         
-        lbl_titulo_geo_card = QLabel("Informações Geográficas")
+        lbl_titulo_geo_card = QLabel("Dados Geográficos")
         lbl_titulo_geo_card.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 4px;")
         layout_geo.addWidget(lbl_titulo_geo_card)
         
-        self.lbl_geo_placeholder = QLabel("Localização não detectada")
-        self.lbl_geo_placeholder.setAlignment(Qt.AlignCenter)
-        self.lbl_geo_placeholder.setStyleSheet("color: #9CA3AF; font-style: italic; border: 1px dashed #D1D5DB; border-radius: 4px; padding: 20px;")
-        layout_geo.addWidget(self.lbl_geo_placeholder)
+        # Reutilizando self.lbl_geo_details aqui
+        self.lbl_geo_details = QLabel("Aguardando localização...")
+        self.lbl_geo_details.setWordWrap(True)
+        self.lbl_geo_details.setTextFormat(Qt.RichText)
+        self.lbl_geo_details.setStyleSheet("""
+            QLabel {
+                background-color: #F9FAFB;
+                border: 1px solid #E5E7EB;
+                border-radius: 6px;
+                padding: 6px;
+                color: #374151;
+                font-size: 12px;
+            }
+        """)
+        # Diferente da esquerda, aqui ele pode começar visivel como placeholder ou invisivel. 
+        # O User pediu para seguir formatação dos demais. Vamos manter visivel com placeholder ou vazio.
+        # Mas a logica de _ao_concluir atualiza o texto. Vamos iniciar vazio ou com msg.
+        self.lbl_geo_details.setVisible(False) 
+        
+        layout_geo.addWidget(self.lbl_geo_details)
         
         grupo_geo.setLayout(layout_geo)
         layout_res.addWidget(grupo_geo)
@@ -1158,7 +1160,7 @@ class JanelaPrincipal(QMainWindow):
         lon_str = f"{lon:.5f}" if isinstance(lon, float) else "?"
 
         texto = f"""
-        <b>Coordenadas:</b> {lat_str}, {lon_str}<br>
+        <b>Coordenadas:</b> Lat {lat_str}, Long {lon_str}<br>
         <b>País:</b> {details.get('pais', '-')}<br>
         <b>Estado:</b> {details.get('estado', '-')}<br>
         <b>Município:</b> {details.get('municipio', '-')}<br>
@@ -1166,6 +1168,7 @@ class JanelaPrincipal(QMainWindow):
         <b>Bioma:</b> {details.get('bioma', '-')}<br>
         """
         self.lbl_geo_details.setText(texto)
+        self.lbl_geo_details.setVisible(True)
 
     def _abrir_seletor_arquivo(self):
         self.activateWindow()
