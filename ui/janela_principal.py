@@ -431,13 +431,14 @@ class JanelaPrincipal(QMainWindow):
         self.map_principal.show_placeholder_message("Aguardando dados de Localização")
         layout_esquerda.addWidget(self.map_principal)
         
-        # --- Botão Definir Localização Manualmente (v0.3.8 - Persistente e Estilizado) ---
+        # --- Botão Definir Localização Manualmente e IUCN (v0.3.19) ---
+        layout_map_botoes = QHBoxLayout()
+        layout_map_botoes.setSpacing(10)
+        
         self.btn_set_location = QPushButton("Definir Localização Manualmente")
         self.btn_set_location.setCursor(Qt.PointingHandCursor)
-        self.btn_set_location.setVisible(True) # Sempre visível agora
+        self.btn_set_location.setVisible(True)
         self.btn_set_location.clicked.connect(self._abrir_dialogo_localizacao)
-        
-        # Estilo Padronizado (Dark Gray) - Igual aos outros botões de ação
         self.btn_set_location.setStyleSheet("""
             QPushButton {
                 background-color: #374151; 
@@ -450,7 +451,30 @@ class JanelaPrincipal(QMainWindow):
             }
             QPushButton:hover { background-color: #1F2937; }
         """)
-        layout_esquerda.addWidget(self.btn_set_location)
+        
+        self.btn_config_iucn = QPushButton("⚙️ Configurações IUCN")
+        self.btn_config_iucn.setCursor(Qt.PointingHandCursor)
+        self.btn_config_iucn.clicked.connect(self._abrir_configuracoes_iucn)
+        self.btn_config_iucn.setStyleSheet("""
+            QPushButton {
+                background-color: #F3F4F6;
+                color: #374151;
+                border: 1px solid #D1D5DB;
+                border-radius: 8px;
+                padding: 10px;
+                font-weight: 500;
+                font-size: 11px;
+                margin-top: 10px;
+            }
+            QPushButton:hover {
+                background-color: #E5E7EB;
+                color: #111827;
+            }
+        """)
+
+        layout_map_botoes.addWidget(self.btn_set_location, stretch=2)
+        layout_map_botoes.addWidget(self.btn_config_iucn, stretch=1)
+        layout_esquerda.addLayout(layout_map_botoes)
         
         # --- Painel de Informações Geo (v0.3.11) ---
         # --- (Removido Painel Info Geo daqui - Movido para coluna direita v0.3.19) ---
@@ -1328,6 +1352,15 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_geo_details.setVisible(True)
 
     # --- IUCN e Integração Geoespacial (v0.3.19) ---
+    def _abrir_configuracoes_iucn(self):
+        from ui.dialogs.iucn_settings import IUCNSettingsDialog
+        dlg = IUCNSettingsDialog(self)
+        if dlg.exec() == QDialog.Accepted:
+            # Re-disparar worker caso chave inserida no meio de uma sessao
+            sci = self._obter_sciname_atual()
+            if sci and "Inconclusiva" not in sci:
+                self._buscar_iucn(sci)
+
     def _buscar_iucn(self, scientific_name):
         old_iucn_worker = getattr(self, "iucn_worker", None)
         if old_iucn_worker:
