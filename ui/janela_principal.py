@@ -1241,10 +1241,8 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_audio_placeholder.setVisible(True)
         
         # Injetar localização atual para geofencing dos aúdios (se disponível)
-        lat = getattr(self, "lat_atual", None)
-        lon = getattr(self, "lon_atual", None)
         
-        self.audio_worker = AudioWorker(scientific_name, lat=lat, lon=lon, parent=self)
+        self.audio_worker = AudioWorker(scientific_name, lat=self.lat_atual, lon=self.lon_atual, parent=self)
         self.audio_worker.audio_found.connect(self._ao_encontrar_audio)
         self.audio_worker.search_failed.connect(self._ao_erro_audio)
         self.audio_worker.start()
@@ -1274,11 +1272,14 @@ class JanelaPrincipal(QMainWindow):
         audio_markers = []
         for audio in resultados:
             player = AudioPlayerWidget(
-                audio['url'], 
-                audio['autor'], 
-                audio['fonte'], 
-                audio.get('tipo_canto', ''), 
-                audio.get('distancia_texto', '')
+                url=audio['url'], 
+                autor=audio['autor'], 
+                fonte=audio['fonte'], 
+                tipo_canto=audio.get('tipo_canto', ''), 
+                distancia_texto=audio.get('distancia_texto', ''),
+                audio_data=audio,
+                on_play=self._registrar_audio_session,
+                parent=layout.parentWidget()
             )
             layout.addWidget(player)
             
@@ -1299,7 +1300,25 @@ class JanelaPrincipal(QMainWindow):
         if audio_markers and self.map_principal:
              sci = self._obter_sciname_atual()
              self.map_principal.update_map(self.lat_atual, self.lon_atual, zoom=6, add_marker=True, scientific_name=sci, audio_markers=audio_markers)
-            
+             
+    def _registrar_audio_session(self, audio):
+        if not audio or not hasattr(self, 'session_logger'):
+             return
+             
+        dados_etapa_4 = {
+            "audio_url": audio.get('url', ''),
+            "audio_autor": audio.get('autor', 'Desconhecido'),
+            "audio_licenca": audio.get('licenca', 'CC BY-NC'),
+            "audio_tipo": audio.get('tipo_canto', ''),
+            "audio_qualidade": audio.get('q', ''),
+            "audio_lat": audio.get('lat'),
+            "audio_lon": audio.get('lon'),
+            "audio_distancia_km": audio.get('distancia'),
+            "audio_link_web": audio.get('link_web', ''),
+            "audio_source": audio.get('fonte', 'Xeno-canto')
+        }
+        self.session_logger.atualizar_ultimo_registro(dados_etapa_4)
+
     def _ao_erro_audio(self):
         self.lbl_audio_placeholder.setText("Nenhuma gravação encontrada.")
         self.lbl_audio_placeholder.setVisible(True)
