@@ -5,10 +5,10 @@ from PySide6.QtCore import QThread, Signal
 from PIL import Image
 
 try:
-    import tensorflow as tf
+    import tflite_runtime.interpreter as tflite
 except ImportError:
-    # Fallback/Mock para ambiente de desenvolvimento se TF não instalar
-    tf = None
+    # Fallback/Mock para ambiente de desenvolvimento se TFLite não instalar
+    tflite = None
 
 from core.model_manager import ModelManager
 
@@ -28,8 +28,8 @@ class LocalIdentificationWorker(QThread):
 
     def run(self):
         global _interpreter_cache
-        if not tf:
-             self.error_occurred.emit("TensorFlow não está instalado. Reinicie o app.")
+        if not tflite:
+             self.error_occurred.emit("TFLite Runtime não está instalado. Reinicie o app.")
              return
 
         try:
@@ -51,7 +51,7 @@ class LocalIdentificationWorker(QThread):
             start_time = time.time()
             if _interpreter_cache is None:
                 self.progress_updated.emit("Carregando cérebro digital...")
-                _interpreter_cache = tf.lite.Interpreter(model_path=str(manager.model_path))
+                _interpreter_cache = tflite.Interpreter(model_path=str(manager.model_path))
                 _interpreter_cache.allocate_tensors()
             
             interpreter = _interpreter_cache
