@@ -50,30 +50,25 @@ class ExpandedImageDialog(QDialog):
         
         self.layout_principal.addWidget(self.container)
 
-        # 2. Botão Fechar (Flutuante)
-        self.btn_close = QPushButton(self)
+        # 2. Botão Fechar (Ghost Style)
+        self.btn_close = QPushButton("✕", self)
         self.btn_close.setCursor(QCursor(Qt.PointingHandCursor))
-        self.btn_close.setFixedSize(40, 40)
+        self.btn_close.setFixedSize(36, 36)
         
-        # Carregar ícone
-        path_icon = self._get_asset_path("icon_retraijanela.svg")
-        if path_icon:
-            self.btn_close.setIcon(QIcon(path_icon))
-            self.btn_close.setIconSize(QSize(24, 24))
-        else:
-            self.btn_close.setText("X")
-            
-        # Estilo Escuro (Contraste no fundo branco)
+        # Estilo "Ghost" (Limpo e Moderno)
         self.btn_close.setStyleSheet("""
             QPushButton {
-                background-color: #374151;
-                border-radius: 20px;
-                border: 1px solid #1F2937;
-                color: white;
+                background-color: transparent;
+                color: #9CA3AF;
                 font-weight: bold;
+                font-family: "Segoe UI", sans-serif;
+                font-size: 18px;
+                border-radius: 18px;
+                border: none;
             }
             QPushButton:hover {
-                background-color: #1F2937;
+                background-color: #F3F4F6;
+                color: #EF4444; /* Vermelho suave no hover */
             }
         """)
         self.btn_close.clicked.connect(self.close)
@@ -85,12 +80,16 @@ class ExpandedImageDialog(QDialog):
         self.resize(w, h)
 
     def resizeEvent(self, event):
-        """Posiciona o botão de fechar no canto superior direito (dentro da margem visual)."""
+        """Posiciona o botão de fechar dentro da moldura branca."""
         super().resizeEvent(event)
-        # Ajuste para ficar sobre o canto do container, considerando as margens do dialog
-        margin_dialog = 10 # Um pouco para fora da borda visual fica bonito
-        x = self.width() - self.btn_close.width() - margin_dialog
-        y = margin_dialog
+        
+        # Margem do Layout (20) + Padding Interno desejado (8)
+        margin_top = 28
+        margin_right = 28
+        
+        x = self.width() - self.btn_close.width() - margin_right
+        y = margin_top
+        
         self.btn_close.move(x, y)
         self.btn_close.raise_()
 
