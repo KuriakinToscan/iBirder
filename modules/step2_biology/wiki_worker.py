@@ -1,6 +1,6 @@
 
 from PySide6.QtCore import QThread, Signal
-from core.buscador_blindado import BuscadorBlindado
+from modules.step2_biology.wiki_scraper import BuscadorBlindado
 
 class BuscadorWorker(QThread):
     info_found = Signal(dict)

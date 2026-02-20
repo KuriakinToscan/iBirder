@@ -31,7 +31,7 @@ class MapWidget(QWebEngineView):
 
     def update_map(self, lat, lon, zoom=5, add_marker=False, scientific_name=None, audio_markers=None):
         try:
-            from core.gbif_client import get_gbif_taxon_key
+            from modules.step3_geography.gbif_client import get_gbif_taxon_key
             
             # Create Folium Map
             m = folium.Map(location=[lat, lon], zoom_start=zoom, control_scale=True, tiles=None)

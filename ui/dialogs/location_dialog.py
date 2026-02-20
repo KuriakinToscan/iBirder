@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QIcon
-from core.geo_utils import search_location
+from modules.step3_geography.geo_utils import search_location
 
 class SearchLocationWorker(QThread):
     results_found = Signal(list)
