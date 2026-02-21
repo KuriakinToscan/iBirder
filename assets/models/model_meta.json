@@ -1,0 +1,20 @@
+{
+    "version": "1.0.0",
+    "build_date": "2026-02-20",
+    "author": "iNaturalist / Google CVis",
+    "model_type": "vision_small",
+    "compatibility": {
+        "min_app_version": "0.3.30",
+        "engine": "tflite-runtime"
+    },
+    "files": {
+        "inat_vision_small.tflite": {
+            "sha256": "placeholder_hash_model",
+            "size_bytes": 3561598
+        },
+        "inat_labels.txt": {
+            "sha256": "placeholder_hash_labels",
+            "size_bytes": 37146
+        }
+    }
+}

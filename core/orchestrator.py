@@ -20,6 +20,8 @@ class Orchestrator(QObject):
     """
     
     # Sinais para atualizar a Janela Principal (View)
+    update_available = Signal(dict) # Para OTA Updater
+    
     step1_identificacao_concluida = Signal(dict)
     step1_identificacao_erro = Signal(str)
     step1_progress_updated = Signal(dict)  # Expondo o progresso para a UI
@@ -48,6 +50,13 @@ class Orchestrator(QObject):
         # Estado Geográfico Armazenado pelo Pipeline
         self.current_lat = None
         self.current_lon = None
+        
+        # Inteligência Evolutiva (OTA Updater)
+        from core.updater import ModelUpdater
+        self.updater = ModelUpdater(parent=self)
+        self.updater.update_available.connect(self.update_available.emit)
+        # Disparo silencioso em background
+        self.updater.check_for_updates()
 
     def start_pipeline_identificacao(self, image_path, skip_model=False, is_photo=True):
         """Inicia a Etapa 1 completa."""
