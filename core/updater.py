@@ -1,5 +1,4 @@
 import os
-import json
 from pathlib import Path
 from PySide6.QtCore import QObject, Signal, QThread
 
@@ -19,6 +18,7 @@ class ModelUpdater(QObject):
         
     def _load_local_meta(self):
         """Lê metadados locais de forma segura."""
+        import json # Lazy load para poupar memória
         if self.meta_path.exists():
             try:
                 with open(self.meta_path, 'r', encoding='utf-8') as f:
