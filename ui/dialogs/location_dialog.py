@@ -2,7 +2,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
     QPushButton, QListWidget, QMessageBox, QListWidgetItem
 )
-from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtCore import Qt, QThread, Signal, QTimer
 from PySide6.QtGui import QIcon
 from modules.step3_geography.geo_utils import search_location
 from ui.base.base_dialog import BaseDialog
@@ -40,6 +40,12 @@ class LocationDialog(BaseDialog):
         self.input_busca.setPlaceholderText("Ex: Parque Ibirapuera, São Paulo...")
         self.input_busca.returnPressed.connect(self._buscar)
         
+        # QTimer for debounce predictive search
+        self.debounce_timer = QTimer(self)
+        self.debounce_timer.setSingleShot(True)
+        self.debounce_timer.timeout.connect(self._buscar_preditivo)
+        self.input_busca.textChanged.connect(self._on_text_changed)
+        
         self.btn_buscar = QPushButton("Buscar")
         self.btn_buscar.setCursor(Qt.PointingHandCursor)
         self.btn_buscar.clicked.connect(self._buscar)
@@ -53,6 +59,26 @@ class LocationDialog(BaseDialog):
         self.main_layout.addWidget(lbl_resultados)
         
         self.lista_resultados = QListWidget()
+        self.lista_resultados.setStyleSheet("""
+            QListWidget {
+                background-color: #F8F9FA;
+                color: #2C3E50;
+                border: 1px solid #D1D5DB;
+                border-radius: 6px;
+                padding: 4px;
+            }
+            QListWidget::item {
+                padding: 8px;
+                border-bottom: 1px solid #E5E7EB;
+            }
+            QListWidget::item:selected {
+                background-color: #374151;
+                color: white;
+            }
+            QListWidget::item:hover {
+                background-color: #E5E7EB;
+            }
+        """)
         self.lista_resultados.itemClicked.connect(self._item_selecionado)
         self.main_layout.addWidget(self.lista_resultados)
         
@@ -77,6 +103,18 @@ class LocationDialog(BaseDialog):
         self.btn_confirmar.setEnabled(False)
         self.btn_confirmar.clicked.connect(self._confirmar)
         self.main_layout.addWidget(self.btn_confirmar)
+
+    def _on_text_changed(self, text):
+        if len(text.strip()) > 3:
+            self.lista_resultados.clear()
+            self.lista_resultados.addItem("⏳ Digitando...")
+            self.debounce_timer.start(500)
+        elif len(text.strip()) == 0:
+            self.debounce_timer.stop()
+            self.lista_resultados.clear()
+
+    def _buscar_preditivo(self):
+        self._buscar()
 
     def _buscar(self):
         query = self.input_busca.text().strip()

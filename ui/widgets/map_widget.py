@@ -5,13 +5,33 @@ from PySide6.QtCore import QUrl
 import io
 
 class ExternalLinkPage(QWebEnginePage):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.map_widget = parent
+
     def acceptNavigationRequest(self, url, _type, isMainFrame):
+        url_str = url.toString()
+        if url_str.startswith("ibirder://map_drag"):
+            from urllib.parse import urlparse, parse_qs
+            parsed = urlparse(url_str)
+            query = parse_qs(parsed.query)
+            if 'lat' in query and 'lon' in query:
+                try:
+                    lat = float(query['lat'][0])
+                    lon = float(query['lon'][0])
+                    if hasattr(self.map_widget, 'marker_dragged'):
+                        self.map_widget.marker_dragged.emit(lat, lon)
+                except ValueError: pass
+            return False
+
         if _type == QWebEnginePage.NavigationTypeLinkClicked:
             QDesktopServices.openUrl(url)
             return False
         return True
 
 class MapWidget(QWebEngineView):
+    from PySide6.QtCore import Signal
+    marker_dragged = Signal(float, float)
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setPage(ExternalLinkPage(self)) # Intercepta links to open in default browser
@@ -143,11 +163,35 @@ class MapWidget(QWebEngineView):
             ).add_to(m)
 
             if add_marker:
-                folium.Marker(
+                marker = folium.Marker(
                     [lat, lon], 
                     icon=folium.Icon(color="red", icon="camera", prefix="glyphicon"),
-                    tooltip="Local da Foto (Alvo)"
-                ).add_to(m)
+                    tooltip="Local da Foto (Alvo)",
+                    draggable=True
+                )
+                marker.add_to(m)
+                
+                # JS to hook dragend
+                drag_js = """
+                <script>
+                setTimeout(function() {
+                    for (var key in window) {
+                        if (key.startsWith("map_")) {
+                            var mapObj = window[key];
+                            mapObj.eachLayer(function(layer) {
+                                if (layer.options && layer.options.draggable) {
+                                    layer.on('dragend', function(e) {
+                                        var position = layer.getLatLng();
+                                        window.location.href = "ibirder://map_drag?lat=" + position.lat + "&lon=" + position.lng;
+                                    });
+                                }
+                            });
+                        }
+                    }
+                }, 500);
+                </script>
+                """
+                m.get_root().html.add_child(folium.Element(drag_js))
                 
             if audio_markers:
                  for am in audio_markers:

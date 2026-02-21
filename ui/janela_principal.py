@@ -482,6 +482,7 @@ class JanelaPrincipal(QMainWindow):
         self.map_principal = MapWidget()
         self.map_principal.setMinimumHeight(350) 
         self.map_principal.show_placeholder_message("Aguardando dados de Localização")
+        self.map_principal.marker_dragged.connect(self._ao_arrastar_pino)
         layout_esquerda.addWidget(self.map_principal)
         
         # --- Botão Definir Localização Manualmente e IUCN (v0.3.19) ---
@@ -505,49 +506,7 @@ class JanelaPrincipal(QMainWindow):
             QPushButton:hover { background-color: #1F2937; }
         """)
         
-        self.btn_config_iucn = QPushButton("⚙️ Configurações IUCN")
-        self.btn_config_iucn.setCursor(Qt.PointingHandCursor)
-        self.btn_config_iucn.clicked.connect(self._abrir_configuracoes_iucn)
-        self.btn_config_iucn.setStyleSheet("""
-            QPushButton {
-                background-color: #F3F4F6;
-                color: #374151;
-                border: 1px solid #D1D5DB;
-                border-radius: 8px;
-                padding: 10px;
-                font-weight: 500;
-                font-size: 11px;
-                margin-top: 10px;
-            }
-            QPushButton:hover {
-                background-color: #E5E7EB;
-                color: #111827;
-            }
-        """)
-
-        self.btn_config_ebird = QPushButton("⚙️ Configurações eBird")
-        self.btn_config_ebird.setCursor(Qt.PointingHandCursor)
-        self.btn_config_ebird.clicked.connect(self._abrir_configuracoes_ebird)
-        self.btn_config_ebird.setStyleSheet("""
-            QPushButton {
-                background-color: #F3F4F6;
-                color: #374151;
-                border: 1px solid #D1D5DB;
-                border-radius: 8px;
-                padding: 10px;
-                font-weight: 500;
-                font-size: 11px;
-                margin-top: 10px;
-            }
-            QPushButton:hover {
-                background-color: #E5E7EB;
-                border-color: #9CA3AF;
-            }
-        """)
-        
-        layout_map_botoes.addWidget(self.btn_set_location, stretch=2)
-        layout_map_botoes.addWidget(self.btn_config_iucn, stretch=1)
-        layout_map_botoes.addWidget(self.btn_config_ebird)
+        layout_map_botoes.addWidget(self.btn_set_location, stretch=1)
         
         layout_esquerda.addLayout(layout_map_botoes)
         
@@ -1138,6 +1097,17 @@ class JanelaPrincipal(QMainWindow):
                  self.lbl_geo_details.setStyleSheet("color: #9CA3AF; font-style: italic; border: 1px dashed #D1D5DB; border-radius: 6px; padding: 10px;")
              
         self._identificar_ave()
+
+    def _ao_arrastar_pino(self, lat, lon):
+        print(f"[UI] Pino do mapa arrastado para: Lat {lat}, Lon {lon}")
+        lat = round(lat, 6)
+        lon = round(lon, 6)
+        self.lat_atual = lat
+        self.lon_atual = lon
+        self.status_bar.showMessage(f"Coordenadas atualizadas via mapa (Lat {lat}, Lon {lon})")
+        # Update map to prevent marker jumping back and forth awkwardly? No, it's already there. 
+        # But we must update _atualizar_geo_info to fetch biome, municipality, IUCN state, etc.
+        self._atualizar_geo_info(lat, lon)
 
     def _abrir_dialogo_localizacao(self):
         dialog = LocationDialog(self)
