@@ -16,6 +16,7 @@ class ModelManager:
         # Garantir que a pasta existe
         self.assets_dir.mkdir(parents=True, exist_ok=True)
 
+    def check_resources(self):
         return self.model_path.exists() and self.labels_path.exists()
 
     def download_resources(self, callback=None):
