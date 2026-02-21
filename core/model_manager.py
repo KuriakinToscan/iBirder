@@ -10,28 +10,11 @@ class ModelManager:
     
     def __init__(self):
         self.assets_dir = Path(__file__).parent.parent / "assets" / "models"
-        self.model_path = self.assets_dir / "birds_model.tflite"
-        self.labels_path = self.assets_dir / "birds_labels.txt"
+        self.model_path = self.assets_dir / "inat_vision_small.tflite"
+        self.labels_path = self.assets_dir / "inat_labels.txt"
         
         # Garantir que a pasta existe
         self.assets_dir.mkdir(parents=True, exist_ok=True)
-
-    def check_resources(self):
-        """Retorna True se todos os arquivos necessários existem e são válidos."""
-        # Se o modelo existir mas for muito pequeno (< 3MB), pode estar corrompido.
-        # O EfficientNet Lite0 tem aprox 3.4MB - 4MB.
-        if self.model_path.exists():
-            size_mb = self.model_path.stat().st_size / (1024 * 1024)
-            # Ajustado para 3MB para evitar re-download desnecessário se o arquivo for valido.
-            if size_mb < 3:
-                print(f"[MODELO] Arquivo existente é muito pequeno ({size_mb:.2f} MB). Removendo para baixar versão correta...")
-                try:
-                    os.remove(self.model_path)
-                    if self.labels_path.exists():
-                        os.remove(self.labels_path)
-                except Exception as e:
-                    print(f"[MODELO] Erro ao remover arquivo antigo: {e}")
-                return False
 
         return self.model_path.exists() and self.labels_path.exists()
 

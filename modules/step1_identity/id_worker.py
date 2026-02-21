@@ -87,39 +87,24 @@ class LocalIdentificationWorker(QThread):
             # Add batch dimension
             input_data = np.expand_dims(img_array, axis=0)
 
-            # 4. Inferência
+            # Inferência
+            start_infer_time = time.time()
             interpreter.set_tensor(input_details[0]['index'], input_data)
             interpreter.invoke()
+            infer_ms = (time.time() - start_infer_time) * 1000
+            print(f"[IA TELEMETRY] Inferência local (iNaturalist Vision) bem-sucedida em {infer_ms:.2f}ms.")
 
-            # 5. Interpretar Resultados (EfficientDet-Lite Output Tensors)
-            if len(output_details) >= 3:
-                # Lógica EfficientDet (Object Detection)
-                # 0: Boxes, 1: Classes, 2: Scores, 3: Count
-                classes = interpreter.get_tensor(output_details[1]['index'])[0] # Class indices
-                scores = interpreter.get_tensor(output_details[2]['index'])[0] # Confidence scores
-                
-                # Pegar a detecção com maior score
-                best_idx = np.argmax(scores)
-                idx = int(classes[best_idx])
-                confidence = float(scores[best_idx])
-                
-                print(f"[IA] EfficientDet: Melhor classe {idx} com score {confidence:.2f}")
-                
-            else:
-                # Fallback para Classificação (EfficientNet/MobileNet)
-                output_data = interpreter.get_tensor(output_details[0]['index'])
-                results = np.squeeze(output_data)
-                top_k = results.argsort()[-1:][::-1]
-                idx = top_k[0]
-                confidence = float(results[idx])
-                
-                # Se for uint8, desnormalizar (0-255 -> 0.0-1.0)
-                if output_details[0]['dtype'] == np.uint8:
-                     confidence = confidence / 255.0
-                print(f"[IA] Classifier: Classe {idx} com score {confidence:.2f}")
-
-            elapsed = time.time() - start_time
-            print(f"[IA] Inferência local em {elapsed:.2f}s. Confiança: {confidence:.2f}")
+            # Interpretar Resultados (Classificação)
+            output_data = interpreter.get_tensor(output_details[0]['index'])
+            results = np.squeeze(output_data)
+            
+            if output_details[0]['dtype'] == np.uint8:
+                 results = results / 255.0
+            
+            # Pegar Top-3
+            top_k = results.argsort()[-3:][::-1]
+            idx = top_k[0]
+            confidence = float(results[idx])
 
             if confidence < self.min_confidence:
                  # Em vez de erro, retornamos um resultado "Inconclusivo" para a UI tratar
@@ -138,31 +123,25 @@ class LocalIdentificationWorker(QThread):
             print(f'[IA] Labels carregados: {len(labels)}')
             
             try:
-                # EfficientDet-Lite geralmente usa índices diretos.
-                raw_label = labels[idx]
-                
-                # --- Regra Taxonômica Rigorosa ---
-                # 1. Remover sufixos ou nomes comuns em parênteses
-                # Ex: "Passer domesticus (House Sparrow)" -> "Passer domesticus"
-                clean_name = raw_label.split('(')[0].strip()
-                
-                # 2. Enforce Binomial Case: "Genus species"
-                parts = clean_name.split()
-                if len(parts) >= 2:
-                    # Reconstrói apenas as duas primeiras partes (Binômio) com Casing correto
-                    genus = parts[0].capitalize()
-                    species = parts[1].lower()
-                    label_name = f"{genus} {species}"
-                else:
-                    # Caso monocromático ou erro, apenas Capitaliza
-                    label_name = clean_name.capitalize()
+                # Top-3 Format
+                top3_results = []
+                for i in top_k:
+                    raw_label_i = labels[i]
+                    clean_name_i = raw_label_i.split('(')[0].strip()
+                    parts_i = clean_name_i.split()
+                    if len(parts_i) >= 2:
+                        label_name_i = f"{parts_i[0].capitalize()} {parts_i[1].lower()}"
+                    else:
+                        label_name_i = clean_name_i.capitalize()
+                    top3_results.append({"nome_cientifico": label_name_i, "confianca": float(results[i])})
                 
                 # Resultado
                 resultado = {
-                    "nome_cientifico": label_name,
+                    "nome_cientifico": top3_results[0]["nome_cientifico"],
                     "nome_comum": "Analisando...", 
-                    "descricao": "Identificado localmente (EfficientDet-Lite).",
-                    "confianca": float(confidence)
+                    "descricao": "Identificado localmente (iNaturalist Vision).",
+                    "confianca": float(confidence),
+                    "top3": top3_results
                 }
                 
                 self.identification_complete.emit(resultado)
