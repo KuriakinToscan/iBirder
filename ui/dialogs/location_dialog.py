@@ -1,10 +1,11 @@
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
+    QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
     QPushButton, QListWidget, QMessageBox, QListWidgetItem
 )
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QIcon
 from modules.step3_geography.geo_utils import search_location
+from ui.base.base_dialog import BaseDialog
 
 class SearchLocationWorker(QThread):
     results_found = Signal(list)
@@ -21,42 +22,18 @@ class SearchLocationWorker(QThread):
         except Exception as e:
             self.error_occurred.emit(str(e))
 
-class LocationDialog(QDialog):
+class LocationDialog(BaseDialog):
     def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Definir Localização Manualmente")
+        super().__init__(title="Definir Localização Manualmente", parent=parent)
         self.setFixedWidth(500)
-        self.setStyleSheet("""
-            QDialog { background-color: #F0F2F5; }
-            QLabel { color: #374151; font-family: "Segoe UI"; }
-            QLineEdit, QListWidget {
-                background-color: #FFFFFF;
-                border: 1px solid #D1D5DB;
-                border-radius: 6px;
-                padding: 6px;
-                color: #374151;
-            }
-            QPushButton {
-                background-color: #374151;
-                color: white;
-                border-radius: 6px;
-                padding: 8px 16px;
-                font-weight: bold;
-                border: none;
-            }
-            QPushButton:hover { background-color: #1F2937; }
-        """)
         
         self.selected_coords = None # (lat, lon)
         self.search_worker = None
         
-        layout = QVBoxLayout(self)
-        layout.setSpacing(15)
-        
         # --- Busca ---
         lbl_instrucao = QLabel("Digite o nome da cidade ou local:")
         lbl_instrucao.setStyleSheet("font-weight: bold;")
-        layout.addWidget(lbl_instrucao)
+        self.main_layout.addWidget(lbl_instrucao)
         
         container_busca = QHBoxLayout()
         self.input_busca = QLineEdit()
@@ -69,15 +46,15 @@ class LocationDialog(QDialog):
         
         container_busca.addWidget(self.input_busca)
         container_busca.addWidget(self.btn_buscar)
-        layout.addLayout(container_busca)
+        self.main_layout.addLayout(container_busca)
         
         # --- Resultados ---
         lbl_resultados = QLabel("Resultados:")
-        layout.addWidget(lbl_resultados)
+        self.main_layout.addWidget(lbl_resultados)
         
         self.lista_resultados = QListWidget()
         self.lista_resultados.itemClicked.connect(self._item_selecionado)
-        layout.addWidget(self.lista_resultados)
+        self.main_layout.addWidget(self.lista_resultados)
         
         # --- Coordenadas ---
         container_coords = QHBoxLayout()
@@ -92,14 +69,14 @@ class LocationDialog(QDialog):
         container_coords.addWidget(self.input_lat)
         container_coords.addWidget(QLabel("Lon:"))
         container_coords.addWidget(self.input_lon)
-        layout.addLayout(container_coords)
+        self.main_layout.addLayout(container_coords)
         
         # --- Confirmar ---
         self.btn_confirmar = QPushButton("Confirmar Localização")
         self.btn_confirmar.setCursor(Qt.PointingHandCursor)
         self.btn_confirmar.setEnabled(False)
         self.btn_confirmar.clicked.connect(self._confirmar)
-        layout.addWidget(self.btn_confirmar)
+        self.main_layout.addWidget(self.btn_confirmar)
 
     def _buscar(self):
         query = self.input_busca.text().strip()
