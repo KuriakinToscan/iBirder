@@ -57,3 +57,8 @@
 [MOVIDO] .\ui\__pycache__\worker_referencia.cpython-313.pyc -> Lixo
 [MOVIDO] .\ui\__pycache__\__init__.cpython-313.pyc -> Lixo
 [MOVIDO] .\temp\session.log -> Lixo
+[MOVIDO MANUAL] core\erros.py -> Lixo
+[MOVIDO MANUAL] core\interfaces.py -> Lixo
+[MOVIDO MANUAL] core\inaturalist_worker.py -> Lixo
+[MOVIDO MANUAL] ui\dialogo_modo.py -> Lixo
+[MOVIDO MANUAL] ui\map_template.html -> Lixo
