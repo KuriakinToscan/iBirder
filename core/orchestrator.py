@@ -24,7 +24,7 @@ class Orchestrator(QObject):
     
     step1_identificacao_concluida = Signal(dict)
     step1_identificacao_erro = Signal(str)
-    step1_progress_updated = Signal(dict)  # Expondo o progresso para a UI
+    step1_progress_updated = Signal(str)  # Expondo o progresso para a UI
     
     step2_wiki_concluida = Signal(dict)
     step2_wiki_erro = Signal()

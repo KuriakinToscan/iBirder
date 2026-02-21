@@ -5,10 +5,13 @@ from PySide6.QtCore import QThread, Signal
 from PIL import Image
 
 try:
-    import tflite_runtime.interpreter as tflite
+    import ai_edge_litert.interpreter as tflite
 except ImportError:
-    # Fallback/Mock para ambiente de desenvolvimento se TFLite não instalar
-    tflite = None
+    try:
+        import tflite_runtime.interpreter as tflite
+    except ImportError:
+        # Fallback/Mock para ambiente de desenvolvimento se TFLite não instalar
+        tflite = None
 
 from core.model_manager import ModelManager
 
@@ -27,8 +30,8 @@ def free_interpreter_cache():
 
 class LocalIdentificationWorker(QThread):
     progress_updated = Signal(str)
-    identification_complete = Signal(dict)
-    error_occurred = Signal(str)
+    finished = Signal(dict)
+    error = Signal(str)
 
     def __init__(self, image_path, parent=None):
         super().__init__(parent)
@@ -39,7 +42,7 @@ class LocalIdentificationWorker(QThread):
     def run(self):
         global _interpreter_cache
         if not tflite:
-             self.error_occurred.emit("TFLite Runtime não está instalado. Reinicie o app.")
+             self.error.emit("TFLite Runtime não está instalado. Reinicie o app.")
              return
 
         try:
@@ -51,7 +54,7 @@ class LocalIdentificationWorker(QThread):
                 self.progress_updated.emit("Baixando modelo IA (apenas na 1ª vez)...")
                 sucesso = manager.download_resources(callback=self._emit_download_progress)
                 if not sucesso:
-                    self.error_occurred.emit("Falha ao baixar modelo de IA.")
+                    self.error.emit("Falha ao baixar modelo de IA.")
                     return
 
             if self._stopped:
@@ -63,6 +66,9 @@ class LocalIdentificationWorker(QThread):
                 self.progress_updated.emit("Carregando cérebro digital...")
                 _interpreter_cache = tflite.Interpreter(model_path=str(manager.model_path))
                 _interpreter_cache.allocate_tensors()
+                
+                # O teste de alocação de tensores já foi feito no allocate_tensors() acima. 
+                # Qualquer falha ali será capturada pelo except Exception.
             
             interpreter = _interpreter_cache
 
@@ -113,7 +119,7 @@ class LocalIdentificationWorker(QThread):
                     shutil.rmtree(manager.assets_dir)
                     os.rename(backup_dir, manager.assets_dir)
                     free_interpreter_cache()
-                    self.error_occurred.emit("Falha ao usar a nova Inteligência. O aplicativo retornou automaticamente para a Versão Estável anterior.")
+                    self.error.emit("Falha ao usar a nova Inteligência. O aplicativo retornou automaticamente para a Versão Estável anterior.")
                     return
                 else:
                     raise invoke_err
@@ -139,7 +145,7 @@ class LocalIdentificationWorker(QThread):
                     "confianca": float(confidence),
                     "status_msg": "Baixa confiança"
                  }
-                 self.identification_complete.emit(resultado)
+                 self.finished.emit(resultado)
                  return
 
             # Carregar Labels
@@ -168,9 +174,9 @@ class LocalIdentificationWorker(QThread):
                     "top3": top3_results
                 }
                 
-                self.identification_complete.emit(resultado)
+                self.finished.emit(resultado)
             except IndexError:
-                self.error_occurred.emit(f"Erro: Índice {idx} fora dos limites ({len(labels)}).")
+                self.error.emit(f"Erro: Índice {idx} fora dos limites ({len(labels)}).")
 
         except Exception as e:
             print("-" * 50)
@@ -178,7 +184,7 @@ class LocalIdentificationWorker(QThread):
             import traceback
             traceback.print_exc()
             print("-" * 50)
-            self.error_occurred.emit(f"Erro na análise: {str(e)}")
+            self.error.emit(f"Erro na análise: {str(e)}")
 
     def _emit_download_progress(self, msg):
         if not self._stopped:

@@ -168,7 +168,6 @@ def garantir_dependencias():
         'bs4': 'beautifulsoup4',
         'PIL': 'Pillow',
         'requests': 'requests',
-        'tensorflow': 'tensorflow-cpu',
         'numpy': 'numpy',
         'selenium': 'selenium',
         'webdriver_manager': 'webdriver-manager'
@@ -204,7 +203,6 @@ if __name__ == "__main__":
     global AI_ENGINE_STATUS
     AI_ENGINE_STATUS = 'READY'
     try:
-        import tensorflow
         from PIL import Image
     except ImportError:
         AI_ENGINE_STATUS = 'RESTART_REQUIRED'
