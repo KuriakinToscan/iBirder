@@ -16,6 +16,51 @@ class MapWidget(QWebEngineView):
         super().__init__(parent)
         self.setPage(ExternalLinkPage(self)) # Intercepta links to open in default browser
 
+        # --- Alerta de GPS Ausente (v0.3.34) ---
+        from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout
+        from PySide6.QtGui import QGraphicsDropShadowEffect, QColor
+        from PySide6.QtCore import Qt
+        
+        self.alert_frame = QFrame(self)
+        self.alert_frame.setObjectName("overlay_alert")
+        self.alert_frame.setStyleSheet("""
+            QFrame#overlay_alert {
+                background-color: rgba(254, 243, 199, 0.95);
+                border: 1px solid #F59E0B;
+                border-radius: 8px;
+            }
+            QLabel#alert_text {
+                color: #92400E;
+                font-size: 13px;
+                font-weight: bold;
+                font-family: 'Segoe UI';
+            }
+        """)
+        
+        layout = QVBoxLayout(self.alert_frame)
+        layout.setContentsMargins(20, 12, 20, 12)
+        
+        lbl_alert = QLabel("Sem dados de localização, indique manualmente", self.alert_frame)
+        lbl_alert.setObjectName("alert_text")
+        lbl_alert.setAlignment(Qt.AlignCenter)
+        layout.addWidget(lbl_alert)
+        
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(15)
+        shadow.setColor(QColor(0, 0, 0, 40))
+        shadow.setOffset(0, 4)
+        self.alert_frame.setGraphicsEffect(shadow)
+        
+        self.alert_frame.hide()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, 'alert_frame'):
+            self.alert_frame.adjustSize()
+            x = (self.width() - self.alert_frame.width()) // 2
+            y = 20  # Margem do topo superior
+            self.alert_frame.move(x, y)
+
     def show_placeholder_message(self, message):
         html = f"""
         <html>
@@ -117,6 +162,13 @@ class MapWidget(QWebEngineView):
             data = io.BytesIO()
             m.save(data, close_file=False)
             self.setHtml(data.getvalue().decode())
+            
+            if hasattr(self, 'alert_frame'):
+                if not add_marker:
+                    self.alert_frame.show()
+                    self.alert_frame.raise_()
+                else:
+                    self.alert_frame.hide()
             
         except Exception as e:
             self.setHtml(f"<html><body>Error loading map: {e}</body></html>")

@@ -125,8 +125,8 @@ class Orchestrator(QObject):
     def start_step2_biology(self, sci_name):
         if self.wiki_worker: self.wiki_worker.deleteLater()
         self.wiki_worker = BuscadorWorker(sci_name, parent=self)
-        self.wiki_worker.resultados_obtidos.connect(self._on_step2_finished)
-        self.wiki_worker.erro.connect(self.step2_wiki_erro)
+        self.wiki_worker.info_found.connect(self._on_step2_finished)
+        self.wiki_worker.error_occurred.connect(self.step2_wiki_erro)
         self.wiki_worker.start()
         
     def _on_step2_finished(self, resultados):
