@@ -17,8 +17,8 @@ class MapWidget(QWebEngineView):
         self.setPage(ExternalLinkPage(self)) # Intercepta links to open in default browser
 
         # --- Alerta de GPS Ausente (v0.3.34) ---
-        from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout
-        from PySide6.QtGui import QGraphicsDropShadowEffect, QColor
+        from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout, QGraphicsDropShadowEffect
+        from PySide6.QtGui import QColor
         from PySide6.QtCore import Qt
         
         self.alert_frame = QFrame(self)

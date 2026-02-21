@@ -84,6 +84,7 @@ class JanelaPrincipal(QMainWindow):
 
         self._configurar_ui()
         self._aplicar_estilo()
+        self._verificar_apis_criticas()
         
         # Ajuste inicial de alturas
         # QTimer.singleShot(100, lambda: self._ajustar_altura_etimologia())
@@ -138,6 +139,71 @@ class JanelaPrincipal(QMainWindow):
         self.worker_referencia.start()
         
         # A busca de biologia via iNaturalist/WikiAves foi transferida para o Orchestrator
+        
+    def _verificar_apis_criticas(self):
+        from core.config import carregar_config
+        from ui.widgets.api_alert import APIAlertWidget
+        from PySide6.QtCore import QSettings
+        import os
+        
+        cfg = carregar_config()
+        settings = QSettings("iBirder", "App")
+        
+        iucn_key = settings.value("iucn_api_key", os.environ.get("TOKEN_IUCN", "")).strip()
+        ebird_key = settings.value("ebird_api_key", os.environ.get("EBIRD_API_KEY", "")).strip()
+        
+        if not iucn_key and cfg.get("mostrar_alerta_iucn", True):
+            alerta_iucn = APIAlertWidget("IUCN", "⚠️ A Chave da API da IUCN (Lista Vermelha) não está configurada. O status de conservação não será carregado.", self)
+            alerta_iucn.alert_dismissed.connect(self._silenciar_alerta)
+            self.layout_alertas.addWidget(alerta_iucn)
+
+        if not ebird_key and cfg.get("mostrar_alerta_ebird", True):
+            alerta_ebird = APIAlertWidget("ebird", "⚠️ A Chave da API do eBird não está configurada. A taxonomia avançada local não será carregada.", self)
+            alerta_ebird.alert_dismissed.connect(self._silenciar_alerta)
+            self.layout_alertas.addWidget(alerta_ebird)
+
+    def _silenciar_alerta(self, api_name):
+        from core.config import carregar_config, salvar_config
+        cfg = carregar_config()
+        if api_name == "IUCN":
+            cfg["mostrar_alerta_iucn"] = False
+        elif api_name == "ebird":
+            cfg["mostrar_alerta_ebird"] = False
+        salvar_config(cfg)
+        print(f"[UI] Alerta para {api_name} silenciado via arquivo de configurações.")
+
+    def _abrir_modal_config_avisos(self):
+        from PySide6.QtWidgets import QDialog, QCheckBox, QVBoxLayout, QPushButton, QLabel
+        from core.config import carregar_config, salvar_config
+        
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Configurações de Avisos de API")
+        dlg.setFixedSize(300, 150)
+        
+        layout = QVBoxLayout(dlg)
+        layout.addWidget(QLabel("Quais alertas de chaves vazias deseja <b>EXIBIR</b>?"))
+        
+        cfg = carregar_config()
+        
+        chk_iucn = QCheckBox("Mostrar Alerta IUCN", dlg)
+        chk_iucn.setChecked(cfg.get("mostrar_alerta_iucn", True))
+        
+        chk_ebird = QCheckBox("Mostrar Alerta eBird", dlg)
+        chk_ebird.setChecked(cfg.get("mostrar_alerta_ebird", True))
+        
+        layout.addWidget(chk_iucn)
+        layout.addWidget(chk_ebird)
+        
+        btn_salvar = QPushButton("Salvar Preferências", dlg)
+        btn_salvar.clicked.connect(lambda: dlg.accept())
+        layout.addWidget(btn_salvar)
+        
+        if dlg.exec() == QDialog.Accepted:
+            cfg["mostrar_alerta_iucn"] = chk_iucn.isChecked()
+            cfg["mostrar_alerta_ebird"] = chk_ebird.isChecked()
+            salvar_config(cfg)
+            
+            QMessageBox.information(self, "Preferências Salvas", "As configurações de alertas foram registradas com sucesso.\n(Será necessário reiniciar o app para ver alertas ocultos reaparecerem, se os ativou agora).")
         
     def _ao_update_disponivel(self, manifest_data):
         ver = manifest_data.get("version", "?")
@@ -316,6 +382,15 @@ class JanelaPrincipal(QMainWindow):
         super().resizeEvent(event)
 
     def _configurar_ui(self):
+        # Menu Bar para Configurações Adicionais
+        from PySide6.QtGui import QAction
+        menu_bar = self.menuBar()
+        ferramentas_menu = menu_bar.addMenu("Ferramentas")
+        
+        action_config_api = QAction("⚙️ Configurações de Avisos de API", self)
+        action_config_api.triggered.connect(self._abrir_modal_config_avisos)
+        ferramentas_menu.addAction(action_config_api)
+
         # Container Principal com Scroll
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
@@ -329,9 +404,16 @@ class JanelaPrincipal(QMainWindow):
         self.scroll_area.setWidget(widget_central)
         self.setCentralWidget(self.scroll_area)
 
-        layout_principal = QHBoxLayout(widget_central)
-        layout_principal.setContentsMargins(15, 15, 15, 15)
-        layout_principal.setSpacing(15)
+        layout_mestre = QVBoxLayout(widget_central)
+        layout_mestre.setContentsMargins(15, 15, 15, 15)
+        layout_mestre.setSpacing(10)
+        
+        self.layout_alertas = QVBoxLayout()
+        self.layout_alertas.setSpacing(5)
+        layout_mestre.addLayout(self.layout_alertas)
+
+        layout_colunas = QHBoxLayout()
+        layout_colunas.setSpacing(15)
 
         # --- LADO ESQUERDO ---
         layout_esquerda = QVBoxLayout()
@@ -539,7 +621,7 @@ class JanelaPrincipal(QMainWindow):
         # --- (Removido Painel Info Geo daqui - Movido para coluna direita v0.3.19) ---
         # -------------------------------------------------------
         
-        layout_principal.addLayout(layout_esquerda, stretch=3)
+        layout_colunas.addLayout(layout_esquerda, stretch=3)
 
         # --- LADO DIREITO (Painel Lateral) ---
         layout_coluna_direita = QVBoxLayout()
@@ -796,7 +878,9 @@ class JanelaPrincipal(QMainWindow):
         layout_direito.addStretch()
         
         layout_coluna_direita.addWidget(self.painel_direito)
-        layout_principal.addLayout(layout_coluna_direita, stretch=2)
+        layout_colunas.addLayout(layout_coluna_direita, stretch=2)
+        
+        layout_mestre.addLayout(layout_colunas)
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
