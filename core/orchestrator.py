@@ -52,11 +52,25 @@ class Orchestrator(QObject):
         self.current_lon = None
         
         # Inteligência Evolutiva (OTA Updater)
+        import time
+        start_ota_time = time.time()
+        
+        self.new_ia_available = False
+        
         from core.updater import ModelUpdater
         self.updater = ModelUpdater(parent=self)
-        self.updater.update_available.connect(self.update_available.emit)
+        # Ao invés de jogar sinal direto para UI agora, armazenamos a informação silenciosamente
+        self.updater.update_available.connect(self._on_update_detected)
         # Disparo silencioso em background
         self.updater.check_for_updates()
+        
+        ota_ms = (time.time() - start_ota_time) * 1000
+        print(f"[PERFORMANCE] Dispatch da Thread OTA (Updater) em {ota_ms:.2f} ms")
+
+    def _on_update_detected(self, manifest_data):
+        """Callback silencioso que a UI ou fluxo podem consultar depois."""
+        self.new_ia_available = True
+        self.update_available.emit(manifest_data) # Opcional: mantemos emit dependendo de quem escuta, mas flagamos True
 
     def start_pipeline_identificacao(self, image_path, skip_model=False, is_photo=True):
         """Inicia a Etapa 1 completa."""
