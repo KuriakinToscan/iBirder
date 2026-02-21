@@ -8,5 +8,4 @@ numpy
 requests
 selenium
 shapely
-tflite-runtime
 webdriver-manager
