@@ -173,37 +173,9 @@ class JanelaPrincipal(QMainWindow):
         print(f"[UI] Alerta para {api_name} silenciado via arquivo de configurações.")
 
     def _abrir_modal_config_avisos(self):
-        from PySide6.QtWidgets import QDialog, QCheckBox, QVBoxLayout, QPushButton, QLabel
-        from core.config import carregar_config, salvar_config
-        
-        dlg = QDialog(self)
-        dlg.setWindowTitle("Configurações de Avisos de API")
-        dlg.setFixedSize(300, 150)
-        
-        layout = QVBoxLayout(dlg)
-        layout.addWidget(QLabel("Quais alertas de chaves vazias deseja <b>EXIBIR</b>?"))
-        
-        cfg = carregar_config()
-        
-        chk_iucn = QCheckBox("Mostrar Alerta IUCN", dlg)
-        chk_iucn.setChecked(cfg.get("mostrar_alerta_iucn", True))
-        
-        chk_ebird = QCheckBox("Mostrar Alerta eBird", dlg)
-        chk_ebird.setChecked(cfg.get("mostrar_alerta_ebird", True))
-        
-        layout.addWidget(chk_iucn)
-        layout.addWidget(chk_ebird)
-        
-        btn_salvar = QPushButton("Salvar Preferências", dlg)
-        btn_salvar.clicked.connect(lambda: dlg.accept())
-        layout.addWidget(btn_salvar)
-        
-        if dlg.exec() == QDialog.Accepted:
-            cfg["mostrar_alerta_iucn"] = chk_iucn.isChecked()
-            cfg["mostrar_alerta_ebird"] = chk_ebird.isChecked()
-            salvar_config(cfg)
-            
-            QMessageBox.information(self, "Preferências Salvas", "As configurações de alertas foram registradas com sucesso.\n(Será necessário reiniciar o app para ver alertas ocultos reaparecerem, se os ativou agora).")
+        from ui.dialogs.api_settings_dialog import APISettingsDialog
+        dlg = APISettingsDialog(self)
+        dlg.exec()
         
     def _ao_update_disponivel(self, manifest_data):
         ver = manifest_data.get("version", "?")

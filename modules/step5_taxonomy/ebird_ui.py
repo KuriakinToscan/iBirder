@@ -1,49 +1,22 @@
 import webbrowser
-from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, 
+from PySide6.QtWidgets import (QVBoxLayout, QHBoxLayout, 
                                QLabel, QLineEdit, QPushButton, 
                                QMessageBox)
 from PySide6.QtCore import Qt, QSettings
 from PySide6.QtGui import QFont, QCursor
+from ui.base.base_dialog import BaseDialog
 
-class EBirdSettingsDialog(QDialog):
+class EBirdSettingsDialog(BaseDialog):
     def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Configurações eBird (Taxonomia)")
+        super().__init__(title="Configurações eBird (Taxonomia)", parent=parent)
         self.setFixedSize(450, 200)
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #F3F4F6;
-            }
-            QLabel {
-                color: #374151;
-            }
-            QLineEdit {
-                border: 1px solid #D1D5DB;
-                border-radius: 6px;
-                padding: 6px;
-                background-color: white;
-            }
-            QPushButton {
-                background-color: #2563EB;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 8px 16px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #1D4ED8;
-            }
-        """)
 
-        layout = QVBoxLayout(self)
-        layout.setSpacing(15)
-        layout.setContentsMargins(20, 20, 20, 20)
-
+        # O layout principal (QVBoxLayout) já vem pronto de BaseDialog como self.main_layout
+        
         # Título
         lbl_titulo = QLabel("Token de Acesso da API eBird")
         lbl_titulo.setFont(QFont("Segoe UI", 11, QFont.Bold))
-        layout.addWidget(lbl_titulo)
+        self.main_layout.addWidget(lbl_titulo)
 
         # Campo de Chave
         self.input_key = QLineEdit()
@@ -56,7 +29,7 @@ class EBirdSettingsDialog(QDialog):
         if saved_key:
             self.input_key.setText(saved_key)
             
-        layout.addWidget(self.input_key)
+        self.main_layout.addWidget(self.input_key)
 
         # Link de Ajuda ("Como conseguir?")
         self.btn_help = QPushButton("Como obter minha chave?")
@@ -77,15 +50,15 @@ class EBirdSettingsDialog(QDialog):
         """)
         self.btn_help.setCursor(QCursor(Qt.PointingHandCursor))
         self.btn_help.clicked.connect(self._mostrar_guia)
-        layout.addWidget(self.btn_help)
+        self.main_layout.addWidget(self.btn_help)
 
         # Disclaimer Transparência
         lbl_info = QLabel("<i>Sem a chave, o iBirder buscará a taxonomia básica no iNaturalist, porém a frequência regional ficará oculta.</i>")
         lbl_info.setWordWrap(True)
         lbl_info.setStyleSheet("color: #6B7280; font-size: 10px;")
-        layout.addWidget(lbl_info)
+        self.main_layout.addWidget(lbl_info)
 
-        layout.addStretch()
+        self.main_layout.addStretch()
 
         # Botões Rodapé
         layout_botoes = QHBoxLayout()
@@ -109,7 +82,7 @@ class EBirdSettingsDialog(QDialog):
         layout_botoes.addWidget(btn_cancelar)
         layout_botoes.addWidget(btn_salvar)
         
-        layout.addLayout(layout_botoes)
+        self.main_layout.addLayout(layout_botoes)
 
     def _mostrar_guia(self):
         msg = QMessageBox(self)
