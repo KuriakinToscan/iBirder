@@ -62,3 +62,6 @@
 [MOVIDO MANUAL] core\inaturalist_worker.py -> Lixo
 [MOVIDO MANUAL] ui\dialogo_modo.py -> Lixo
 [MOVIDO MANUAL] ui\map_template.html -> Lixo
+[MOVIDO MANUAL] cleanup.ps1 -> Lixo
+[MOVIDO MANUAL] cleanup_recursive.ps1 -> Lixo
+[MOVIDO MANUAL] old_requirements_snapshot.txt -> Lixo
