@@ -84,8 +84,10 @@ class JanelaPrincipal(QMainWindow):
 
         self._configurar_ui()
         self._aplicar_estilo()
-        self._verificar_apis_criticas()
         
+        # O Porteiro (Aviso de Funcionalidades em Falta - v0.3.41)
+        from ui.dialogs.startup_status_dialog import StartupStatusDialog
+        StartupStatusDialog.verificar_e_exibir(self)
         # Ajuste inicial de alturas
         # QTimer.singleShot(100, lambda: self._ajustar_altura_etimologia())
         # QTimer.singleShot(100, lambda: self._ajustar_altura_descricao())
@@ -140,42 +142,6 @@ class JanelaPrincipal(QMainWindow):
         
         # A busca de biologia via iNaturalist/WikiAves foi transferida para o Orchestrator
         
-    def _verificar_apis_criticas(self):
-        from core.config import carregar_config
-        from ui.widgets.api_alert import APIAlertWidget
-        from PySide6.QtCore import QSettings
-        import os
-        
-        cfg = carregar_config()
-        settings = QSettings("iBirder", "App")
-        
-        iucn_key = settings.value("iucn_api_key", os.environ.get("TOKEN_IUCN", "")).strip()
-        ebird_key = settings.value("ebird_api_key", os.environ.get("EBIRD_API_KEY", "")).strip()
-        
-        if not iucn_key and cfg.get("mostrar_alerta_iucn", True):
-            alerta_iucn = APIAlertWidget("IUCN", "⚠️ A Chave da API da IUCN (Lista Vermelha) não está configurada. O status de conservação não será carregado.", self)
-            alerta_iucn.alert_dismissed.connect(self._silenciar_alerta)
-            self.layout_alertas.addWidget(alerta_iucn)
-
-        if not ebird_key and cfg.get("mostrar_alerta_ebird", True):
-            alerta_ebird = APIAlertWidget("ebird", "⚠️ A Chave da API do eBird não está configurada. A taxonomia avançada local não será carregada.", self)
-            alerta_ebird.alert_dismissed.connect(self._silenciar_alerta)
-            self.layout_alertas.addWidget(alerta_ebird)
-
-    def _silenciar_alerta(self, api_name):
-        from core.config import carregar_config, salvar_config
-        cfg = carregar_config()
-        if api_name == "IUCN":
-            cfg["mostrar_alerta_iucn"] = False
-        elif api_name == "ebird":
-            cfg["mostrar_alerta_ebird"] = False
-        salvar_config(cfg)
-        print(f"[UI] Alerta para {api_name} silenciado via arquivo de configurações.")
-
-    def _abrir_modal_config_avisos(self):
-        from ui.dialogs.api_settings_dialog import APISettingsDialog
-        dlg = APISettingsDialog(self)
-        dlg.exec()
         
     def _ao_update_disponivel(self, manifest_data):
         ver = manifest_data.get("version", "?")
@@ -360,7 +326,7 @@ class JanelaPrincipal(QMainWindow):
         ferramentas_menu = menu_bar.addMenu("Ferramentas")
         
         action_config_api = QAction("⚙️ Configurações de Avisos de API", self)
-        action_config_api.triggered.connect(self._abrir_modal_config_avisos)
+        action_config_api.triggered.connect(lambda: __import__("ui.dialogs.api_settings_dialog", fromlist=["APISettingsDialog"]).APISettingsDialog(self).exec())
         ferramentas_menu.addAction(action_config_api)
 
         # Container Principal com Scroll
@@ -379,10 +345,6 @@ class JanelaPrincipal(QMainWindow):
         layout_mestre = QVBoxLayout(widget_central)
         layout_mestre.setContentsMargins(15, 15, 15, 15)
         layout_mestre.setSpacing(10)
-        
-        self.layout_alertas = QVBoxLayout()
-        self.layout_alertas.setSpacing(5)
-        layout_mestre.addLayout(self.layout_alertas)
 
         layout_colunas = QHBoxLayout()
         layout_colunas.setSpacing(15)
@@ -765,6 +727,12 @@ class JanelaPrincipal(QMainWindow):
         
         layout_res.addLayout(layout_botoes)
         
+        # Etapa 5 (Taxonomia Fallback)
+        self.lbl_ebird_fallback = QLabel("<a href='ebird' style='color: #9CA3AF; font-style: italic; font-size: 11px; text-decoration: none;'>Taxonomia: Acesso aos dados não configurado</a>")
+        self.lbl_ebird_fallback.linkActivated.connect(lambda link: self._abrir_configuracoes_ebird())
+        self.lbl_ebird_fallback.setVisible(False)
+        layout_res.addWidget(self.lbl_ebird_fallback)
+        
         # --- Card Etimologia ---
         self.frame_etimologia = QFrame()
         self.frame_etimologia.setObjectName("frame_etimologia")
@@ -840,6 +808,12 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_geo_details.setVisible(False) 
         
         layout_geo.addWidget(self.lbl_geo_details)
+        
+        # Etapa 3 (IUCN Fallback)
+        self.lbl_iucn_fallback = QLabel("<a href='iucn' style='color: #9CA3AF; font-style: italic; font-size: 11px; text-decoration: none;'>IUCN: Acesso aos dados não configurado</a>")
+        self.lbl_iucn_fallback.linkActivated.connect(lambda link: self._abrir_configuracoes_iucn())
+        self.lbl_iucn_fallback.setVisible(False)
+        layout_geo.addWidget(self.lbl_iucn_fallback)
         
         grupo_geo.setLayout(layout_geo)
         layout_res.addWidget(grupo_geo)
@@ -1248,6 +1222,15 @@ class JanelaPrincipal(QMainWindow):
     def _atualizar_info_ave(self, dados: dict):
         print("\n[UI] --- INICIANDO ATUALIZAÇÃO DA INTERFACE ---")
         print(f"[UI] Dados recebidos do WikiAves. Link: {dados.get('link_origem')}")
+        
+        # Ativar Placeholder Etapa 5 (se a chave nao existe)
+        from PySide6.QtCore import QSettings
+        settings = QSettings("iBirder", "App")
+        import os
+        if not settings.value("ebird_api_key", os.environ.get("EBIRD_API_KEY", "")).strip():
+            self.lbl_ebird_fallback.setVisible(True)
+        else:
+            self.lbl_ebird_fallback.setVisible(False)
         self.dados_identificacao_atual = dados
         
         nc = dados.get("nome_comum", "-")
@@ -1461,6 +1444,15 @@ class JanelaPrincipal(QMainWindow):
         """
         self.lbl_geo_details.setText(texto)
         self.lbl_geo_details.setVisible(True)
+        
+        # Ativar Placeholder Etapa 3 (se a chave nao existe)
+        from PySide6.QtCore import QSettings
+        settings = QSettings("iBirder", "App")
+        import os
+        if not settings.value("iucn_api_key", os.environ.get("TOKEN_IUCN", "")).strip():
+            self.lbl_iucn_fallback.setVisible(True)
+        else:
+            self.lbl_iucn_fallback.setVisible(False)
 
     # --- IUCN e Integração Geoespacial (v0.3.19) ---
     def _abrir_configuracoes_iucn(self):
