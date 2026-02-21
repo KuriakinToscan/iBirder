@@ -72,6 +72,7 @@ class JanelaPrincipal(QMainWindow):
         self.orchestrator.step4_audio_concluido.connect(self._ao_encontrar_audio)
         self.orchestrator.step4_audio_erro.connect(self._ao_erro_audio)
         self.orchestrator.step5_ebird_concluido.connect(self._ao_concluir_ebird)
+        self.orchestrator.update_available.connect(self._ao_update_disponivel)
         
         self.setWindowTitle("iBirder")
         self.resize(1100, 700)
@@ -137,6 +138,47 @@ class JanelaPrincipal(QMainWindow):
         self.worker_referencia.start()
         
         # A busca de biologia via iNaturalist/WikiAves foi transferida para o Orchestrator
+        
+    def _ao_update_disponivel(self, manifest_data):
+        ver = manifest_data.get("version", "?")
+        btn_update = QPushButton(f"Nova I.A. das Aves (v{ver}) Disponível! Clique para turbinar.")
+        btn_update.setStyleSheet("background-color: #27ae60; color: white; border-radius: 4px; padding: 2px 10px; font-weight: bold; font-size: 11px;")
+        btn_update.setCursor(Qt.PointingHandCursor)
+        btn_update.clicked.connect(lambda: self._iniciar_download_update(manifest_data))
+        
+        self.statusBar().addWidget(btn_update)
+        self._btn_update_ota = btn_update
+
+    def _iniciar_download_update(self, manifest_data):
+        resposta = QMessageBox.question(
+            self,
+            "Turbinar Inteligência Artificial",
+            "Deseja ensinar centenas de novas espécies de aves ao iBirder?\n\n"
+            "Isso consumirá cerca de 3.5 MB de dados rápidos.\n"
+            "O aplicativo continuará funcionando normalmente durante o aprendizado.",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if resposta == QMessageBox.Yes:
+            if hasattr(self, '_btn_update_ota'):
+                self._btn_update_ota.deleteLater()
+            
+            self.statusBar().showMessage("Iniciando aprendizado da nova IA...", 5000)
+            
+            # Aciona o worker de download real (Fase B/C)
+            from core.updater import ModelDownloadWorker
+            self.download_worker = ModelDownloadWorker(manifest_data, parent=self)
+            self.download_worker.progress_updated.connect(self.statusBar().showMessage)
+            self.download_worker.download_complete.connect(self._ao_concluir_download_ota)
+            self.download_worker.error_occurred.connect(self._ao_erro_download_ota)
+            self.download_worker.start()
+            
+    def _ao_concluir_download_ota(self, info_dict):
+        from modules.step1_identity.id_worker import free_interpreter_cache
+        free_interpreter_cache()
+        self.statusBar().showMessage("Inteligência artificial turbinada com sucesso! O cérebro foi substituído silenciosamente.", 8000)
+        
+    def _ao_erro_download_ota(self, erro_msg):
+        self.statusBar().showMessage(f"Falha na atualização invisível: {erro_msg}", 8000)
 
 
     def _ao_encontrar_imagem_referencia(self, path, creditos, url_fonte=""):

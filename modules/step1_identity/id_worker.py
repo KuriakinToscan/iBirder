@@ -15,6 +15,16 @@ from core.model_manager import ModelManager
 # Global Cache for TFLite Interpreter
 _interpreter_cache = None
 
+def get_current_interpreter():
+    global _interpreter_cache
+    return _interpreter_cache
+
+def free_interpreter_cache():
+    """Gatilho dinâmico invocado pelo Orchestrator pós Hot-Swap para resetar o Cérebro."""
+    global _interpreter_cache
+    _interpreter_cache = None
+    print("[IA] Cache do Interpretador limpo para recarga OTA.")
+
 class LocalIdentificationWorker(QThread):
     progress_updated = Signal(str)
     identification_complete = Signal(dict)
@@ -87,12 +97,26 @@ class LocalIdentificationWorker(QThread):
             # Add batch dimension
             input_data = np.expand_dims(img_array, axis=0)
 
-            # Inferência
-            start_infer_time = time.time()
-            interpreter.set_tensor(input_details[0]['index'], input_data)
-            interpreter.invoke()
-            infer_ms = (time.time() - start_infer_time) * 1000
-            print(f"[IA TELEMETRY] Inferência local (iNaturalist Vision) bem-sucedida em {infer_ms:.2f}ms.")
+            # Inferência com Rollback OTA (Fase C)
+            try:
+                start_infer_time = time.time()
+                interpreter.set_tensor(input_details[0]['index'], input_data)
+                interpreter.invoke()
+                infer_ms = (time.time() - start_infer_time) * 1000
+                print(f"[IA TELEMETRY] Inferência local (iNaturalist Vision) bem-sucedida em {infer_ms:.2f}ms.")
+            except Exception as invoke_err:
+                print(f"[OTA ROLLBACK] Falha crítica de inferência: {invoke_err}.")
+                import shutil, os
+                backup_dir = manager.assets_dir.parent / "models_back"
+                if backup_dir.exists():
+                    print("[OTA ROLLBACK] Modelo incompatível/corrompido. Revertendo para cópia de segurança...")
+                    shutil.rmtree(manager.assets_dir)
+                    os.rename(backup_dir, manager.assets_dir)
+                    free_interpreter_cache()
+                    self.error_occurred.emit("Falha ao usar a nova Inteligência. O aplicativo retornou automaticamente para a Versão Estável anterior.")
+                    return
+                else:
+                    raise invoke_err
 
             # Interpretar Resultados (Classificação)
             output_data = interpreter.get_tensor(output_details[0]['index'])
