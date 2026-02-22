@@ -200,11 +200,34 @@ class Orchestrator(QObject):
         
     # --- Etapa 4 ---
     def start_step4_vocalization(self, sci_name):
+        if not hasattr(self, '_cache_audio'):
+            self._cache_audio = {}
+            
+        if sci_name in self._cache_audio:
+            print(f"[Orchestrator] Cache Hit em Áudio (Vocalização) para {sci_name}. Pulando rede e ressignificando UI instantaneamente!")
+            # Retorna via Short-Circuit imitador da conlcusão do worker
+            self.step4_audio_concluido.emit(self._cache_audio[sci_name])
+            return
+            
         if self.audio_worker: self.audio_worker.deleteLater()
         self.audio_worker = AudioWorker(sci_name, lat=self.current_lat, lon=self.current_lon, parent=self)
-        self.audio_worker.audio_found.connect(self.step4_audio_concluido)
-        self.audio_worker.search_failed.connect(self.step4_audio_erro)
+        
+        # Conectar sinal com wrapper (lambda) para interceptar o save state
+        self.audio_worker.audio_found.connect(lambda audios: self._on_step4_finished_intercept(sci_name, audios))
+        self.audio_worker.search_failed.connect(lambda: self._on_step4_failed_intercept(sci_name))
         self.audio_worker.start()
+
+    def _on_step4_finished_intercept(self, sci_name, audios):
+        if sci_name:
+            self._cache_audio[sci_name] = audios
+            print(f"[Orchestrator] Áudio de {sci_name} persistido ({len(audios)} items) em Layer 4 Cache da Sessão.")
+        self.step4_audio_concluido.emit(audios)
+        
+    def _on_step4_failed_intercept(self, sci_name):
+        # Cache negative hit para nao ficar tentando ad æternum se soubemos q nao existiu (API 0)
+        if sci_name:
+             self._cache_audio[sci_name] = []
+        self.step4_audio_erro.emit()
         
     # --- Etapa 5 ---
     def start_step5_taxonomy(self, sci_name):

@@ -1431,8 +1431,6 @@ class JanelaPrincipal(QMainWindow):
         <b>Coordenadas:</b> Lat {lat_str}, Long {lon_str}<br>
         <b>País:</b> {details.get('pais', '-')}<br>
         <b>Estado:</b> {details.get('estado', '-')}<br>
-        <b>Município:</b> {details.get('municipio', '-')}<br>
-        <b>Localidade/Bairro:</b> {details.get('localidade', '-')}<br>
         <b>Bioma:</b> {details.get('bioma', '-')}<br>
         """
         self.lbl_geo_details.setText(texto)
