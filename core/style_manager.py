@@ -91,7 +91,7 @@ class StyleManager:
             }
             #lbl_slogan {
                 color: #2C3E50;
-                font-size: 26px;
+                font-size: 44px;
                 font-style: italic;
                 font-weight: bold;
                 font-family: 'Figtree', sans-serif;

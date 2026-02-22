@@ -550,6 +550,7 @@ class JanelaPrincipal(QMainWindow):
         self.map_principal.setMinimumHeight(350) 
         self.map_principal.show_placeholder_message("Aguardando dados de Localização")
         self.map_principal.marker_dragged.connect(self._ao_arrastar_pino)
+        self.map_principal.audio_clicked.connect(self._ao_clicar_pin_audio)
         layout_inferior.addWidget(self.map_principal)
         
         # --- Botão Definir Localização Manualmente e IUCN (v0.3.19) ---
@@ -1408,6 +1409,21 @@ class JanelaPrincipal(QMainWindow):
         
         # Limpar áudios anteriores para nova busca geo-sincronizada (v0.4.3)
         self._limpar_painel_audio()
+
+    def _ao_clicar_pin_audio(self, audio_id):
+        """Lida com o clique no pin 🎵 do mapa, destacando o player UI (v0.4.4)."""
+        if not hasattr(self, 'active_audio_players'):
+            return
+            
+        for player in self.active_audio_players:
+            if isinstance(player, AudioPlayerWidget):
+                # O ID pode ser o ID do Xeno ou a URL (fallback)
+                p_id = player.audio_data.get('id', player.url)
+                if str(p_id) == str(audio_id):
+                    player.highlight()
+                    # Scroll até o player (opcional, mas bom UX)
+                    self.scroll_area.ensureWidgetVisible(player)
+                    break
         
         # O Orchestrator assume a responsabilidade do worker v0.4.2
         self.orchestrator.update_location(lat, lon)
@@ -1643,5 +1659,7 @@ class JanelaPrincipal(QMainWindow):
     def closeEvent(self, event):
         """Sobrescreve o fechamento para limpar a caderneta de campo temporária."""
         if hasattr(self, 'session_logger'):
+            # Flush final antes de fechar (Safety v0.4.4)
+            self.session_logger.flush()
             self.session_logger.limpar_sessao()
         event.accept()

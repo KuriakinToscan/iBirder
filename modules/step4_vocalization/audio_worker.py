@@ -133,16 +133,18 @@ class AudioWorker(QThread):
             has_reference = (self.lat is not None and self.lon is not None)
             
             for rec in recordings:
-                # Tratar Coordenadas GPS (Blidar nulls)
+                # Tratar Coordenadas GPS (Blidar nulls e coords 0.0 - v0.4.4)
                 str_lat = rec.get('lat')
                 str_lng = rec.get('lng')
+                r_lat, r_lng = None, None
+                
                 if str_lat and str_lng and str_lat != "null" and str_lng != "null":
                     try:
-                        r_lat, r_lng = float(str_lat), float(str_lng)
-                    except ValueError:
-                        r_lat, r_lng = None, None
-                else:
-                    r_lat, r_lng = None, None
+                        temp_lat, temp_lng = float(str_lat), float(str_lng)
+                        # Descarta se for 0.0 (Geralmente dado faltante interpretado errado)
+                        if temp_lat != 0.0 and temp_lng != 0.0:
+                             r_lat, r_lng = temp_lat, temp_lng
+                    except ValueError: pass
 
                 # Cálculo de distância condicional (v0.4.3)
                 if has_reference:
@@ -269,7 +271,10 @@ class AudioWorker(QThread):
                 if location:
                     try:
                         coords = location.split(',')
-                        obs_lat, obs_lon = float(coords[0]), float(coords[1])
+                        temp_lat, temp_lng = float(coords[0]), float(coords[1])
+                        # Segurança Geográfica v0.4.4
+                        if temp_lat != 0.0 and temp_lng != 0.0:
+                             obs_lat, obs_lon = temp_lat, temp_lng
                     except (ValueError, IndexError): pass
 
                 sounds = obs.get('sounds', [])

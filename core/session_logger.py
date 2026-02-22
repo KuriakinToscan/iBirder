@@ -66,10 +66,8 @@ class SessionLogger:
                 self.buffer[-1].update(novos_dados)
                 print(f"[SessionLogger] Buffer Atualizado com sucesso (+{len(novos_dados)} chaves na RAM).")
                 
-                # O Flush é idealmente convocado na Etapa 5 ou quando o Workflow termina: (v0.4.3)
-                if "ebird_code" in novos_dados or "raridade_regional" in novos_dados:
-                    print(f"[SessionLogger] Final do pipeline detectado para {novos_dados.get('nome_ingles', 'espécie')}. Executando Batch Flush.")
-                    self.flush()
+                # Flush automático removido em v0.4.4 para consolidar no final do pipeline
+                pass
                     
         except Exception as e:
             print(f"[SessionLogger] Erro ao atualizar_ultimo_registro na Memória: {e}")
