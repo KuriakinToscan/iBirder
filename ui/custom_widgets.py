@@ -329,8 +329,12 @@ class AudioPlayerWidget(QWidget):
         self.distancia_texto = distancia_texto
         self.audio_data = audio_data
 
+        self.setProperty("class", "container-borda-cinza-fill")
+        
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(6, 6, 6, 6)
+        from core.style_manager import StyleManager
+        # Obedecer simetria SPACING_MD da v0.3.52 global
+        layout.setContentsMargins(StyleManager.SPACING_MD, StyleManager.SPACING_MD, StyleManager.SPACING_MD, StyleManager.SPACING_MD)
         
         # Player HTML5 Embutido
         self.webview = QWebEngineView()
@@ -381,12 +385,27 @@ class AudioPlayerWidget(QWidget):
         layout_infos = QVBoxLayout()
         layout_infos.setSpacing(2)
         
-        info_html = f"<b>Autor:</b> {self.autor}<br><b>Fonte:</b> {self.fonte}"
+        # Coletar dados extras se existirem (para retrocompatibilidade com chamadas simples)
+        licenca = "CC BY-NC"
+        data_grav = "Desconhecida"
+        duracao = "0:00"
+        if isinstance(self.audio_data, dict):
+             licenca = self.audio_data.get('licenca', licenca)
+             data_grav = self.audio_data.get('data', data_grav)
+             duracao = self.audio_data.get('duracao', duracao)
+             
+        # Montagem do HTML Semântico e Elegante V0.4
+        info_html = ""
         if self.tipo_canto:
-             info_html += f"<br><b>Tipo:</b> {self.tipo_canto}{self.distancia_texto}"
+             dist_str = f" • a {int(self.audio_data.get('distancia'))}km de você" if (isinstance(self.audio_data, dict) and self.audio_data.get('distancia') not in [None, float('inf')]) else ""
+             info_html += f"<b>{self.tipo_canto}</b>{dist_str}<br>"
+             
+        info_html += f"Gravado por {self.autor} em {data_grav} ({duracao})<br>"
+        info_html += f"<span style='color: #6B7280; font-size: 10px;'>Fonte: {self.fonte} ({licenca})</span>"
 
         lbl_info = QLabel(info_html)
-        lbl_info.setStyleSheet("color: #4B5563; font-size: 11px;")
+        lbl_info.setProperty("class", "lbl-titulo-sessao")
+        lbl_info.setTextInteractionFlags(Qt.TextSelectableByMouse)
         
         self.btn_source = QPushButton("Ver Link")
         self.btn_source.setCursor(Qt.PointingHandCursor)

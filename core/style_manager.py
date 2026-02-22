@@ -147,7 +147,7 @@ class StyleManager:
                 border-radius: 4px;
                 padding: 20px;
             }
-            .btn-fechar-modal {
+            QPushButton[class="btn-fechar-modal"] {
                 background-color: rgba(255, 255, 255, 0.75);
                 color: #374151;
                 font-weight: bold;
@@ -155,8 +155,9 @@ class StyleManager:
                 font-size: 18px;
                 border-radius: 16px;
                 border: none;
+                padding: 0px;
             }
-            .btn-fechar-modal:hover {
+            QPushButton[class="btn-fechar-modal"]:hover {
                 background-color: rgba(255, 255, 255, 0.95);
                 color: #EF4444; 
             }

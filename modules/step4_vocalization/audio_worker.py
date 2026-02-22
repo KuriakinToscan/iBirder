@@ -69,30 +69,47 @@ class AudioWorker(QThread):
             self.search_failed.emit()
 
     def _search_xeno_canto(self):
-        """Busca gravações no Xeno-canto com urllib encode e fallback de qualidade."""
+        """Busca gravações no Xeno-canto com urllib encode e filtragem v2 na memória."""
         import urllib.parse
         try:
             headers = {"User-Agent": "iBirder-App/1.0"}
             recordings = []
-            qualidades = ["q:A", "q:B"]
             
-            # Buscar por qualidade reduzindo o filtro se não achar nada
-            for q in qualidades:
-                raw_query = f"{self.scientific_name} cnt:brazil {q}"
-                quoted_query = urllib.parse.quote(raw_query)
-                url = f"https://xeno-canto.org/api/2/recordings?query={quoted_query}"
+            # API v2: Pesquisa Gen/Spec com País em 1 chamada única
+            partes_nome = self.scientific_name.split(" ")
+            if len(partes_nome) >= 2:
+                gen, spec = partes_nome[0], partes_nome[1]
+                raw_query = f"gen:{gen} spec:{spec} cnt:brazil"
+            else:
+                raw_query = f"{self.scientific_name} cnt:brazil"
                 
-                print(f"[AUDIO] Xeno-canto request: {url}")
-                resp = requests.get(url, headers=headers, timeout=10)
-                
-                if resp.status_code == 200:
-                    data = resp.json()
-                    recs = data.get('recordings', [])
-                    if recs:
-                        recordings = recs
-                        print(f"[AUDIO] Encontradas {len(recordings)} gravações usando {q}.")
-                        break
+            quoted_query = urllib.parse.quote(raw_query)
+            url = f"https://xeno-canto.org/api/2/recordings?query={quoted_query}"
             
+            print(f"[AUDIO] Xeno-canto request (v2 API Unificada): {url}")
+            resp = requests.get(url, headers=headers, timeout=10)
+            
+            if resp.status_code == 200:
+                data = resp.json()
+                
+                # Validação Rápida da Presença da Ave na API
+                num_recordings = data.get("numRecordings", "0")
+                if num_recordings == "0" or not data.get('recordings'):
+                    print(f"[AUDIO] Nenhuma gravação existente no Brasil para {self.scientific_name} (Xeno-canto retornou 0).")
+                    return []
+                
+                recs_totais = data.get('recordings', [])
+                
+                # Filtragem Passiva de Alta Qualidade (A e B) In-Memory
+                recs_alta_qualidade = [r for r in recs_totais if str(r.get('q')).upper() in ['A', 'B']]
+                
+                if recs_alta_qualidade:
+                    recordings = recs_alta_qualidade
+                    print(f"[AUDIO] Curadoria retém {len(recordings)} gravações de Alta Qualidade (A/B) de {len(recs_totais)} disponíveis.")
+                else:
+                    print(f"[AUDIO] Sem áudios Alta Qualidade A/B. Fallback para as {min(5, len(recs_totais))} melhores de menor qualidade.")
+                    recordings = recs_totais[:5]
+
             if not recordings:
                 return []
 
@@ -174,6 +191,8 @@ class AudioWorker(QThread):
                         'url': file_url,
                         'autor': rec.get('rec', 'Desconhecido'),
                         'licenca': rec.get('lic', 'CC BY-NC'),
+                        'data': rec.get('date', 'Desconhecido'),
+                        'duracao': rec.get('length', '0:00'),
                         'fonte': 'Xeno-canto',
                         'tipo_canto': tipo_str,
                         'distancia_texto': dist_str,
