@@ -437,8 +437,9 @@ class JanelaPrincipal(QMainWindow):
         # --- SOLDA CIRÚRGICA DE BRANDING PERDIDA NA FASE L ---
         layout_header.addLayout(layout_ajuda)
         layout_mestre.addLayout(layout_header)
+        layout_mestre.addSpacing(StyleManager.SPACING_LG)
         
-        # --- NOVO: GRID DE COLUNAS COM SIMETRIA ABSOLUTA (v0.3.46/v0.3.47/v0.3.50) ---
+        # --- NOVO: GRID DE COLUNAS COM SIMETRIA ABSOLUTA (v0.3.46/v0.3.47/v0.3.50/v0.3.53) ---
         layout_cards_superiores = QGridLayout()
         layout_cards_superiores.setSpacing(15)
         
@@ -446,6 +447,10 @@ class JanelaPrincipal(QMainWindow):
         layout_cards_superiores.setColumnStretch(0, 1)
         layout_cards_superiores.setColumnStretch(1, 1)
         layout_cards_superiores.setColumnStretch(2, 1)
+        
+        # FASE S.1 (v0.3.53) - GRAVIDADE ZERO DAS IMAGENS, SUCÇÃO PELO MAPA
+        layout_cards_superiores.setRowStretch(1, 0)
+        layout_cards_superiores.setRowStretch(2, 1)
 
         # LINHA 0: TÍTULOS
         lbl_titulo_user = QLabel("Imagem Pesquisada")
@@ -797,7 +802,7 @@ class JanelaPrincipal(QMainWindow):
         self.status_bar.showMessage("Pronto para uso (Local)")
 
     def _aplicar_estilo(self):
-        self.setStyleSheet("""
+        estilo_janela = """
             QMainWindow { background-color: #F0F2F5; }
             QFrame.painel { background-color: #FFFFFF; border-radius: 12px; border: 1px solid #D1D5DB; }
             
@@ -839,7 +844,11 @@ class JanelaPrincipal(QMainWindow):
                 background-color: #FFFFFF; 
                 color: #374151;
             }
-        """)
+        """
+        
+        # Concatena o CSS isolado da Janela com o Core CSS global (Slogan, Classes)
+        estilo_completo = estilo_janela + StyleManager.get_global_stylesheet()
+        self.setStyleSheet(estilo_completo)
 
     def _abrir_manual(self):
         janela_manual = JanelaManual(self)
