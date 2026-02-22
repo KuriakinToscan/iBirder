@@ -26,6 +26,7 @@ from modules.step1_identity.worker_referencia import ReferenceImageWorker
 from modules.step2_biology.wiki_worker import BuscadorWorker
 from modules.step4_vocalization.audio_worker import AudioWorker
 from core.logger import save_crash_log
+from core.style_manager import StyleManager
 from ui.widgets.map_widget import MapWidget
 from ui.custom_widgets import ImageCardWidget, AudioPlayerWidget
 from ui.dialogs.location_dialog import LocationDialog
@@ -342,20 +343,21 @@ class JanelaPrincipal(QMainWindow):
         self.setCentralWidget(self.scroll_area)
 
         layout_mestre = QVBoxLayout(widget_central)
-        layout_mestre.setContentsMargins(15, 15, 15, 15)
-        layout_mestre.setSpacing(10)
+        layout_mestre.setContentsMargins(StyleManager.SPACING_MD, StyleManager.SPACING_MD, StyleManager.SPACING_MD, StyleManager.SPACING_MD)
+        layout_mestre.setSpacing(StyleManager.SPACING_SM)
 
         # --- HEADER GLOBAL (Branding + Actions) ---
         layout_header = QHBoxLayout()
-        layout_header.setSpacing(15)
+        layout_header.setSpacing(StyleManager.SPACING_MD)
         
         # Branding 
         layout_branding = QHBoxLayout()
-        layout_branding.setSpacing(12)
+        layout_branding.setSpacing(StyleManager.SPACING_MD)
         layout_branding.setAlignment(Qt.AlignLeft)
         
         caminho_logo_painel = self._obter_caminho_asset("logo_ave.svg")
         lbl_logo = QLabel()
+        lbl_logo.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         if os.path.exists(caminho_logo_painel):
             pixmap_logo = QIcon(caminho_logo_painel).pixmap(QSize(96, 96))
             lbl_logo.setPixmap(pixmap_logo)
@@ -370,8 +372,7 @@ class JanelaPrincipal(QMainWindow):
         
         lbl_subtitulo = QLabel("IA para Birdwatching")
         lbl_subtitulo.setObjectName("lbl_slogan")
-        # Injeção Estrita para Sobrepor Herança Asíncrona Tardia
-        lbl_subtitulo.setStyleSheet("font-size: 44px; font-weight: bold; color: #2C3E50; font-family: 'Figtree', sans-serif;")
+        lbl_subtitulo.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         
         layout_textos_header.addWidget(lbl_subtitulo)
         
@@ -448,58 +449,57 @@ class JanelaPrincipal(QMainWindow):
 
         # LINHA 0: TÍTULOS
         lbl_titulo_user = QLabel("Imagem Pesquisada")
-        lbl_titulo_user.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 2px;")
+        lbl_titulo_user.setProperty("class", "lbl-titulo-sessao")
+        lbl_titulo_user.setProperty("margin-bottom", "sm")
         layout_cards_superiores.addWidget(lbl_titulo_user, 0, 0)
         
         lbl_titulo_ref = QLabel("Imagem Referência")
-        lbl_titulo_ref.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 2px;")
+        lbl_titulo_ref.setProperty("class", "lbl-titulo-sessao")
+        lbl_titulo_ref.setProperty("margin-bottom", "sm")
         layout_cards_superiores.addWidget(lbl_titulo_ref, 0, 1)
 
         lbl_titulo_res = QLabel("Resultados da Análise")
-        lbl_titulo_res.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 2px;")
+        lbl_titulo_res.setProperty("class", "lbl-titulo-sessao")
+        lbl_titulo_res.setProperty("margin-bottom", "sm")
         layout_cards_superiores.addWidget(lbl_titulo_res, 0, 2)
         
         # LINHA 1: WIDGETS E PAINÉIS
-        # Célula (1, 0) - Imagem User e Botão Lens
-        wrapper_user = QWidget()
-        vbox_user = QVBoxLayout(wrapper_user)
-        vbox_user.setContentsMargins(0, 0, 0, 0)
-        vbox_user.setSpacing(4)
+        # Célula (1, 0) - Imagem User e Botão Lens (Integrados Diretamente no Grid + VBoxLayout filho p/ botao)
+        layout_imagem_btn_user = QVBoxLayout()
+        layout_imagem_btn_user.setSpacing(StyleManager.SPACING_SM)
         
         self.card_user = ImageCardWidget()
         self.card_user.set_placeholder("Arraste e solte uma foto aqui\n\nou clique para selecionar")
         self.card_user.set_on_drop(self._carregar_imagem)
         self.card_user.set_on_click(self._abrir_seletor_arquivo)
-        vbox_user.addWidget(self.card_user, stretch=1)
+        layout_imagem_btn_user.addWidget(self.card_user, stretch=1)
         
         self.btn_google_lens = QPushButton("Pesquisar com Google Lens")
         self.btn_google_lens.setCursor(Qt.PointingHandCursor)
         self.btn_google_lens.setEnabled(False)
         self.btn_google_lens.clicked.connect(self._abrir_google_lens)
-        vbox_user.addWidget(self.btn_google_lens)
+        layout_imagem_btn_user.addWidget(self.btn_google_lens)
         
         # Ancorando estritamente ao topo sem stretch inflador:
-        layout_cards_superiores.addWidget(wrapper_user, 1, 0, alignment=Qt.AlignTop)
+        layout_cards_superiores.addLayout(layout_imagem_btn_user, 1, 0, alignment=Qt.AlignTop)
 
         # Célula (1, 1) - Imagem Referência e Botão Fonte
-        wrapper_ref = QWidget()
-        vbox_ref = QVBoxLayout(wrapper_ref)
-        vbox_ref.setContentsMargins(0, 0, 0, 0)
-        vbox_ref.setSpacing(4)
+        layout_imagem_btn_ref = QVBoxLayout()
+        layout_imagem_btn_ref.setSpacing(StyleManager.SPACING_SM)
         
         self.card_ref = ImageCardWidget()
         self.card_ref.set_placeholder("Aguardando a identificação da ave.")
-        vbox_ref.addWidget(self.card_ref, stretch=1)
+        layout_imagem_btn_ref.addWidget(self.card_ref, stretch=1)
         
         self.btn_fonte = QPushButton("Abrir Fonte")
         self.btn_fonte.setCursor(Qt.PointingHandCursor)
         self.btn_fonte.setVisible(True)
         self.btn_fonte.setEnabled(False)
         self.btn_fonte.clicked.connect(lambda: QDesktopServices.openUrl(self.btn_fonte.property("url_alvo")))
-        vbox_ref.addWidget(self.btn_fonte)
+        layout_imagem_btn_ref.addWidget(self.btn_fonte)
         
         # Ancorando estritamente ao topo sem stretch inflador:
-        layout_cards_superiores.addWidget(wrapper_ref, 1, 1, alignment=Qt.AlignTop)
+        layout_cards_superiores.addLayout(layout_imagem_btn_ref, 1, 1, alignment=Qt.AlignTop)
         
         # Célula (1, 2) - Painel de Resultados (Antigo Lado Direito)
         self.painel_direito = QFrame()
@@ -513,7 +513,7 @@ class JanelaPrincipal(QMainWindow):
 
         layout_direito = QVBoxLayout()
         self.painel_direito.setLayout(layout_direito)
-        layout_direito.setSpacing(15)
+        layout_direito.setSpacing(StyleManager.SPACING_MD)
         layout_direito.setContentsMargins(12, 18, 12, 12)
         
         layout_cards_superiores.addWidget(self.painel_direito, 1, 2, 3, 1) # RowSpan=3, ColSpan=1
@@ -523,11 +523,12 @@ class JanelaPrincipal(QMainWindow):
         
         # --- BLOCO INFERIOR CENTRALIZADO (PÓS-GRID) ---
         layout_inferior = QVBoxLayout()
-        layout_inferior.setSpacing(15)
+        layout_inferior.setSpacing(StyleManager.SPACING_MD)
         
         # --- Campo de Descrição Rica (v0.2.1) ---
         lbl_titulo_desc = QLabel('Descrição da Espécie <i>(WikiAves)</i>')
-        lbl_titulo_desc.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-top: 8px;")
+        lbl_titulo_desc.setProperty("class", "lbl-titulo-sessao")
+        lbl_titulo_desc.setProperty("margin-top", "md")
         layout_inferior.addWidget(lbl_titulo_desc)
 
         self.txt_descricao = QTextEdit()
@@ -537,18 +538,7 @@ class JanelaPrincipal(QMainWindow):
         self.txt_descricao.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.txt_descricao.textChanged.connect(self._ajustar_altura_descricao)
         
-        self.txt_descricao.setStyleSheet("""
-            QTextEdit {
-                background-color: #F8F9FA;
-                border: 1px solid #E5E7EB;
-                border-radius: 12px;
-                padding: 6px;
-                color: #4B5563;
-                font-size: 12px;
-                font-family: "Segoe UI";
-                font-style: italic;
-            }
-        """)
+        self.txt_descricao.setProperty("class", "container-borda-cinza")
         
         layout_inferior.addWidget(self.txt_descricao)
         
@@ -559,7 +549,8 @@ class JanelaPrincipal(QMainWindow):
         
         # --- NOVO: Mapa Único (v0.3.3) ---
         lbl_titulo_geo = QLabel("Localização Geográfica")
-        lbl_titulo_geo.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 4px;")
+        lbl_titulo_geo.setProperty("class", "lbl-titulo-sessao")
+        lbl_titulo_geo.setProperty("margin-bottom", "md")
         layout_inferior.addWidget(lbl_titulo_geo)
         
         self.map_principal = MapWidget()
@@ -570,7 +561,7 @@ class JanelaPrincipal(QMainWindow):
         
         # --- Botão Definir Localização Manualmente e IUCN (v0.3.19) ---
         layout_map_botoes = QHBoxLayout()
-        layout_map_botoes.setSpacing(10)
+        layout_map_botoes.setSpacing(StyleManager.SPACING_SM)
         
         self.btn_set_location = QPushButton("Definir Localização Manualmente")
         self.btn_set_location.setCursor(Qt.PointingHandCursor)
@@ -613,7 +604,7 @@ class JanelaPrincipal(QMainWindow):
         
         self.lbl_confianca = QLabel("-")
         self.lbl_confianca.setObjectName("lbl_confianca")
-        self.lbl_confianca.setStyleSheet("color: #4B5563; font-size: 11px; font-weight: bold;")
+        self.lbl_confianca.setProperty("class", "lbl-titulo-sessao")
         self.lbl_confianca.setTextInteractionFlags(Qt.TextSelectableByMouse)
         
         self.lbl_descricao = QLabel("-") 
@@ -625,13 +616,14 @@ class JanelaPrincipal(QMainWindow):
         
         # Label Nome Científico Padronizado
         lbl_titulo_nc = QLabel("Nome Científico")
-        lbl_titulo_nc.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-top: 8px;")
+        lbl_titulo_nc.setProperty("class", "lbl-titulo-sessao")
+        lbl_titulo_nc.setProperty("margin-top", "md")
         layout_res.addWidget(lbl_titulo_nc)
 
         # Container de Busca Manual
         container_busca = QHBoxLayout()
         container_busca.setContentsMargins(0, 0, 0, 0)
-        container_busca.setSpacing(5)
+        container_busca.setSpacing(StyleManager.SPACING_SM)
         
         self.input_especie = QLineEdit()
         self.input_especie.setPlaceholderText("pesquise ou digite")
@@ -642,12 +634,13 @@ class JanelaPrincipal(QMainWindow):
         palette.setColor(QPalette.Text, QColor("#4B5563"))
         self.input_especie.setPalette(palette)
         
-        self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #4B5563; font-style: italic; font-size: 12px; font-family: 'Segoe UI';")
+        self.input_especie.setProperty("class", "container-borda-cinza")
         self.input_especie.returnPressed.connect(self._realizar_busca_manual)
         
         self.btn_search = QPushButton()
         self.btn_search.setCursor(Qt.PointingHandCursor)
         self.btn_search.setFixedSize(32, 32)
+        # O botão da lupa é icon-only e não usa os backgrounds globais.
         self.btn_search.setStyleSheet("background-color: transparent; border: none;") 
         
         caminho_lupa = self._obter_caminho_asset("search_loupe.svg")
@@ -666,7 +659,8 @@ class JanelaPrincipal(QMainWindow):
 
         # --- NOVOS CAMPOS: ETIMOLOGIA (Abaixo do Nome Científico) ---
         self.lbl_titulo_etimologia = QLabel('Etimologia <i>(WikiAves)</i>')
-        self.lbl_titulo_etimologia.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-top: 8px;")
+        self.lbl_titulo_etimologia.setProperty("class", "lbl-titulo-sessao")
+        self.lbl_titulo_etimologia.setProperty("margin-top", "md")
         self.lbl_titulo_etimologia.setVisible(True)
         layout_res.addWidget(self.lbl_titulo_etimologia)
 
@@ -676,17 +670,7 @@ class JanelaPrincipal(QMainWindow):
         self.txt_etimologia.setMinimumHeight(30) 
         self.txt_etimologia.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.txt_etimologia.textChanged.connect(self._ajustar_altura_etimologia)
-        self.txt_etimologia.setStyleSheet("""
-            QTextEdit {
-                background-color: #F9FAFB;
-                border: 1px solid #E5E7EB;
-                border-radius: 6px;
-                padding: 6px;
-                color: #4B5563;
-                font-size: 12px;
-                font-style: italic;
-            }
-        """)
+        self.txt_etimologia.setProperty("class", "container-borda-cinza")
         self.txt_etimologia.setVisible(True)
         layout_res.addWidget(self.txt_etimologia)
         # -------------------------------------------------------------
@@ -755,16 +739,17 @@ class JanelaPrincipal(QMainWindow):
         
         # --- NOVO: Card Vocalizações (v0.3.3) ---
         grupo_audio = QGroupBox("")
-        grupo_audio.setStyleSheet("margin-top: 10px; padding-top: 10px;")
+        grupo_audio.setProperty("class", "grupo-sessao-inferior")
         layout_audio = QVBoxLayout()
         
         lbl_titulo_audio = QLabel("Vocalizações")
-        lbl_titulo_audio.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 4px;")
+        lbl_titulo_audio.setProperty("class", "lbl-titulo-sessao")
+        lbl_titulo_audio.setProperty("margin-bottom", "md")
         layout_audio.addWidget(lbl_titulo_audio)
         
         self.lbl_audio_placeholder = QLabel("Áudio não carregado")
         self.lbl_audio_placeholder.setAlignment(Qt.AlignCenter)
-        self.lbl_audio_placeholder.setStyleSheet("color: #9CA3AF; font-style: italic; border: 1px dashed #D1D5DB; border-radius: 4px; padding: 20px;")
+        self.lbl_audio_placeholder.setProperty("class", "container-borda-tracejada")
         layout_audio.addWidget(self.lbl_audio_placeholder)
         
         grupo_audio.setLayout(layout_audio)
@@ -773,27 +758,19 @@ class JanelaPrincipal(QMainWindow):
         # --- NOVO: Card Informações Geográficas (v0.3.5) ---
         # --- NOVO: Card Dados Geográficos (v0.3.19 - Realocado) ---
         grupo_geo = QGroupBox("")
-        grupo_geo.setStyleSheet("margin-top: 10px; padding-top: 10px;")
+        grupo_geo.setProperty("class", "grupo-sessao-inferior")
         layout_geo = QVBoxLayout()
         
         lbl_titulo_geo_card = QLabel("Dados Geográficos")
-        lbl_titulo_geo_card.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 4px;")
+        lbl_titulo_geo_card.setProperty("class", "lbl-titulo-sessao")
+        lbl_titulo_geo_card.setProperty("margin-bottom", "md")
         layout_geo.addWidget(lbl_titulo_geo_card)
         
         # Reutilizando self.lbl_geo_details aqui
         self.lbl_geo_details = QLabel("Aguardando localização...")
         self.lbl_geo_details.setWordWrap(True)
         self.lbl_geo_details.setTextFormat(Qt.RichText)
-        self.lbl_geo_details.setStyleSheet("""
-            QLabel {
-                background-color: #F9FAFB;
-                border: 1px solid #E5E7EB;
-                border-radius: 6px;
-                padding: 6px;
-                color: #374151;
-                font-size: 12px;
-            }
-        """)
+        self.lbl_geo_details.setProperty("class", "container-borda-cinza-fill")
         # Diferente da esquerda, aqui ele pode começar visivel como placeholder ou invisivel. 
         # O User pediu para seguir formatação dos demais. Vamos manter visivel com placeholder ou vazio.
         # Mas a logica de _ao_concluir atualiza o texto. Vamos iniciar vazio ou com msg.
@@ -1257,19 +1234,26 @@ class JanelaPrincipal(QMainWindow):
                 sci_formatted = sci_clean.capitalize()
 
             self.input_especie.setText(sci_formatted)
-            self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #374151; font-style: italic;")
+            self.input_especie.setProperty("class", "container-borda-cinza")
+            # Force repaint via QStyle dynamic properties
+            self.input_especie.style().unpolish(self.input_especie)
+            self.input_especie.style().polish(self.input_especie)
             
             if self.dados_identificacao_atual:
                 self.dados_identificacao_atual["nome_cientifico"] = sci_formatted
         else:
              self.input_especie.clear()
-             self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #4B5563; font-style: italic; font-size: 12px; font-family: 'Segoe UI';")
+             self.input_especie.setProperty("class", "container-borda-cinza")
+             self.input_especie.style().unpolish(self.input_especie)
+             self.input_especie.style().polish(self.input_especie)
         
         self.lbl_descricao.setText(desc)
         
         if status_msg == "Baixa confiança":
             self.lbl_confianca.setText(f"{conf*100:.1f}% (Baixa)")
-            self.lbl_confianca.setStyleSheet("color: #EF4444")
+            self.lbl_confianca.setProperty("class", "lbl-titulo-sessao lbl-confianca-baixa")
+            self.lbl_confianca.style().unpolish(self.lbl_confianca)
+            self.lbl_confianca.style().polish(self.lbl_confianca)
             self.status_bar.showMessage("Identificação inconclusiva.")
             
             self.btn_wiki.setVisible(False)
@@ -1285,7 +1269,9 @@ class JanelaPrincipal(QMainWindow):
 
         else:
             self.lbl_confianca.setText(f"{conf*100:.1f}%")
-            self.lbl_confianca.setStyleSheet("color: #059669")
+            self.lbl_confianca.setProperty("class", "lbl-titulo-sessao lbl-confianca-alta")
+            self.lbl_confianca.style().unpolish(self.lbl_confianca)
+            self.lbl_confianca.style().polish(self.lbl_confianca)
             self.status_bar.showMessage("Identificação concluída.")
             
             self.btn_wiki.setVisible(True)
@@ -1595,7 +1581,9 @@ class JanelaPrincipal(QMainWindow):
         
         self.btn_fonte.setEnabled(False)
         self.input_especie.clear()
-        self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #4B5563; font-style: italic; font-size: 12px; font-family: 'Segoe UI';")
+        self.input_especie.setProperty("class", "container-borda-cinza")
+        self.input_especie.style().unpolish(self.input_especie)
+        self.input_especie.style().polish(self.input_especie)
         
         self.lbl_nome_comum.setText("-")
         self.lbl_descricao.setText("-")
