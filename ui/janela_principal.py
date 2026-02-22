@@ -370,7 +370,8 @@ class JanelaPrincipal(QMainWindow):
         
         lbl_subtitulo = QLabel("IA para Birdwatching")
         lbl_subtitulo.setObjectName("lbl_slogan")
-        # Estilo agora reside globalmente em StyleManager
+        # Injeção Estrita para Sobrepor Herança Asíncrona Tardia
+        lbl_subtitulo.setStyleSheet("font-size: 44px; font-weight: bold; color: #2C3E50; font-family: 'Figtree', sans-serif;")
         
         layout_textos_header.addWidget(lbl_subtitulo)
         
@@ -476,9 +477,9 @@ class JanelaPrincipal(QMainWindow):
         self.btn_google_lens.setEnabled(False)
         self.btn_google_lens.clicked.connect(self._abrir_google_lens)
         vbox_user.addWidget(self.btn_google_lens)
-        vbox_user.addStretch(1) # Isola o VBox para não esticar verticalmente com a Row
         
-        layout_cards_superiores.addWidget(wrapper_user, 1, 0)
+        # Ancorando estritamente ao topo sem stretch inflador:
+        layout_cards_superiores.addWidget(wrapper_user, 1, 0, alignment=Qt.AlignTop)
 
         # Célula (1, 1) - Imagem Referência e Botão Fonte
         wrapper_ref = QWidget()
@@ -496,9 +497,9 @@ class JanelaPrincipal(QMainWindow):
         self.btn_fonte.setEnabled(False)
         self.btn_fonte.clicked.connect(lambda: QDesktopServices.openUrl(self.btn_fonte.property("url_alvo")))
         vbox_ref.addWidget(self.btn_fonte)
-        vbox_ref.addStretch(1) # Isola o VBox para não esticar verticalmente com a Row
         
-        layout_cards_superiores.addWidget(wrapper_ref, 1, 1)
+        # Ancorando estritamente ao topo sem stretch inflador:
+        layout_cards_superiores.addWidget(wrapper_ref, 1, 1, alignment=Qt.AlignTop)
         
         # Célula (1, 2) - Painel de Resultados (Antigo Lado Direito)
         self.painel_direito = QFrame()
