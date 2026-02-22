@@ -316,15 +316,17 @@ class JanelaPrincipal(QMainWindow):
         ferramentas_menu.addAction(action_config_api)
 
         # --- CARREGAMENTO DO ÍCONE DA JANELA ---
-        from core.style_manager import StyleManager
-        if StyleManager.is_windows_dark_mode():
-            icon_file = "logo_ave_claro.svg" 
-        else:
-            icon_file = "logo_ave_escuro.svg"
-
-        caminho_icone_janela = self._obter_caminho_asset(icon_file)
+        caminho_icone_janela = self._obter_caminho_asset(self.nome_icone_janela)
+        caminho_ico_seguro = self._obter_caminho_asset("logo_ave.ico")
+        
+        icone_principal = QIcon()
         if os.path.exists(caminho_icone_janela):
-            self.setWindowIcon(QIcon(caminho_icone_janela))
+            icone_principal.addFile(caminho_icone_janela)
+        if os.path.exists(caminho_ico_seguro):
+            icone_principal.addFile(caminho_ico_seguro) # Fallback robusto para Windows Titlebar
+            
+        if not icone_principal.isNull():
+            self.setWindowIcon(icone_principal)
 
         # Container Principal com Scroll
         self.scroll_area = QScrollArea()
@@ -434,9 +436,14 @@ class JanelaPrincipal(QMainWindow):
         layout_header.addLayout(layout_ajuda)
         layout_mestre.addLayout(layout_header)
         
-        # --- NOVO: GRID DE COLUNAS COM SIMETRIA ABSOLUTA (v0.3.46/v0.3.47) ---
+        # --- NOVO: GRID DE COLUNAS COM SIMETRIA ABSOLUTA (v0.3.46/v0.3.47/v0.3.50) ---
         layout_cards_superiores = QGridLayout()
         layout_cards_superiores.setSpacing(15)
+        
+        # OBRIGAR SIMETRIA: As colunas 0, 1 e 2 devem ter exato peso 1
+        layout_cards_superiores.setColumnStretch(0, 1)
+        layout_cards_superiores.setColumnStretch(1, 1)
+        layout_cards_superiores.setColumnStretch(2, 1)
 
         # LINHA 0: TÍTULOS
         lbl_titulo_user = QLabel("Imagem Pesquisada")

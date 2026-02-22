@@ -46,8 +46,8 @@ class ImageCardWidget(QWidget):
         self.overlay_bg_color = QColor(0, 0, 0, 160)
         self.overlay_text_color = QColor("#FFFFFF")
         
-        # Layout & Simetria
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # Layout & Simetria (Proporção 1:1 rigorosa)
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         self.setMinimumSize(250, 250)
         
         # Habilitar Drop
@@ -108,11 +108,19 @@ class ImageCardWidget(QWidget):
         has_image = self.pixmap is not None and not self.pixmap.isNull()
         self.btn_expand.setVisible(has_image)
     def sizeHint(self):
-        """Retorna (1,1) para obrigar o layout a distribuir espaço igualmente."""
-        return QSize(1, 1)
+        """Retorna uma sugestão base quadrada."""
+        return QSize(250, 250)
 
     def minimumSizeHint(self):
-        return QSize(1, 1)
+        return QSize(250, 250)
+        
+    def hasHeightForWidth(self):
+        """Sinaliza ao Qt Layout Manager que a altura depende da largura."""
+        return True
+
+    def heightForWidth(self, width):
+        """Força Proporção Áurea 1:1 (Quadrado)."""
+        return width
 
     # --- API Pública ---
 

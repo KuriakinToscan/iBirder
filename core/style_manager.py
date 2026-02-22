@@ -83,8 +83,8 @@ class StyleManager:
                 margin: 4px 0px 4px 0px;
             }
             #lbl_slogan {
-                color: #1F2937;
-                font-size: 24px;
+                color: #2C3E50;
+                font-size: 44px;
                 font-weight: bold;
                 font-family: 'Figtree', sans-serif;
             }
