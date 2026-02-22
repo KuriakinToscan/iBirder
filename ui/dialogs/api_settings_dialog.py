@@ -1,11 +1,12 @@
 from PySide6.QtWidgets import QCheckBox, QPushButton, QLabel, QHBoxLayout, QMessageBox, QLineEdit
+from PySide6.QtCore import Qt
 from ui.base.base_dialog import BaseDialog
 from core.config import carregar_config, salvar_config
 
 class APISettingsDialog(BaseDialog):
     def __init__(self, parent=None):
         super().__init__(title="Configurações de Avisos de API", parent=parent)
-        self.setFixedSize(300, 150)
+        self.setFixedSize(350, 250)
         
         self.main_layout.addWidget(QLabel("Quais alertas ocultos deseja reexibir?"))
         
