@@ -433,4 +433,9 @@ class AudioPlayerWidget(QWidget):
         
     def _open_link(self):
         from PySide6.QtGui import QDesktopServices
-        QDesktopServices.openUrl(QUrl(self.url))
+        # Priorizar o link da página web (v0.4.32) em vez da URL do arquivo mp3
+        final_url = self.url
+        if isinstance(self.audio_data, dict) and self.audio_data.get('link_web'):
+             final_url = self.audio_data['link_web']
+             
+        QDesktopServices.openUrl(QUrl(final_url))

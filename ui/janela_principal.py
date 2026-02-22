@@ -1381,6 +1381,7 @@ class JanelaPrincipal(QMainWindow):
              
         dados_etapa_4 = {
             "audio_url": audio.get('url', ''),
+            "audio_id": audio.get('id', ''),
             "audio_autor": audio.get('autor', 'Desconhecido'),
             "audio_licenca": audio.get('licenca', 'CC BY-NC'),
             "audio_tipo": audio.get('tipo_canto', ''),

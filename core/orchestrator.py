@@ -277,9 +277,10 @@ class Orchestrator(QObject):
             self._cache_audio = {}
             
         if sci_name in self._cache_audio:
-            print(f"[Orchestrator] Cache Hit em Áudio (Vocalização) para {sci_name}. Pulando rede e ressignificando UI instantaneamente!")
-            # Retorna via Short-Circuit imitador da conlcusão do worker
-            self.step4_audio_concluido.emit(self._cache_audio[sci_name])
+            print(f"[Orchestrator] Cache Hit em Áudio para {sci_name}. Sincronizando UI e Mapa.")
+            audios = self._cache_audio[sci_name]
+            self.step4_audio_concluido.emit(audios)
+            self.audio_processed.emit(audios) # Garantir plotagem no mapa em cache hit (v0.4.32)
             return
             
         if self.audio_worker: self.audio_worker.deleteLater()
