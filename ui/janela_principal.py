@@ -343,7 +343,7 @@ class JanelaPrincipal(QMainWindow):
         caminho_logo_painel = self._obter_caminho_asset("logo_ave.svg")
         lbl_logo = QLabel()
         if os.path.exists(caminho_logo_painel):
-            pixmap_logo = QIcon(caminho_logo_painel).pixmap(QSize(48, 48))
+            pixmap_logo = QIcon(caminho_logo_painel).pixmap(QSize(96, 96))
             lbl_logo.setPixmap(pixmap_logo)
         else:
             lbl_logo.setText("🐦")
@@ -354,12 +354,9 @@ class JanelaPrincipal(QMainWindow):
         layout_textos_header = QVBoxLayout()
         layout_textos_header.setSpacing(0)
         
-        lbl_titulo_app = QLabel("iBirder")
-        lbl_titulo_app.setStyleSheet("color: #1F2937; font-size: 24px; font-weight: bold; font-family: 'Segoe UI';")
-        lbl_subtitulo = QLabel("IA para BirdWatching")
-        lbl_subtitulo.setStyleSheet("color: #6B7280; font-size: 14px; font-weight: normal; font-family: 'Segoe UI';")
+        lbl_subtitulo = QLabel("IA para Birdwatching")
+        lbl_subtitulo.setStyleSheet("color: #1F2937; font-size: 24px; font-weight: bold; font-family: 'Segoe UI';")
         
-        layout_textos_header.addWidget(lbl_titulo_app)
         layout_textos_header.addWidget(lbl_subtitulo)
         
         layout_branding.addLayout(layout_textos_header)
@@ -367,13 +364,10 @@ class JanelaPrincipal(QMainWindow):
         
         layout_esquerda.addLayout(layout_branding)
 
-        from PySide6.QtWidgets import QApplication
-        from PySide6.QtGui import QPalette
+        from core.style_manager import StyleManager
         
-        app = QApplication.instance()
-        if app:
-            lightness = app.palette().color(QPalette.Window).lightness()
-            icon_file = "logo_ave_claro.svg" if lightness < 128 else "logo_ave_escuro.svg"
+        if StyleManager.is_windows_dark_mode():
+            icon_file = "logo_ave_claro.svg" 
         else:
             icon_file = "logo_ave_escuro.svg"
 

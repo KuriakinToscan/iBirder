@@ -1,8 +1,8 @@
 import sys
 import os
 from pathlib import Path
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QApplication
-from PySide6.QtGui import QIcon, QPalette
+from PySide6.QtWidgets import QDialog, QVBoxLayout
+from PySide6.QtGui import QIcon
 from core.style_manager import StyleManager
 
 class BaseDialog(QDialog):
@@ -21,13 +21,11 @@ class BaseDialog(QDialog):
         # 1. Aplicando o Estilo Global Centralizado (v0.3.37)
         self.setStyleSheet(StyleManager.get_global_stylesheet())
         
-        # 2. Configurando Icone Oficial Adaptativo (v0.3.43)
-        app = QApplication.instance()
-        if app:
-            lightness = app.palette().color(QPalette.Window).lightness()
-            icon_file = "logo_ave_claro.svg" if lightness < 128 else "logo_ave_escuro.svg"
+        # 2. Configurando Icone Oficial Adaptativo (v0.3.43 / v0.3.44.1 - WinReg)
+        if StyleManager.is_windows_dark_mode():
+            icon_file = "logo_ave_claro.svg" 
         else:
-            icon_file = "logo_ave_escuro.svg" # Fallback
+            icon_file = "logo_ave_escuro.svg"
 
         icon_path = self._obter_caminho_asset(icon_file)
         if os.path.exists(icon_path):
