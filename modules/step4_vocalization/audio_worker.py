@@ -228,6 +228,7 @@ class AudioWorker(QThread):
                         'lat': item['lat'],
                         'lon': item['lon'],
                         'link_web': base_link,
+                        'id': rec.get('id'),
                         'q': item['q']
                     })
             
