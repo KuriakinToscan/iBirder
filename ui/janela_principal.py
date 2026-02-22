@@ -57,6 +57,8 @@ class JanelaPrincipal(QMainWindow):
         self.orchestrator.step3_geo_concluida.connect(self._ao_concluir_geo_analise)
         self.orchestrator.step4_audio_concluido.connect(self._ao_encontrar_audio)
         self.orchestrator.step4_audio_erro.connect(self._ao_erro_audio)
+        self.orchestrator.audio_processed.connect(self._plotar_pins_audio)
+        self.orchestrator.limpar_painel_audio.connect(self._limpar_painel_audio)
         self.orchestrator.step5_ebird_concluido.connect(self._ao_concluir_ebird)
         self.orchestrator.update_available.connect(self._ao_update_disponivel)
         
@@ -1335,8 +1337,7 @@ class JanelaPrincipal(QMainWindow):
             self.active_audio_players.append(btn_nudge)
             return
 
-        # Adiciona players
-        audio_markers = []
+        # Adiciona players (v0.4.3)
         for audio in resultados:
             player = AudioPlayerWidget(
                 url=audio['url'], 
@@ -1350,25 +1351,30 @@ class JanelaPrincipal(QMainWindow):
             )
             layout.addWidget(player)
             
-            # Adiciona coordenadas para o mapa
-            if audio.get('lat') is not None and audio.get('lon') is not None:
-                audio_markers.append({
-                     'lat': audio['lat'],
-                     'lon': audio['lon'],
-                     'title': f"{audio.get('tipo_canto')} - {audio['autor']}"
-                })
-            
             # Guardar referencia para limpeza futura
             if not hasattr(self, 'active_audio_players'):
                 self.active_audio_players = []
             self.active_audio_players.append(player)
             
-        # Atualiza o mapa se tivermos novos marcadores e já existir a tela principal montada
-        if audio_markers and self.map_principal:
-             print(f"[UI] Plotando {len(audio_markers)} pins de áudio no mapa.")
-             sci = self._obter_sciname_atual()
-             self.map_principal.update_map(self.lat_atual, self.lon_atual, zoom=6, add_marker=True, scientific_name=sci, audio_markers=audio_markers)
-             
+    def _plotar_pins_audio(self, resultados):
+        """Extrai coordenadas das vocalizações e plota no mapa (v0.4.3)."""
+        if not resultados or not self.map_principal:
+            return
+            
+        audio_markers = []
+        for audio in resultados:
+            if audio.get('lat') is not None and audio.get('lon') is not None:
+                audio_markers.append({
+                     'lat': audio['lat'],
+                     'lon': audio['lon'],
+                     'title': f"{audio.get('tipo_canto')} - {audio.get('autor', 'Gravador')}"
+                })
+        
+        if audio_markers:
+            print(f"[UI] Plotando {len(audio_markers)} pins musicais no mapa.")
+            sci = self._obter_sciname_atual()
+            self.map_principal.update_map(self.lat_atual, self.lon_atual, zoom=6, add_marker=True, scientific_name=sci, audio_markers=audio_markers)
+
     def _registrar_audio_session(self, audio):
         if not audio or not hasattr(self, 'session_logger'):
              return

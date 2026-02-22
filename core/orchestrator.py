@@ -53,6 +53,10 @@ class Orchestrator(QObject):
     step4_audio_erro = Signal()
     
     step5_ebird_concluido = Signal(dict)
+    
+    # Novo sinal para plotagem externa (v0.4.3)
+    audio_processed = Signal(list)
+    limpar_painel_audio = Signal() # Sinal para a UI limpar o painel
 
     def __init__(self, session_logger, parent=None):
         super().__init__(parent)
@@ -71,6 +75,7 @@ class Orchestrator(QObject):
         # Estado Geográfico Armazenado pelo Pipeline
         self.current_lat = None
         self.current_lon = None
+        self.has_location = False # Flag de estado (v0.4.3)
         
         # Inteligência Evolutiva (OTA Updater)
         import time
@@ -110,6 +115,7 @@ class Orchestrator(QObject):
     def update_location(self, lat, lon):
         self.current_lat = lat
         self.current_lon = lon
+        self.has_location = (lat is not None and lon is not None)
         
     def start_cascade_from_step2(self, sci_name):
         """Dispara as etapas iniciais. O áudio agora segue a geografia."""
@@ -122,10 +128,19 @@ class Orchestrator(QObject):
 
     def reprocessar_localizacao(self, lat, lon):
         """Atualiza coordenadas, invalida cache de áudio e reinicia busca geo-acústica."""
+        # Trava de Redundância (v0.4.3)
+        if self.current_lat == lat and self.current_lon == lon and self.has_location:
+            print("[Orchestrator] Coordenadas idênticas. Ignorando reprocessamento.")
+            return
+
         print(f"[Orchestrator] Reprocessando localização manual: {lat}, {lon}")
         self.current_lat = lat
         self.current_lon = lon
+        self.has_location = (lat is not None and lon is not None)
         
+        # Fluxo de Limpeza (v0.4.3)
+        self.limpar_painel_audio.emit()
+
         # Invalida cache de áudio da espécie atual
         sci_name = getattr(self, "_last_sci_name", None)
         if sci_name and hasattr(self, "_cache_audio"):
@@ -280,6 +295,7 @@ class Orchestrator(QObject):
             self._cache_audio[sci_name] = audios
             print(f"[Orchestrator] Áudio de {sci_name} persistido ({len(audios)} items) em Layer 4 Cache da Sessão.")
         self.step4_audio_concluido.emit(audios)
+        self.audio_processed.emit(audios) # Emitir para plotagem externa (v0.4.3)
         
     def _on_step4_failed_intercept(self, sci_name):
         # Cache negative hit para nao ficar tentando ad æternum se soubemos q nao existiu (API 0)
