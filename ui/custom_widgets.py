@@ -95,8 +95,12 @@ class ImageCardWidget(QWidget):
             dialog.exec()
 
     def resizeEvent(self, event):
-        """Posiciona o botão de expandir no canto superior direito."""
+        """Posiciona o botão de expandir no canto superior direito e tranca proporção 1:1."""
         super().resizeEvent(event)
+        
+        # Hard constraint: Força o widget a ser um quadrado exato dinamicamente
+        self.setFixedHeight(self.width())
+        
         margin = 8
         x = self.width() - self.btn_expand.width() - margin
         y = margin

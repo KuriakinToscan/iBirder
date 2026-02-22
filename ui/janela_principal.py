@@ -476,6 +476,7 @@ class JanelaPrincipal(QMainWindow):
         self.btn_google_lens.setEnabled(False)
         self.btn_google_lens.clicked.connect(self._abrir_google_lens)
         vbox_user.addWidget(self.btn_google_lens)
+        vbox_user.addStretch(1) # Isola o VBox para não esticar verticalmente com a Row
         
         layout_cards_superiores.addWidget(wrapper_user, 1, 0)
 
@@ -495,6 +496,7 @@ class JanelaPrincipal(QMainWindow):
         self.btn_fonte.setEnabled(False)
         self.btn_fonte.clicked.connect(lambda: QDesktopServices.openUrl(self.btn_fonte.property("url_alvo")))
         vbox_ref.addWidget(self.btn_fonte)
+        vbox_ref.addStretch(1) # Isola o VBox para não esticar verticalmente com a Row
         
         layout_cards_superiores.addWidget(wrapper_ref, 1, 1)
         
