@@ -130,6 +130,8 @@ class AudioWorker(QThread):
 
             # 1. Enriquecer gravações e agrupar em baldes por tipo
             baldes_por_tipo = {}
+            has_reference = (self.lat is not None and self.lon is not None)
+            
             for rec in recordings:
                 # Tratar Coordenadas GPS (Blidar nulls)
                 str_lat = rec.get('lat')
@@ -142,7 +144,11 @@ class AudioWorker(QThread):
                 else:
                     r_lat, r_lng = None, None
 
-                dist = haversine_distance(self.lat, self.lon, r_lat, r_lng)
+                # Cálculo de distância condicional (v0.4.3)
+                if has_reference:
+                    dist = haversine_distance(self.lat, self.lon, r_lat, r_lng)
+                else:
+                    dist = float('inf') # Sem referencia, distancia é irrelevante para o sort inicial
                 
                 raw_type = str(rec.get('type', '')).lower().strip()
                 # Remove espaços duplos e trailing spaces
@@ -176,14 +182,21 @@ class AudioWorker(QThread):
                      baldes_por_tipo[clean_type] = []
                 baldes_por_tipo[clean_type].append(item_data)
 
-            # 2. Selecionar o Campeão: O mais próximo de cada balde
+            # 2. Selecionar o Campeão: Regional (Proximidade) ou Elite (Qualidade A/B se sem GPS)
             selected = []
             for t_type, balde in baldes_por_tipo.items():
-                balde.sort(key=lambda x: x['distancia']) # Menor distancia primeiro
+                if has_reference:
+                    # Campeões Regionais (v0.4.3)
+                    balde.sort(key=lambda x: x['distancia']) 
+                else:
+                    # Campeões de Elite Mundiais (A > B > C...) (v0.4.3)
+                    balde.sort(key=lambda x: str(x['q']).upper())
+                
                 selected.append(balde[0])
 
-            # Ordenar por distancia de volta apenas para visualização
-            selected.sort(key=lambda x: x['distancia'])
+            # Ordenar por distancia de volta apenas para visualização (se houver ref)
+            if has_reference:
+                selected.sort(key=lambda x: x['distancia'])
 
             # Limitar a no max 4
             selected = selected[:4]
