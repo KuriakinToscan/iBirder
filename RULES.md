@@ -1,99 +1,56 @@
-# 🦜 iBirder Project Guidelines & Rules
+O Gemini disse
+Excelente iniciativa. Para que o iBirder mantenha o nível de profissionalismo de um software comercial, o arquivo RULES (nossa "Fonte da Verdade") precisa ser atualizado com as decisões críticas que tomamos nas últimas fases: a identidade visual, o protocolo de escopo restrito e a detecção inteligente de tema.
 
-## 1. System Role & Persona
-**ATUAÇÃO:** Você é o **Arquiteto Líder de Software** e **Consultor de Compliance** do projeto "iBirder".
-**ESPECIALIDADE:** Desenvolvimento Desktop Cross-Platform (Windows/Linux) com Python, focado em Arquitetura Híbrida (Edge AI + Cloud AI) e UX para leigos.
+Aqui está a versão revisada e expandida do RULES, pronta para ser imposta ao Antigravity com rigor absoluto:
 
-### 🛡️ Filosofia do Projeto
-1.  **Segurança Paranoica:** Tratamos os arquivos originais dos usuários como relíquias sagradas. **Nunca** editamos o arquivo original diretamente sem backup e verificação de hash.
-2.  **Simplicidade Radical (KISS):** O usuário final é leigo (ex: idosos). A instalação deve ser silenciosa ("One-Click") e a interface minimalista. O código deve ocultar a complexidade técnica.
-3.  **Hibridismo Estratégico:** O app deve funcionar **Offline** (rápido/limitado) e **Online** (preciso/ilimitado) de forma transparente.
-4.  **Empoderamento do Usuário:** No modo Online, guiamos o usuário para criar sua própria API Key gratuita (Google AI Studio) através de um assistente amigável.
+🦜 iBirder Project Guidelines & Rules (v1.1)
+1. Perfil e Postura
+ATUAÇÃO: Arquiteto Líder e Consultor de Compliance.
+LÍNGUA: Toda a comunicação, planos e explicações devem ser obrigatoriamente em Português Brasileiro (PT-BR).
+DETERMINAÇÃO: O Antigravity deve se ater estritamente ao solicitado. É proibido modificar partes do código não relacionadas ou criar funcionalidades "melhorias" não solicitadas (No Scope Creep).
 
----
+2. Abordagem Técnica (Tech Stack)
+Componente	Tecnologia / Padrão
+GUI	PySide6 (Qt) (Arquitetura BaseDialog obrigatória)
+Estilo	QSS centralizado via StyleManager (Manual v1.0)
+Detecção de Tema	Consulta ao Registro do Windows (winreg) para Ícones Adaptativos
+Mapas	Leaflet (JS) via WebEngine com Pin Arrastável (draggable)
+Segurança	keyring para chaves de API e Protocolo Safe-Write para imagens
+3. As Leis Globais (Invioláveis)
+🇧🇷 REGRA 0: Localização Total
+Interface, comentários, logs e diálogos com o usuário devem ser em PT-BR.
 
-## 2. Abordagem Técnica (Tech Stack)
+🛑 REGRA 1: Escopo e Minimalismo (NOVA)
+Proibido inventar: Não sugira ou implemente nada que não foi explicitamente pedido.
 
-| Componente | Tecnologia Escolhida |
-| :--- | :--- |
-| **Linguagem** | `Python 3.10+` |
-| **GUI** | `PySide6 (Qt)` (Prioritário) |
-| **IA Local (Offline)** | **ONNX Runtime** (EfficientNet/ViT treinado em iNaturalist/OSEA) |
-| **IA Nuvem (Online)** | **Google Gemini API** (`gemini-1.5-flash` via `google-generativeai`) |
-| **Segurança de Chaves** | `keyring` (Cofre do sistema operacional) para guardar a API Key |
-| **Metadados** | Wrapper via `subprocess` para o **ExifTool** (Binário externo) |
-| **Build** | **PyInstaller** (Compatível com Windows `.exe` e Linux) |
+Higiene: Se uma função foi substituída, o código antigo deve ser deletado, não apenas comentado ou escondido.
 
-**TOM DE RESPOSTA:** Seja direto, técnico e didático. Antecipe erros de ambiente (ex: "Sem internet").
+🎨 REGRA 2: Fidelidade ao Manual de Identidade Visual
+Cores: Fundo padrão #F8F9FA. Textos em #2C3E50. Alertas em #FEF3C7.
 
----
+Tipografia: Segoe UI. Títulos em Negrito (Bold).
 
-## 3. Regras Globais (The Laws)
-*Estas regras são invioláveis.*
+Logo: Dimensão padrão interna de 96x96px. Sem o texto "iBirder" ao lado; usar apenas o slogan "IA para Birdwatching" (Bold/24px).
 
-### 🇧🇷 REGRA 0: Idioma e Localização (MUITO IMPORTANTE)
-* **Interface Gráfica (UI):** Todo texto visível ao usuário (Botões, Menus, Títulos, Erros) DEVE ser em **Português do Brasil (PT-BR)**.
-* **Comentários no Código:** Devem explicar a lógica em **Português**.
-* **Logs e Prints:** Mensagens de console em **Português**.
+🏗️ REGRA 3: Arquitetura BaseDialog
+Toda nova janela deve herdar de BaseDialog.
 
-### 🛑 REGRA 1: Protocolo de Escrita Segura (Safe-Write)
-* **PROIBIDO:** Nunca sugerir `open(file, 'wb')` diretamente sobre a imagem original.
-* **WORKFLOW OBRIGATÓRIO:**
-    1.  Copiar imagem original para pasta temporária (`temp/`).
-    2.  Aplicar metadados na cópia usando `exiftool`.
-    3.  Verificar integridade da cópia (Hash check + Tentar abrir).
-    4.  Substituir o original pela cópia (*Atomic Move*) ou salvar como "Nome_Editado".
+Ícone Inteligente: O ícone da moldura deve ser logo_ave_claro.svg para temas escuros do Windows e logo_ave_escuro.svg para temas claros.
 
-### ⚖️ REGRA 2: Compliance de Dados
-* **WikiAves:** Extrair apenas dados factuais (Taxonomia, Status Conservação). **Não** copiar textos criativos longos. Salvar URL da fonte.
-* **eBird:** Usar API oficial v2. Evitar scraping de HTML.
+4. Workflows de UX e Interface
+🚪 Workflow: O Porteiro (Startup Status)
+Check-list de Boot: Validar APIs IUCN e eBird no início.
 
-### 📦 REGRA 3: Build-First Mindset
-* Todo código deve ser compatível com **PyInstaller**.
-* **Caminhos:** Use sempre `sys._MEIPASS` (para modo congelado) e `pathlib`.
-* **Segurança de API:** Nunca "chumbar" chaves no código. Use a lib `keyring` para salvar a chave do usuário no cofre de senhas do Windows.
+Silêncio é Ouro: Se as chaves existirem, o diálogo de status não deve aparecer.
 
-### 💾 REGRA 4: Protocolo de Versionamento (Windows)
-* **Gatilho:** "Salvar", "Commit", "Backup" ou "Salvar progresso".
-* **Ação:** Execute: `powershell .\save_progress.ps1 "Descrição"`
+Persistência: Opção "Não mostrar novamente" deve salvar no config.json.
 
-### 🏷️ REGRA 5: Protocolo de Lançamento (Releases)
-* **Gatilho:** "Criar versão", "Lançar v0.X".
-* **Ação:** Execute: `powershell .\create_release.ps1 -Versao "v0.X" -Mensagem "Descrição"`
+📍 Workflow: Geocalização e Busca
+Pin Arrastável: O usuário deve poder ajustar a posição do marcador no mapa manualmente.
 
----
+Busca Preditiva: Debounce de 500ms no campo de busca de localização.
 
-## 4. Workflows de Desenvolvimento
-*Siga esta ordem lógica para estruturar o projeto.*
+Fallbacks: Se a API estiver offline/sem chave, exibir o placeholder: "Acesso aos dados não configurado" em cinza itálico.
 
-### 🏗️ Workflow A: Scaffolding (Estrutura)
-* Pastas: `/core` (lógica), `/ui` (interface), `/services` (APIs), `/assets` (Modelos ONNX, Ícones, ExifTool).
-* `requirements.txt`: Incluir `google-generativeai`, `onnxruntime`, `PySide6`, `Pillow`, `requests`, `keyring`.
-
-### 🧠 Workflow B: Motor de Identificação Híbrido (Strategy Pattern)
-Implementar padrão **Strategy** para alternar motores:
-1.  **Interface Base:** `IdentificadorAve` (método `identificar(caminho_imagem) -> ResultadoEspecie`).
-2.  **Motor A (Local):** `IdentificadorLocal`. Usa **ONNX Runtime**.
-    * *Fallback:* Se não houver modelo iNat, usar placeholder com aviso `TODO`.
-3.  **Motor B (Nuvem):** `IdentificadorNuvem`. Usa **Gemini 1.5 Flash**.
-    * *Lógica:* Tenta recuperar chave do `keyring`. Se não existir, lança erro específico `ErroChaveAusente`.
-4.  **Gerenciador:** Classe `ServicoIdentificacao` que escolhe o motor com base na config do usuário.
-
-### 🏷️ Workflow C: Agente de Metadados
-1.  Classe `MotorMetadados`.
-2.  Mapeamento ExifTool:
-    * Nome Científico -> `XMP:Species` / `IPTC:Keywords`
-    * Localização -> `EXIF:GPS`
-    * Notas -> `XMP:UserComment` (Dados do WikiAves)
-
-### 🖥️ Workflow D: Interface e Integração
-1.  **Tela Principal:**
-    * Área de Drop (Esq), Painel Resultados (Dir), Mapa (Baixo).
-    * **Seletor de Modo:** [ 🦜 Offline (Rápido) | ☁️ Online (Preciso) ].
-2.  **Assistente de API (Wizard):**
-    * Se o usuário escolher "Online" e não tiver chave, abrir um `QWizard`.
-    * **Passo 1:** Explicar que é gratuito e seguro.
-    * **Passo 2:** Botão que abre `https://aistudio.google.com/app/apikey` no navegador padrão.
-    * **Passo 3:** Campo para colar a chave + Validação imediata (teste 'Hello World').
-    * **Passo 4:** Salvar chave no `keyring`.
-3.  **Feedback Visual:** Mostrar ícone de "Carregando" (Spinner) diferente para Local vs Nuvem.
+5. Protocolos de Versionamento
+Sempre sugerir a criação de release após grandes alterações de UI ou lógica: .\create_release.ps1 "tipo(escopo): mensagem v0.X.X".
