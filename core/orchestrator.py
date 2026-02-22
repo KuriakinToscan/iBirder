@@ -130,7 +130,8 @@ class Orchestrator(QObject):
         """Atualiza coordenadas, invalida cache de áudio e reinicia busca geo-acústica."""
         # Trava de Redundância (v0.4.3)
         if self.current_lat == lat and self.current_lon == lon and self.has_location:
-            print("[Orchestrator] Coordenadas idênticas. Ignorando reprocessamento.")
+            # Só ignora se realmente já processamos este local com sucesso
+            print("[Orchestrator] Localização já confirmada e idêntica. Ignorando redundância.")
             return
 
         print(f"[Orchestrator] Reprocessando localização manual: {lat}, {lon}")

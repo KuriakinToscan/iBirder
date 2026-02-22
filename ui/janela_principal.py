@@ -1418,27 +1418,42 @@ class JanelaPrincipal(QMainWindow):
         self.last_geo_data = details
         self.lat_atual = details.get('lat')
         self.lon_atual = details.get('lon')
+        
+        # 1. Atualização Visual Imediata (v0.4.33)
+        if hasattr(self, 'lbl_geo_details'):
+            lat = details.get('lat')
+            lon = details.get('lon')
+            lat_str = f"{lat:.5f}" if isinstance(lat, (float, int)) else "?"
+            lon_str = f"{lon:.5f}" if isinstance(lon, (float, int)) else "?"
+
+            texto = f"""
+            <b>Coordenadas:</b> Lat {lat_str}, Long {lon_str}<br>
+            <b>País:</b> {details.get('pais', '-')}<br>
+            <b>Estado:</b> {details.get('estado', '-')}<br>
+            <b>Município:</b> {details.get('municipio', '-')}<br>
+            <b>Bioma:</b> {details.get('bioma', '-')}<br>
+            """
+            
+            # Preservar Status IUCN se já existir (v0.4.33)
+            iucn_status = getattr(self, 'last_iucn_data', {}).get("iucn_status")
+            if iucn_status:
+                texto += f"<b>Status:</b> {iucn_status}"
+                
+            self.lbl_geo_details.setText(texto)
+            self.lbl_geo_details.setVisible(True)
+            self.lbl_geo_details.setTextInteractionFlags(Qt.TextSelectableByMouse)
+
+        # 2. Registro em Segundo Plano (v0.4.33)
         self._registrar_dados_geo_iucn()
         
-        if not hasattr(self, 'lbl_geo_details'):
-             return
-
-        lat = details.get('lat')
-        lon = details.get('lon')
-        
-        # Formatação Lat/Lon segura
-        lat_str = f"{lat:.5f}" if isinstance(lat, float) else "?"
-        lon_str = f"{lon:.5f}" if isinstance(lon, float) else "?"
-
-        texto = f"""
-        <b>Coordenadas:</b> Lat {lat_str}, Long {lon_str}<br>
-        <b>País:</b> {details.get('pais', '-')}<br>
-        <b>Estado:</b> {details.get('estado', '-')}<br>
-        <b>Município:</b> {details.get('municipio', '-')}<br>
-        <b>Bioma:</b> {details.get('bioma', '-')}<br>
-        """
-        self.lbl_geo_details.setText(texto)
-        self.lbl_geo_details.setVisible(True)
+        # 3. IUCN Fallback Alert
+        from PySide6.QtCore import QSettings
+        settings = QSettings("iBirder", "App")
+        import os
+        if not settings.value("iucn_api_key", os.environ.get("TOKEN_IUCN", "")).strip():
+            self.lbl_iucn_fallback.setVisible(True)
+        else:
+            self.lbl_iucn_fallback.setVisible(False)
         
         # Ativar Placeholder Etapa 3 (se a chave nao existe)
         from PySide6.QtCore import QSettings
@@ -1521,16 +1536,8 @@ class JanelaPrincipal(QMainWindow):
         
         if not geo and not iucn: return
         
-        from modules.step3_geography.gbif_client import get_gbif_taxon_key
-        sciname = self._obter_sciname_atual()
+        # GBIF link generation removed from main thread (v0.4.33)
         link_gbif = ""
-        if sciname:
-            try:
-                # Opcional: Pegar a key rapidamente (isso é blocante mas rápido, e o user n se importa com latência de API rapida aqui)
-                taxon_key = get_gbif_taxon_key(sciname)
-                if taxon_key:
-                    link_gbif = f"https://www.gbif.org/species/{taxon_key}"
-            except: pass
 
         dados = {
             "lat": self.lat_atual,
