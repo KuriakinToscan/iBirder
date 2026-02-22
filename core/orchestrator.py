@@ -7,6 +7,8 @@ from modules.step2_biology.wiki_worker import BuscadorWorker
 from modules.step3_geography.iucn_worker import IUCNWorker
 from modules.step4_vocalization.audio_worker import AudioWorker
 from modules.step5_taxonomy.ebird_worker import EBirdWorker
+import requests
+from core.config import carregar_config
 
 # Etapa 6 placeholder
 # from modules.step6_persistence.exif_manager import EXIFManager
@@ -46,6 +48,8 @@ class Orchestrator(QObject):
         self.iucn_worker = None
         self.audio_worker = None
         self.ebird_worker = None
+        
+        self.species_cache = {} # Cache de taxonomia e geografia RAM
         
         # Estado Geográfico Armazenado pelo Pipeline
         self.current_lat = None
@@ -113,13 +117,18 @@ class Orchestrator(QObject):
         self.step1_identificacao_concluida.emit(dados_identificacao)
         
         nome_cientifico = dados_identificacao.get("nome_cientifico")
+        status_msg = dados_identificacao.get("status_msg", "")
         
-        if nome_cientifico and "Inconclusiva" not in dados_identificacao.get("status_msg", ""):
-            # Engatilha Paralelamente o Resto do Pentágono
-            self.start_step2_biology(nome_cientifico)
-            self.start_step3_geography(nome_cientifico)
-            self.start_step4_vocalization(nome_cientifico)
-            self.start_step5_taxonomy(nome_cientifico)
+        # GUARD CLAUSE: Previne processamento pesado para IDs falhadas
+        if not nome_cientifico or "Inconclusiva" in status_msg or "Inconclusiva" in nome_cientifico or nome_cientifico == "Desconhecido":
+            print("[Orchestrator] Identificação Inconclusiva detectada. Bloqueando cascata de workers externos.")
+            return
+        
+        # Se passou o guard, Engatilha Paralelamente o Resto do Pentágono
+        self.start_step2_biology(nome_cientifico)
+        self.start_step3_geography(nome_cientifico)
+        self.start_step4_vocalization(nome_cientifico)
+        self.start_step5_taxonomy(nome_cientifico)
             
     # --- Etapa 2 ---
     def start_step2_biology(self, sci_name):
@@ -137,6 +146,27 @@ class Orchestrator(QObject):
         
     # --- Etapa 3 ---
     def start_step3_geography(self, sci_name):
+        config = carregar_config()
+        token = config.get("iucn_api_key", "").strip() or os.environ.get("TOKEN_IUCN", "").strip()
+        
+        if not token:
+            print("[Orchestrator] Chave IUCN ausente. Evitando instanciar Thread e usando fallback rápido.")
+            fallback_res = {
+                "iucn_status": "Não Avaliado (Fallback Local)",
+                "geojson_path": None,
+                "link_iucn": f"https://www.iucnredlist.org/search?query={sci_name.replace(' ', '+')}&searchType=species"
+            }
+            # Fallback síncrono ultra-rápido iNaturalist
+            try:
+                resp = requests.get(f"https://api.inaturalist.org/v1/taxa?q={sci_name}&is_active=true&rank=species", timeout=3)
+                if resp.status_code == 200 and resp.json().get("results"):
+                    cs = resp.json()["results"][0].get("conservation_status")
+                    fallback_res["iucn_status"] = f"{cs.get('status', 'Não Avaliado').upper()} (via iNaturalist)" if cs else "Não Avaliado / Seguro (via iNaturalist)"
+            except Exception: pass
+            
+            self._on_step3_finished(fallback_res)
+            return
+
         if self.iucn_worker: self.iucn_worker.deleteLater()
         self.iucn_worker = IUCNWorker(sci_name, parent=self)
         self.iucn_worker.finished.connect(self._on_step3_finished)
@@ -156,13 +186,44 @@ class Orchestrator(QObject):
         
     # --- Etapa 5 ---
     def start_step5_taxonomy(self, sci_name):
+        if sci_name in self.species_cache:
+            print(f"[Orchestrator] Cache Hit em eBird Taxonomia para {sci_name}. Pulando Thread!")
+            self._on_step5_finished(self.species_cache[sci_name])
+            return
+
+        config = carregar_config()
+        token = config.get("ebird_api_key", "").strip() or os.environ.get("EBIRD_API_KEY", "").strip()
+        
+        if not token:
+            print("[Orchestrator] Chave eBird ausente. Evitando instanciar Thread e usando fallback rápido.")
+            fallback_res = {
+                "nome_ingles": "Desconhecido", "classe": "Aves", "ordem": "Desconhecida",
+                "familia": "Desconhecida", "ebird_code": "", "raridade_regional": "Não Avaliado (Fallback Local)", "link_ebird": ""
+            }
+            try:
+                resp = requests.get(f"https://api.inaturalist.org/v1/taxa?q={sci_name}&is_active=true&rank=species", timeout=3)
+                if resp.status_code == 200 and resp.json().get("results"):
+                    taxon = resp.json()["results"][0]
+                    fallback_res["nome_ingles"] = taxon.get("english_common_name", "Desconhecido")
+                    for anc in taxon.get("ancestors", []):
+                        if anc.get("rank") == "order": fallback_res["ordem"] = anc.get("name", "Desconhecida").capitalize()
+                        elif anc.get("rank") == "family": fallback_res["familia"] = anc.get("name", "Desconhecida").capitalize()
+            except Exception: pass
+            
+            self._on_step5_finished(fallback_res, sci_name=sci_name)
+            return
+
         if self.ebird_worker: self.ebird_worker.deleteLater()
         self.ebird_worker = EBirdWorker(sci_name, lat=self.current_lat, lon=self.current_lon, parent=self)
-        self.ebird_worker.finished.connect(self._on_step5_finished)
+        # Necessitamos injetar sci_name param em Lambda para caching posterior
+        self.ebird_worker.finished.connect(lambda res: self._on_step5_finished(res, sci_name=sci_name))
         self.ebird_worker.start()
         
-    def _on_step5_finished(self, results):
+    def _on_step5_finished(self, results, sci_name=None):
         print("[Orchestrator] Etapa 5 Concluída.")
+        if sci_name and sci_name not in self.species_cache:
+            self.species_cache[sci_name] = results
+            
         if self.session_logger:
             self.session_logger.atualizar_ultimo_registro({
                 "nome_ingles": results.get("nome_ingles", ""),
