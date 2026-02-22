@@ -1,20 +1,19 @@
 import sys
 import os
+import json
+import logging
+import traceback
 from pathlib import Path
-from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-    QPushButton, QGroupBox, QFileDialog, QLineEdit, QTextEdit,
-    QFrame, QStatusBar, QApplication, QSizePolicy, QGraphicsDropShadowEffect,
-    QMessageBox, QCheckBox, QGridLayout, QScrollArea
-)
-from PySide6.QtCore import Qt, QSize, QThread, Signal, QSettings, QMimeData, QUrl, QTimer
-from PySide6.QtGui import (
-    QPixmap, QFont, QDragEnterEvent, QDropEvent, QIcon, QColor, 
-    QPainter, QAction, QDesktopServices, QDrag, QResizeEvent, QPalette
+from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
+                             QHBoxLayout, QPushButton, QLabel, QFileDialog,
+                             QScrollArea, QFrame, QGraphicsDropShadowEffect,
+                             QMessageBox, QTextEdit, QLineEdit, QGroupBox, QGridLayout,
+                             QStatusBar, QSizePolicy, QCheckBox)
+from PySide6.QtCore import Qt, QSize, QTimer, Slot, Signal, QThread, QSettings, QUrl, QMimeData
+from PySide6.QtGui import (QIcon, QPixmap, QColor, QFont, QDesktopServices, QPalette, QFontDatabase,
+    QPainter, QAction, QDrag, QResizeEvent, QDragEnterEvent, QDropEvent
 )
 from PySide6.QtWebEngineWidgets import QWebEngineView
-from PIL import Image, ExifTags
-from datetime import datetime
 from PIL import Image, ExifTags
 from datetime import datetime
 
@@ -302,6 +301,11 @@ class JanelaPrincipal(QMainWindow):
         super().resizeEvent(event)
 
     def _configurar_ui(self):
+        # 0. Carregar Fontes Customizadas
+        caminho_figtree = self._obter_caminho_asset("Figtree-VariableFont_wght.ttf")
+        if os.path.exists(caminho_figtree):
+            QFontDatabase.addApplicationFont(caminho_figtree)
+
         # Menu Bar para Configurações Adicionais
         from PySide6.QtGui import QAction
         menu_bar = self.menuBar()
@@ -352,7 +356,8 @@ class JanelaPrincipal(QMainWindow):
         layout_textos_header.setSpacing(0)
         
         lbl_subtitulo = QLabel("IA para Birdwatching")
-        lbl_subtitulo.setStyleSheet("color: #1F2937; font-size: 24px; font-weight: bold; font-family: 'Inter', 'Montserrat', 'Segoe UI';")
+        lbl_subtitulo.setObjectName("lbl_slogan")
+        # Estilo agora reside globalmente em StyleManager
         
         layout_textos_header.addWidget(lbl_subtitulo)
         
@@ -414,87 +419,91 @@ class JanelaPrincipal(QMainWindow):
         
         layout_ajuda.addWidget(self.btn_config_global)
         
-        layout_header.addLayout(layout_ajuda)
-        
-        # Adiciona Header ao Mestre
-        layout_mestre.addLayout(layout_header)
+        # --- NOVO: GRID DE COLUNAS COM SIMETRIA ABSOLUTA (v0.3.46) ---
+        layout_cards_superiores = QGridLayout()
+        layout_cards_superiores.setSpacing(15)
 
-        # --- GRID DE COLUNAS ---
-        layout_colunas = QHBoxLayout()
-        layout_colunas.setSpacing(15)
-
-        # --- LADO ESQUERDO ---
-        layout_esquerda = QVBoxLayout()
-        layout_esquerda.setSpacing(5)
-
-        from core.style_manager import StyleManager
-        
-        if StyleManager.is_windows_dark_mode():
-            icon_file = "logo_ave_claro.svg" 
-        else:
-            icon_file = "logo_ave_escuro.svg"
-
-        caminho_icone_janela = self._obter_caminho_asset(icon_file)
-        if os.path.exists(caminho_icone_janela):
-            self.setWindowIcon(QIcon(caminho_icone_janela))
-
-        # Layout de Imagens (Horizontal 50/50 com Stretch)
-        layout_imagens = QHBoxLayout()
-        layout_imagens.setSpacing(4) 
-        # Não usamos QGridLayout pois QHBoxLayout lida melhor com stretch igual
-
-        # --- Coluna Esquerda (User) ---
-        layout_col_user = QVBoxLayout()
-        
+        # LINHA 0: TÍTULOS
         lbl_titulo_user = QLabel("Imagem Pesquisada")
         lbl_titulo_user.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 2px;")
-        layout_col_user.addWidget(lbl_titulo_user)
+        layout_cards_superiores.addWidget(lbl_titulo_user, 0, 0)
+        
+        lbl_titulo_ref = QLabel("Imagem Referência")
+        lbl_titulo_ref.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 2px;")
+        layout_cards_superiores.addWidget(lbl_titulo_ref, 0, 1)
 
+        lbl_titulo_res = QLabel("Resultados da Análise")
+        lbl_titulo_res.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 2px;")
+        layout_cards_superiores.addWidget(lbl_titulo_res, 0, 2)
+        
+        # LINHA 1: WIDGETS E PAINÉIS
+        # Célula (1, 0) - Imagem User e Botão Lens
+        wrapper_user = QWidget()
+        vbox_user = QVBoxLayout(wrapper_user)
+        vbox_user.setContentsMargins(0, 0, 0, 0)
+        vbox_user.setSpacing(4)
+        
         self.card_user = ImageCardWidget()
         self.card_user.set_placeholder("Arraste e solte uma foto aqui\n\nou clique para selecionar")
         self.card_user.set_on_drop(self._carregar_imagem)
         self.card_user.set_on_click(self._abrir_seletor_arquivo)
+        vbox_user.addWidget(self.card_user, stretch=1)
         
-        layout_col_user.addWidget(self.card_user, stretch=1) # Stretch vertical para o card
-
         self.btn_google_lens = QPushButton("Pesquisar com Google Lens")
         self.btn_google_lens.setCursor(Qt.PointingHandCursor)
         self.btn_google_lens.setEnabled(False)
-        # Estilo global será aplicado
         self.btn_google_lens.clicked.connect(self._abrir_google_lens)
-        layout_col_user.addWidget(self.btn_google_lens)
+        vbox_user.addWidget(self.btn_google_lens)
         
-        layout_imagens.addLayout(layout_col_user, stretch=1) # 50% largura
+        layout_cards_superiores.addWidget(wrapper_user, 1, 0)
 
-        # --- Coluna Direita (Referência) ---
-        layout_col_ref = QVBoxLayout()
+        # Célula (1, 1) - Imagem Referência e Botão Fonte
+        wrapper_ref = QWidget()
+        vbox_ref = QVBoxLayout(wrapper_ref)
+        vbox_ref.setContentsMargins(0, 0, 0, 0)
+        vbox_ref.setSpacing(4)
         
-        lbl_titulo_ref = QLabel("Imagem Referência")
-        lbl_titulo_ref.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 4px;")
-        layout_col_ref.addWidget(lbl_titulo_ref)
-
         self.card_ref = ImageCardWidget()
         self.card_ref.set_placeholder("Aguardando a identificação da ave.")
-        # Reference card doesn't need click/drop actions usually
+        vbox_ref.addWidget(self.card_ref, stretch=1)
         
-        layout_col_ref.addWidget(self.card_ref, stretch=1) # Stretch vertical
-
         self.btn_fonte = QPushButton("Abrir Fonte")
         self.btn_fonte.setCursor(Qt.PointingHandCursor)
         self.btn_fonte.setVisible(True)
         self.btn_fonte.setEnabled(False)
-        # Estilo global será aplicado
         self.btn_fonte.clicked.connect(lambda: QDesktopServices.openUrl(self.btn_fonte.property("url_alvo")))
-        layout_col_ref.addWidget(self.btn_fonte)
+        vbox_ref.addWidget(self.btn_fonte)
         
-        layout_imagens.addLayout(layout_col_ref, stretch=1) # 50% largura
+        layout_cards_superiores.addWidget(wrapper_ref, 1, 1)
         
-        layout_esquerda.addLayout(layout_imagens)
+        # Célula (1, 2) - Painel de Resultados (Antigo Lado Direito)
+        self.painel_direito = QFrame()
+        self.painel_direito.setProperty("class", "painel")
+        
+        sombra = QGraphicsDropShadowEffect()
+        sombra.setBlurRadius(20)
+        sombra.setColor(QColor(0, 0, 0, 20))
+        sombra.setOffset(0, 5)
+        self.painel_direito.setGraphicsEffect(sombra)
+
+        layout_direito = QVBoxLayout()
+        self.painel_direito.setLayout(layout_direito)
+        layout_direito.setSpacing(15)
+        layout_direito.setContentsMargins(12, 18, 12, 12)
+        
+        layout_cards_superiores.addWidget(self.painel_direito, 1, 2)
+        
+        # Junta o bloco principal de 3 colunas ao mestre
+        layout_mestre.addLayout(layout_cards_superiores)
+        
+        # --- BLOCO INFERIOR CENTRALIZADO (PÓS-GRID) ---
+        layout_inferior = QVBoxLayout()
+        layout_inferior.setSpacing(15)
         
         # --- Campo de Descrição Rica (v0.2.1) ---
         lbl_titulo_desc = QLabel('Descrição da Espécie <i>(WikiAves)</i>')
         lbl_titulo_desc.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-top: 8px;")
-        layout_esquerda.addWidget(lbl_titulo_desc)
+        layout_inferior.addWidget(lbl_titulo_desc)
 
         self.txt_descricao = QTextEdit()
         self.txt_descricao.setReadOnly(True)
@@ -516,23 +525,23 @@ class JanelaPrincipal(QMainWindow):
             }
         """)
         
-        layout_esquerda.addWidget(self.txt_descricao)
+        layout_inferior.addWidget(self.txt_descricao)
         
         self.btn_nova = QPushButton("Nova Identificação")
         self.btn_nova.setCursor(Qt.PointingHandCursor)
         self.btn_nova.clicked.connect(self._abrir_seletor_arquivo)
-        layout_esquerda.addWidget(self.btn_nova)
+        layout_inferior.addWidget(self.btn_nova)
         
         # --- NOVO: Mapa Único (v0.3.3) ---
         lbl_titulo_geo = QLabel("Localização Geográfica")
         lbl_titulo_geo.setStyleSheet("font-weight: bold; color: #374151; font-size: 11px; margin-bottom: 4px;")
-        layout_esquerda.addWidget(lbl_titulo_geo)
+        layout_inferior.addWidget(lbl_titulo_geo)
         
         self.map_principal = MapWidget()
         self.map_principal.setMinimumHeight(350) 
         self.map_principal.show_placeholder_message("Aguardando dados de Localização")
         self.map_principal.marker_dragged.connect(self._ao_arrastar_pino)
-        layout_esquerda.addWidget(self.map_principal)
+        layout_inferior.addWidget(self.map_principal)
         
         # --- Botão Definir Localização Manualmente e IUCN (v0.3.19) ---
         layout_map_botoes = QHBoxLayout()
@@ -557,33 +566,13 @@ class JanelaPrincipal(QMainWindow):
         
         layout_map_botoes.addWidget(self.btn_set_location, stretch=1)
         
-        layout_esquerda.addLayout(layout_map_botoes)
+        layout_inferior.addLayout(layout_map_botoes)
         
-        # --- Painel de Informações Geo (v0.3.11) ---
-        # --- (Removido Painel Info Geo daqui - Movido para coluna direita v0.3.19) ---
-        # -------------------------------------------------------
-        
-        layout_colunas.addLayout(layout_esquerda, stretch=3)
+        layout_mestre.addLayout(layout_inferior)
 
-        # --- LADO DIREITO (Painel Lateral) ---
-        layout_coluna_direita = QVBoxLayout()
-        layout_coluna_direita.setSpacing(10)
-        
-        # layout_ajuda foi transferido para o layout_header global
-
-        # Painel Branco
-        self.painel_direito = QFrame()
-        self.painel_direito.setProperty("class", "painel")
-        
-        sombra = QGraphicsDropShadowEffect()
-        sombra.setBlurRadius(20)
-        sombra.setColor(QColor(0, 0, 0, 20))
-        sombra.setOffset(0, 5)
-        self.painel_direito.setGraphicsEffect(sombra)
-
-        layout_direito = QVBoxLayout(self.painel_direito)
-        layout_direito.setSpacing(15)
-        layout_direito.setContentsMargins(12, 18, 12, 12)
+        # Painel Branco Interno Layouts
+        # (O layout_direito já foi inicializado e setado acima no `self.painel_direito.setLayout(layout_direito)`)
+        # Layouts de grupo_resultados continuarão a ser inseridos nele mais tarde no código.
         
         # Grupo Resultados
         grupo_resultados = QGroupBox("") 
@@ -799,11 +788,6 @@ class JanelaPrincipal(QMainWindow):
         grupo_resultados.setLayout(layout_res)
         layout_direito.addWidget(grupo_resultados)
         layout_direito.addStretch()
-        
-        layout_coluna_direita.addWidget(self.painel_direito)
-        layout_colunas.addLayout(layout_coluna_direita, stretch=2)
-        
-        layout_mestre.addLayout(layout_colunas)
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
