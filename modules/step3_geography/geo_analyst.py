@@ -18,6 +18,7 @@ class GeoAnalyst:
             
         self.geolocator = Nominatim(user_agent="ibirder_app_v0.3.11")
         self.biomes_data = None
+        self._biome_cache = {} # Novo: RAM Cache
         self._load_biomes()
         self._initialized = True
 
@@ -36,9 +37,15 @@ class GeoAnalyst:
             print(f"[GEO] ERRO CRÍTICO ao carregar JSON: {e}")
 
     def get_biome(self, lat, lon):
-        """Verifica em qual polígono do GeoJSON o ponto cai."""
+        """Verifica em qual polígono do GeoJSON o ponto cai (com Cache Otimizado)."""
         if not self.biomes_data:
             return "Dados de Bioma não carregados"
+
+        # Arredonda para 4 casas decimais (~11m, alta precisão local mas funde pixels vizinhos)
+        cache_key = (round(lat, 4), round(lon, 4))
+        if cache_key in self._biome_cache:
+            print("[GEO] Cache hit! Bioma recuperado instantaneamente.")
+            return self._biome_cache[cache_key]
 
         # Importante: GeoJSON usa (Longitude, Latitude)
         point = Point(lon, lat)
@@ -48,8 +55,11 @@ class GeoAnalyst:
             if polygon.contains(point):
                 # Tenta recuperar o nome em propriedades comuns
                 props = feature.get('properties', {})
-                return props.get('NOM_BIOMA') or props.get('name_biome') or props.get('Name') or props.get('bioma') or "Desconhecido"
+                biome = props.get('NOM_BIOMA') or props.get('name_biome') or props.get('Name') or props.get('bioma') or "Desconhecido"
+                self._biome_cache[cache_key] = biome
+                return biome
         
+        self._biome_cache[cache_key] = "Fora de área mapeada"
         return "Fora de área mapeada"
 
     def get_full_details(self, lat, lon):

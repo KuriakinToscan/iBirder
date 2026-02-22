@@ -15,6 +15,7 @@ class SessionLogger:
         # permita que nós (e o PySide) read/write independentemente ao longo do uso.
         temp_file = tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.json', encoding='utf-8')
         self.filepath = temp_file.name
+        self.buffer = [] # RAM Cache para escritas em Batch
         
         # Inicializa a estrutura JSON base (uma lista vazia)
         try:
@@ -27,23 +28,25 @@ class SessionLogger:
             
         print(f"[SessionLogger] Caderneta temporária criada em: {self.filepath}")
 
-    def registrar_identificacao(self, dados: dict):
-        """Append seguro de um dicionário no arquivo temporário JSON."""
+    def flush(self):
+        """Escreve o buffer da RAM no disco (Arquivo JSON temporário) apenas de uma vez."""
+        if not self.buffer:
+            return
+            
         try:
-            # 1. Leitura do estado atual
-            with open(self.filepath, 'r', encoding='utf-8') as f:
-                sessao_atual = json.load(f)
-            
-            # 2. Append e Update
-            sessao_atual.append(dados)
-            
-            # 3. Sobrescrita limpa
             with open(self.filepath, 'w', encoding='utf-8') as f:
-                json.dump(sessao_atual, f, indent=4, ensure_ascii=False)
-                
-            print(f"[SessionLogger] Resumo salvo com sucesso na caderneta. (Total: {len(sessao_atual)})")
+                json.dump(self.buffer, f, indent=4, ensure_ascii=False)
+            print(f"[SessionLogger] I/O Batch Flush Executado! ({len(self.buffer)} registros atualizados em disco).")
         except Exception as e:
-            print(f"[SessionLogger] Erro ao registrar_identificacao: {e}")
+            print(f"[SessionLogger] Erro ao executar o flush (Batch Log): {e}")
+
+    def registrar_identificacao(self, dados: dict):
+        """Append seguro de um dicionário na Session RAM Buffer."""
+        try:
+            self.buffer.append(dados)
+            print(f"[SessionLogger] Etapa 1 salva na RAM. I/O retardado (Total: {len(self.buffer)})")
+        except Exception as e:
+            print(f"[SessionLogger] Erro ao registrar_identificacao no Batch: {e}")
             traceback.print_exc()
 
     def limpar_sessao(self):
@@ -56,22 +59,18 @@ class SessionLogger:
             print(f"[SessionLogger] Atenção: não foi possível remover o tmp {self.filepath}: {e}")
 
     def atualizar_ultimo_registro(self, novos_dados: dict):
-        """Atualiza o último registro gravado no arquivo JSON com as novas chaves/valores."""
+        """Atualiza o último registro no RAM Logger, sem bater no disco."""
         try:
-            if not os.path.exists(self.filepath):
-                return
+            if self.buffer and isinstance(self.buffer, list):
+                # Recupera a última entrada (Etapa 1) e injeta/sobrescreve os dados agregados na Memória VRAM
+                self.buffer[-1].update(novos_dados)
+                print(f"[SessionLogger] Buffer Atualizado com sucesso (+{len(novos_dados)} chaves na RAM).")
                 
-            with open(self.filepath, 'r', encoding='utf-8') as f:
-                sessao_atual = json.load(f)
-                
-            if sessao_atual and isinstance(sessao_atual, list):
-                # Recupera a última entrada (Etapa 1) e injeta/sobrescreve os dados da Etapa 2
-                sessao_atual[-1].update(novos_dados)
-                
-                with open(self.filepath, 'w', encoding='utf-8') as f:
-                    json.dump(sessao_atual, f, indent=4, ensure_ascii=False)
+                # O Flush é idealmente convocado na Etapa 5 ou quando o Workflow termina:
+                # Se recebemos a Classe/Ordem (Típico do dict da Etapa 5 do eBird), damos o flush final.
+                if "ebird_code" in novos_dados or "raridade_regional" in novos_dados:
+                    self.flush()
                     
-                print(f"[SessionLogger] Último registro atualizado com sucesso. (+{len(novos_dados)} chaves)")
         except Exception as e:
-            print(f"[SessionLogger] Erro ao atualizar_ultimo_registro: {e}")
+            print(f"[SessionLogger] Erro ao atualizar_ultimo_registro na Memória: {e}")
             traceback.print_exc()
