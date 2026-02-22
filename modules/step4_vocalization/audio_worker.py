@@ -69,33 +69,42 @@ class AudioWorker(QThread):
             self.search_failed.emit()
 
     def _search_xeno_canto(self):
-        """Busca gravações no Xeno-canto com urllib encode e filtragem v2 na memória."""
+        """Busca gravações no Xeno-canto com urllib encode e filtragem v3 com autenticação."""
         import urllib.parse
+        from core.config import carregar_config
         try:
+            # Carregar Configurações e Chave XC
+            config = carregar_config()
+            xc_key = config.get("xc_api_key", "").strip()
+            
             headers = {"User-Agent": "iBirder-App/1.0"}
             recordings = []
             
-            # API v2: Pesquisa Gen/Spec com País em 1 chamada única
-            partes_nome = self.scientific_name.split(" ")
-            if len(partes_nome) >= 2:
-                gen, spec = partes_nome[0], partes_nome[1]
-                raw_query = f"gen:{gen} spec:{spec} cnt:brazil"
-            else:
-                raw_query = f"{self.scientific_name} cnt:brazil"
+            # API v3: Pesquisa com sp: e aspas para precisão, + país
+            # sp:"genus species"
+            raw_query = f'sp:"{self.scientific_name}" cnt:brazil'
                 
             quoted_query = urllib.parse.quote(raw_query)
-            url = f"https://xeno-canto.org/api/2/recordings?query={quoted_query}"
+            # URL v3 com parâmetro de chave
+            url = f"https://xeno-canto.org/api/3/recordings?query={quoted_query}"
+            if xc_key:
+                url += f"&key={xc_key}"
             
-            print(f"[AUDIO] Xeno-canto request (v2 API Unificada): {url}")
+            print(f"[AUDIO] Xeno-canto request (v3 API): {url}")
             resp = requests.get(url, headers=headers, timeout=10)
             
             if resp.status_code == 200:
                 data = resp.json()
                 
+                # Tratamento de erro específico da v3
+                if data.get("error") == "missing_parameter":
+                    print("[AUDIO] Erro Xeno-canto v3: 'missing_parameter'. Verifique sua API Key ou Query.")
+                    return []
+                
                 # Validação Rápida da Presença da Ave na API
                 num_recordings = data.get("numRecordings", "0")
                 if num_recordings == "0" or not data.get('recordings'):
-                    print(f"[AUDIO] Nenhuma gravação existente no Brasil para {self.scientific_name} (Xeno-canto retornou 0).")
+                    print(f"[AUDIO] Nenhuma gravação existente no Brasil para {self.scientific_name} (Xeno-canto v3 retornou 0).")
                     return []
                 
                 recs_totais = data.get('recordings', [])
@@ -105,10 +114,14 @@ class AudioWorker(QThread):
                 
                 if recs_alta_qualidade:
                     recordings = recs_alta_qualidade
-                    print(f"[AUDIO] Curadoria retém {len(recordings)} gravações de Alta Qualidade (A/B) de {len(recs_totais)} disponíveis.")
+                    print(f"[AUDIO] Curadoria v3 retém {len(recordings)} gravações de Alta Qualidade (A/B) de {len(recs_totais)} disponíveis.")
                 else:
-                    print(f"[AUDIO] Sem áudios Alta Qualidade A/B. Fallback para as {min(5, len(recs_totais))} melhores de menor qualidade.")
+                    print(f"[AUDIO] Sem áudios Alta Qualidade A/B (v3). Fallback para as {min(5, len(recs_totais))} melhores.")
                     recordings = recs_totais[:5]
+
+            elif resp.status_code == 401:
+                print("[AUDIO] Erro 401: Chave de API Xeno-canto inválida ou ausente.")
+                return []
 
             if not recordings:
                 return []

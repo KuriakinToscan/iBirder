@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QCheckBox, QPushButton, QLabel, QHBoxLayout, QMessageBox
+from PySide6.QtWidgets import QCheckBox, QPushButton, QLabel, QHBoxLayout, QMessageBox, QLineEdit
 from ui.base.base_dialog import BaseDialog
 from core.config import carregar_config, salvar_config
 
@@ -19,6 +19,13 @@ class APISettingsDialog(BaseDialog):
         
         self.main_layout.addWidget(self.chk_iucn)
         self.main_layout.addWidget(self.chk_ebird)
+        
+        self.main_layout.addWidget(QLabel("\nChave de API Xeno-canto (v3):"))
+        self.txt_xc_key = QLineEdit(self)
+        self.txt_xc_key.setEchoMode(QLineEdit.Password)
+        self.txt_xc_key.setText(cfg.get("xc_api_key", ""))
+        self.txt_xc_key.setPlaceholderText("Insira sua XC API Key aqui...")
+        self.main_layout.addWidget(self.txt_xc_key)
         
         self.main_layout.addStretch()
         
@@ -42,6 +49,7 @@ class APISettingsDialog(BaseDialog):
         cfg = carregar_config()
         cfg["mostrar_alerta_iucn"] = self.chk_iucn.isChecked()
         cfg["mostrar_alerta_ebird"] = self.chk_ebird.isChecked()
+        cfg["xc_api_key"] = self.txt_xc_key.text().strip()
         salvar_config(cfg)
         
         QMessageBox.information(self, "Preferências Salvas", "As configurações de alertas foram registradas.\n\n(Será necessário reiniciar o app para ver os alertas ressurgirem).")
