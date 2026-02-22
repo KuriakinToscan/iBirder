@@ -77,6 +77,10 @@ class AudioWorker(QThread):
             config = carregar_config()
             xc_key = config.get("xc_api_key", "").strip()
             
+            if not xc_key:
+                print("[AUDIO] Chave de acesso XenoCanto ausente. Notificando UI para convite de ativação.")
+                return [{"status": "KEY_MISSING"}]
+            
             headers = {"User-Agent": "iBirder-App/1.0"}
             recordings = []
             
@@ -87,9 +91,7 @@ class AudioWorker(QThread):
             quoted_query = urllib.parse.quote(raw_query)
             # URL v3 com parâmetro de chave
             url = f"https://xeno-canto.org/api/3/recordings?query={quoted_query}"
-            if xc_key:
-                url += f"&key={xc_key}"
-            
+            url += f"&key={xc_key}"
             print(f"[AUDIO] Xeno-canto request (v3 API): {url}")
             resp = requests.get(url, headers=headers, timeout=10)
             

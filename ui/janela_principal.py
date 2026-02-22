@@ -1336,6 +1336,19 @@ class JanelaPrincipal(QMainWindow):
         if not layout:
             return
 
+        # Nudge de Ativação (Dona Maria) v0.4.1
+        if resultados and isinstance(resultados[0], dict) and resultados[0].get("status") == "KEY_MISSING":
+            self.lbl_audio_placeholder.setVisible(False)
+            btn_nudge = QPushButton("🎵 Clique aqui para ativar o som das aves")
+            btn_nudge.setProperty("class", "alert-nudge")
+            btn_nudge.setCursor(Qt.PointingHandCursor)
+            btn_nudge.clicked.connect(lambda: __import__("ui.dialogs.api_settings_dialog", fromlist=["APISettingsDialog"]).APISettingsDialog(self).exec())
+            layout.addWidget(btn_nudge)
+            # Guardamos para limpeza no reset
+            if not hasattr(self, 'active_audio_players'): self.active_audio_players = []
+            self.active_audio_players.append(btn_nudge)
+            return
+
         # Adiciona players
         audio_markers = []
         for audio in resultados:

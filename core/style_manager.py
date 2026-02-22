@@ -161,6 +161,21 @@ class StyleManager:
                 background-color: rgba(255, 255, 255, 0.95);
                 color: #EF4444; 
             }
+            .alert-nudge {
+                background-color: #FEF3C7;
+                border: 1px solid #FDE68A;
+                border-radius: 6px;
+                color: #92400E;
+                font-weight: bold;
+                padding: 10px;
+                text-align: center;
+            }
+            .alert-nudge:hover {
+                background-color: #FDE68A;
+            }
+            .input-success {
+                border: 2px solid #10B981;
+            }
         """
 
     @staticmethod
