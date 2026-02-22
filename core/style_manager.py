@@ -59,6 +59,29 @@ class StyleManager:
                 color: #111827;
                 border-color: #9CA3AF;
             }
+            QMenu {
+                background-color: #FFFFFF;
+                border: 1px solid #D1D5DB;
+                border-radius: 6px;
+                padding: 4px;
+            }
+            QMenu::item {
+                background-color: transparent;
+                padding: 6px 20px 6px 20px;
+                color: #2C3E50;
+                font-family: 'Segoe UI';
+                font-size: 13px;
+                border-radius: 4px;
+            }
+            QMenu::item:selected {
+                background-color: #F3F4F6;
+                color: #111827;
+            }
+            QMenu::separator {
+                height: 1px;
+                background-color: #E5E7EB;
+                margin: 4px 0px 4px 0px;
+            }
         """
 
     @staticmethod

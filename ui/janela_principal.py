@@ -328,14 +328,11 @@ class JanelaPrincipal(QMainWindow):
         layout_mestre.setContentsMargins(15, 15, 15, 15)
         layout_mestre.setSpacing(10)
 
-        layout_colunas = QHBoxLayout()
-        layout_colunas.setSpacing(15)
-
-        # --- LADO ESQUERDO ---
-        layout_esquerda = QVBoxLayout()
-        layout_esquerda.setSpacing(5)
+        # --- HEADER GLOBAL (Branding + Actions) ---
+        layout_header = QHBoxLayout()
+        layout_header.setSpacing(15)
         
-        # Branding Header
+        # Branding 
         layout_branding = QHBoxLayout()
         layout_branding.setSpacing(12)
         layout_branding.setAlignment(Qt.AlignLeft)
@@ -355,14 +352,80 @@ class JanelaPrincipal(QMainWindow):
         layout_textos_header.setSpacing(0)
         
         lbl_subtitulo = QLabel("IA para Birdwatching")
-        lbl_subtitulo.setStyleSheet("color: #1F2937; font-size: 24px; font-weight: bold; font-family: 'Segoe UI';")
+        lbl_subtitulo.setStyleSheet("color: #1F2937; font-size: 24px; font-weight: bold; font-family: 'Inter', 'Montserrat', 'Segoe UI';")
         
         layout_textos_header.addWidget(lbl_subtitulo)
         
         layout_branding.addLayout(layout_textos_header)
-        layout_branding.addStretch()
+        layout_header.addLayout(layout_branding)
         
-        layout_esquerda.addLayout(layout_branding)
+        # Espaçador Central
+        layout_header.addStretch()
+
+        # Botões Header (Reload, Ajuda, Config)
+        layout_ajuda = QHBoxLayout()
+        
+        self.btn_reload = QPushButton()
+        self.btn_reload.setFixedSize(40, 40)
+        self.btn_reload.setProperty("class", "icon-btn")
+        self.btn_reload.setCursor(Qt.PointingHandCursor)
+        self.btn_reload.setToolTip("Recarregar / Limpar")
+        caminho_reload = self._obter_caminho_asset("icon_reload.svg")
+        if os.path.exists(caminho_reload):
+            self.btn_reload.setIcon(QIcon(caminho_reload))
+            self.btn_reload.setIconSize(QSize(24, 24))
+        else:
+            self.btn_reload.setText("⟳")
+            self.btn_reload.setFont(QFont("Segoe UI", 16, QFont.Bold))
+        self.btn_reload.clicked.connect(self._resetar_interface)
+        
+        layout_ajuda.addWidget(self.btn_reload)
+        
+        self.btn_ajuda = QPushButton()
+        self.btn_ajuda.setFixedSize(40, 40)
+        self.btn_ajuda.setProperty("class", "icon-btn")
+        self.btn_ajuda.setCursor(Qt.PointingHandCursor)
+        self.btn_ajuda.setToolTip("Manual de Instruções")
+        caminho_help = self._obter_caminho_asset("icon_help.svg")
+        if os.path.exists(caminho_help):
+            self.btn_ajuda.setIcon(QIcon(caminho_help))
+            self.btn_ajuda.setIconSize(QSize(24, 24))
+        else:
+             self.btn_ajuda.setText("?")
+             self.btn_ajuda.setFont(QFont("Segoe UI", 16, QFont.Bold))
+        self.btn_ajuda.clicked.connect(self._abrir_manual)
+        
+        layout_ajuda.addWidget(self.btn_ajuda)
+        
+        # Novo: Botão de Configurações
+        self.btn_config_global = QPushButton()
+        self.btn_config_global.setFixedSize(40, 40)
+        self.btn_config_global.setProperty("class", "icon-btn")
+        self.btn_config_global.setCursor(Qt.PointingHandCursor)
+        self.btn_config_global.setToolTip("Configurações do Sistema")
+        caminho_config = self._obter_caminho_asset("icon_config.svg")
+        if os.path.exists(caminho_config):
+            self.btn_config_global.setIcon(QIcon(caminho_config))
+            self.btn_config_global.setIconSize(QSize(24, 24))
+        else:
+            self.btn_config_global.setText("⚙")
+            self.btn_config_global.setFont(QFont("Segoe UI", 16, QFont.Bold))
+        self.btn_config_global.clicked.connect(lambda: __import__("ui.dialogs.api_settings_dialog", fromlist=["APISettingsDialog"]).APISettingsDialog(self).exec())
+        
+        layout_ajuda.addWidget(self.btn_config_global)
+        
+        layout_header.addLayout(layout_ajuda)
+        
+        # Adiciona Header ao Mestre
+        layout_mestre.addLayout(layout_header)
+
+        # --- GRID DE COLUNAS ---
+        layout_colunas = QHBoxLayout()
+        layout_colunas.setSpacing(15)
+
+        # --- LADO ESQUERDO ---
+        layout_esquerda = QVBoxLayout()
+        layout_esquerda.setSpacing(5)
 
         from core.style_manager import StyleManager
         
@@ -506,41 +569,7 @@ class JanelaPrincipal(QMainWindow):
         layout_coluna_direita = QVBoxLayout()
         layout_coluna_direita.setSpacing(10)
         
-        # Botões Header (Reload + Ajuda)
-        layout_ajuda = QHBoxLayout()
-        layout_ajuda.addStretch()
-        
-        self.btn_reload = QPushButton()
-        self.btn_reload.setFixedSize(40, 40)
-        self.btn_reload.setProperty("class", "icon-btn")
-        self.btn_reload.setCursor(Qt.PointingHandCursor)
-        self.btn_reload.setToolTip("Recarregar / Limpar")
-        caminho_reload = self._obter_caminho_asset("icon_reload.svg")
-        if os.path.exists(caminho_reload):
-            self.btn_reload.setIcon(QIcon(caminho_reload))
-            self.btn_reload.setIconSize(QSize(24, 24))
-        else:
-            self.btn_reload.setText("⟳")
-            self.btn_reload.setFont(QFont("Segoe UI", 16, QFont.Bold))
-        self.btn_reload.clicked.connect(self._resetar_interface)
-        
-        layout_ajuda.addWidget(self.btn_reload)
-        
-        self.btn_ajuda = QPushButton()
-        self.btn_ajuda.setFixedSize(40, 40)
-        self.btn_ajuda.setProperty("class", "icon-btn")
-        self.btn_ajuda.setCursor(Qt.PointingHandCursor)
-        caminho_help = self._obter_caminho_asset("icon_help.svg")
-        if os.path.exists(caminho_help):
-            self.btn_ajuda.setIcon(QIcon(caminho_help))
-            self.btn_ajuda.setIconSize(QSize(24, 24))
-        else:
-             self.btn_ajuda.setText("?")
-             self.btn_ajuda.setFont(QFont("Segoe UI", 16, QFont.Bold))
-        self.btn_ajuda.clicked.connect(self._abrir_manual)
-        
-        layout_ajuda.addWidget(self.btn_ajuda)
-        layout_coluna_direita.addLayout(layout_ajuda)
+        # layout_ajuda foi transferido para o layout_header global
 
         # Painel Branco
         self.painel_direito = QFrame()
@@ -565,14 +594,17 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_nome_comum.setObjectName("lbl_nome_comum")
         self.lbl_nome_comum.setFont(QFont("Segoe UI", 13))
         self.lbl_nome_comum.setWordWrap(True)
+        self.lbl_nome_comum.setTextInteractionFlags(Qt.TextSelectableByMouse)
         
         self.lbl_confianca = QLabel("-")
         self.lbl_confianca.setObjectName("lbl_confianca")
         self.lbl_confianca.setStyleSheet("color: #4B5563; font-size: 11px; font-weight: bold;")
+        self.lbl_confianca.setTextInteractionFlags(Qt.TextSelectableByMouse)
         
         self.lbl_descricao = QLabel("-") 
         self.lbl_descricao.setObjectName("lbl_descricao")
         self.lbl_descricao.setWordWrap(True)
+        self.lbl_descricao.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
         self.lbl_descricao.setWordWrap(True)
         
