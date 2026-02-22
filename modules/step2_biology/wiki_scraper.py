@@ -208,6 +208,15 @@ class BuscadorBlindado:
                 dados["caracteristicas"] = "Não encontrado"
         else:
             dados["caracteristicas"] = "Não encontrado"
+            
+        # 🔹 Estado de Conservação (Fallback IUCN)
+        dados["status_conservacao"] = "Não encontrado"
+        links_iucn = soup.find_all("a", href=lambda href: href and "lista_vermelha_iucn" in href.lower())
+        for link in links_iucn:
+            texto = link.get_text(strip=True)
+            if texto and "IUCN" not in texto.upper():
+                dados["status_conservacao"] = texto
+                break
 
         return dados
 

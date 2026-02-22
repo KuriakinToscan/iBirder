@@ -144,26 +144,48 @@ class Orchestrator(QObject):
             self.session_logger.atualizar_ultimo_registro(resultados)
         self.step2_wiki_concluida.emit(resultados)
         
+        # Fallback IUCN via WikiAves
+        if getattr(self, "esperando_fallback_iucn", False):
+            status_wiki = resultados.get("status_conservacao")
+            if status_wiki and status_wiki != "Não encontrado":
+                print(f"[Orchestrator] Aplicando Fallback de Conservação WikiAves: {status_wiki}")
+                self.step3_iucn_concluida.emit({
+                    "iucn_status": f"{status_wiki} (Fonte: WikiAves)",
+                    "geojson_path": None,
+                    "link_iucn": f"https://www.iucnredlist.org/search?query={resultados.get('original_scientific_name', '').replace(' ', '+')}&searchType=species"
+                })
+            else:
+                print("[Orchestrator] WikiAves não retornou status. Acionando Fallback iNaturalist.")
+                self._executar_fallback_inaturalist(resultados.get("original_scientific_name", ""))
+            self.esperando_fallback_iucn = False
+            
+    def _executar_fallback_inaturalist(self, sci_name):
+        fallback_res = {
+            "iucn_status": "Não Avaliado (Fallback Local)",
+            "geojson_path": None,
+            "link_iucn": f"https://www.iucnredlist.org/search?query={sci_name.replace(' ', '+')}&searchType=species"
+        }
+        try:
+            resp = requests.get(f"https://api.inaturalist.org/v1/taxa?q={sci_name}&is_active=true&rank=species", timeout=3)
+            if resp.status_code == 200 and resp.json().get("results"):
+                cs = resp.json()["results"][0].get("conservation_status")
+                fallback_res["iucn_status"] = f"{cs.get('status', 'Não Avaliado').upper()} (via iNaturalist)" if cs else "Não Avaliado / Seguro (via iNaturalist)"
+        except Exception: pass
+        self._on_step3_finished(fallback_res)
+
     # --- Etapa 3 ---
     def start_step3_geography(self, sci_name):
         config = carregar_config()
         token = config.get("iucn_api_key", "").strip() or os.environ.get("TOKEN_IUCN", "").strip()
         
         if not token:
-            print("[Orchestrator] Chave IUCN ausente. Evitando instanciar Thread e usando fallback rápido.")
+            print("[Orchestrator] Chave IUCN ausente. Aguardando fallback biológico (WikiAves).")
+            self.esperando_fallback_iucn = True
             fallback_res = {
-                "iucn_status": "Não Avaliado (Fallback Local)",
+                "iucn_status": "Aguardando WikiAves...",
                 "geojson_path": None,
                 "link_iucn": f"https://www.iucnredlist.org/search?query={sci_name.replace(' ', '+')}&searchType=species"
             }
-            # Fallback síncrono ultra-rápido iNaturalist
-            try:
-                resp = requests.get(f"https://api.inaturalist.org/v1/taxa?q={sci_name}&is_active=true&rank=species", timeout=3)
-                if resp.status_code == 200 and resp.json().get("results"):
-                    cs = resp.json()["results"][0].get("conservation_status")
-                    fallback_res["iucn_status"] = f"{cs.get('status', 'Não Avaliado').upper()} (via iNaturalist)" if cs else "Não Avaliado / Seguro (via iNaturalist)"
-            except Exception: pass
-            
             self._on_step3_finished(fallback_res)
             return
 
