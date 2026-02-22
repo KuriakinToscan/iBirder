@@ -35,22 +35,7 @@ from core.session_logger import SessionLogger
 from modules.step3_geography.iucn_worker import IUCNWorker
 from modules.step5_taxonomy.ebird_worker import EBirdWorker
 
-class GeoWorker(QThread):
-    finished = Signal(dict)
-    
-    def __init__(self, lat, lon, parent=None):
-        super().__init__(parent)
-        self.lat = lat
-        self.lon = lon
-        
-    def run(self):
-        # Instancia aqui para carregar biomas em background (thread segura)
-        # Nota: Idealmente GeoAnalyst seria singleton ou carregado uma vez, 
-        # mas seguindo instruções, instanciamos/usamos no fluxo.
-        # Se o loading for pesado, vai ocorrer aqui sem travar UI.
-        analyst = GeoAnalyst()
-        details = analyst.get_full_details(self.lat, self.lon)
-        self.finished.emit(details)
+# GeoWorker migrado para o Orchestrator v0.4.2
 
 class JanelaPrincipal(QMainWindow):
     def __init__(self, nome_icone_janela="logo_ave.svg", modo_inicial="online", ai_status="READY"):
@@ -69,6 +54,7 @@ class JanelaPrincipal(QMainWindow):
         self.orchestrator.step1_progress_updated.connect(self._ao_progresso_identificacao)
         self.orchestrator.step2_wiki_concluida.connect(self._ao_receber_info_especie)
         self.orchestrator.step3_iucn_concluida.connect(self._ao_concluir_iucn)
+        self.orchestrator.step3_geo_concluida.connect(self._ao_concluir_geo_analise)
         self.orchestrator.step4_audio_concluido.connect(self._ao_encontrar_audio)
         self.orchestrator.step4_audio_erro.connect(self._ao_erro_audio)
         self.orchestrator.step5_ebird_concluido.connect(self._ao_concluir_ebird)
@@ -1405,29 +1391,22 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_audio_placeholder.setVisible(True)
 
     def _atualizar_geo_info(self, lat, lon):
-        """Inicia worker para buscar detalhes administrativos e bioma."""
+        """Notifica o Orchestrator para iniciar worker de detalhes geo."""
         if not hasattr(self, 'lbl_geo_details'):
              return
 
         self.lbl_geo_details.setText("🔄 Analisando local e bioma...")
         self.lbl_geo_details.setVisible(True)
         
-        # Limpeza Segura do Worker Anterior
-        old_geo_worker = getattr(self, "geo_worker", None)
-        if old_geo_worker is not None:
-            if old_geo_worker.isRunning():
-                old_geo_worker.requestInterruption()
-                old_geo_worker.quit()
-                old_geo_worker.wait() # Bloqueia brevemente para garantir parada
-            old_geo_worker.deleteLater()
-        
-        # Instancia como atributo da classe com PARENT para evitar GC prematuro
-        self.geo_worker = GeoWorker(lat, lon, parent=self)
-        self.geo_worker.finished.connect(self._ao_concluir_geo_analise)
-        self.geo_worker.start()
+        # O Orchestrator assume a responsabilidade do worker v0.4.2
+        self.orchestrator.update_location(lat, lon)
+        # Se já tivermos uma espécie (casos de reprocessamento manual), pedimos pro Orchestrator agir
+        self.orchestrator.reprocessar_localizacao(lat, lon)
         
     def _ao_concluir_geo_analise(self, details):
         self.last_geo_data = details
+        self.lat_atual = details.get('lat')
+        self.lon_atual = details.get('lon')
         self._registrar_dados_geo_iucn()
         
         if not hasattr(self, 'lbl_geo_details'):
@@ -1571,8 +1550,8 @@ class JanelaPrincipal(QMainWindow):
             self._carregar_imagem(path)
 
     def _resetar_interface(self):
-        # Stop Workers
-        for worker_name in ["worker_local", "geo_worker", "audio_worker"]:
+        # Stop Workers (v0.4.2 gerenciado pelo Orchestrator)
+        for worker_name in ["worker_local"]: # Apenas workers que sobraram na Janela
             old_worker = getattr(self, worker_name, None)
             if old_worker is not None:
                 if old_worker.isRunning():

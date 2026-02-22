@@ -2,5 +2,8 @@
     "pular_pergunta_atalho": false,
     "modo_operacao": null,
     "lembrar_modo": false,
-    "mostrar_alerta_boot_api": false
+    "mostrar_alerta_boot_api": false,
+    "xc_api_key": "5e485df54249c0435a13aac128b7f16d2be13da7",
+    "mostrar_alerta_iucn": false,
+    "mostrar_alerta_ebird": false
 }

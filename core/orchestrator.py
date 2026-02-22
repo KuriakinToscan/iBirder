@@ -7,11 +7,26 @@ from modules.step2_biology.wiki_worker import BuscadorWorker
 from modules.step3_geography.iucn_worker import IUCNWorker
 from modules.step4_vocalization.audio_worker import AudioWorker
 from modules.step5_taxonomy.ebird_worker import EBirdWorker
+from modules.step3_geography.geo_analyst import GeoAnalyst
+from PySide6.QtCore import QObject, Signal, QThread
 import requests
 from core.config import carregar_config
 
 # Etapa 6 placeholder
 # from modules.step6_persistence.exif_manager import EXIFManager
+
+class GeoWorker(QThread):
+    finished = Signal(dict)
+    
+    def __init__(self, lat, lon, parent=None):
+        super().__init__(parent)
+        self.lat = lat
+        self.lon = lon
+        
+    def run(self):
+        analyst = GeoAnalyst()
+        details = analyst.get_full_details(self.lat, self.lon)
+        self.finished.emit(details)
 
 class Orchestrator(QObject):
     """
@@ -32,6 +47,7 @@ class Orchestrator(QObject):
     step2_wiki_erro = Signal()
     
     step3_iucn_concluida = Signal(dict)
+    step3_geo_concluida = Signal(dict)
     
     step4_audio_concluido = Signal(list)
     step4_audio_erro = Signal()
@@ -46,6 +62,7 @@ class Orchestrator(QObject):
         self.id_worker = None
         self.wiki_worker = None
         self.iucn_worker = None
+        self.geo_worker = None
         self.audio_worker = None
         self.ebird_worker = None
         
@@ -95,12 +112,35 @@ class Orchestrator(QObject):
         self.current_lon = lon
         
     def start_cascade_from_step2(self, sci_name):
-        """Dispara todas as etapas (2 a 5) paralelamente a partir de um nome manual."""
+        """Dispara as etapas iniciais. O áudio agora segue a geografia."""
         print(f"[Orchestrator] Iniciando cascata a partir da Etapa 2 para: {sci_name}")
         self.start_step2_biology(sci_name)
         self.start_step3_geography(sci_name)
-        self.start_step4_vocalization(sci_name)
+        # Etapa 4 (Audio) agora é disparada no _on_step3_geo_finished
+        # Etapa 5 (Taxonomia) pode continuar paralela
         self.start_step5_taxonomy(sci_name)
+
+    def reprocessar_localizacao(self, lat, lon):
+        """Atualiza coordenadas, invalida cache de áudio e reinicia busca geo-acústica."""
+        print(f"[Orchestrator] Reprocessando localização manual: {lat}, {lon}")
+        self.current_lat = lat
+        self.current_lon = lon
+        
+        # Invalida cache de áudio da espécie atual
+        sci_name = getattr(self, "_last_sci_name", None)
+        if sci_name and hasattr(self, "_cache_audio"):
+            if sci_name in self._cache_audio:
+                del self._cache_audio[sci_name]
+                print(f"[Orchestrator] Cache de áudio para {sci_name} invalidado.")
+
+        # Interromper threads de áudio ativas
+        if self.audio_worker and self.audio_worker.isRunning():
+            self.audio_worker.requestInterruption()
+            self.audio_worker.quit()
+            print("[Orchestrator] Busca de áudio anterior interrompida.")
+
+        if sci_name:
+            self.start_step3_geography(sci_name)
 
     # --- Callbacks e Engatilhamentos ---
     
@@ -124,10 +164,10 @@ class Orchestrator(QObject):
             print("[Orchestrator] Identificação Inconclusiva detectada. Bloqueando cascata de workers externos.")
             return
         
-        # Se passou o guard, Engatilha Paralelamente o Resto do Pentágono
+        self._last_sci_name = nome_cientifico
+        # Se passou o guard, Engatilha as etapas. O áudio virá após o GeoAnalyst.
         self.start_step2_biology(nome_cientifico)
         self.start_step3_geography(nome_cientifico)
-        self.start_step4_vocalization(nome_cientifico)
         self.start_step5_taxonomy(nome_cientifico)
             
     # --- Etapa 2 ---
@@ -175,25 +215,43 @@ class Orchestrator(QObject):
 
     # --- Etapa 3 ---
     def start_step3_geography(self, sci_name):
+        """Etapa 3: Geografia (IUCN + GeoAnalyst/Nominatim)."""
+        self._last_sci_name = sci_name
+        
+        # 3A. IUCN
         config = carregar_config()
         token = config.get("iucn_api_key", "").strip() or os.environ.get("TOKEN_IUCN", "").strip()
         
         if not token:
             print("[Orchestrator] Chave IUCN ausente. Aguardando fallback biológico (WikiAves).")
             self.esperando_fallback_iucn = True
-            fallback_res = {
-                "iucn_status": "Aguardando WikiAves...",
-                "geojson_path": None,
-                "link_iucn": f"https://www.iucnredlist.org/search?query={sci_name.replace(' ', '+')}&searchType=species"
-            }
-            self._on_step3_finished(fallback_res)
-            return
+        else:
+            if self.iucn_worker: self.iucn_worker.deleteLater()
+            self.iucn_worker = IUCNWorker(sci_name, parent=self)
+            self.iucn_worker.finished.connect(self._on_step3_finished)
+            self.iucn_worker.start()
 
-        if self.iucn_worker: self.iucn_worker.deleteLater()
-        self.iucn_worker = IUCNWorker(sci_name, parent=self)
-        self.iucn_worker.finished.connect(self._on_step3_finished)
-        self.iucn_worker.start()
+        # 3B. GeoAnalyst (Nominatim/Pampa) - Sempre roda se tivermos coords ou para centroide
+        if self.current_lat and self.current_lon:
+            if self.geo_worker: self.geo_worker.deleteLater()
+            self.geo_worker = GeoWorker(self.current_lat, self.current_lon, parent=self)
+            self.geo_worker.finished.connect(self._on_step3_geo_finished)
+            self.geo_worker.start()
+        else:
+            print("[Orchestrator] Lat/Lon ausentes. Aguardando input manual ou fallback para habilitar áudio.")
+
+    def _on_step3_geo_finished(self, details):
+        print(f"[Orchestrator] GeoAnalyst concluído para {details.get('municipio')}.")
+        # Atualiza coordenadas do Orchestrator com a precisão do Analyst (centroide se necessário)
+        self.current_lat = details.get('lat')
+        self.current_lon = details.get('lon')
         
+        self.step3_geo_concluida.emit(details)
+        
+        # DISPARO SEQUENCIAL DO ÁUDIO
+        if self._last_sci_name:
+            self.start_step4_vocalization(self._last_sci_name)
+
     def _on_step3_finished(self, results):
         print("[Orchestrator] Etapa 3 Concluída.")
         self.step3_iucn_concluida.emit(results)

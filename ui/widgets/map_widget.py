@@ -195,11 +195,12 @@ class MapWidget(QWebEngineView):
                 
             if audio_markers:
                  for am in audio_markers:
-                      folium.Marker(
-                           [am['lat'], am['lon']],
-                           icon=folium.Icon(color="purple", icon="music", prefix="glyphicon"),
-                           tooltip=am.get('title', 'Áudio Gravado')
-                      ).add_to(m)
+                      if am.get('lat') and am.get('lon'):
+                          folium.Marker(
+                               [am['lat'], am['lon']],
+                               icon=folium.Icon(color="gray", icon="music", prefix="glyphicon"),
+                               tooltip=am.get('title', 'Áudio Gravado')
+                          ).add_to(m)
 
             folium.LayerControl(position='topright', collapsed=False).add_to(m)
             
