@@ -385,7 +385,17 @@ class JanelaPrincipal(QMainWindow):
         
         layout_esquerda.addLayout(layout_branding)
 
-        caminho_icone_janela = self._obter_caminho_asset(self.nome_icone_janela)
+        from PySide6.QtWidgets import QApplication
+        from PySide6.QtGui import QPalette
+        
+        app = QApplication.instance()
+        if app:
+            lightness = app.palette().color(QPalette.Window).lightness()
+            icon_file = "logo_ave_claro.svg" if lightness < 128 else "logo_ave_escuro.svg"
+        else:
+            icon_file = "logo_ave_escuro.svg"
+
+        caminho_icone_janela = self._obter_caminho_asset(icon_file)
         if os.path.exists(caminho_icone_janela):
             self.setWindowIcon(QIcon(caminho_icone_janela))
 
