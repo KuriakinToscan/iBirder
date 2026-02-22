@@ -896,21 +896,15 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_nome_comum.setText("...")
         
         self._iniciar_busca_imagem(sci_formatted)
+        # O Orchestrator assume a cascata linear 1->2->3->4->5 a partir daqui (v0.4.6)
         self.orchestrator.start_cascade_from_step2(sci_formatted)
         
         self.btn_wiki.setVisible(True)
         self.btn_google.setVisible(True)
         self.btn_ebird.setVisible(True)
 
-        # LOGGING DE SESSÃO: ETAPA 1 (v0.3.16)
-        dados_etapa_1 = {
-             "nome_cientifico": sci_formatted,
-             "descricao": "Identificação inserida manualmente pelo usuário.",
-             "status_msg": "Busca Direta",
-             "confianca": "Identificado pelo usuário"
-        }
-        if hasattr(self, 'session_logger'):
-             self.session_logger.registrar_identificacao(dados_etapa_1)
+        # LOGGING DE SESSÃO: ETAPA 1 (Removido aqui, agora centralizado no Orchestrator v0.4.6)
+        pass
 
     def _abrir_google_lens(self):
         if not self.caminho_imagem_atual:
@@ -1272,16 +1266,8 @@ class JanelaPrincipal(QMainWindow):
             if sci:
                 self._iniciar_busca_imagem(sci)
                 
-            # LOGGING DE SESSÃO: ETAPA 1 (v0.3.16)
-            valor = float(conf) if conf else 0.0
-            dados_etapa_1 = {
-                 "nome_cientifico": self.dados_identificacao_atual.get("nome_cientifico", ""),
-                 "descricao": desc,
-                 "status_msg": status_msg,
-                 "confianca": f"{valor*100:.1f}%"
-            }
-            if hasattr(self, 'session_logger'):
-                 self.session_logger.registrar_identificacao(dados_etapa_1)
+            # LOGGING DE SESSÃO: ETAPA 1 (Removido aqui, agora centralizado no Orchestrator v0.4.6)
+            pass
         
         if status_msg:
              print(f"[UI] Status de Identificação: {status_msg}")
