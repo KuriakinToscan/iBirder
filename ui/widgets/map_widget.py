@@ -195,7 +195,7 @@ class MapWidget(QWebEngineView):
                 
             if audio_markers:
                  for am in audio_markers:
-                      if am.get('lat') and am.get('lon'):
+                      if am.get('lat') is not None and am.get('lon') is not None:
                           folium.Marker(
                                [am['lat'], am['lon']],
                                icon=folium.Icon(color="gray", icon="music", prefix="glyphicon"),

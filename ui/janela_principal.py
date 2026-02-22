@@ -1365,6 +1365,7 @@ class JanelaPrincipal(QMainWindow):
             
         # Atualiza o mapa se tivermos novos marcadores e já existir a tela principal montada
         if audio_markers and self.map_principal:
+             print(f"[UI] Plotando {len(audio_markers)} pins de áudio no mapa.")
              sci = self._obter_sciname_atual()
              self.map_principal.update_map(self.lat_atual, self.lon_atual, zoom=6, add_marker=True, scientific_name=sci, audio_markers=audio_markers)
              
@@ -1398,6 +1399,9 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_geo_details.setText("🔄 Analisando local e bioma...")
         self.lbl_geo_details.setVisible(True)
         
+        # Limpar áudios anteriores para nova busca geo-sincronizada (v0.4.3)
+        self._limpar_painel_audio()
+        
         # O Orchestrator assume a responsabilidade do worker v0.4.2
         self.orchestrator.update_location(lat, lon)
         # Se já tivermos uma espécie (casos de reprocessamento manual), pedimos pro Orchestrator agir
@@ -1423,6 +1427,7 @@ class JanelaPrincipal(QMainWindow):
         <b>Coordenadas:</b> Lat {lat_str}, Long {lon_str}<br>
         <b>País:</b> {details.get('pais', '-')}<br>
         <b>Estado:</b> {details.get('estado', '-')}<br>
+        <b>Município:</b> {details.get('municipio', '-')}<br>
         <b>Bioma:</b> {details.get('bioma', '-')}<br>
         """
         self.lbl_geo_details.setText(texto)
@@ -1549,6 +1554,21 @@ class JanelaPrincipal(QMainWindow):
         if path:
             self._carregar_imagem(path)
 
+    def _limpar_painel_audio(self):
+        """Para e remove todos os players de áudio da interface."""
+        if hasattr(self, 'active_audio_players'):
+            for player in self.active_audio_players:
+                try:
+                    player.stop()
+                    player.setParent(None)
+                    player.deleteLater()
+                except: pass
+            self.active_audio_players = []
+        
+        if hasattr(self, 'lbl_audio_placeholder'):
+            self.lbl_audio_placeholder.setText("Áudio não carregado")
+            self.lbl_audio_placeholder.setVisible(True)
+
     def _resetar_interface(self):
         # Stop Workers (v0.4.2 gerenciado pelo Orchestrator)
         for worker_name in ["worker_local"]: # Apenas workers que sobraram na Janela
@@ -1561,21 +1581,8 @@ class JanelaPrincipal(QMainWindow):
                 old_worker.deleteLater()
                 setattr(self, worker_name, None)
 
-        # Limpeza de Players de Áudio (v0.4.0)
-        if hasattr(self, 'active_audio_players'):
-            for player in self.active_audio_players:
-                try:
-                    player.stop()
-                    player.setParent(None)
-                    player.deleteLater()
-                except:
-                    pass
-            self.active_audio_players = []
-        
-        # Resetar placeholder de áudio
-        if hasattr(self, 'lbl_audio_placeholder'):
-            self.lbl_audio_placeholder.setText("Áudio não carregado")
-            self.lbl_audio_placeholder.setVisible(True)
+        # Limpeza de Players de Áudio (v0.4.0/v0.4.3)
+        self._limpar_painel_audio()
 
         self.worker_species = None
         self.audio_worker = None
