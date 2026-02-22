@@ -23,6 +23,16 @@ class ExternalLinkPage(QWebEnginePage):
                         self.map_widget.marker_dragged.emit(lat, lon)
                 except ValueError: pass
             return False
+            
+        if url_str.startswith("ibirder://audio_click"):
+            from urllib.parse import urlparse, parse_qs
+            parsed = urlparse(url_str)
+            query = parse_qs(parsed.query)
+            if 'id' in query:
+                audio_id = query['id'][0]
+                if hasattr(self.map_widget, 'audio_clicked'):
+                    self.map_widget.audio_clicked.emit(audio_id)
+            return False
 
         if _type == QWebEnginePage.NavigationTypeLinkClicked:
             QDesktopServices.openUrl(url)
@@ -32,6 +42,7 @@ class ExternalLinkPage(QWebEnginePage):
 class MapWidget(QWebEngineView):
     from PySide6.QtCore import Signal
     marker_dragged = Signal(float, float)
+    audio_clicked = Signal(str) # v0.4.4
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setPage(ExternalLinkPage(self)) # Intercepta links to open in default browser
@@ -194,13 +205,25 @@ class MapWidget(QWebEngineView):
                 m.get_root().html.add_child(folium.Element(drag_js))
                 
             if audio_markers:
-                 for am in audio_markers:
-                      if am.get('lat') is not None and am.get('lon') is not None:
-                          folium.Marker(
-                               [am['lat'], am['lon']],
-                               icon=folium.Icon(color="gray", icon="music", prefix="glyphicon"),
-                               tooltip=am.get('title', 'Áudio Gravado')
-                          ).add_to(m)
+                for am in audio_markers:
+                    a_lat = am.get('lat')
+                    a_lon = am.get('lon')
+                    if a_lat is not None and a_lon is not None:
+                        # Icone Premium v0.4.4: 24px, DarkGray, Clicável
+                        audio_id = am.get('id', am.get('url', ''))
+                        
+                        icon_html = f"""
+                        <div style="font-size: 24px; color: #414141; cursor: pointer; text-shadow: 1px 1px 2px white;" 
+                             onclick="window.location.href='ibirder://audio_click?id={audio_id}'">
+                             🎵
+                        </div>
+                        """
+                        
+                        folium.Marker(
+                             [a_lat, a_lon],
+                             icon=folium.DivIcon(html=icon_html, icon_size=(24, 24), icon_anchor=(12, 12)),
+                             tooltip=f"{am.get('tipo_canto', 'Áudio')} - {am.get('autor', 'Desconhecido')}"
+                        ).add_to(m)
 
             folium.LayerControl(position='topright', collapsed=False).add_to(m)
             

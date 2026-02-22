@@ -357,6 +357,10 @@ class Orchestrator(QObject):
             })
         self.step5_ebird_concluido.emit(results)
         
+        # Batch Flush Finalizado (v0.4.4)
+        if self.session_logger:
+            self.session_logger.flush()
+        
         # Aqui no futuro engatilharemos a Etapa 6
         # from modules.step6_persistence.exif_manager import EXIFManager
         # exif_manager = EXIFManager()

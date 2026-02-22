@@ -439,3 +439,8 @@ class AudioPlayerWidget(QWidget):
              final_url = self.audio_data['link_web']
              
         QDesktopServices.openUrl(QUrl(final_url))
+
+    def highlight(self):
+        """Destaque visual temporário ao clicar no pin do mapa (v0.4.4)."""
+        self.setStyleSheet("background-color: #FEF3C7; border: 2px solid #F59E0B; border-radius: 6px;")
+        QTimer.singleShot(3000, lambda: self.setStyleSheet(""))
