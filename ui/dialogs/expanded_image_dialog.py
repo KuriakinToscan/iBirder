@@ -53,24 +53,8 @@ class ExpandedImageDialog(QDialog):
         # 2. Botão Fechar (Ghost Style)
         self.btn_close = QPushButton("✕", self)
         self.btn_close.setCursor(QCursor(Qt.PointingHandCursor))
-        self.btn_close.setFixedSize(36, 36)
-        
-        # Estilo "Ghost" com Fundo Semi-Transparente (Melhor Visibilidade)
-        self.btn_close.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(255, 255, 255, 0.5);
-                color: #374151;
-                font-weight: bold;
-                font-family: "Segoe UI", sans-serif;
-                font-size: 18px;
-                border-radius: 18px;
-                border: none;
-            }
-            QPushButton:hover {
-                background-color: rgba(255, 255, 255, 0.9);
-                color: #EF4444;
-            }
-        """)
+        self.btn_close.setFixedSize(32, 32)
+        self.btn_close.setProperty("class", "btn-fechar-modal")
         self.btn_close.clicked.connect(self.close)
 
         # Dimensionamento Inicial (70% da tela)

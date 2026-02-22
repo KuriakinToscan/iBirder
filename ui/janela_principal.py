@@ -1470,6 +1470,25 @@ class JanelaPrincipal(QMainWindow):
     def _ao_concluir_iucn(self, results):
         self.last_iucn_data = results
         self._registrar_dados_geo_iucn()
+        
+        # Atualização visual do Status (v0.3.53)
+        if hasattr(self, 'lbl_geo_details'):
+            current_text = self.lbl_geo_details.text()
+            iucn_status = results.get("iucn_status", "Não Avaliado")
+            
+            # Garante a acessibilidade TextSelectableByMouse
+            self.lbl_geo_details.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            
+            novo_status_html = f"<br><b>Status:</b> {iucn_status}"
+            
+            if "<b>Status:</b>" in current_text:
+                import re
+                current_text = re.sub(r'<br><b>Status:</b>.*?(<br>|$)', novo_status_html + r'\1', current_text)
+            else:
+                current_text += novo_status_html
+                
+            self.lbl_geo_details.setText(current_text)
+            self.lbl_geo_details.setVisible(True)
 
     # A busca do ebird foi movida para o Orchestrator
         
