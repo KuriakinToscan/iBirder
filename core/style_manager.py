@@ -60,3 +60,19 @@ class StyleManager:
                 border-color: #9CA3AF;
             }
         """
+
+    @staticmethod
+    def is_windows_dark_mode() -> bool:
+        import winreg
+        try:
+            registry_key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                r"SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+                0,
+                winreg.KEY_READ
+            )
+            value, _ = winreg.QueryValueEx(registry_key, "AppsUseLightTheme")
+            winreg.CloseKey(registry_key)
+            return value == 0
+        except OSError:
+            return False # Default to false if registry not found
