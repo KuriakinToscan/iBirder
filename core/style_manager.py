@@ -1,4 +1,11 @@
 class StyleManager:
+    # ------------------
+    # MÉTRICAS DE DESIGN
+    # ------------------
+    SPACING_SM = 8
+    SPACING_MD = 15
+    SPACING_LG = 20
+    
     @staticmethod
     def get_global_stylesheet():
         return """
@@ -84,9 +91,61 @@ class StyleManager:
             }
             #lbl_slogan {
                 color: #2C3E50;
-                font-size: 44px;
+                font-size: 26px;
+                font-style: italic;
                 font-weight: bold;
                 font-family: 'Figtree', sans-serif;
+            }
+            /* Classes Abstratas Injetadas na Fase S */
+            .lbl-titulo-sessao {
+                font-weight: bold; 
+                color: #374151; 
+                font-size: 11px; 
+            }
+            .lbl-titulo-sessao[margin-bottom="sm"] {
+                margin-bottom: 2px;
+            }
+            .lbl-titulo-sessao[margin-bottom="md"] {
+                margin-bottom: 4px;
+            }
+            .lbl-titulo-sessao[margin-top="md"] {
+                margin-top: 8px;
+            }
+            .lbl-titulo-verde {
+                font-weight: bold; 
+                color: #059669; 
+                font-size: 11px; 
+                text-transform: uppercase;
+            }
+            .container-borda-cinza {
+                background: transparent; 
+                border: 1px solid #D1D5DB; 
+                border-radius: 6px; 
+                padding: 4px; 
+                color: #374151; 
+                font-style: italic;
+            }
+            .lbl-confianca-alta {
+                color: #059669; /* Verde */
+            }
+            .container-borda-cinza-fill {
+                background-color: #F9FAFB;
+                border: 1px solid #E5E7EB;
+                border-radius: 6px;
+                padding: 6px;
+                color: #374151;
+                font-size: 12px;
+            }
+            .grupo-sessao-inferior {
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            .container-borda-tracejada {
+                color: #9CA3AF;
+                font-style: italic;
+                border: 1px dashed #D1D5DB;
+                border-radius: 4px;
+                padding: 20px;
             }
         """
 
