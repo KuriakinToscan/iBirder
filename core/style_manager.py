@@ -74,13 +74,19 @@ class StyleManager:
                 border-radius: 4px;
             }
             QMenu::item:selected {
-                background-color: #F3F4F6;
-                color: #111827;
+                background-color: #FEF3C7;
+                color: #2C3E50;
             }
             QMenu::separator {
                 height: 1px;
                 background-color: #E5E7EB;
                 margin: 4px 0px 4px 0px;
+            }
+            #lbl_slogan {
+                color: #1F2937;
+                font-size: 24px;
+                font-weight: bold;
+                font-family: 'Figtree', sans-serif;
             }
         """
 
