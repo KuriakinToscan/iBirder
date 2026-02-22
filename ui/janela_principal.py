@@ -315,6 +315,17 @@ class JanelaPrincipal(QMainWindow):
         action_config_api.triggered.connect(lambda: __import__("ui.dialogs.api_settings_dialog", fromlist=["APISettingsDialog"]).APISettingsDialog(self).exec())
         ferramentas_menu.addAction(action_config_api)
 
+        # --- CARREGAMENTO DO ÍCONE DA JANELA ---
+        from core.style_manager import StyleManager
+        if StyleManager.is_windows_dark_mode():
+            icon_file = "logo_ave_claro.svg" 
+        else:
+            icon_file = "logo_ave_escuro.svg"
+
+        caminho_icone_janela = self._obter_caminho_asset(icon_file)
+        if os.path.exists(caminho_icone_janela):
+            self.setWindowIcon(QIcon(caminho_icone_janela))
+
         # Container Principal com Scroll
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
@@ -419,7 +430,11 @@ class JanelaPrincipal(QMainWindow):
         
         layout_ajuda.addWidget(self.btn_config_global)
         
-        # --- NOVO: GRID DE COLUNAS COM SIMETRIA ABSOLUTA (v0.3.46) ---
+        # --- SOLDA CIRÚRGICA DE BRANDING PERDIDA NA FASE L ---
+        layout_header.addLayout(layout_ajuda)
+        layout_mestre.addLayout(layout_header)
+        
+        # --- NOVO: GRID DE COLUNAS COM SIMETRIA ABSOLUTA (v0.3.46/v0.3.47) ---
         layout_cards_superiores = QGridLayout()
         layout_cards_superiores.setSpacing(15)
 
@@ -491,7 +506,7 @@ class JanelaPrincipal(QMainWindow):
         layout_direito.setSpacing(15)
         layout_direito.setContentsMargins(12, 18, 12, 12)
         
-        layout_cards_superiores.addWidget(self.painel_direito, 1, 2)
+        layout_cards_superiores.addWidget(self.painel_direito, 1, 2, 3, 1) # RowSpan=3, ColSpan=1
         
         # Junta o bloco principal de 3 colunas ao mestre
         layout_mestre.addLayout(layout_cards_superiores)
@@ -568,8 +583,9 @@ class JanelaPrincipal(QMainWindow):
         
         layout_inferior.addLayout(layout_map_botoes)
         
-        layout_mestre.addLayout(layout_inferior)
-
+        # Adiciona o bloco inferior restrito às colunas 0 e 1 do Grid (Logo abaixo das imagens)
+        layout_cards_superiores.addLayout(layout_inferior, 2, 0, 2, 2) # Row=2, Col=0, RowSpan=2, ColSpan=2
+        
         # Painel Branco Interno Layouts
         # (O layout_direito já foi inicializado e setado acima no `self.painel_direito.setLayout(layout_direito)`)
         # Layouts de grupo_resultados continuarão a ser inseridos nele mais tarde no código.
