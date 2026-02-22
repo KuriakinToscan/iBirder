@@ -16,7 +16,8 @@ def carregar_config():
         "pular_pergunta_atalho": False,
         "modo_operacao": None, # "online" ou "offline"
         "lembrar_modo": False,
-        "mostrar_alerta_boot_api": True
+        "mostrar_alerta_boot_api": True,
+        "xc_api_key": ""
     }
     
     if config_path.exists():
