@@ -250,11 +250,17 @@ class AudioWorker(QThread):
             
             audios = []
             for obs in results:
+                location = obs.get('location') # Formato "lat,lon"
+                obs_lat, obs_lon = None, None
+                if location:
+                    try:
+                        coords = location.split(',')
+                        obs_lat, obs_lon = float(coords[0]), float(coords[1])
+                    except (ValueError, IndexError): pass
+
                 sounds = obs.get('sounds', [])
                 for sound in sounds:
                     file_url = sound.get('file_url')
-                    # iNat as vezes retorna file_url como None se for soundcloud (não suportado direto no player simples as vezes)
-                    # Mas se for arquivo hosted 'file_url' costuma vir mp3/m4a
                     if file_url:
                         user = obs.get('user', {}).get('login', 'Desconhecido')
                         audios.append({
@@ -263,8 +269,8 @@ class AudioWorker(QThread):
                             'fonte': 'iNaturalist',
                             'tipo_canto': 'Gravação Geral',
                             'distancia_texto': '',
-                            'lat': None,
-                            'lon': None
+                            'lat': obs_lat,
+                            'lon': obs_lon
                         })
                         break # Um áudio por observação basta
                 
