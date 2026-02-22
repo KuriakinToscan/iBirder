@@ -44,7 +44,6 @@ class SessionLogger:
         """Append seguro de um dicionário na Session RAM Buffer."""
         try:
             self.buffer.append(dados)
-            print(f"[SessionLogger] Etapa 1 salva na RAM. I/O retardado (Total: {len(self.buffer)})")
         except Exception as e:
             print(f"[SessionLogger] Erro ao registrar_identificacao no Batch: {e}")
             traceback.print_exc()
@@ -64,7 +63,6 @@ class SessionLogger:
             if self.buffer and isinstance(self.buffer, list):
                 # Recupera a última entrada (Etapa 1) e injeta/sobrescreve os dados agregados na Memória VRAM
                 self.buffer[-1].update(novos_dados)
-                print(f"[SessionLogger] Buffer Atualizado com sucesso (+{len(novos_dados)} chaves na RAM).")
                 
                 # Flush automático removido em v0.4.4 para consolidar no final do pipeline
                 pass

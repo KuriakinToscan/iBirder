@@ -1,3 +1,4 @@
+# ADVERTÊNCIA: Proibido adicionar barras de menu ou ferramentas tradicionais conforme RULES v1.1.
 import sys
 import os
 import json
@@ -11,7 +12,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QStatusBar, QSizePolicy, QCheckBox)
 from PySide6.QtCore import Qt, QSize, QTimer, Slot, Signal, QThread, QSettings, QUrl, QMimeData
 from PySide6.QtGui import (QIcon, QPixmap, QColor, QFont, QDesktopServices, QPalette, QFontDatabase,
-    QPainter, QAction, QDrag, QResizeEvent, QDragEnterEvent, QDropEvent
+    QPainter, QDrag, QResizeEvent, QDragEnterEvent, QDropEvent
 )
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PIL import Image, ExifTags
@@ -295,14 +296,6 @@ class JanelaPrincipal(QMainWindow):
         if os.path.exists(caminho_figtree):
             QFontDatabase.addApplicationFont(caminho_figtree)
 
-        # Menu Bar para Configurações Adicionais
-        from PySide6.QtGui import QAction
-        menu_bar = self.menuBar()
-        ferramentas_menu = menu_bar.addMenu("Ferramentas")
-        
-        action_config_api = QAction("⚙️ Configurações de Avisos de API", self)
-        action_config_api.triggered.connect(lambda: __import__("ui.dialogs.api_settings_dialog", fromlist=["APISettingsDialog"]).APISettingsDialog(self).exec())
-        ferramentas_menu.addAction(action_config_api)
 
         # --- CARREGAMENTO DO ÍCONE DA JANELA ---
         caminho_icone_janela = self._obter_caminho_asset(self.nome_icone_janela)

@@ -264,8 +264,10 @@ class Orchestrator(QObject):
         
         self.step3_geo_concluida.emit(details)
         
-        # DISPARO SEQUENCIAL DO ÁUDIO
+        # DISPARO SEQUENCIAL DO ÁUDIO (Blindagem v0.4.5)
+        # O áudio só é buscado após o GeoAnalyst garantir as coordenadas precisas.
         if self._last_sci_name:
+            print(f"[Orchestrator] Step 3 (Geo) resolvido. Engatilhando Step 4 (Áudio) para {self._last_sci_name}")
             self.start_step4_vocalization(self._last_sci_name)
 
     def _on_step3_finished(self, results):
