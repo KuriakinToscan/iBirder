@@ -896,6 +896,10 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_nome_comum.setText("...")
         
         self._iniciar_busca_imagem(sci_formatted)
+        
+        # Sincronizar localização atual com Orchestrator (v0.4.8)
+        self.orchestrator.update_location(self.lat_atual, self.lon_atual)
+        
         # O Orchestrator assume a cascata linear 1->2->3->4->5 a partir daqui (v0.4.6)
         self.orchestrator.start_cascade_from_step2(sci_formatted)
         
@@ -1168,6 +1172,8 @@ class JanelaPrincipal(QMainWindow):
         self.card_user.setAcceptDrops(False) # Bloqueia novos drops durante processamento
         
         try:
+            # Sincronizar localização atual com Orchestrator ANTES de iniciar (v0.4.8)
+            self.orchestrator.update_location(self.lat_atual, self.lon_atual)
             self.orchestrator.start_pipeline_identificacao(self.caminho_imagem_atual)
         except Exception as e:
             self._ao_erro_identificacao(f"Falha ao iniciar orchestrator: {e}")
