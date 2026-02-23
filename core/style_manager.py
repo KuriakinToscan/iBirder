@@ -4,7 +4,7 @@ import ctypes
 from pathlib import Path
 
 class StyleManager:
-    """Centralizador de Estilos e Temas do iBirder (v0.8.2 Hotfix)"""
+    """Centralizador de Estilos e Temas do iBirder (v0.6.4)"""
     
     # Constantes de Design
     SPACING_SM = 8
@@ -179,6 +179,14 @@ class StyleManager:
             }}
             QPushButton:hover {{ background-color: {accent_hover}; }}
             
+            /* Botões Secundários */
+            QPushButton.secundario {{
+                background-color: #E5E7EB;
+                color: #374151;
+                border: 1px solid #D1D5DB;
+            }}
+            QPushButton.secundario:hover {{ background-color: #D1D5DB; }}
+            
             /* Botões Ícone */
             QPushButton[class="icon-btn"] {{ background-color: transparent; color: {text_secondary}; padding: 4px; border: none; }}
             QPushButton[class="icon-btn"]:hover {{ background-color: {"#E5E7EB" if not dark_mode else "#4B5563"}; border-radius: 4px; }}
@@ -226,11 +234,28 @@ class StyleManager:
                 text-transform: uppercase; 
             }}
             QGroupBox::title {{ 
-                subcontrol-origin: margin; 
-                padding: 0 4px; 
                 background-color: {bg_card}; 
                 color: {text_primary};
             }}
+
+            /* Checkbox e RadioButton (Visibilidade v0.8.3) */
+            QCheckBox, QRadioButton {{
+                color: {text_primary};
+                spacing: 8px;
+            }}
+            QCheckBox::indicator, QRadioButton::indicator {{
+                width: 18px;
+                height: 18px;
+                border: 1px solid {border};
+                border-radius: 4px;
+                background-color: white;
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {accent_btn};
+                image: url(none); /* Pode ser substituído por um SVG check se carregado */
+            }}
+            /* Fallback visual simples para checked se não houver asset */
+            QCheckBox::indicator:checked {{ background-color: #374151; }}
 
             /* Classes Abstratas para Widgets Customizados */
             .lbl-titulo-sessao {{ font-weight: bold; color: {text_secondary}; font-size: 11px; }}
