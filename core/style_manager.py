@@ -4,7 +4,7 @@ import ctypes
 from pathlib import Path
 
 class StyleManager:
-    """Centralizador de Estilos e Temas do iBirder (v0.6.5)"""
+    """Centralizador de Estilos e Temas do iBirder (v0.6.6)"""
     
     # Constantes de Design
     SPACING_SM = 8
@@ -205,6 +205,43 @@ class StyleManager:
                 padding: 6px;
                 color: {text_primary};
             }}
+            
+            QListWidget, QListView {{
+                background-color: {bg_card};
+                border: 1px solid {border};
+                border-radius: 8px;
+                color: {text_primary};
+                outline: none;
+                padding: 4px;
+            }}
+            QListWidget::item, QListView::item {{
+                padding: 8px;
+                border-radius: 6px;
+                color: {text_primary};
+            }}
+            QListWidget::item:hover, QListView::item:hover {{
+                background-color: {"#F3F4F6" if not dark_mode else "#374151"};
+            }}
+            QListWidget::item:selected, QListView::item:selected {{
+                background-color: {"#E5E7EB" if not dark_mode else "#4B5563"};
+                color: {text_primary};
+            }}
+
+            /* ScrollArea e ScrollBars (v0.6.6) */
+            QScrollArea {{ border: none; background-color: transparent; }}
+            
+            QScrollBar:vertical {{
+                border: none;
+                background: transparent;
+                width: 8px;
+                margin: 0px;
+            }}
+            QScrollBar::handle:vertical {{
+                background: #D1D5DB;
+                min-height: 20px;
+                border-radius: 4px;
+            }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0px; }}
             
             /* Botões Primários */
             QPushButton {{ 
