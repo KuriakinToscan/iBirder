@@ -38,27 +38,35 @@ class ExternalLinkPage(QWebEnginePage):
             QDesktopServices.openUrl(url)
             return False
         return True
-
 class MapWidget(QWebEngineView):
     from PySide6.QtCore import Signal
     marker_dragged = Signal(float, float)
     audio_clicked = Signal(str) # v0.4.4
+    alert_clicked = Signal()    # v0.6.3
+    
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setPage(ExternalLinkPage(self)) # Intercepta links to open in default browser
 
-        # --- Alerta de GPS Ausente (v0.3.34) ---
+        # --- Alerta de GPS Ausente (v0.3.34 / v0.6.3 Interativo) ---
         from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout, QGraphicsDropShadowEffect
         from PySide6.QtGui import QColor
         from PySide6.QtCore import Qt
         
         self.alert_frame = QFrame(self)
         self.alert_frame.setObjectName("overlay_alert")
+        self.alert_frame.setCursor(Qt.PointingHandCursor)
+        self.alert_frame.mousePressEvent = lambda e: self.alert_clicked.emit() if e.button() == Qt.LeftButton else None
+        
         self.alert_frame.setStyleSheet("""
             QFrame#overlay_alert {
                 background-color: rgba(254, 243, 199, 0.95);
-                border: 1px solid #F59E0B;
+                border: 2px solid #F59E0B;
                 border-radius: 8px;
+            }
+            QFrame#overlay_alert:hover {
+                background-color: rgba(254, 235, 170, 0.98);
+                border-color: #D97706;
             }
             QLabel#alert_text {
                 color: #92400E;
@@ -71,7 +79,7 @@ class MapWidget(QWebEngineView):
         layout = QVBoxLayout(self.alert_frame)
         layout.setContentsMargins(20, 12, 20, 12)
         
-        lbl_alert = QLabel("Sem dados de localização, indique manualmente", self.alert_frame)
+        lbl_alert = QLabel("Sem dados de localização, indique manualmente aqui", self.alert_frame)
         lbl_alert.setObjectName("alert_text")
         lbl_alert.setAlignment(Qt.AlignCenter)
         layout.addWidget(lbl_alert)

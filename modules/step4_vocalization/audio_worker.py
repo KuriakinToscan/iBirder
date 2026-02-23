@@ -46,6 +46,12 @@ class AudioWorker(QThread):
         self.estado = estado
 
     def run(self):
+        # Validação de segurança v0.6.1
+        if not self.scientific_name or "Inconclusiva" in self.scientific_name:
+            print(f"[AudioWorker] Busca abortada: Nome '{self.scientific_name}' inválido.")
+            self.search_failed.emit()
+            return
+
         if not requests:
             self.search_failed.emit()
             return

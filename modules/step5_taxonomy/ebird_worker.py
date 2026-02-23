@@ -14,6 +14,11 @@ class EBirdWorker(QThread):
         self.lon = lon
 
     def run(self):
+        # Validação de segurança v0.6.1
+        if not self.scientific_name or "Inconclusiva" in self.scientific_name:
+            print(f"[eBird Worker] Busca abortada: Nome '{self.scientific_name}' inválido.")
+            return
+
         print(f"[eBird Worker] Iniciando processamento para {self.scientific_name}")
         
         settings = QSettings("iBirder", "App")

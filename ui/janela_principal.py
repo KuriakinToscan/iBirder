@@ -70,9 +70,19 @@ class JanelaPrincipal(QMainWindow):
         self.dados_identificacao_atual = {}
         self.lat_atual = None
         self.lon_atual = None
+        
+        # Flag de Persistência Atômica (v0.6.8)
+        # Mantém o nome científico mesmo durante resets de interface
+        self.especie_em_processamento = None 
+        
+        # Trava de Estilo (v0.6.9): Impede recursão infinita no changeEvent
+        self._bloqueio_palette = False
 
         self._configurar_ui()
         self._aplicar_estilo()
+        
+        # Reforço de Title Bar Dark (v0.7.2)
+        StyleManager.setup_window_theme(self)
         
         # O Porteiro (Aviso de Funcionalidades em Falta - v0.3.41)
         from ui.dialogs.startup_status_dialog import StartupStatusDialog
@@ -205,6 +215,16 @@ class JanelaPrincipal(QMainWindow):
         
         if hasattr(self, 'session_logger'):
             self.session_logger.atualizar_ultimo_registro(dados_etapa_2)
+
+        # Persistência de Estado (v0.6.7): Garante que dados retornados populem o dicionário de identificação atual
+        # Usamos o nome original da busca (taxonômico) para não poluir o estado com etimologia
+        sci_persist = dados.get("original_scientific_name", self.dados_identificacao_atual.get("nome_cientifico", ""))
+        
+        if not self.dados_identificacao_atual:
+            self.dados_identificacao_atual = {}
+            
+        self.dados_identificacao_atual.update(dados_etapa_2)
+        self.dados_identificacao_atual["nome_cientifico"] = sci_persist
 
         # Atualiza Campo Etimologia
         # Atualiza Campo Etimologia
@@ -353,7 +373,6 @@ class JanelaPrincipal(QMainWindow):
         
         lbl_subtitulo = QLabel("IA para Birdwatching")
         lbl_subtitulo.setObjectName("lbl_slogan")
-        lbl_subtitulo.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         
         layout_textos_header.addWidget(lbl_subtitulo)
         
@@ -410,13 +429,15 @@ class JanelaPrincipal(QMainWindow):
             self.btn_config_global.setIconSize(QSize(24, 24))
         else:
             self.btn_config_global.setText("⚙")
-            self.btn_config_global.setFont(QFont("Segoe UI", 16, QFont.Bold))
+        self.btn_config_global.setFont(QFont("Segoe UI", 16, QFont.Bold))
         self.btn_config_global.clicked.connect(lambda: __import__("ui.dialogs.api_settings_dialog", fromlist=["APISettingsDialog"]).APISettingsDialog(self).exec())
         
         layout_ajuda.addWidget(self.btn_config_global)
         
         # --- SOLDA CIRÚRGICA DE BRANDING PERDIDA NA FASE L ---
         layout_header.addLayout(layout_ajuda)
+        
+        # Adiciona o Frame do Header ao Layout Mestre
         layout_mestre.addLayout(layout_header)
         layout_mestre.addSpacing(StyleManager.SPACING_LG)
         
@@ -544,32 +565,9 @@ class JanelaPrincipal(QMainWindow):
         self.map_principal.show_placeholder_message("Aguardando dados de Localização")
         self.map_principal.marker_dragged.connect(self._ao_arrastar_pino)
         self.map_principal.audio_clicked.connect(self._ao_clicar_pin_audio)
+        self.map_principal.alert_clicked.connect(self._abrir_dialogo_localizacao) # v0.6.3
         layout_inferior.addWidget(self.map_principal)
         
-        # --- Botão Definir Localização Manualmente e IUCN (v0.3.19) ---
-        layout_map_botoes = QHBoxLayout()
-        layout_map_botoes.setSpacing(StyleManager.SPACING_SM)
-        
-        self.btn_set_location = QPushButton("Definir Localização Manualmente")
-        self.btn_set_location.setCursor(Qt.PointingHandCursor)
-        self.btn_set_location.setVisible(True)
-        self.btn_set_location.clicked.connect(self._abrir_dialogo_localizacao)
-        self.btn_set_location.setStyleSheet("""
-            QPushButton {
-                background-color: #374151; 
-                color: white; 
-                border-radius: 8px; 
-                padding: 10px; 
-                font-weight: bold;
-                font-family: "Segoe UI";
-                margin-top: 10px;
-            }
-            QPushButton:hover { background-color: #1F2937; }
-        """)
-        
-        layout_map_botoes.addWidget(self.btn_set_location, stretch=1)
-        
-        layout_inferior.addLayout(layout_map_botoes)
         
         # Adiciona o bloco inferior restrito às colunas 0 e 1 do Grid (Logo abaixo das imagens)
         layout_cards_superiores.addLayout(layout_inferior, 2, 0, 2, 2) # Row=2, Col=0, RowSpan=2, ColSpan=2
@@ -784,6 +782,7 @@ class JanelaPrincipal(QMainWindow):
         self.status_bar.showMessage("Pronto para uso (Local)")
 
     def _aplicar_estilo(self):
+        """Configura o estilo visual da janela (v0.6.9 / v0.7.2)."""
         estilo_janela = """
             QMainWindow { background-color: #F0F2F5; }
             QFrame.painel { background-color: #FFFFFF; border-radius: 12px; border: 1px solid #D1D5DB; }
@@ -820,17 +819,36 @@ class JanelaPrincipal(QMainWindow):
             }
             QGroupBox::title { 
                 subcontrol-origin: margin; 
-                subcontrol-position: top left;
-                left: 16px; 
+                padding: 0 4px; 
+                background-color: #FFFFFF; 
                 padding: 0 4px; 
                 background-color: #FFFFFF; 
                 color: #374151;
             }
         """
         
-        # Concatena o CSS isolado da Janela com o Core CSS global (Slogan, Classes)
-        estilo_completo = estilo_janela + StyleManager.get_global_stylesheet()
-        self.setStyleSheet(estilo_completo)
+        # Aplica o estilo isolado da Janela (O Global agora vem do QApplication v0.6.4)
+        self.setStyleSheet(estilo_janela)
+
+    def changeEvent(self, event):
+        """Blindagem Atômica de Cores (v0.6.8 / v0.6.9 - Anti-Recursion): 
+        Rechaça mudanças de paleta impostas pelo Windows Dark Mode com trava de segurança."""
+        from PySide6.QtCore import QEvent
+        if event.type() == QEvent.PaletteChange:
+            if self._bloqueio_palette:
+                return
+                
+            self._bloqueio_palette = True
+            try:
+                # Se o Windows tentou empurrar o tema escuro, nós forçamos o StyleManager a reaplicar o claro.
+                print("[STYLE] Tentativa de mudança de tema detectada. Bloqueando e forçando tema claro.")
+                app = QApplication.instance()
+                if app:
+                    StyleManager.apply_theme(app)
+            finally:
+                self._bloqueio_palette = False # Destrava após a conclusão
+                
+        super().changeEvent(event)
 
     def _abrir_manual(self):
         janela_manual = JanelaManual(self)
@@ -875,6 +893,10 @@ class JanelaPrincipal(QMainWindow):
         if not texto:
              return
         
+        # 1. Resetar Interface PRIMEIRO (v0.6.6)
+        # Preserva a foto do usuário e as coordenadas atuais antes da nova cascata
+        self._resetar_interface(manter_imagem=True)
+        
         self.status_bar.showMessage(f"Busca manual: {texto}")
         if self.dados_identificacao_atual is None:
              self.dados_identificacao_atual = {}
@@ -893,12 +915,10 @@ class JanelaPrincipal(QMainWindow):
         self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #374151; font-style: italic;")
 
         self.dados_identificacao_atual["nome_cientifico"] = sci_formatted
+        self.especie_em_processamento = sci_formatted # Persistência Atômica v0.6.8
         self.lbl_nome_comum.setText("...")
         
-        self._resetar_interface() # Limpeza Profunda (v0.5.0)
-        
-        self.caminho_imagem_atual = None # Busca manual não tem imagem local associada por padrão
-        self.input_especie.setText(sci_formatted) # Restaura o texto após reset
+        self.input_especie.setText(sci_formatted) # Garante o texto no widget
         
         self._iniciar_busca_imagem(sci_formatted)
         
@@ -1141,9 +1161,18 @@ class JanelaPrincipal(QMainWindow):
                 # Salva a localização manual para ser usada ao recarregar imagem ou atualizar mapa
                 self.ultima_localizacao_manual = (lat, lon)
                 
-                # Oculta o botão se a localização foi definida com sucesso
-                self.btn_set_location.setVisible(False)           
-        self._identificar_ave()
+                # ATUALIZAÇÃO INTELIGENTE (v0.6.8): 
+                # Blindagem contra volatilidade do dicionário de dados.
+                sci_name = self.dados_identificacao_atual.get("nome_cientifico") or self.especie_em_processamento
+                print(f"[DEBUG GPS] Nome científico detectado (Estado/Flag): '{sci_name}'")
+                
+                if sci_name and sci_name != "Identificação Inconclusiva" and "..." not in sci_name:
+                    print(f"[UI] Espécie '{sci_name}' já identificada. Refinando apenas dados regionais...")
+                    self.status_bar.showMessage("Localização atualizada. Refinando dados regionais...")
+                    self.orchestrator.update_location(lat, lon)
+                    self.orchestrator.start_step3_geography(sci_name)
+                else:
+                    self._identificar_ave()
 
     def _identificar_ave(self):
         if not self.caminho_imagem_atual:
@@ -1208,7 +1237,7 @@ class JanelaPrincipal(QMainWindow):
         raw_sci = dados.get("nome_cientifico", "")
         
         import re
-        sci_clean = re.sub(r'[\(\[].*?[\)\]]', '', raw_sci)
+        sci_clean = re.sub(r"[(\[].*?[)\]]", "", raw_sci)
         parts = sci_clean.strip().split()
         if len(parts) >= 2:
             sci = f"{parts[0]} {parts[1]}"
@@ -1222,7 +1251,7 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_nome_comum.setText(nc)
         
         if "Inconclusiva" not in status_msg and "Baixa" not in status_msg and sci:
-            sci_clean = re.sub(r'[\(\[].*?[\)\]]', '', sci).strip()
+            sci_clean = re.sub(r"[(\[].*?[)\]]", "", sci).strip()
             parts = sci_clean.split()
             if len(parts) >= 2:
                 sci_formatted = f"{parts[0].capitalize()} {parts[1].lower()}"
@@ -1260,7 +1289,7 @@ class JanelaPrincipal(QMainWindow):
             self.card_ref.set_pixmap(None)
             self.card_ref.set_overlay_text(None)
             
-            self.lbl_descricao.setText("Não foi possível identificar com segurança.\n\nTente o botão do Google Lens abaixo para uma análise visual.")
+            self.lbl_descricao.setText("Não foi possível identificar com segurança.\n\nUse o Google Lens para identificação manual")
             self.btn_google_lens.setEnabled(True)
 
         else:
@@ -1318,7 +1347,7 @@ class JanelaPrincipal(QMainWindow):
         # Nudge de Ativação (Dona Maria) v0.4.1
         if resultados and isinstance(resultados[0], dict) and resultados[0].get("status") == "KEY_MISSING":
             self.lbl_audio_placeholder.setVisible(False)
-            btn_nudge = QPushButton("🎵 Clique aqui para ativar o som das aves")
+            btn_nudge = QPushButton("Clique aqui para ativar o som das aves")
             btn_nudge.setProperty("class", "alert-nudge")
             btn_nudge.setCursor(Qt.PointingHandCursor)
             btn_nudge.clicked.connect(lambda: __import__("ui.dialogs.api_settings_dialog", fromlist=["APISettingsDialog"]).APISettingsDialog(self).exec())
@@ -1401,7 +1430,7 @@ class JanelaPrincipal(QMainWindow):
         self._limpar_painel_audio()
 
     def _ao_clicar_pin_audio(self, audio_id):
-        """Lida com o clique no pin 🎵 do mapa, destacando o player UI (v0.4.4)."""
+        """Lida com o clique no pin de áudio do mapa, destacando o player UI (v0.4.4)."""
         if not hasattr(self, 'active_audio_players'):
             return
             
@@ -1414,11 +1443,6 @@ class JanelaPrincipal(QMainWindow):
                     # Scroll até o player (opcional, mas bom UX)
                     self.scroll_area.ensureWidgetVisible(player)
                     break
-        
-        # O Orchestrator assume a responsabilidade do worker v0.4.2
-        self.orchestrator.update_location(lat, lon)
-        # Se já tivermos uma espécie (casos de reprocessamento manual), pedimos pro Orchestrator agir
-        self.orchestrator.reprocessar_localizacao(lat, lon)
         
     def _ao_concluir_geo_analise(self, details):
         self.last_geo_data = details
@@ -1601,24 +1625,22 @@ class JanelaPrincipal(QMainWindow):
             self.lbl_audio_placeholder.setText("Áudio não carregado")
             self.lbl_audio_placeholder.setVisible(True)
 
-    def _resetar_interface(self):
+    def _resetar_interface(self, manter_imagem=False):
         # 1. Parar Orchestrator e Workers (v0.5.1)
         if hasattr(self, 'orchestrator'):
             self.orchestrator.reset()
             
         self._limpar_painel_audio()
         
-        # Invalida estado anterior
-        self.caminho_imagem_atual = None
-        self.lat_atual = None
-        self.lon_atual = None
-        self.dados_identificacao_atual = {}
-        self.last_geo_data = {}
-        self.last_iucn_data = {}
+        # Invalida estado anterior (v0.6.2: condicional para busca manual)
+        if not manter_imagem:
+            self.caminho_imagem_atual = None
+            self.lat_atual = None
+            self.lon_atual = None
+            self.card_user.set_image_path(None)
+            self.card_user.set_placeholder("Arraste e solte uma foto aqui\n\nou clique para selecionar")
 
-        # 2. Reset de Cards de Imagem
-        self.card_user.set_image_path(None)
-        self.card_user.set_placeholder("Arraste e solte uma foto aqui\n\nou clique para selecionar")
+        self.dados_identificacao_atual = {}
         
         self.card_ref.set_image_path(None)
         self.card_ref.set_placeholder("Aguardando a identificação da ave.")
@@ -1630,7 +1652,6 @@ class JanelaPrincipal(QMainWindow):
         self.btn_wiki.setVisible(False)
         self.btn_google.setVisible(False)
         self.btn_ebird.setVisible(False)
-        self.btn_set_location.setVisible(True) # Reativa se estivesse oculto
         
         self.input_especie.clear()
         self.input_especie.setProperty("class", "container-borda-cinza")

@@ -151,6 +151,7 @@ class Orchestrator(QObject):
     def start_cascade_from_step2(self, sci_name):
         """Inicia a cascata linear estrita 2->3->4->5 (v0.4.8)."""
         print(f"[Orchestrator] Iniciando cascata linear a partir da Etapa 2 para: {sci_name}")
+        self._last_sci_name = sci_name # Sincronização v0.6.7
         self.start_step2_biology(sci_name)
         # As etapas seguintes (3, 4 e 5) serão disparadas sequencialmente pelos callbacks.
 
@@ -216,7 +217,13 @@ class Orchestrator(QObject):
                  "confianca": conf_valor
             })
 
-        # CASCATA LINEAR INICIA: 1 -> 2
+        # CASCATA LINEAR: Só inicia a Etapa 2 se a espécie for válida (v0.6.1)
+        # Bloqueia explicitamente nomes genéricos ou falhas de confiança
+        if nome_cientifico == "Identificação Inconclusiva" or status_msg == "Baixa confiança":
+            print("[Orchestrator] Identificação Inconclusiva detectada. Interrompendo cascata automática.")
+            return
+
+        print(f"[Orchestrator] Espécie validada. Iniciando cascata para: {nome_cientifico}")
         self.start_step2_biology(nome_cientifico)
             
     # --- Etapa 2 ---

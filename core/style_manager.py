@@ -7,6 +7,60 @@ class StyleManager:
     SPACING_LG = 20
     
     @staticmethod
+    def apply_theme(app):
+        """Aplica o tema unificado (Paleta + CSS + Tradução) ao QApplication."""
+        from PySide6.QtGui import QPalette, QColor
+        from PySide6.QtCore import QLibraryInfo, QTranslator, QLocale
+        import os
+
+        # 1. Configurar Estilo Base
+        app.setStyle("Fusion")
+
+        # 2. Forçar QPalette Clara (Garante cores de sistema consistentes)
+        palette = QPalette()
+        white = QColor("#FFFFFF")
+        off_white = QColor("#F8F9FA")
+        gray_text = QColor("#374151")
+        border_gray = QColor("#D1D5DB")
+        highlight = QColor("#F3F4F6")
+
+        dark_gray = QColor("#374151") # Cor da Title Bar / Moldura
+        palette.setColor(QPalette.Window, dark_gray)
+        palette.setColor(QPalette.WindowText, gray_text)
+        palette.setColor(QPalette.Base, white)
+        palette.setColor(QPalette.AlternateBase, off_white)
+        palette.setColor(QPalette.ToolTipBase, white)
+        palette.setColor(QPalette.ToolTipText, gray_text)
+        palette.setColor(QPalette.Text, gray_text)
+        palette.setColor(QPalette.Button, white)
+        palette.setColor(QPalette.ButtonText, gray_text)
+        palette.setColor(QPalette.BrightText, white)
+        palette.setColor(QPalette.Link, QColor("#3B8226")) # Ajuste leve de contraste
+        palette.setColor(QPalette.Highlight, highlight)
+        palette.setColor(QPalette.HighlightedText, QColor("#111827"))
+        
+        # Desabilitados
+        palette.setColor(QPalette.Disabled, QPalette.Text, QColor("#9CA3AF"))
+        palette.setColor(QPalette.Disabled, QPalette.ButtonText, QColor("#9CA3AF"))
+        palette.setColor(QPalette.Disabled, QPalette.Window, QColor("#F3F4F6")) # Fundo de janelas desabilitadas
+
+        app.setPalette(palette)
+        
+        # 3. Garantir que a Janela Principal e outros widgets escutam apenas esta paleta (v0.6.8)
+        # Em alguns OS, o Qt herda do sistema. O StyleManager agora centraliza isso.
+        
+        # 4. Injetar Tradução do Qt (Menus Padrão: Copy/Paste/Undo)
+        path = QLibraryInfo.path(QLibraryInfo.TranslationsPath)
+        translator = QTranslator(app)
+        if translator.load(QLocale("pt_BR"), "qtbase", "_", path):
+            app.installTranslator(translator)
+            # Guardamos para evitar que o GC limpe o tradutor
+            app._translator = translator
+
+        # 4. Aplicar Stylesheet Global
+        app.setStyleSheet(StyleManager.get_global_stylesheet())
+
+    @staticmethod
     def get_global_stylesheet():
         return """
             QDialog {
@@ -67,27 +121,35 @@ class StyleManager:
                 border-color: #9CA3AF;
             }
             QMenu {
-                background-color: #FFFFFF;
-                border: 1px solid #D1D5DB;
-                border-radius: 6px;
-                padding: 4px;
+                background-color: #FFFFFF !important;
+                border: 1px solid #D1D5DB !important;
+                border-radius: 6px !important;
+                padding: 5px !important;
             }
             QMenu::item {
-                background-color: transparent;
-                padding: 6px 20px 6px 20px;
-                color: #2C3E50;
-                font-family: 'Segoe UI';
-                font-size: 13px;
-                border-radius: 4px;
+                background-color: transparent !important;
+                padding: 6px 30px 6px 30px !important;
+                color: #2C3E50 !important;
+                font-family: 'Segoe UI' !important;
+                font-size: 13px !important;
+                border-radius: 4px !important;
+                margin: 1px 0px !important;
             }
             QMenu::item:selected {
-                background-color: #FEF3C7;
-                color: #2C3E50;
+                background-color: #F3F4F6 !important;
+                color: #111827 !important;
+            }
+            QMenu::item:disabled {
+                color: #9CA3AF !important;
+                background-color: transparent !important;
             }
             QMenu::separator {
-                height: 1px;
-                background-color: #E5E7EB;
-                margin: 4px 0px 4px 0px;
+                height: 1px !important;
+                background-color: #E5E7EB !important;
+                margin: 5px 10px !important;
+            }
+            QMenu::right-arrow {
+                image: none; /* Simplificação visual premium */
             }
             #lbl_slogan {
                 color: #2C3E50;
@@ -193,3 +255,26 @@ class StyleManager:
             return value == 0
         except OSError:
             return False # Default to false if registry not found
+
+    @staticmethod
+    def setup_window_theme(window):
+        """Reforça a Title Bar escura via DWM API (Apenas Windows 10/11 v0.7.2)."""
+        import platform
+        import ctypes
+        
+        if platform.system() != "Windows":
+            return
+            
+        try:
+            # DWMWA_USE_IMMERSIVE_DARK_MODE = 20 ou 19
+            # Depende da versão do Windows (Build 19041+ é 20)
+            hwnd = window.winId()
+            attr = 20
+            dark = ctypes.c_int(1)
+            
+            # Tenta aplicar atributo de Dark Mode na barra de título
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd, attr, ctypes.byref(dark), ctypes.sizeof(dark)
+            )
+        except Exception as e:
+            print(f"[STYLE] Erro ao reforçar Title Bar Dark: {e}")
