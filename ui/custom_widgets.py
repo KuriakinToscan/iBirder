@@ -39,11 +39,11 @@ class ImageCardWidget(QWidget):
         # Drag State
         self.drag_start_pos = None
         
-        # Configuração de Estilo
-        self.bg_color = QColor("#F9FAFB")
-        self.border_color = QColor("#E5E7EB")
-        self.text_color = QColor("#9CA3AF")
-        self.overlay_bg_color = QColor(0, 0, 0, 160)
+        # Configuração de Estilo (v0.8.1 - Sync com StyleManager)
+        self.bg_color = QColor("#FFFFFF") # Branco puro como os cards
+        self.border_color = QColor("#D1D5DB")
+        self.text_color = QColor("#4B5563")
+        self.overlay_bg_color = QColor(31, 41, 55, 180) # Cinza escuro semi-transparente
         self.overlay_text_color = QColor("#FFFFFF")
         
         # Layout & Simetria (Proporção 1:1 rigorosa)
