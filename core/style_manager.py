@@ -4,21 +4,27 @@ import ctypes
 from pathlib import Path
 
 class StyleManager:
-    """Centralizador de Estilos e Temas do iBirder (v0.6.3+)"""
+    """Centralizador de Estilos e Temas do iBirder (v0.6.3.1 Hotfix)"""
     
     # Constantes de Design
     SPACING_SM = 8
     SPACING_MD = 12
     SPACING_LG = 20
     
+    _last_mode = None # Cache do último tema aplicado
+
     @staticmethod
     def apply_theme(app, dark_mode=False):
         """Aplica o tema adaptativo (Paleta + CSS + Tradução) ao QApplication."""
+        if StyleManager._last_mode == dark_mode:
+            return # Evita re-aplicação redundante e loops de eventos
+            
         from PySide6.QtGui import QPalette, QColor
         from PySide6.QtCore import QLibraryInfo, QTranslator, QLocale
         
-        # 1. Configurar Estilo Base
-        app.setStyle("Fusion")
+        # 1. Configurar Estilo Base (Apenas na primeira vez ou se necessário)
+        if StyleManager._last_mode is None:
+            app.setStyle("Fusion")
 
         # 2. Paleta Adaptativa
         if dark_mode:
@@ -27,15 +33,17 @@ class StyleManager:
             palette = StyleManager._get_light_palette()
         app.setPalette(palette)
         
-        # 3. Injetar Tradução do Qt (Menus: Copy/Paste/etc)
-        path = QLibraryInfo.path(QLibraryInfo.TranslationsPath)
-        translator = QTranslator(app)
-        if translator.load(QLocale("pt_BR"), "qtbase", "_", path):
-            app.installTranslator(translator)
-            app._translator = translator # Previne Garbage Collection
+        # 3. Injetar Tradução do Qt
+        if not hasattr(app, "_translator"):
+            path = QLibraryInfo.path(QLibraryInfo.TranslationsPath)
+            translator = QTranslator(app)
+            if translator.load(QLocale("pt_BR"), "qtbase", "_", path):
+                app.installTranslator(translator)
+                app._translator = translator
 
         # 4. Aplicar Stylesheet Global Adaptativo
         app.setStyleSheet(StyleManager.get_global_stylesheet(dark_mode))
+        StyleManager._last_mode = dark_mode
 
     @staticmethod
     def _get_light_palette():
@@ -216,31 +224,37 @@ class StyleManager:
 
     @staticmethod
     def setup_window_theme(window):
-        """Ajusta a Title Bar via DWM API para combinar com o tema."""
+        """Ajusta a Title Bar via DWM API para combinar com o tema (v0.6.3.1)."""
         if platform.system() != "Windows":
             return
             
         try:
+            from ctypes import wintypes
             hwnd = window.winId()
+            if hasattr(hwnd, 'id'): hwnd = hwnd.id()
+            
+            # Garantir tipagem HWND para 64-bit (Prevenir crash silencioso)
+            handle = wintypes.HWND(hwnd)
             dark_mode = StyleManager.detect_dark_mode()
             
-            # 1. Ativar modo escuro imersivo na barra se o sistema estiver dark
+            # 1. Ativar modo escuro imersivo na barra
             # DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+            mode = ctypes.c_int(1 if dark_mode else 0)
             ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                hwnd, 20, ctypes.byref(ctypes.c_int(1 if dark_mode else 0)), 4
+                handle, 20, ctypes.byref(mode), ctypes.sizeof(mode)
             )
             
             # 2. Cor da Barra (DWMWA_CAPTION_COLOR = 35)
-            # Light: #374151 (0x334137 BGR) | Dark: #111827 (0x271811 BGR)
-            bg_color = 0x00514137 if not dark_mode else 0x00271811
+            # Valor em 0x00RRGGBB (B e R invertidos para BGR)
+            bg_color = ctypes.c_int(0x00514137 if not dark_mode else 0x00271811)
             ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                hwnd, 35, ctypes.byref(ctypes.c_int(bg_color)), 4
+                handle, 35, ctypes.byref(bg_color), ctypes.sizeof(bg_color)
             )
             
             # 3. Cor do Texto (DWMWA_TEXT_COLOR = 36)
-            text_color = 0x00FFFFFF
+            text_color = ctypes.c_int(0x00FFFFFF)
             ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                hwnd, 36, ctypes.byref(ctypes.c_int(text_color)), 4
+                handle, 36, ctypes.byref(text_color), ctypes.sizeof(text_color)
             )
             
         except Exception as e:
