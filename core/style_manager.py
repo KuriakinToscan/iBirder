@@ -117,14 +117,19 @@ class StyleManager:
 
     @staticmethod
     def get_global_stylesheet(dark_mode=False):
-        """Retorna o CSS unificado adaptado ao tema."""
-        bg_card = "#FFFFFF" if not dark_mode else "#1F2937"
-        text_primary = "#1F2937" if not dark_mode else "#F3F4F6"
-        text_secondary = "#4B5563" if not dark_mode else "#9CA3AF"
-        border = "#D1D5DB" if not dark_mode else "#374151"
-        bg_app = "#F0F2F5" if not dark_mode else "#111827"
-        accent_btn = "#374151" if not dark_mode else "#4B5563"
-        accent_hover = "#1F2937" if not dark_mode else "#374151"
+        """Retorna o CSS unificado: Estética Off-White (v0.8.1)."""
+        # ESTÉTICA SOBERANA: Mantemos o Off-White/Branco por padrão no corpo
+        # A detecção de tema afetará principalmente os Menus e detalhes sutis
+        bg_app = "#F0F2F5"
+        bg_card = "#FFFFFF"
+        text_primary = "#1F2937"
+        text_secondary = "#4B5563"
+        border = "#D1D5DB"
+        accent_btn = "#374151"
+        accent_hover = "#1F2937"
+
+        # Cores para o campo de Input de Nome Científico (Biologia v0.8.1)
+        # Usamos uma classe específica para o itálico biológico
         
         return f"""
             QMainWindow {{ background-color: {bg_app}; }}
@@ -137,6 +142,18 @@ class StyleManager:
             }}
             
             QLabel {{ color: {text_primary}; font-family: 'Segoe UI'; font-size: 13px; }}
+            
+            /* Nome Científico: Formatação Biológica Rigorosa */
+            QLineEdit.sci-name-input {{
+                font-family: 'Segoe UI';
+                font-style: italic;
+                font-weight: 500;
+                color: #1F2937;
+                background-color: {bg_card};
+                border: 1px solid {border};
+                border-radius: 6px;
+                padding: 6px;
+            }}
             
             QLineEdit, QTextEdit {{
                 background-color: {bg_card};

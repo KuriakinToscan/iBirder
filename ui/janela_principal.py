@@ -615,14 +615,8 @@ class JanelaPrincipal(QMainWindow):
         
         self.input_especie = QLineEdit()
         self.input_especie.setPlaceholderText("pesquise ou digite")
-        # Força a cor do placeholder para #4B5563
-        palette = self.input_especie.palette()
-        palette.setColor(self.input_especie.foregroundRole(), QColor("#4B5563"))
-        palette.setColor(QPalette.PlaceholderText, QColor("#4B5563"))
-        palette.setColor(QPalette.Text, QColor("#4B5563"))
-        self.input_especie.setPalette(palette)
-        
-        self.input_especie.setProperty("class", "container-borda-cinza")
+        # Estilo Biológico Rigoroso (v0.8.1)
+        self.input_especie.setProperty("class", "sci-name-input")
         self.input_especie.returnPressed.connect(self._realizar_busca_manual)
         
         self.btn_search = QPushButton()
@@ -1221,13 +1215,13 @@ class JanelaPrincipal(QMainWindow):
             sci_clean = re.sub(r"[(\[].*?[)\]]", "", sci).strip()
             parts = sci_clean.split()
             if len(parts) >= 2:
+                # Regra Biológica: Gênero epíteto (v0.8.1)
                 sci_formatted = f"{parts[0].capitalize()} {parts[1].lower()}"
             else:
                 sci_formatted = sci_clean.capitalize()
 
             self.input_especie.setText(sci_formatted)
-            self.input_especie.setProperty("class", "container-borda-cinza")
-            # Force repaint via QStyle dynamic properties
+            # A classe 'sci-name-input' no StyleManager garante o itálico
             self.input_especie.style().unpolish(self.input_especie)
             self.input_especie.style().polish(self.input_especie)
             
