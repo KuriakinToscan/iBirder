@@ -344,7 +344,28 @@ class Orchestrator(QObject):
             return
             
         if self.audio_worker: self.audio_worker.deleteLater()
-        self.audio_worker = AudioWorker(sci_name, lat=self.current_lat, lon=self.current_lon, parent=self)
+        
+        # Extrair dados regionais da caderneta de campo (SessionLogger) se disponíveis
+        municipio = None
+        estado = None
+        if self.session_logger and self.session_logger.buffer:
+            ultimo_registro = self.session_logger.buffer[-1]
+            municipio = ultimo_registro.get("municipio")
+            estado = ultimo_registro.get("estado")
+            
+            # Validação para evitar valores genéricos
+            if municipio in ["Não identificado", "Não informado", "N/D"]: municipio = None
+            if estado in ["Não identificado", "Não informado", "N/D", "N/A"]: estado = None
+
+        print(f"[Orchestrator] Iniciando busca de áudio hierárquica para {sci_name} (Mun: {municipio}, UF: {estado})")
+        self.audio_worker = AudioWorker(
+            sci_name, 
+            lat=self.current_lat, 
+            lon=self.current_lon, 
+            municipio=municipio,
+            estado=estado,
+            parent=self
+        )
         
         # Conectar sinal com wrapper (lambda) para interceptar o save state
         self.audio_worker.audio_found.connect(lambda audios: self._on_step4_finished_intercept(sci_name, audios))

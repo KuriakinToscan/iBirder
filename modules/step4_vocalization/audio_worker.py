@@ -30,18 +30,20 @@ class AudioWorker(QThread):
     """
     Worker híbrido para buscar áudios de aves.
     Estratégia:
-    1. Xeno-canto (Prioridade - Qualidade A)
-    2. iNaturalist (Fallback)
+    1. Xeno-canto (Hierárquico: Município > Estado > Brasil)
+    2. iNaturalist (Fallback Global)
     """
     # Emite lista de dicts: [{'url': str, 'autor': str, 'fonte': str}, ...]
     audio_found = Signal(list)
     search_failed = Signal()
 
-    def __init__(self, scientific_name, lat=None, lon=None, parent=None):
+    def __init__(self, scientific_name, lat=None, lon=None, municipio=None, estado=None, parent=None):
         super().__init__(parent)
         self.scientific_name = scientific_name
         self.lat = lat
         self.lon = lon
+        self.municipio = municipio
+        self.estado = estado
 
     def run(self):
         if not requests:
@@ -50,7 +52,7 @@ class AudioWorker(QThread):
 
         results = []
         try:
-            # 1. Tentativa Xeno-canto
+            # 1. Tentativa Xeno-canto (Hierárquica)
             results = self._search_xeno_canto()
             
             # 2. Fallback iNaturalist se Xeno-canto não retornou nada
@@ -68,239 +70,169 @@ class AudioWorker(QThread):
             traceback.print_exc()
             self.search_failed.emit()
 
-    def _search_xeno_canto(self):
-        """Busca gravações no Xeno-canto com urllib encode e filtragem v3 com autenticação."""
+    def _get_xeno_recordings(self, query):
+        """Executa a chamada real para a API do Xeno-canto."""
         import urllib.parse
         from core.config import carregar_config
+        
+        config = carregar_config()
+        xc_key = config.get("xc_api_key", "").strip()
+        if not xc_key:
+            return "KEY_MISSING"
+
+        headers = {"User-Agent": "iBirder-App/1.0"}
+        quoted_query = urllib.parse.quote(query)
+        url = f"https://xeno-canto.org/api/3/recordings?query={quoted_query}&key={xc_key}"
+        
         try:
-            # Carregar Configurações e Chave XC
-            config = carregar_config()
-            xc_key = config.get("xc_api_key", "").strip()
-            
-            if not xc_key:
-                print("[AUDIO] Chave de acesso XenoCanto ausente. Notificando UI para convite de ativação.")
-                return [{"status": "KEY_MISSING"}]
-            
-            headers = {"User-Agent": "iBirder-App/1.0"}
-            recordings = []
-            
-            # API v3: Pesquisa com sp: e aspas para precisão, + país
-            # sp:"genus species"
-            raw_query = f'sp:"{self.scientific_name}" cnt:brazil'
-                
-            quoted_query = urllib.parse.quote(raw_query)
-            # URL v3 com parâmetro de chave
-            url = f"https://xeno-canto.org/api/3/recordings?query={quoted_query}"
-            url += f"&key={xc_key}"
-            print(f"[AUDIO] Xeno-canto request (v3 API): {url}")
             resp = requests.get(url, headers=headers, timeout=10)
-            
             if resp.status_code == 200:
                 data = resp.json()
-                
-                # Tratamento de erro específico da v3
-                if data.get("error") == "missing_parameter":
-                    print("[AUDIO] Erro Xeno-canto v3: 'missing_parameter'. Verifique sua API Key ou Query.")
-                    return []
-                
-                # Validação Rápida da Presença da Ave na API
-                num_recordings = data.get("numRecordings", "0")
-                if num_recordings == "0" or not data.get('recordings'):
-                    print(f"[AUDIO] Nenhuma gravação existente no Brasil para {self.scientific_name} (Xeno-canto v3 retornou 0).")
-                    return []
-                
-                recs_totais = data.get('recordings', [])
-                
-                # Filtragem Passiva de Alta Qualidade (A e B) In-Memory
-                recs_alta_qualidade = [r for r in recs_totais if str(r.get('q')).upper() in ['A', 'B']]
-                
-                if recs_alta_qualidade:
-                    recordings = recs_alta_qualidade
-                    print(f"[AUDIO] Curadoria v3 retém {len(recordings)} gravações de Alta Qualidade (A/B) de {len(recs_totais)} disponíveis.")
-                else:
-                    print(f"[AUDIO] Sem áudios Alta Qualidade A/B (v3). Fallback para as {min(5, len(recs_totais))} melhores.")
-                    recordings = recs_totais[:5]
-
+                return data.get('recordings', [])
             elif resp.status_code == 401:
-                print("[AUDIO] Erro 401: Chave de API Xeno-canto inválida ou ausente.")
-                return []
+                return "KEY_INVALID"
+        except Exception:
+            pass
+        return []
 
-            if not recordings:
-                return []
+    def _process_recordings(self, raw_recordings):
+        """Processa e normaliza uma lista de gravações brutas."""
+        processed = []
+        for rec in raw_recordings:
+            # Tratar Coordenadas
+            str_lat, str_lng = rec.get('lat'), rec.get('lng')
+            r_lat, r_lng = None, None
+            if str_lat and str_lng and str_lat != "null" and str_lng != "null":
+                try:
+                    tl, tg = float(str_lat), float(str_lng)
+                    if tl != 0.0 and tg != 0.0: r_lat, r_lng = tl, tg
+                except ValueError: pass
 
-            # 1. Enriquecer gravações e agrupar em baldes por tipo
-            baldes_por_tipo = {}
-            has_reference = (self.lat is not None and self.lon is not None)
+            # Tipo de Som
+            raw_type = str(rec.get('type', '')).lower().strip()
+            raw_type = " ".join(raw_type.split())
+            primeiro_tipo = [t.strip() for t in raw_type.split(',') if t.strip()]
+            main_type = primeiro_tipo[0] if primeiro_tipo else 'unknown'
             
-            for rec in recordings:
-                # Tratar Coordenadas GPS (Blidar nulls e coords 0.0 - v0.4.4)
-                str_lat = rec.get('lat')
-                str_lng = rec.get('lng')
-                r_lat, r_lng = None, None
-                
-                if str_lat and str_lng and str_lat != "null" and str_lng != "null":
-                    try:
-                        temp_lat, temp_lng = float(str_lat), float(str_lng)
-                        # Descarta se for 0.0 (Geralmente dado faltante interpretado errado)
-                        if temp_lat != 0.0 and temp_lng != 0.0:
-                             r_lat, r_lng = temp_lat, temp_lng
-                    except ValueError: pass
+            clean_type = 'other'
+            for target in ['song', 'begging call', 'flight call', 'alarm call']:
+                if target in main_type:
+                    clean_type = target
+                    break
+            if clean_type == 'other' and 'call' in main_type and 'song' not in main_type:
+                clean_type = 'call'
 
-                # Cálculo de distância condicional (v0.4.3)
-                if has_reference:
-                    dist = haversine_distance(self.lat, self.lon, r_lat, r_lng)
-                else:
-                    dist = float('inf') # Sem referencia, distancia é irrelevante para o sort inicial
-                
-                raw_type = str(rec.get('type', '')).lower().strip()
-                # Remove espaços duplos e trailing spaces
-                raw_type = " ".join(raw_type.split())
-                
-                # Normaliza o tipo (primeiro item se houver multiplos separados por virgula)
-                primeiro_tipo = [t.strip() for t in raw_type.split(',') if t.strip()]
-                main_type = primeiro_tipo[0] if primeiro_tipo else 'unknown'
-                
-                # Mapeia tipos principais
-                clean_type = 'other'
-                for target_type in ['song', 'begging call', 'flight call', 'alarm call']:
-                     if target_type in main_type:
-                         clean_type = target_type
-                         break
-                
-                # Evita sobrescrever 'song' ou calls genéricos
-                if clean_type == 'other' and 'call' in main_type and 'song' not in main_type:
-                     clean_type = 'call'
+            # Distância (Apenas para exibição)
+            dist = haversine_distance(self.lat, self.lon, r_lat, r_lng) if self.lat else float('inf')
 
-                item_data = {
-                    'raw': rec,
-                    'distancia': dist,
-                    'type': clean_type,
-                    'q': rec.get('q'),
-                    'lat': r_lat,
-                    'lon': r_lng
-                }
-                
-                if clean_type not in baldes_por_tipo:
-                     baldes_por_tipo[clean_type] = []
-                baldes_por_tipo[clean_type].append(item_data)
+            processed.append({
+                'raw': rec,
+                'distancia': dist,
+                'type': clean_type,
+                'q': rec.get('q'),
+                'lat': r_lat,
+                'lon': r_lng,
+                'id': rec.get('id')
+            })
+        return processed
 
-            # 2. Selecionar o Campeão: Regional (Proximidade) ou Elite (Qualidade A/B se sem GPS)
-            selected = []
-            for t_type, balde in baldes_por_tipo.items():
-                if has_reference:
-                    # Campeões Regionais (v0.4.3)
-                    balde.sort(key=lambda x: x['distancia']) 
-                else:
-                    # Campeões de Elite Mundiais (A > B > C...) (v0.4.3)
-                    balde.sort(key=lambda x: str(x['q']).upper())
-                
-                selected.append(balde[0])
+    def _search_xeno_canto(self):
+        """Busca em cascata: Município -> Estado -> Brasil."""
+        # Categorias que queremos preencher
+        faltantes = ['song', 'call', 'begging call', 'flight call', 'alarm call']
+        campeoes = {} # tipo -> dados_formatados
 
-            # Ordenar por distancia de volta apenas para visualização (se houver ref)
-            if has_reference:
-                selected.sort(key=lambda x: x['distancia'])
+        def preencher_vagas(recordings):
+            nonlocal faltantes
+            if not recordings or not isinstance(recordings, list): return
+            
+            # Processa e ordena por qualidade/distância dentro deste lote
+            procs = self._process_recordings(recordings)
+            # Ordenação interna do lote: A > B... 
+            procs.sort(key=lambda x: (str(x['q']).upper(), x['distancia']))
 
-            # Limitar a no max 4
-            selected = selected[:4]
-
-            # 3. Formatar output
-            audios = []
-            for item in selected:
-                rec = item['raw']
-                file_url = rec.get('file')
-                base_link = "https://xeno-canto.org/" + str(rec.get('id', ''))
-                
-                if file_url:
-                    tipo_str = TRADUCOES_TIPO.get(item['type'], item['type'].capitalize())
-                    if tipo_str == 'Other':
-                         tipo_str = str(rec.get('type')).capitalize()
-                    
+            for item in procs:
+                t = item['type']
+                if t in faltantes:
+                    # Encontramos o campeão deste nível para este tipo
+                    rec = item['raw']
+                    tipo_str = TRADUCOES_TIPO.get(t, t.capitalize())
                     dist_str = f" ({int(item['distancia'])}km)" if item['distancia'] != float('inf') else ""
-                         
-                    audios.append({
-                        'url': file_url,
+                    
+                    campeoes[t] = {
+                        'url': rec.get('file'),
                         'autor': rec.get('rec', 'Desconhecido'),
                         'licenca': rec.get('lic', 'CC BY-NC'),
                         'data': rec.get('date', 'Desconhecido'),
                         'duracao': rec.get('length', '0:00'),
                         'fonte': 'Xeno-canto',
-                        'tipo_canto': tipo_str,
+                        'tipo_canto': tipo_str if t != 'other' else str(rec.get('type')).capitalize(),
                         'distancia_texto': dist_str,
                         'distancia': item['distancia'],
                         'lat': item['lat'],
                         'lon': item['lon'],
-                        'link_web': base_link,
+                        'link_web': "https://xeno-canto.org/" + str(rec.get('id', '')),
                         'id': rec.get('id'),
                         'q': item['q']
-                    })
-            
-            if audios:
-                print(f"[AUDIO] Retornadas {len(audios)} vocalizações (campeões).")
-            
-            return audios
+                    }
+                    faltantes.remove(t)
 
-        except Exception as e:
-            print(f"[AUDIO] Erro na busca Xeno-canto: {e}")
-            traceback.print_exc()
-            return []
+        # Nível 1: Município
+        if self.municipio:
+            print(f"[AUDIO] Nível 1: Buscando em {self.municipio}...")
+            recs = self._get_xeno_recordings(f'sp:"{self.scientific_name}" loc:"{self.municipio}"')
+            if recs == "KEY_MISSING": return [{"status": "KEY_MISSING"}]
+            preencher_vagas(recs)
+
+        # Nível 2: Estado (se ainda faltar algo)
+        if faltantes and self.estado:
+            print(f"[AUDIO] Nível 2: Buscando em {self.estado} (Faltam: {faltantes})...")
+            recs = self._get_xeno_recordings(f'sp:"{self.scientific_name}" loc:"{self.estado}"')
+            preencher_vagas(recs)
+
+        # Nível 3: Brasil (se ainda faltar algo)
+        if faltantes:
+            print(f"[AUDIO] Nível 3: Buscando no Brasil (Faltam: {faltantes})...")
+            recs = self._get_xeno_recordings(f'sp:"{self.scientific_name}" cnt:brazil')
+            preencher_vagas(recs)
+
+        return list(campeoes.values())[:4]
 
     def _search_inaturalist(self):
-        """Busca observações com sons no iNaturalist."""
+        """Busca observações com sons no iNaturalist (Fallback Global)."""
         try:
             url = "https://api.inaturalist.org/v1/observations"
             params = {
                 'taxon_name': self.scientific_name,
                 'sounds': 'true',
                 'per_page': 2,
-                'order_by': 'votes' # Tenta pegar as "melhores" observações
+                'order_by': 'votes'
             }
-            headers = {"User-Agent": "iBirder/1.0"}
-            
-            resp = requests.get(url, params=params, headers=headers, timeout=10)
-            if resp.status_code != 200:
-                 print(f"[AUDIO] Erro iNaturalist: {resp.status_code}")
-                 return []
+            resp = requests.get(url, params=params, headers={"User-Agent": "iBirder/1.0"}, timeout=10)
+            if resp.status_code != 200: return []
                  
             data = resp.json()
-            results = data.get('results', [])
-            
             audios = []
-            for obs in results:
-                location = obs.get('location') # Formato "lat,lon"
+            for obs in data.get('results', []):
                 obs_lat, obs_lon = None, None
-                if location:
+                if loc := obs.get('location'):
                     try:
-                        coords = location.split(',')
-                        temp_lat, temp_lng = float(coords[0]), float(coords[1])
-                        # Segurança Geográfica v0.4.4
-                        if temp_lat != 0.0 and temp_lng != 0.0:
-                             obs_lat, obs_lon = temp_lat, temp_lng
-                    except (ValueError, IndexError): pass
+                        coords = loc.split(',')
+                        if float(coords[0]) != 0.0: obs_lat, obs_lon = float(coords[0]), float(coords[1])
+                    except: pass
 
-                sounds = obs.get('sounds', [])
-                for sound in sounds:
-                    file_url = sound.get('file_url')
-                    if file_url:
-                        user = obs.get('user', {}).get('login', 'Desconhecido')
+                for sound in obs.get('sounds', []):
+                    if file_url := sound.get('file_url'):
                         audios.append({
                             'url': file_url,
-                            'autor': user,
+                            'autor': obs.get('user', {}).get('login', 'Desconhecido'),
                             'fonte': 'iNaturalist',
                             'tipo_canto': 'Gravação Geral',
                             'distancia_texto': '',
                             'lat': obs_lat,
                             'lon': obs_lon
                         })
-                        break # Um áudio por observação basta
-                
-                if len(audios) >= 2:
-                    break
-            
-            if audios:
-                print(f"[AUDIO] Encontrados {len(audios)} áudios no iNaturalist.")
-                
+                        break
+                if len(audios) >= 2: break
             return audios
-
-        except Exception as e:
-            print(f"[AUDIO] Erro na busca iNaturalist: {e}")
-            return []
+        except: return []
