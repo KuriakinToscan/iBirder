@@ -24,8 +24,7 @@ class StyleManager:
         border_gray = QColor("#D1D5DB")
         highlight = QColor("#F3F4F6")
 
-        dark_gray = QColor("#374151") # Cor da Title Bar / Moldura
-        palette.setColor(QPalette.Window, dark_gray)
+        palette.setColor(QPalette.Window, off_white) # Volta a ser claro para menus brancos
         palette.setColor(QPalette.WindowText, gray_text)
         palette.setColor(QPalette.Base, white)
         palette.setColor(QPalette.AlternateBase, off_white)
@@ -35,14 +34,14 @@ class StyleManager:
         palette.setColor(QPalette.Button, white)
         palette.setColor(QPalette.ButtonText, gray_text)
         palette.setColor(QPalette.BrightText, white)
-        palette.setColor(QPalette.Link, QColor("#3B8226")) # Ajuste leve de contraste
+        palette.setColor(QPalette.Link, QColor("#3B82F6"))
         palette.setColor(QPalette.Highlight, highlight)
         palette.setColor(QPalette.HighlightedText, QColor("#111827"))
         
         # Desabilitados
         palette.setColor(QPalette.Disabled, QPalette.Text, QColor("#9CA3AF"))
         palette.setColor(QPalette.Disabled, QPalette.ButtonText, QColor("#9CA3AF"))
-        palette.setColor(QPalette.Disabled, QPalette.Window, QColor("#F3F4F6")) # Fundo de janelas desabilitadas
+        palette.setColor(QPalette.Disabled, QPalette.Window, off_white)
 
         app.setPalette(palette)
         
@@ -129,8 +128,9 @@ class StyleManager:
             QMenu::item {
                 background-color: transparent !important;
                 padding: 6px 30px 6px 30px !important;
-                color: #2C3E50 !important;
+                color: #374151 !important; /* Cinza escuro padrão v0.7.5 */
                 font-family: 'Segoe UI' !important;
+                font-weight: 600 !important;
                 font-size: 13px !important;
                 border-radius: 4px !important;
                 margin: 1px 0px !important;
@@ -266,15 +266,23 @@ class StyleManager:
             return
             
         try:
-            # DWMWA_USE_IMMERSIVE_DARK_MODE = 20 ou 19
-            # Depende da versão do Windows (Build 19041+ é 20)
             hwnd = window.winId()
-            attr = 20
-            dark = ctypes.c_int(1)
             
-            # Tenta aplicar atributo de Dark Mode na barra de título
+            # 1. Pintar o fundo da Barra (DWMWA_CAPTION_COLOR = 35)
+            # Valor em 0x00RRGGBB (Python int format)
+            # Cor: #374151 -> R:37(55), G:41(65), B:51(81)
+            # Nota: Windows usa BGR internamente: 0x00514137
+            color_background = 0x00514137
             ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                hwnd, attr, ctypes.byref(dark), ctypes.sizeof(dark)
+                hwnd, 35, ctypes.byref(ctypes.c_int(color_background)), 4
             )
+            
+            # 2. Pintar o texto da Barra (DWMWA_TEXT_COLOR = 36)
+            # Cor: Branco (0x00FFFFFF)
+            color_text = 0x00FFFFFF
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd, 36, ctypes.byref(ctypes.c_int(color_text)), 4
+            )
+            
         except Exception as e:
-            print(f"[STYLE] Erro ao reforçar Title Bar Dark: {e}")
+            print(f"[STYLE] Erro ao pintar Title Bar Seletiva: {e}")
