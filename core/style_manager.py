@@ -26,11 +26,10 @@ class StyleManager:
         if StyleManager._last_mode is None:
             app.setStyle("Fusion")
 
-        # 2. Paleta Adaptativa
-        if dark_mode:
-            palette = StyleManager._get_dark_palette()
-        else:
-            palette = StyleManager._get_light_palette()
+        # 2. Paleta Soberana (Apenas Off-White v0.6.6)
+        # O aplicativo ignora o modo escuro interno para manter a estética Off-White Premium.
+        # O Dark Mode do sistema afetará apenas a Title Bar através do DWM API.
+        palette = StyleManager._get_light_palette()
         app.setPalette(palette)
         
         # 3. Injetar Tradução do Qt
@@ -72,29 +71,8 @@ class StyleManager:
 
     @staticmethod
     def _get_dark_palette():
-        from PySide6.QtGui import QPalette, QColor
-        palette = QPalette()
-        dark_bg = QColor("#1F2937")
-        dark_base = QColor("#111827")
-        light_text = QColor("#F3F4F6")
-        accent = QColor("#3B82F6")
-        
-        palette.setColor(QPalette.Window, dark_bg)
-        palette.setColor(QPalette.WindowText, light_text)
-        palette.setColor(QPalette.Base, dark_base)
-        palette.setColor(QPalette.AlternateBase, dark_bg)
-        palette.setColor(QPalette.ToolTipBase, dark_base)
-        palette.setColor(QPalette.ToolTipText, light_text)
-        palette.setColor(QPalette.Text, light_text)
-        palette.setColor(QPalette.Button, dark_bg)
-        palette.setColor(QPalette.ButtonText, light_text)
-        palette.setColor(QPalette.Highlight, accent)
-        palette.setColor(QPalette.HighlightedText, QColor("#FFFFFF"))
-        
-        # Peças Inativas
-        palette.setColor(QPalette.Inactive, QPalette.Window, dark_bg)
-        palette.setColor(QPalette.Inactive, QPalette.WindowText, light_text)
-        return palette
+        """Alias para _get_light_palette para garantir soberania Off-White."""
+        return StyleManager._get_light_palette()
 
     @staticmethod
     def is_windows_dark_mode():
@@ -278,23 +256,36 @@ class StyleManager:
             }}
             QPushButton.btn-link:hover {{ color: #2563EB; }}
 
-            /* Menus (Correção v0.6.3) */
+            /* Menus (Harmonização v0.6.7) */
             QMenu {{
-                background-color: {bg_card} !important;
-                border: 1px solid {border} !important;
-                border-radius: 6px !important;
-                padding: 5px !important;
+                background-color: #FFFFFF !important;
+                border: 1px solid #D1D5DB !important;
+                border-radius: 8px !important;
+                padding: 6px !important;
             }}
             QMenu::item {{
-                color: {text_primary} !important;
-                padding: 6px 30px !important;
-                border-radius: 4px !important;
+                color: #1F2937 !important;
+                padding: 8px 32px 8px 12px !important;
+                border-radius: 6px !important;
+                margin: 2px 4px !important;
+                background-color: transparent !important;
             }}
             QMenu::item:selected {{
-                background-color: {"#F3F4F6" if not dark_mode else "#374151"} !important;
+                background-color: #F3F4F6 !important;
+                color: #1F2937 !important;
             }}
-            QMenu::item:disabled {{ color: #9CA3AF !important; }}
-            QMenu::separator {{ height: 1px; background: {border}; margin: 4px 10px; }}
+            QMenu::item:disabled {{ 
+                color: #9CA3AF !important; 
+                background-color: transparent !important;
+            }}
+            QMenu::separator {{ 
+                height: 1px; 
+                background: #E5E7EB; 
+                margin: 6px 10px; 
+            }}
+            QMenu::icon {{
+                margin-left: 8px;
+            }}
 
             /* GroupBox */
             QGroupBox {{ 
