@@ -825,6 +825,21 @@ class JanelaPrincipal(QMainWindow):
                 background-color: #FFFFFF; 
                 color: #374151;
             }
+
+            /* Reforço de Contraste Total para Menu de Contexto (v0.7.4) */
+            QMenu {
+                background-color: #FFFFFF !important;
+                border: 1px solid #D1D5DB !important;
+            }
+            QMenu::item {
+                color: #374151 !important; /* Cinza escuro padrão do app v0.7.5 */
+                font-weight: 600 !important;
+                padding: 6px 30px 6px 30px !important;
+            }
+            QMenu::item:selected {
+                background-color: #F3F4F6 !important;
+                color: #111827 !important;
+            }
         """
         
         # Aplica o estilo isolado da Janela (O Global agora vem do QApplication v0.6.4)
