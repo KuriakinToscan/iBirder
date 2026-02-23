@@ -1,6 +1,7 @@
 import time
 import random
 import urllib.parse
+import re
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -185,7 +186,9 @@ class BuscadorBlindado:
         if sec_nome:
             div_nome = sec_nome.find_next("div", class_="level2")
             if div_nome:
-                dados["etimologia"] = div_nome.get_text(separator=" ", strip=True)
+                # Normalização de espaços e quebras de linha (v0.4.9)
+                texto_limpo = div_nome.get_text(separator=" ", strip=True)
+                dados["etimologia"] = re.sub(r'\s+', ' ', texto_limpo)
             else:
                 dados["etimologia"] = "Não encontrado"
         else:
@@ -200,8 +203,10 @@ class BuscadorBlindado:
                 paragrafo = div_carac.find("p")
                 
                 if paragrafo:
-                    # separator="\n" garante que tags <br> virem quebras de linha
-                    dados["caracteristicas"] = paragrafo.get_text(separator="\n", strip=True)
+                    # separator=" " garante que tags <br> virem espaços simples (v0.4.9)
+                    texto_raw = paragrafo.get_text(separator=" ", strip=True)
+                    # Regex para remover múltiplas quebras de linha e espaços extras
+                    dados["caracteristicas"] = re.sub(r'\s+', ' ', texto_raw)
                 else:
                     dados["caracteristicas"] = "Descrição não disponível."
             else:
