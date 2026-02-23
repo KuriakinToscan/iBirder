@@ -333,14 +333,14 @@ class JanelaPrincipal(QMainWindow):
         
         # Branding 
         layout_branding = QHBoxLayout()
-        layout_branding.setSpacing(StyleManager.SPACING_MD)
+        layout_branding.setSpacing(StyleManager.SPACING_MD * 2)
         layout_branding.setAlignment(Qt.AlignLeft)
         
         caminho_logo_painel = self._obter_caminho_asset("logo_ave.svg")
         lbl_logo = QLabel()
         lbl_logo.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         if os.path.exists(caminho_logo_painel):
-            pixmap_logo = QIcon(caminho_logo_painel).pixmap(QSize(96, 96))
+            pixmap_logo = QIcon(caminho_logo_painel).pixmap(QSize(130, 130))
             lbl_logo.setPixmap(pixmap_logo)
         else:
             lbl_logo.setText("🐦")

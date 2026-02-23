@@ -91,10 +91,10 @@ class StyleManager:
             }
             #lbl_slogan {
                 color: #2C3E50;
-                font-size: 44px;
+                font-size: 32px;
                 font-style: italic;
-                font-weight: bold;
-                font-family: 'Figtree', sans-serif;
+                font-weight: normal;
+                font-family: 'Segoe UI Variable Display', 'Segoe UI', sans-serif;
             }
             /* Classes Abstratas Injetadas na Fase S */
             .lbl-titulo-sessao {
