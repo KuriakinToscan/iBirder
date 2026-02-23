@@ -320,18 +320,8 @@ class JanelaPrincipal(QMainWindow):
             QFontDatabase.addApplicationFont(caminho_figtree)
 
 
-        # --- CARREGAMENTO DO ÍCONE DA JANELA ---
-        caminho_icone_janela = self._obter_caminho_asset(self.nome_icone_janela)
-        caminho_ico_seguro = self._obter_caminho_asset("logo_ave.ico")
-        
-        icone_principal = QIcon()
-        if os.path.exists(caminho_icone_janela):
-            icone_principal.addFile(caminho_icone_janela)
-        if os.path.exists(caminho_ico_seguro):
-            icone_principal.addFile(caminho_ico_seguro) # Fallback robusto para Windows Titlebar
-            
-        if not icone_principal.isNull():
-            self.setWindowIcon(icone_principal)
+        # --- CARREGAMENTO DO ÍCONE DA JANELA (Dinâmico v0.6.5) ---
+        StyleManager.set_app_icon(self)
 
         # Container Principal com Scroll
         self.scroll_area = QScrollArea()
@@ -802,8 +792,9 @@ class JanelaPrincipal(QMainWindow):
                 if app:
                     StyleManager.apply_theme(app, dark_mode=dark_mode)
                 
-                # REFORÇO: Title Bar e Estilo
+                # REFORÇO: Title Bar e Estilo (v0.6.5: Ícone Dinâmico Incluído)
                 StyleManager.setup_window_theme(self)
+                StyleManager.set_app_icon(self, dark_mode=dark_mode)
                 self._aplicar_estilo()
                 
             finally:

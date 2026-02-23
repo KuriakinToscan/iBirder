@@ -135,35 +135,6 @@ def criar_atalho_windows(atalho_path):
     
     subprocess.run(["powershell", "-Command", script], capture_output=True)
 
-def detect_dark_mode_windows():
-    try:
-        import winreg
-        registry = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
-        key = winreg.OpenKey(registry, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
-        value, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
-        winreg.CloseKey(key)
-        return value == 0 
-    except:
-        return False
-
-def detectar_tema_e_icone():
-    """Retorna o nome do ícone baseado no tema."""
-    usar_icone_escuro = False 
-    try:
-        if platform.system() == "Windows":
-             if not detect_dark_mode_windows():
-                 usar_icone_escuro = True
-    except:
-        pass
-
-    nome_arquivo = "logo_ave_escuro.svg" if usar_icone_escuro else "logo_ave_claro.svg"
-    base_path = Path(__file__).parent.absolute()
-    caminho_absoluto = base_path / "assets" / nome_arquivo
-    
-    if not caminho_absoluto.exists():
-        return "logo_ave.svg"
-        
-    return nome_arquivo
 
 def garantir_dependencias():
     """Verifica e instala dependências críticas automaticamente."""
@@ -232,15 +203,14 @@ if __name__ == "__main__":
     # 3. Trigger do Atalho
     verificar_e_criar_atalho()
 
-    # 4. Ícone e Estilo (Global v0.6.5)
+    # 4. Ícone e Estilo (Sincronia Adaptativa v0.6.5)
     from core.style_manager import StyleManager
-    nome_icone = detectar_tema_e_icone()
     dark_mode = StyleManager.detect_dark_mode()
     StyleManager.apply_theme(app, dark_mode=dark_mode)
 
     # 5. Inicia Janela Principal (Modo Local)
     print("[BOOT] Criando JanelaPrincipal...")
-    janela = JanelaPrincipal(nome_icone_janela=nome_icone, ai_status=AI_ENGINE_STATUS)
+    janela = JanelaPrincipal(ai_status=AI_ENGINE_STATUS)
     
     print("[BOOT] Exibindo janela...")
     janela.show()
