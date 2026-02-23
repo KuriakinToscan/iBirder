@@ -32,7 +32,6 @@ class LocationDialog(BaseDialog):
         
         # --- Busca ---
         lbl_instrucao = QLabel("Digite o nome da cidade ou local:")
-        lbl_instrucao.setStyleSheet("font-weight: bold;")
         self.main_layout.addWidget(lbl_instrucao)
         
         container_busca = QHBoxLayout()
@@ -59,26 +58,7 @@ class LocationDialog(BaseDialog):
         self.main_layout.addWidget(lbl_resultados)
         
         self.lista_resultados = QListWidget()
-        self.lista_resultados.setStyleSheet("""
-            QListWidget {
-                background-color: #F8F9FA;
-                color: #2C3E50;
-                border: 1px solid #D1D5DB;
-                border-radius: 6px;
-                padding: 4px;
-            }
-            QListWidget::item {
-                padding: 8px;
-                border-bottom: 1px solid #E5E7EB;
-            }
-            QListWidget::item:selected {
-                background-color: #374151;
-                color: white;
-            }
-            QListWidget::item:hover {
-                background-color: #E5E7EB;
-            }
-        """)
+        # Estilo movido para StyleManager (v0.6.3 / v0.8.0)
         self.lista_resultados.itemClicked.connect(self._item_selecionado)
         self.main_layout.addWidget(self.lista_resultados)
         
