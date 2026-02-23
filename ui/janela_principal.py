@@ -1575,22 +1575,37 @@ class JanelaPrincipal(QMainWindow):
             self._carregar_imagem(path)
 
     def _limpar_painel_audio(self):
-        """Para e remove todos os players de áudio da interface."""
+        """Para e remove todos os players de áudio da interface (v0.5.1)."""
         if hasattr(self, 'active_audio_players'):
             for player in self.active_audio_players:
                 try:
-                    player.stop()
+                    # Tenta parar e remover explicitamente do layout
+                    if hasattr(player, 'stop'): player.stop()
                     player.setParent(None)
                     player.deleteLater()
                 except: pass
             self.active_audio_players = []
         
+        # Limpeza agressiva do layout para evitar ghosting (v0.5.1)
         if hasattr(self, 'lbl_audio_placeholder'):
+            layout = self.lbl_audio_placeholder.parentWidget().layout()
+            if layout:
+                # Remove qualquer widget que não seja a label placeholder
+                for i in reversed(range(layout.count())):
+                    item = layout.itemAt(i)
+                    widget = item.widget()
+                    if widget and widget != self.lbl_audio_placeholder:
+                        widget.setParent(None)
+                        widget.deleteLater()
+
             self.lbl_audio_placeholder.setText("Áudio não carregado")
             self.lbl_audio_placeholder.setVisible(True)
 
     def _resetar_interface(self):
-        # 1. Parar Workers e Orchestrator (v0.5.0)
+        # 1. Parar Orchestrator e Workers (v0.5.1)
+        if hasattr(self, 'orchestrator'):
+            self.orchestrator.reset()
+            
         self._limpar_painel_audio()
         
         # Invalida estado anterior
