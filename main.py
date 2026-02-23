@@ -229,9 +229,10 @@ if __name__ == "__main__":
     # 3. Trigger do Atalho
     verificar_e_criar_atalho()
 
-    # 4. Ícone e Estilo
+    # 4. Ícone e Estilo (Global v0.6.5)
+    from core.style_manager import StyleManager
     nome_icone = detectar_tema_e_icone()
-    app.setStyle("Fusion")
+    StyleManager.apply_theme(app)
 
     # 5. Inicia Janela Principal (Modo Local)
     print("[BOOT] Criando JanelaPrincipal...")

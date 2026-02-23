@@ -11,6 +11,12 @@ class BuscadorWorker(QThread):
         self.scientific_name = scientific_name
 
     def run(self):
+        # Validação de segurança v0.6.1
+        if not self.scientific_name or "Inconclusiva" in self.scientific_name:
+            print(f"[WIKI] Busca abortada: Nome '{self.scientific_name}' é considerado inválido/inconclusivo.")
+            self.error_occurred.emit("Identificação inconclusiva. Aguardando entrada manual.")
+            return
+
         bot = None
         try:
             bot = BuscadorBlindado()
