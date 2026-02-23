@@ -4,7 +4,7 @@ import ctypes
 from pathlib import Path
 
 class StyleManager:
-    """Centralizador de Estilos e Temas do iBirder (v0.6.3.1 Hotfix)"""
+    """Centralizador de Estilos e Temas do iBirder (v0.8.2 Hotfix)"""
     
     # Constantes de Design
     SPACING_SM = 8
@@ -95,6 +95,11 @@ class StyleManager:
         palette.setColor(QPalette.Inactive, QPalette.Window, dark_bg)
         palette.setColor(QPalette.Inactive, QPalette.WindowText, light_text)
         return palette
+
+    @staticmethod
+    def is_windows_dark_mode():
+        """Alias para detect_dark_mode (Retrocompatibilidade v0.8.2)."""
+        return StyleManager.detect_dark_mode()
 
     @staticmethod
     def detect_dark_mode():
@@ -194,7 +199,7 @@ class StyleManager:
             QMenu {{
                 background-color: {bg_card} !important;
                 border: 1px solid {border} !important;
-                border_radius: 6px !important;
+                border-radius: 6px !important;
                 padding: 5px !important;
             }}
             QMenu::item {{
