@@ -784,21 +784,18 @@ class JanelaPrincipal(QMainWindow):
                 
             self._bloqueio_palette = True
             try:
-                # Sincronia Adaptativa v0.6.3+
+                # Sincronia de Title Bar e Ícone v0.6.6 (Soberania Off-White)
+                # O corpo da janela ignora a mudança de paleta para evitar o bug de inversão.
                 dark_mode = StyleManager.detect_dark_mode()
                 
-                print(f"[STYLE] Atualizando tema dinâmico. DarkMode: {dark_mode}")
-                app = QApplication.instance()
-                if app:
-                    StyleManager.apply_theme(app, dark_mode=dark_mode)
+                print(f"[STYLE] Sincronizando elementos adaptativos (Barra/Ícone). DarkMode: {dark_mode}")
                 
-                # REFORÇO: Title Bar e Estilo (v0.6.5: Ícone Dinâmico Incluído)
+                # Atualizar apenas elementos externos/nativos
                 StyleManager.setup_window_theme(self)
                 StyleManager.set_app_icon(self, dark_mode=dark_mode)
-                self._aplicar_estilo()
                 
             finally:
-                self._bloqueio_palette = False # Destrava após a conclusão
+                self._bloqueio_palette = False
                 
         super().changeEvent(event)
 
