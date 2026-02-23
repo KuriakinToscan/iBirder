@@ -22,7 +22,7 @@ class BaseDialog(QDialog):
         self.setStyleSheet(StyleManager.get_global_stylesheet())
         
         # 2. Configurando Icone Oficial Adaptativo (v0.3.43 / v0.3.44.1 - WinReg)
-        if StyleManager.is_windows_dark_mode():
+        if StyleManager.detect_dark_mode():
             icon_file = "logo_ave_claro.svg" 
         else:
             icon_file = "logo_ave_escuro.svg"
