@@ -113,9 +113,40 @@ class Orchestrator(QObject):
         self.id_worker.start()
 
     def update_location(self, lat, lon):
+        """Atualiza estado geográfico sem disparar pipeline."""
         self.current_lat = lat
         self.current_lon = lon
         self.has_location = (lat is not None and lon is not None)
+        
+    def reset(self):
+        """Interrompe todos os workers e limpa estado interno (v0.5.1)."""
+        print("[Orchestrator] Reset total solicitado. Interrompendo workers...")
+        
+        workers = [
+            self.id_worker, self.wiki_worker, self.iucn_worker, 
+            self.geo_worker, self.audio_worker, self.ebird_worker
+        ]
+        
+        for w in workers:
+            if w and w.isRunning():
+                try:
+                    w.requestInterruption()
+                    w.quit()
+                    # w.wait(500) # Optional wait
+                except: pass
+                
+        # Limpar referências
+        self.id_worker = None
+        self.wiki_worker = None
+        self.iucn_worker = None
+        self.geo_worker = None
+        self.audio_worker = None
+        self.ebird_worker = None
+        
+        self.current_lat = None
+        self.current_lon = None
+        self.has_location = False
+        self._last_sci_name = None
         
     def start_cascade_from_step2(self, sci_name):
         """Inicia a cascata linear estrita 2->3->4->5 (v0.4.8)."""
