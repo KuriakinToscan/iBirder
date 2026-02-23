@@ -895,6 +895,11 @@ class JanelaPrincipal(QMainWindow):
         self.dados_identificacao_atual["nome_cientifico"] = sci_formatted
         self.lbl_nome_comum.setText("...")
         
+        self._resetar_interface() # Limpeza Profunda (v0.5.0)
+        
+        self.caminho_imagem_atual = None # Busca manual não tem imagem local associada por padrão
+        self.input_especie.setText(sci_formatted) # Restaura o texto após reset
+        
         self._iniciar_busca_imagem(sci_formatted)
         
         # Sincronizar localização atual com Orchestrator (v0.4.8)
@@ -1585,61 +1590,65 @@ class JanelaPrincipal(QMainWindow):
             self.lbl_audio_placeholder.setVisible(True)
 
     def _resetar_interface(self):
-        # Stop Workers (v0.4.2 gerenciado pelo Orchestrator)
-        for worker_name in ["worker_local"]: # Apenas workers que sobraram na Janela
-            old_worker = getattr(self, worker_name, None)
-            if old_worker is not None:
-                if old_worker.isRunning():
-                    old_worker.requestInterruption()
-                    old_worker.quit()
-                    old_worker.wait()
-                old_worker.deleteLater()
-                setattr(self, worker_name, None)
-
-        # Limpeza de Players de Áudio (v0.4.0/v0.4.3)
+        # 1. Parar Workers e Orchestrator (v0.5.0)
         self._limpar_painel_audio()
-
-        self.worker_species = None
-        self.audio_worker = None
-        self.geo_worker = None
-        self.iucn_worker = None
-        self.last_geo_data = {}
-        self.last_iucn_data = {}
         
+        # Invalida estado anterior
         self.caminho_imagem_atual = None
         self.lat_atual = None
         self.lon_atual = None
-        
-        # User Card Reset
+        self.dados_identificacao_atual = {}
+        self.last_geo_data = {}
+        self.last_iucn_data = {}
+
+        # 2. Reset de Cards de Imagem
         self.card_user.set_image_path(None)
         self.card_user.set_placeholder("Arraste e solte uma foto aqui\n\nou clique para selecionar")
         
-        # Ref Card Reset
         self.card_ref.set_image_path(None)
         self.card_ref.set_placeholder("Aguardando a identificação da ave.")
         self.card_ref.set_overlay_text(None)
         
+        # 3. Reset de Botões e Inputs
         self.btn_fonte.setEnabled(False)
+        self.btn_google_lens.setEnabled(False)
+        self.btn_wiki.setVisible(False)
+        self.btn_google.setVisible(False)
+        self.btn_ebird.setVisible(False)
+        self.btn_set_location.setVisible(True) # Reativa se estivesse oculto
+        
         self.input_especie.clear()
         self.input_especie.setProperty("class", "container-borda-cinza")
         self.input_especie.style().unpolish(self.input_especie)
         self.input_especie.style().polish(self.input_especie)
         
+        # 4. Reset de Labels de Dados
         self.lbl_nome_comum.setText("-")
         self.lbl_descricao.setText("-")
-        self.lbl_confianca.setText("-")
         
+        self.lbl_confianca.setText("-")
+        self.lbl_confianca.setProperty("class", "lbl-titulo-sessao") # Remove classes de cor alta/baixa
+        self.lbl_confianca.style().unpolish(self.lbl_confianca)
+        self.lbl_confianca.style().polish(self.lbl_confianca)
+        
+        self.lbl_geo_details.setText("Aguardando localização...")
+        self.lbl_geo_details.setVisible(False)
+        self.lbl_iucn_fallback.setVisible(False)
+        self.lbl_ebird_fallback.setVisible(False)
+        
+        # 5. Reset de Campos de Texto
         self.txt_descricao.clear()
         self.txt_etimologia.clear()
         self.txt_etimologia.setPlaceholderText("Aguardando identificação...")
-        self.lbl_titulo_etimologia.setVisible(True)
-        self.txt_etimologia.setVisible(True)
         
+        # 6. Reset de Painéis e Mapas
         self.frame_etimologia.setVisible(False) 
-        self.btn_google_lens.setEnabled(False)
+        
         if self.map_principal:
              self.map_principal.show_placeholder_message("Aguardando dados de Localização")
-        self.status_bar.showMessage("Pronto (Local)")
+             self.map_principal.alert_frame.hide() # Esconde alerta se estiver visivel
+             
+        self.status_bar.showMessage("Pronto para nova identificação")
 
     def closeEvent(self, event):
         """Sobrescreve o fechamento para limpar a caderneta de campo temporária."""
