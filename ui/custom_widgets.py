@@ -409,20 +409,7 @@ class AudioPlayerWidget(QWidget):
         
         self.btn_source = QPushButton("Ver Link")
         self.btn_source.setCursor(Qt.PointingHandCursor)
-        self.btn_source.setStyleSheet("""
-            QPushButton {
-                 background: transparent;
-                 color: #3B82F6;
-                 text-decoration: underline;
-                 border: none;
-                 font-size: 11px;
-                 padding: 0px;
-                 text-align: left;
-            }
-            QPushButton:hover {
-                 color: #2563EB;
-            }
-        """)
+        self.btn_source.setProperty("class", "btn-link") # Sovereign Style v0.6.3
         self.btn_source.clicked.connect(self._open_link)
         
         layout_infos.addWidget(lbl_info)

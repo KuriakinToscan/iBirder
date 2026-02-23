@@ -9,9 +9,6 @@ class StartupStatusDialog(BaseDialog):
         super().__init__(title="Status de Funcionalidades (Aviso)", parent=parent)
         self.setFixedSize(450, 220)
         
-        lbl_titulo = QLabel("<b>Algumas funcionalidades avançadas estão desativadas:</b>")
-        self.main_layout.addWidget(lbl_titulo)
-        
         lbl_info = QLabel(
              "• <b>Status de Conservação Global:</b> Ausente (Falta Chave IUCN)<br>"
              "• <b>Frequência Regional e Taxonomia Avançada:</b> Ausente (Falta Chave eBird)<br><br>"
@@ -19,7 +16,7 @@ class StartupStatusDialog(BaseDialog):
              "Para habilitar esses recursos no futuro, acesse <i>Ferramentas > Configurações de Avisos de API</i>."
         )
         lbl_info.setWordWrap(True)
-        lbl_info.setStyleSheet("color: #4B5563; font-size: 12px; line-height: 1.4;")
+        lbl_info.setProperty("class", "lbl-info-dialog") # Sovereign Style v0.6.3
         self.main_layout.addWidget(lbl_info)
         
         self.main_layout.addStretch()

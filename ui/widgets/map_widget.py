@@ -58,23 +58,7 @@ class MapWidget(QWebEngineView):
         self.alert_frame.setCursor(Qt.PointingHandCursor)
         self.alert_frame.mousePressEvent = lambda e: self.alert_clicked.emit() if e.button() == Qt.LeftButton else None
         
-        self.alert_frame.setStyleSheet("""
-            QFrame#overlay_alert {
-                background-color: rgba(254, 243, 199, 0.95);
-                border: 2px solid #F59E0B;
-                border-radius: 8px;
-            }
-            QFrame#overlay_alert:hover {
-                background-color: rgba(254, 235, 170, 0.98);
-                border-color: #D97706;
-            }
-            QLabel#alert_text {
-                color: #92400E;
-                font-size: 13px;
-                font-weight: bold;
-                font-family: 'Segoe UI';
-            }
-        """)
+        # Estilo removido e movido para StyleManager (v0.6.3 / v0.8.0)
         
         layout = QVBoxLayout(self.alert_frame)
         layout.setContentsMargins(20, 12, 20, 12)

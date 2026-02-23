@@ -9,6 +9,9 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon
 
+# BLOQUEIO DE TEMA CHROMIUM (v0.7.7): Impede que o WebEngine/Windows forcem modo escuro
+os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-features=DarkMode"
+
 # Importações Locais
 from ui.dialogo_atalho import DialogoAtalho
 from core.config import carregar_config, salvar_config
@@ -232,7 +235,8 @@ if __name__ == "__main__":
     # 4. Ícone e Estilo (Global v0.6.5)
     from core.style_manager import StyleManager
     nome_icone = detectar_tema_e_icone()
-    StyleManager.apply_theme(app)
+    dark_mode = StyleManager.detect_dark_mode()
+    StyleManager.apply_theme(app, dark_mode=dark_mode)
 
     # 5. Inicia Janela Principal (Modo Local)
     print("[BOOT] Criando JanelaPrincipal...")

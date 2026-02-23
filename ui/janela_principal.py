@@ -280,6 +280,9 @@ class JanelaPrincipal(QMainWindow):
              except Exception as e:
                  print(f"[UI] ERRO CRÍTICO ao atualizar mapa: {e}")
             
+             # REFORÇO V0.7.7: Reafirmar soberania após carga de componentes Chromium
+             StyleManager.setup_window_theme(self)
+             
              print("[UI] --- PROCESSO DE IDENTIFICAÇÃO FINALIZADO ---\n")
         
     def _ao_erro_api(self, erro_msg):
@@ -782,68 +785,10 @@ class JanelaPrincipal(QMainWindow):
         self.status_bar.showMessage("Pronto para uso (Local)")
 
     def _aplicar_estilo(self):
-        """Configura o estilo visual da janela (v0.6.9 / v0.7.2)."""
-        estilo_janela = """
-            QMainWindow { background-color: #F0F2F5; }
-            QFrame.painel { background-color: #FFFFFF; border-radius: 12px; border: 1px solid #D1D5DB; }
-            
-            QLabel { color: #1F2937; font-family: "Segoe UI"; }
-            
-            /* Botões */
-            QPushButton { 
-                background-color: #374151; 
-                color: white; 
-                border-radius: 8px; 
-                padding: 12px; 
-                font-weight: bold; 
-                font-family: "Segoe UI";
-            }
-            QPushButton:hover { background-color: #1F2937; }
-            
-            /* Botões Icone */
-            QPushButton[class="icon-btn"] { background-color: transparent; color: #374151; padding: 4px; border: none; }
-            QPushButton[class="icon-btn"]:hover { background-color: #E5E7EB; border-radius: 4px; }
-            
-            /* GroupBox */
-            QGroupBox { 
-                border: 1px solid #E5E7EB; 
-                border-radius: 8px; 
-                margin-top: 12px; 
-                padding-top: 12px; 
-                font-weight: bold; 
-                font-size: 12px; 
-                background-color: #FFFFFF; 
-                color: #6B7280; 
-                letter-spacing: 1px; 
-                text-transform: uppercase; 
-            }
-            QGroupBox::title { 
-                subcontrol-origin: margin; 
-                padding: 0 4px; 
-                background-color: #FFFFFF; 
-                padding: 0 4px; 
-                background-color: #FFFFFF; 
-                color: #374151;
-            }
-
-            /* Reforço de Contraste Total para Menu de Contexto (v0.7.4) */
-            QMenu {
-                background-color: #FFFFFF !important;
-                border: 1px solid #D1D5DB !important;
-            }
-            QMenu::item {
-                color: #374151 !important; /* Cinza escuro padrão do app v0.7.5 */
-                font-weight: 600 !important;
-                padding: 6px 30px 6px 30px !important;
-            }
-            QMenu::item:selected {
-                background-color: #F3F4F6 !important;
-                color: #111827 !important;
-            }
-        """
-        
-        # Aplica o estilo isolado da Janela (O Global agora vem do QApplication v0.6.4)
-        self.setStyleSheet(estilo_janela)
+        """Configura o estilo visual da janela via Sovereign Style (v0.6.3 / v0.8.0)."""
+        # Agora o estilo é 100% centralizado no StyleManager.py. 
+        # Mantemos esta chamada apenas para retrocompatibilidade de fluxo.
+        pass
 
     def changeEvent(self, event):
         """Blindagem Atômica de Cores (v0.6.8 / v0.6.9 - Anti-Recursion): 
@@ -855,11 +800,18 @@ class JanelaPrincipal(QMainWindow):
                 
             self._bloqueio_palette = True
             try:
-                # Se o Windows tentou empurrar o tema escuro, nós forçamos o StyleManager a reaplicar o claro.
-                print("[STYLE] Tentativa de mudança de tema detectada. Bloqueando e forçando tema claro.")
+                # Sincronia Adaptativa v0.6.3+
+                dark_mode = StyleManager.detect_dark_mode()
+                
+                print(f"[STYLE] Atualizando tema dinâmico. DarkMode: {dark_mode}")
                 app = QApplication.instance()
                 if app:
-                    StyleManager.apply_theme(app)
+                    StyleManager.apply_theme(app, dark_mode=dark_mode)
+                
+                # REFORÇO: Title Bar e Estilo
+                StyleManager.setup_window_theme(self)
+                self._aplicar_estilo()
+                
             finally:
                 self._bloqueio_palette = False # Destrava após a conclusão
                 
