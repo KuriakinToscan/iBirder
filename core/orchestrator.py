@@ -118,13 +118,10 @@ class Orchestrator(QObject):
         self.has_location = (lat is not None and lon is not None)
         
     def start_cascade_from_step2(self, sci_name):
-        """Dispara as etapas iniciais. O áudio agora segue a geografia."""
-        print(f"[Orchestrator] Iniciando cascata a partir da Etapa 2 para: {sci_name}")
+        """Inicia a cascata linear estrita 2->3->4->5 (v0.4.8)."""
+        print(f"[Orchestrator] Iniciando cascata linear a partir da Etapa 2 para: {sci_name}")
         self.start_step2_biology(sci_name)
-        self.start_step3_geography(sci_name)
-        # Etapa 4 (Audio) agora é disparada no _on_step3_geo_finished
-        # Etapa 5 (Taxonomia) pode continuar paralela
-        self.start_step5_taxonomy(sci_name)
+        # As etapas seguintes (3, 4 e 5) serão disparadas sequencialmente pelos callbacks.
 
     def reprocessar_localizacao(self, lat, lon):
         """Atualiza coordenadas, invalida cache de áudio e reinicia busca geo-acústica."""
@@ -265,7 +262,14 @@ class Orchestrator(QObject):
             self.geo_worker.finished.connect(self._on_step3_geo_finished)
             self.geo_worker.start()
         else:
-            print("[Orchestrator] Lat/Lon ausentes. Aguardando input manual ou fallback para habilitar áudio.")
+            print("[Orchestrator] Lat/Lon ausentes. Saltando Etapa 3-Geo e prosseguindo para Etapa 4 (v0.4.8).")
+            # REGISTRO DE DADOS AUSENTES (v0.4.6/0.4.8)
+            if self.session_logger:
+                self.session_logger.atualizar_ultimo_registro({
+                    "municipio": "Não informado", "estado": "N/A", "bioma": "Não mapeado"
+                })
+            # Engatilha a próxima etapa imediatamente para não quebrar a corrente linear
+            self.start_step4_vocalization(sci_name)
 
     def _on_step3_geo_finished(self, details):
         mun = details.get('municipio', 'N/D')
