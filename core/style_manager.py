@@ -4,7 +4,7 @@ import ctypes
 from pathlib import Path
 
 class StyleManager:
-    """Centralizador de Estilos e Temas do iBirder (v0.6.4)"""
+    """Centralizador de Estilos e Temas do iBirder (v0.6.5)"""
     
     # Constantes de Design
     SPACING_SM = 8
@@ -100,6 +100,44 @@ class StyleManager:
     def is_windows_dark_mode():
         """Alias para detect_dark_mode (Retrocompatibilidade v0.8.2)."""
         return StyleManager.detect_dark_mode()
+
+    @staticmethod
+    def get_app_icon_name(dark_mode=None):
+        """Retorna o nome do ícone baseado no tema (v0.6.5)."""
+        if dark_mode is None:
+            dark_mode = StyleManager.detect_dark_mode()
+        return "logo_ave_claro.svg" if dark_mode else "logo_ave_escuro.svg"
+
+    @staticmethod
+    def set_app_icon(window, dark_mode=None):
+        """Aplica o ícone correto à janela conforme o tema (v0.6.5)."""
+        from PySide6.QtGui import QIcon
+        from PySide6.QtCore import QSize
+        import os
+        import sys
+        
+        if dark_mode is None:
+            dark_mode = StyleManager.detect_dark_mode()
+            
+        icon_name = StyleManager.get_app_icon_name(dark_mode)
+        
+        # Obter caminho (Adaptado da JanelaPrincipal)
+        if getattr(sys, 'frozen', False):
+            base_path = Path(sys._MEIPASS)
+        else:
+            base_path = Path(__file__).parent.parent / 'assets'
+            
+        caminho_svg = str(base_path / icon_name)
+        caminho_ico = str(base_path / "logo_ave.ico")
+        
+        icone = QIcon()
+        if os.path.exists(caminho_svg):
+            icone.addFile(caminho_svg)
+        if os.path.exists(caminho_ico):
+            icone.addFile(caminho_ico) # Fallback para Titlebar
+            
+        if not icone.isNull():
+            window.setWindowIcon(icone)
 
     @staticmethod
     def detect_dark_mode():
