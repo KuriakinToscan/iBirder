@@ -372,22 +372,29 @@ class Orchestrator(QObject):
         # Extrair dados regionais da caderneta de campo (SessionLogger) se disponíveis
         municipio = None
         estado = None
+        bioma = None
+        pais = None
         if self.session_logger and self.session_logger.buffer:
             ultimo_registro = self.session_logger.buffer[-1]
             municipio = ultimo_registro.get("municipio")
             estado = ultimo_registro.get("estado")
+            bioma = ultimo_registro.get("bioma")
+            pais = ultimo_registro.get("pais")
             
             # Validação para evitar valores genéricos
             if municipio in ["Não identificado", "Não informado", "N/D"]: municipio = None
             if estado in ["Não identificado", "Não informado", "N/D", "N/A"]: estado = None
 
-        print(f"[Orchestrator] Iniciando busca de áudio hierárquica para {sci_name} (Mun: {municipio}, UF: {estado})")
+        print(f"[Orchestrator] Iniciando busca de áudio regionalizada para {sci_name}")
+        print(f"               Contexto: {municipio}-{estado} | Bioma: {bioma} | País: {pais}")
         self.audio_worker = AudioWorker(
             sci_name, 
             lat=self.current_lat, 
             lon=self.current_lon, 
             municipio=municipio,
             estado=estado,
+            bioma=bioma,
+            pais=pais,
             parent=self
         )
         
@@ -401,9 +408,20 @@ class Orchestrator(QObject):
             self._cache_audio[sci_name] = audios
             print(f"[Orchestrator] Etapa 4 (Áudio) Concluída. Encontrados {len(audios)} vocalizações para {sci_name}")
         
-        # Registrar Vocalização se necessário (v0.4.6)
+        # Registrar Vocalização e Auditoria (v0.9.6)
         if self.session_logger:
-            self.session_logger.atualizar_ultimo_registro({"vocalizacoes": len(audios)})
+            vocal_data = {"vocalizacoes": len(audios)}
+            for i, audio in enumerate(audios[:3]):
+                key = f"vocal_top{i+1}"
+                vocal_data[key] = {
+                    "id": audio.get("id_original") or audio.get("id"),
+                    "distancia_km": audio.get("distancia_km"),
+                    "localidade": audio.get("audit_geo"),
+                    "camada": audio.get("camada"),
+                    "link_registro": audio.get("link_observacao"),
+                    "link_audio": audio.get("link_audio")
+                }
+            self.session_logger.atualizar_ultimo_registro(vocal_data)
             
         self.step4_audio_concluido.emit(audios)
         self.audio_processed.emit(audios) # Emitir para plotagem externa (v0.4.3)
@@ -417,7 +435,7 @@ class Orchestrator(QObject):
         if sci_name:
              self._cache_audio[sci_name] = []
         
-        # Registrar Dados Indisponíveis (v0.4.6)
+        print(f"[Orchestrator] Etapa 4 (Áudio) Falhou. Nenhuma vocalização encontrada para {sci_name}")
         if self.session_logger:
              self.session_logger.atualizar_ultimo_registro({"vocalizacoes": 0})
              
