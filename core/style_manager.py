@@ -164,6 +164,13 @@ class StyleManager:
             
             QLabel {{ color: {text_primary}; font-family: 'Segoe UI'; font-size: 13px; }}
             
+            #lbl_slogan {{
+                font-size: 26px;
+                font-style: italic;
+                font-weight: 500;
+                color: {text_primary};
+            }}
+            
             /* Nome Científico: Formatação Biológica Rigorosa */
             QLineEdit.sci-name-input {{
                 font-family: 'Segoe UI';
