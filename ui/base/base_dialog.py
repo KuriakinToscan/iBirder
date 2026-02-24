@@ -35,6 +35,9 @@ class BaseDialog(QDialog):
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(15, 15, 15, 15)
         self.main_layout.setSpacing(10)
+        
+        # 4. Sincronia de Title Bar (v0.6.6)
+        StyleManager.setup_window_theme(self)
 
     def _obter_caminho_asset(self, nome_arquivo):
         if getattr(sys, 'frozen', False):

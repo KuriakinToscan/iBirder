@@ -676,7 +676,7 @@ class JanelaPrincipal(QMainWindow):
         layout_res.addLayout(layout_botoes)
         
         # Etapa 5 (Taxonomia Fallback)
-        self.lbl_ebird_fallback = QLabel("<a href='ebird' style='color: #9CA3AF; font-style: italic; font-size: 11px; text-decoration: none;'>Taxonomia: Acesso aos dados não configurado</a>")
+        self.lbl_ebird_fallback = QLabel("<a href='ebird' style='color: #4B5563; font-style: italic; font-size: 11px; text-decoration: none;'>Taxonomia: Acesso aos dados não configurado</a>")
         self.lbl_ebird_fallback.linkActivated.connect(lambda link: self._abrir_configuracoes_ebird())
         self.lbl_ebird_fallback.setVisible(False)
         layout_res.addWidget(self.lbl_ebird_fallback)
@@ -751,7 +751,7 @@ class JanelaPrincipal(QMainWindow):
         layout_geo.addWidget(self.lbl_geo_details)
         
         # Etapa 3 (IUCN Fallback)
-        self.lbl_iucn_fallback = QLabel("<a href='iucn' style='color: #9CA3AF; font-style: italic; font-size: 11px; text-decoration: none;'>IUCN: Acesso aos dados não configurado</a>")
+        self.lbl_iucn_fallback = QLabel("<a href='iucn' style='color: #4B5563; font-style: italic; font-size: 11px; text-decoration: none;'>IUCN: Acesso aos dados não configurado</a>")
         self.lbl_iucn_fallback.linkActivated.connect(lambda link: self._abrir_configuracoes_iucn())
         self.lbl_iucn_fallback.setVisible(False)
         layout_geo.addWidget(self.lbl_iucn_fallback)
@@ -788,9 +788,12 @@ class JanelaPrincipal(QMainWindow):
                 # O corpo da janela ignora a mudança de paleta para evitar o bug de inversão.
                 dark_mode = StyleManager.detect_dark_mode()
                 
-                print(f"[STYLE] Sincronizando elementos adaptativos (Barra/Ícone). DarkMode: {dark_mode}")
+                print(f"[STYLE] Watchdog v0.6.6: Forçando Soberania Off-White. DarkMode: {dark_mode}")
+                app = QApplication.instance()
+                if app:
+                    StyleManager.apply_theme(app, dark_mode=dark_mode)
                 
-                # Atualizar apenas elementos externos/nativos
+                # Sincronia de Title Bar e Ícone
                 StyleManager.setup_window_theme(self)
                 StyleManager.set_app_icon(self, dark_mode=dark_mode)
                 
@@ -861,7 +864,10 @@ class JanelaPrincipal(QMainWindow):
             
         # Atualiza Campo e Estilo
         self.input_especie.setText(sci_formatted)
-        self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #374151; font-style: italic;")
+        # Estilo Biológico Centralizado (v0.8.1/v0.6.6)
+        self.input_especie.setProperty("class", "sci-name-input")
+        self.input_especie.style().unpolish(self.input_especie)
+        self.input_especie.style().polish(self.input_especie)
 
         self.dados_identificacao_atual["nome_cientifico"] = sci_formatted
         self.especie_em_processamento = sci_formatted # Persistência Atômica v0.6.8
@@ -1032,16 +1038,9 @@ class JanelaPrincipal(QMainWindow):
             # Atualiza card geo
             self.lbl_geo_details.setVisible(True)
             self.lbl_geo_details.setText(f"Lat: {lat:.4f}, Lon: {lon:.4f} (Processando...)")
-            self.lbl_geo_details.setStyleSheet("""
-                QLabel {
-                    background-color: #F9FAFB;
-                    border: 1px solid #E5E7EB;
-                    border-radius: 6px;
-                    padding: 6px;
-                    color: #374151;
-                    font-size: 12px;
-                }
-            """)
+            self.lbl_geo_details.setProperty("class", "container-borda-cinza-fill")
+            self.lbl_geo_details.style().unpolish(self.lbl_geo_details)
+            self.lbl_geo_details.style().polish(self.lbl_geo_details)
             
             # GeoAnalyst (v0.3.11)
             self._atualizar_geo_info(lat, lon)
@@ -1062,7 +1061,9 @@ class JanelaPrincipal(QMainWindow):
                  self.map_principal.show_placeholder_message(msg_erro)
                  self.lbl_geo_details.setVisible(True)
                  self.lbl_geo_details.setText("Localização não detectada na imagem.")
-                 self.lbl_geo_details.setStyleSheet("color: #9CA3AF; font-style: italic; border: 1px dashed #D1D5DB; border-radius: 6px; padding: 10px;")
+                 self.lbl_geo_details.setProperty("class", "container-borda-cinza-fill")
+                 self.lbl_geo_details.style().unpolish(self.lbl_geo_details)
+                 self.lbl_geo_details.style().polish(self.lbl_geo_details)
              
         self._identificar_ave()
 
@@ -1094,16 +1095,9 @@ class JanelaPrincipal(QMainWindow):
                 # Atualizar card geográfico
                 self.lbl_geo_details.setVisible(True)
                 self.lbl_geo_details.setText(f"Lat: {lat:.4f}, Lon: {lon:.4f} (Manual)")
-                self.lbl_geo_details.setStyleSheet("""
-                    QLabel {
-                        background-color: #F9FAFB;
-                        border: 1px solid #E5E7EB;
-                        border-radius: 6px;
-                        padding: 6px;
-                        color: #374151;
-                        font-size: 12px;
-                    }
-                """)
+                self.lbl_geo_details.setProperty("class", "container-borda-cinza-fill")
+                self.lbl_geo_details.style().unpolish(self.lbl_geo_details)
+                self.lbl_geo_details.style().polish(self.lbl_geo_details)
                 
                 self._atualizar_geo_info(lat, lon)
                 
@@ -1146,8 +1140,9 @@ class JanelaPrincipal(QMainWindow):
         self.txt_etimologia.setVisible(True)
         
         self.input_especie.clear() 
-        self.input_especie.clear() 
-        self.input_especie.setStyleSheet("background: transparent; border: 1px solid #D1D5DB; border-radius: 6px; padding: 4px; color: #4B5563; font-style: italic; font-size: 12px; font-family: 'Segoe UI';")  
+        self.input_especie.setProperty("class", "sci-name-input")
+        self.input_especie.style().unpolish(self.input_especie)
+        self.input_especie.style().polish(self.input_especie)
         
         self.card_ref.set_placeholder("aguardando identificação da espécie...")
         self.status_bar.showMessage("Iniciando IA Local...")
