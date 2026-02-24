@@ -5,6 +5,7 @@ except ImportError:
     requests = None
 import traceback
 import math
+import re
 
 def haversine_distance(lat1, lon1, lat2, lon2):
     """Calcula a distância entre dois pontos na Terra em km."""
@@ -26,6 +27,16 @@ TRADUCOES_TIPO = {
     'alarm call': 'Alarme',
 }
 
+MAPA_ESTADOS = {
+    "ac": "acre", "al": "alagoas", "ap": "amapá", "am": "amazonas", "ba": "bahia",
+    "ce": "ceará", "df": "distrito federal", "es": "espírito santo", "go": "goiás",
+    "ma": "maranhão", "mt": "mato grosso", "ms": "mato grosso do sul", "mg": "minas gerais",
+    "pa": "pará", "pb": "paraíba", "pr": "paraná", "pe": "pernambuco", "pi": "piauí",
+    "rj": "rio de janeiro", "rn": "rio grande do norte", "rs": "rio grande do sul",
+    "ro": "rondônia", "rr": "roraima", "sc": "santa catarina", "sp": "são paulo",
+    "se": "sergipe", "to": "tocantins"
+}
+
 class AudioWorker(QThread):
     """
     Worker híbrido para buscar áudios de aves.
@@ -37,15 +48,18 @@ class AudioWorker(QThread):
     audio_found = Signal(list)
     search_failed = Signal()
 
-    def __init__(self, scientific_name, lat=None, lon=None, municipio=None, estado=None, parent=None):
+    def __init__(self, scientific_name, lat=None, lon=None, municipio=None, estado=None, bioma=None, pais=None, parent=None):
         super().__init__(parent)
         self.scientific_name = scientific_name
         self.lat = lat
         self.lon = lon
         self.municipio = municipio
         self.estado = estado
+        self.bioma = bioma
+        self.pais = pais or 'Brazil'
 
     def run(self):
+        print(f"[AUDIO] AudioWorker v0.9.2 iniciado para {self.scientific_name}")
         # Validação de segurança v0.6.1
         if not self.scientific_name or "Inconclusiva" in self.scientific_name:
             print(f"[AudioWorker] Busca abortada: Nome '{self.scientific_name}' inválido.")
@@ -58,19 +72,31 @@ class AudioWorker(QThread):
 
         results = []
         try:
-            # 1. Obter resultados de ambas as fontes (v0.8.7)
+            # 1. Coleta Ampla (Brasil) v0.9.0
             xeno_results = self._search_xeno_canto()
             inat_results = self._search_inaturalist()
             
-            # 2. Unificar e Rankear: Qualidade (DESC) > Distância (ASC)
             all_audios = xeno_results + inat_results
-            all_audios.sort(key=lambda x: (-x.get('q_score', 0), x.get('distancia', float('inf'))))
             
-            # 3. Limitar aos 3 melhores registros conforme solicitado
-            final_results = all_audios[:3]
+            # 2. Classificação em Camadas Concêntricas (v0.9.0)
+            for audio in all_audios:
+                audio['camada'] = self._calcular_camada_geografica(audio)
+            
+            # 3. Ordenação: Camada (ASC) > Qualidade (DESC) > Distância (ASC) v0.9.3
+            all_audios.sort(key=lambda x: (x['camada'], -x.get('q_score', 0), x.get('distancia', float('inf'))))
+            
+            # 4. Limite de 3 resultados (Seleção da melhor qualidade por camada disponível)
+            final_results = []
+            for i, audio in enumerate(all_audios[:3]):
+                raw = audio.get('raw', {}) or {}
+                # Enriquecimento para Auditoria (Caderneta v0.9.6)
+                audio['posicao_ranking'] = i + 1
+                audio['audit_geo'] = str(raw.get('loc') or raw.get('location') or raw.get('place_guess') or 'Desconhecido')
+                audio['distancia_km'] = round(audio.get('distancia', 0), 2) if audio.get('distancia') else 0
+                final_results.append(audio)
             
             if final_results:
-                print(f"[AUDIO] Ranking concluído. {len(final_results)} melhores áudios selecionados (Top Quality > Proximidade).")
+                print(f"[AUDIO] Ranking Concêntrico concluído. {len(final_results)} selecionados (Geo > Quality).")
                 self.audio_found.emit(final_results)
             else:
                 self.search_failed.emit()
@@ -141,88 +167,113 @@ class AudioWorker(QThread):
                 'lat': r_lat,
                 'lon': r_lng,
                 'id': rec.get('id'),
+                'link_observacao': f"https://www.xeno-canto.org/{rec.get('id')}",
+                'link_audio': rec.get('file', ''),
                 'comentarios': rec.get('remarks', '') or rec.get('notes', '')
             })
         return processed
 
-    def _search_xeno_canto(self):
-        """Busca em cascata: Município -> Estado -> Brasil."""
-        # Categorias que queremos preencher
-        faltantes = ['song', 'call', 'begging call', 'flight call', 'alarm call']
-        campeoes = {} # tipo -> dados_formatados
 
-        def preencher_vagas(recordings):
-            nonlocal faltantes
-            if not recordings or not isinstance(recordings, list): return
+    def _calcular_camada_geografica(self, audio):
+        """Atribui uma camada de 0 (perto) a 4 (longe) baseada na localidade."""
+        raw = audio.get('raw', {}) or {}
+        
+        # Extração de dados geográficos adaptada para Xeno-canto e iNaturalist
+        rec_loc = str(raw.get('loc') or raw.get('location') or raw.get('place_guess') or '').lower()
+        
+        # Detecção de País (Xeno usa 'cnt', iNat usamos heurística no endereço)
+        rec_country = str(raw.get('cnt') or '').lower()
+        if not rec_country:
+            # Heurística rigorosa para evitar "br" dentro de palavras (ex: Las Cabras)
+            if any(x in rec_loc for x in ['brazil', 'brasil', ', br', ' br ']):
+                rec_country = 'brazil'
+            else:
+                rec_country = 'global'
+        
+        # Normalização de Estado com siglas
+        rec_uf = None
+        if self.estado:
+            uf_alvo = self.estado.lower()
+            # Se o registro tiver a sigla (ex: ", RS") ou o nome completo
+            sigla_alvo = next((s for s, n in MAPA_ESTADOS.items() if n == uf_alvo), None)
             
-            # Processa e ordena por qualidade/distância dentro deste lote
-            procs = self._process_recordings(recordings)
-            # Ordenação interna do lote: A > B... 
-            procs.sort(key=lambda x: (str(x['q']).upper(), x['distancia']))
+            if uf_alvo in rec_loc:
+                rec_uf = uf_alvo
+            elif sigla_alvo and re.search(rf'\b{sigla_alvo}\b', rec_loc):
+                rec_uf = uf_alvo
+        
+        # Lógica de Camadas
+        if self.municipio and self.municipio.lower() in rec_loc:
+            return 0 # Nível 1: Município
+        
+        if rec_uf:
+            return 1 # Nível 2: Estado (Detectado por nome ou sigla)
+        
+        # Nível 3: Proximidade Regional / Bioma (Proxy de 150km)
+        if audio.get('distancia', 9999) < 150:
+            return 2
+            
+        # Nível 4: País
+        if any(x in rec_country for x in ['brazil', 'brasil']):
+            return 3
+            
+        # Nível 5: Global
+        return 4
 
-            for item in procs:
-                t = item['type']
-                if t in faltantes:
-                    # Encontramos o campeão deste nível para este tipo
-                    rec = item['raw']
-                    tipo_str = TRADUCOES_TIPO.get(t, t.capitalize())
-                    dist_str = f" ({int(item['distancia'])}km)" if item['distancia'] != float('inf') else ""
-                    
-                    campeoes[t] = {
-                        'url': rec.get('file'),
-                        'autor': rec.get('rec', 'Desconhecido'),
-                        'licenca': rec.get('lic', 'CC BY-NC'),
-                        'data': rec.get('date', 'Desconhecida'),
-                        'duracao': rec.get('length', '0:00'),
-                        'fonte': 'Xeno-canto',
-                        'tipo_canto': tipo_str if t != 'other' else str(rec.get('type')).capitalize(),
-                        'distancia_texto': dist_str,
-                        'distancia': item['distancia'],
-                        'lat': item['lat'],
-                        'lon': item['lon'],
-                        'link_web': "https://xeno-canto.org/" + str(rec.get('id', '')),
-                        'id': rec.get('id'),
-                        'q': item['q'],
-                        'q_score': item['q_score'],
-                        'comentarios': item['comentarios']
-                    }
-                    faltantes.remove(t)
-
-        # Nível 1: Município
-        if self.municipio:
-            print(f"[AUDIO] Nível 1: Buscando em {self.municipio}...")
-            recs = self._get_xeno_recordings(f'sp:"{self.scientific_name}" loc:"{self.municipio}"')
-            if recs == "KEY_MISSING": return [{"status": "KEY_MISSING"}]
-            preencher_vagas(recs)
-
-        # Nível 2: Estado (se ainda faltar algo)
-        if faltantes and self.estado:
-            print(f"[AUDIO] Nível 2: Buscando em {self.estado} (Faltam: {faltantes})...")
-            recs = self._get_xeno_recordings(f'sp:"{self.scientific_name}" loc:"{self.estado}"')
-            preencher_vagas(recs)
-
-        # Nível 3: Brasil (se ainda faltar algo)
-        if faltantes:
-            print(f"[AUDIO] Nível 3: Buscando no Brasil (Faltam: {faltantes})...")
-            recs = self._get_xeno_recordings(f'sp:"{self.scientific_name}" cnt:brazil')
-            preencher_vagas(recs)
-
-        return list(campeoes.values())[:4]
+    def _search_xeno_canto(self):
+        """Busca global no Xeno-canto para filtragem local v0.9.1."""
+        # Simplificando a query para evitar problemas com caracteres especiais v0.9.1
+        query = f'"{self.scientific_name}"'
+        recs = self._get_xeno_recordings(query)
+        
+        print(f"[AUDIO] Xeno-canto: {len(recs)} registros brutos encontrados.")
+        
+        procs = self._process_recordings(recs)
+        
+        # Mapeamos para o formato final com os dados 'raw' para o classificador
+        results = []
+        for item in procs:
+            rec = item['raw']
+            tipo_str = TRADUCOES_TIPO.get(item['type'], item['type'].capitalize())
+            
+            results.append({
+                'url': rec.get('file'),
+                'autor': rec.get('rec', 'Desconhecido'),
+                'fonte': 'Xeno-canto',
+                'data': rec.get('date', 'Desconhecida'),
+                'tipo_canto': tipo_str,
+                'distancia': item['distancia'],
+                'lat': item['lat'],
+                'lon': item['lon'],
+                'id': rec.get('id'),
+                'q_score': item['q_score'],
+                'q': item['q'],
+                'comentarios': item['comentarios'],
+                'raw': rec
+            })
+        return results
 
     def _search_inaturalist(self):
-        """Busca observações com sons no iNaturalist (Fallback Global)."""
+        """Busca observações com sons no iNaturalist (Ampla/Global v0.9.1)."""
         try:
             url = "https://api.inaturalist.org/v1/observations"
             params = {
                 'taxon_name': self.scientific_name,
                 'sounds': 'true',
-                'per_page': 2,
+                'per_page': 200, # Rede de Pesca Ampliada v0.9.3 (Máximo da API)
                 'order_by': 'votes'
             }
-            resp = requests.get(url, params=params, headers={"User-Agent": "iBirder/1.0"}, timeout=10)
-            if resp.status_code != 200: return []
+            # User-Agent mais robusto
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) iBirder/1.0"}
+            resp = requests.get(url, params=params, headers=headers, timeout=10)
+            if resp.status_code != 200: 
+                print(f"[AUDIO] iNaturalist Error: {resp.status_code}")
+                return []
                  
             data = resp.json()
+            results_count = data.get('total_results', 0)
+            print(f"[AUDIO] iNaturalist: {results_count} observações com som encontradas.")
+            
             audios = []
             for obs in data.get('results', []):
                 obs_lat, obs_lon = None, None
@@ -234,12 +285,14 @@ class AudioWorker(QThread):
 
                 for sound in obs.get('sounds', []):
                     if file_url := sound.get('file_url'):
-                        # Métrica Social de Qualidade (v0.8.7): 0-2 votos=2, 3+ votos=4
                         votos = obs.get('faves_count', 0)
                         social_q = 4 if votos >= 3 else 2
                         
                         audios.append({
                             'url': file_url,
+                            'link_audio': file_url,
+                            'link_observacao': f"https://www.inaturalist.org/observations/{obs.get('id')}",
+                            'id_original': obs.get('id'),
                             'autor': obs.get('user', {}).get('login', 'Desconhecido'),
                             'fonte': 'iNaturalist',
                             'data': obs.get('observed_on_string', 'Desconhecida'),
@@ -250,9 +303,9 @@ class AudioWorker(QThread):
                             'lon': obs_lon,
                             'distancia': haversine_distance(self.lat, self.lon, obs_lat, obs_lon) if self.lat else float('inf'),
                             'q': f"⭐ {votos}",
-                            'q_score': social_q
+                            'q_score': social_q,
+                            'raw': obs # Passamos a obs completa para o classificador
                         })
                         break
-                if len(audios) >= 2: break
             return audios
         except: return []
