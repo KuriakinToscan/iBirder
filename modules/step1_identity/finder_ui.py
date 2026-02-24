@@ -24,7 +24,7 @@ MANUAL_TEXTO = """
 <h3>3. Requisitos do Sistema</h3>
 <ul>
     <li><b>Conexão:</b> Este software opera conectado aos servidores de IA em nuvem. Uma conexão ativa com a internet é necessária para processar as identificações.</li>
-    <li><b>Precisão:</b> Embora a IA seja extremamente capaz (modelo Gemini 2.0), recomenda-se sempre cruzar os dados com guias de campo para registros científicos definitivos.</li>
+    <li><b>Precisão:</b> Embora a IA seja extremamente capaz, recomenda-se sempre cruzar os dados com guias de campo para registros científicos definitivos.</li>
 </ul>
 """
 

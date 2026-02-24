@@ -144,7 +144,12 @@ def garantir_dependencias():
         'requests': 'requests',
         'numpy': 'numpy',
         'selenium': 'selenium',
-        'webdriver_manager': 'webdriver-manager'
+        'webdriver_manager': 'webdriver-manager',
+        'folium': 'folium',
+        'geopandas': 'geopandas',
+        'geopy': 'geopy',
+        'shapely': 'shapely',
+        'lxml': 'lxml'
     }
     
     for import_name, package_name in libs.items():

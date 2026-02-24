@@ -169,7 +169,7 @@ class BuscadorBlindado:
         )
 
         html = self.driver.page_source
-        soup = BeautifulSoup(html, "html.parser")
+        soup = BeautifulSoup(html, "lxml")
 
         dados = {}
 
