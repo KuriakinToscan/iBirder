@@ -21,14 +21,8 @@ class EBirdWorker(QThread):
 
         print(f"[eBird Worker] Iniciando processamento para {self.scientific_name}")
         
-        settings = QSettings("iBirder", "App")
-        token = settings.value("ebird_api_key", "").strip()
-        
-        if not token:
-             token = os.environ.get("EBIRD_API_KEY", "")
-
-        is_fallback = False
-        
+        # Transição API-Free (v0.8.0): eBird API desativada para autonomia total do usuário.
+        is_fallback = True
         resultados = {
             "nome_ingles": "Desconhecido",
             "classe": "Aves",
@@ -38,72 +32,6 @@ class EBirdWorker(QThread):
             "raridade_regional": "Não Avaliado",
             "link_ebird": ""
         }
-
-        if token:
-            try:
-                print("[eBird Worker] Consultando API eBird Taxonomia...")
-                quoted_sci = urllib.parse.quote(self.scientific_name)
-                tax_url = f"https://api.ebird.org/v2/ref/taxonomy/ebird?sciName={quoted_sci}&fmt=json"
-                
-                resp_tax = requests.get(tax_url, timeout=10)
-                if resp_tax.status_code == 200:
-                    tax_data = resp_tax.json()
-                    if tax_data and len(tax_data) > 0:
-                        taxon = tax_data[0]
-                        resultados["nome_ingles"] = taxon.get("comName", "Desconhecido")
-                        resultados["ordem"] = taxon.get("order", "Desconhecida").capitalize()
-                        resultados["familia"] = taxon.get("familyComName", "Desconhecida").capitalize()
-                        resultados["ebird_code"] = taxon.get("speciesCode", "")
-                        resultados["link_ebird"] = f"https://ebird.org/species/{resultados['ebird_code']}"
-                        
-                        # Cálculo de Raridade Regional
-                        if self.lat is not None and self.lon is not None and resultados["ebird_code"]:
-                            print("[eBird Worker] Calculando Frequência Regional...")
-                            headers = {"X-eBirdApiToken": token}
-                            # Busca registros recentes em 50km nos últimos 30 dias
-                            geo_url = f"https://api.ebird.org/v2/data/obs/geo/recent?lat={self.lat}&lng={self.lon}&dist=50&back=30"
-                            resp_geo = requests.get(geo_url, headers=headers, timeout=10)
-                            
-                            if resp_geo.status_code == 200:
-                                geo_data = resp_geo.json()
-                                
-                                # Extrai todos os locais únicos (Hotspots/Locais Pessoais)
-                                locs_totais = set(obs.get('locId') for obs in geo_data if obs.get('locId'))
-                                total_locais = len(locs_totais)
-                                
-                                # Locais onde a nossa espécie apareceu
-                                locs_especie = set(obs.get('locId') for obs in geo_data if obs.get('speciesCode') == resultados["ebird_code"])
-                                count_especie = len(locs_especie)
-                                
-                                if total_locais > 0:
-                                    freq = (count_especie / total_locais) * 100
-                                    freq_formatada = f"{freq:.1f}%"
-                                    
-                                    if freq < 5:
-                                        resultados["raridade_regional"] = f"Rara ({freq_formatada} de presença local)"
-                                    elif 5 <= freq <= 20:
-                                        resultados["raridade_regional"] = f"Incomum ({freq_formatada} de presença local)"
-                                    else:
-                                        resultados["raridade_regional"] = f"Comum ({freq_formatada} de presença local)"
-                                else:
-                                     resultados["raridade_regional"] = "Sem dados recentes na região"
-                            else:
-                                 resultados["raridade_regional"] = "Erro ao calcular raridade"
-                        else:
-                            resultados["raridade_regional"] = "Geolocalização indisponível"
-                    else:
-                        print("[eBird Worker] Espécie não encontrada na taxonomia Clements/eBird.")
-                        is_fallback = True
-                else:
-                    print(f"[eBird Worker] Erro na API eBird Taxonomia: {resp_tax.status_code}")
-                    is_fallback = True
-                    
-            except Exception as e:
-                print(f"[eBird Worker] Erro GERAL no eBird: {e}")
-                is_fallback = True
-        else:
-            print("[eBird Worker] Chave eBird ausente. Usando Fallback iNaturalist.")
-            is_fallback = True
 
         # Fallback iNaturalist
         if is_fallback:

@@ -396,11 +396,25 @@ class AudioPlayerWidget(QWidget):
              
         # Montagem do HTML Semântico e Elegante V0.4
         info_html = ""
+        # 1. Título/Tipo + Distância
         if self.tipo_canto:
              dist_str = f" • a {int(self.audio_data.get('distancia'))}km de você" if (isinstance(self.audio_data, dict) and self.audio_data.get('distancia') not in [None, float('inf')]) else ""
              info_html += f"<b>{self.tipo_canto}</b>{dist_str}<br>"
+        
+        # 2. Autor e Metadata Temporal
+        id_str = f" [ID: {self.audio_data.get('id')}]" if (isinstance(self.audio_data, dict) and self.audio_data.get('id')) else ""
+        info_html += f"Gravado por {self.autor}{id_str} em {data_grav} ({duracao}) "
+        if isinstance(self.audio_data, dict) and self.audio_data.get('q'):
+             info_html += f"• <b style='color: #059669;'>{self.audio_data['q']}</b>"
+        info_html += "<br>"
+        
+        # 3. Comentários (Opcional - Útil para iNaturalist v0.8.6)
+        comentarios = self.audio_data.get('comentarios', '') if isinstance(self.audio_data, dict) else ""
+        if comentarios:
+             # Limitar tamanho dos comentários para não quebrar o layout
+             coment_curto = (comentarios[:60] + '...') if len(comentarios) > 60 else comentarios
+             info_html += f"<i style='color: #4B5563;'>\"{coment_curto}\"</i><br>"
              
-        info_html += f"Gravado por {self.autor} em {data_grav} ({duracao})<br>"
         info_html += f"<span style='color: #6B7280; font-size: 10px;'>Fonte: {self.fonte} ({licenca})</span>"
 
         lbl_info = QLabel(info_html)

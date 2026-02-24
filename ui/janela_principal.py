@@ -84,9 +84,6 @@ class JanelaPrincipal(QMainWindow):
         # Reforço de Title Bar Dark (v0.7.2)
         StyleManager.setup_window_theme(self)
         
-        # O Porteiro (Aviso de Funcionalidades em Falta - v0.3.41)
-        from ui.dialogs.startup_status_dialog import StartupStatusDialog
-        StartupStatusDialog.verificar_e_exibir(self)
         # Ajuste inicial de alturas
         # QTimer.singleShot(100, lambda: self._ajustar_altura_etimologia())
         # QTimer.singleShot(100, lambda: self._ajustar_altura_descricao())
@@ -257,7 +254,7 @@ class JanelaPrincipal(QMainWindow):
              lat = self.lat_atual
              lon = self.lon_atual
              add_marker = True
-             zoom_level = 10
+             zoom_level = 6
 
              # Fallback: Se não tem coords, usa Centro do Brasil apenas para mostrar a distribuição
              if lat is None or lon is None:
@@ -271,10 +268,11 @@ class JanelaPrincipal(QMainWindow):
              try:
                  self.map_principal.update_map(lat, lon, zoom=zoom_level, add_marker=add_marker, scientific_name=sciname)
                  
-                 # GeoAnalyst: Só roda se tivermos localização real (marker=True)
+                 # GeoAnalyst: Removido disparo manual v0.8.9. 
+                 # A cascata 2 -> 3 agora é gerida exclusivamente pelo Orchestrator para evitar crash de threads.
                  if add_marker:
-                     self._atualizar_geo_info(lat, lon)
-                     print("[UI] GeoAnalyst atualizado com dados reais.")
+                     # Apenas atualizamos a label visual na UI, se necessário
+                     pass
                  
                  print("[UI] Mapa renderizado com sucesso.")
              except Exception as e:
@@ -411,21 +409,7 @@ class JanelaPrincipal(QMainWindow):
         layout_ajuda.addWidget(self.btn_ajuda)
         
         # Novo: Botão de Configurações
-        self.btn_config_global = QPushButton()
-        self.btn_config_global.setFixedSize(40, 40)
-        self.btn_config_global.setProperty("class", "icon-btn")
-        self.btn_config_global.setCursor(Qt.PointingHandCursor)
-        self.btn_config_global.setToolTip("Configurações do Sistema")
-        caminho_config = self._obter_caminho_asset("icon_config.svg")
-        if os.path.exists(caminho_config):
-            self.btn_config_global.setIcon(QIcon(caminho_config))
-            self.btn_config_global.setIconSize(QSize(24, 24))
-        else:
-            self.btn_config_global.setText("⚙")
-        self.btn_config_global.setFont(QFont("Segoe UI", 16, QFont.Bold))
-        self.btn_config_global.clicked.connect(lambda: __import__("ui.dialogs.api_settings_dialog", fromlist=["APISettingsDialog"]).APISettingsDialog(self).exec())
-        
-        layout_ajuda.addWidget(self.btn_config_global)
+        pass
         
         # --- SOLDA CIRÚRGICA DE BRANDING PERDIDA NA FASE L ---
         layout_header.addLayout(layout_ajuda)
@@ -675,12 +659,6 @@ class JanelaPrincipal(QMainWindow):
         
         layout_res.addLayout(layout_botoes)
         
-        # Etapa 5 (Taxonomia Fallback)
-        self.lbl_ebird_fallback = QLabel("<a href='ebird' style='color: #4B5563; font-style: italic; font-size: 11px; text-decoration: none;'>Taxonomia: Acesso aos dados não configurado</a>")
-        self.lbl_ebird_fallback.linkActivated.connect(lambda link: self._abrir_configuracoes_ebird())
-        self.lbl_ebird_fallback.setVisible(False)
-        layout_res.addWidget(self.lbl_ebird_fallback)
-        
         # --- Card Etimologia ---
         self.frame_etimologia = QFrame()
         self.frame_etimologia.setObjectName("frame_etimologia")
@@ -749,12 +727,6 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_geo_details.setVisible(False) 
         
         layout_geo.addWidget(self.lbl_geo_details)
-        
-        # Etapa 3 (IUCN Fallback)
-        self.lbl_iucn_fallback = QLabel("<a href='iucn' style='color: #4B5563; font-style: italic; font-size: 11px; text-decoration: none;'>IUCN: Acesso aos dados não configurado</a>")
-        self.lbl_iucn_fallback.linkActivated.connect(lambda link: self._abrir_configuracoes_iucn())
-        self.lbl_iucn_fallback.setVisible(False)
-        layout_geo.addWidget(self.lbl_iucn_fallback)
         
         grupo_geo.setLayout(layout_geo)
         layout_res.addWidget(grupo_geo)
@@ -1110,10 +1082,8 @@ class JanelaPrincipal(QMainWindow):
                 print(f"[DEBUG GPS] Nome científico detectado (Estado/Flag): '{sci_name}'")
                 
                 if sci_name and sci_name != "Identificação Inconclusiva" and "..." not in sci_name:
-                    print(f"[UI] Espécie '{sci_name}' já identificada. Refinando apenas dados regionais...")
+                    print(f"[UI] Espécie '{sci_name}' já identificada. Refinando apenas dados regionais via _atualizar_geo_info...")
                     self.status_bar.showMessage("Localização atualizada. Refinando dados regionais...")
-                    self.orchestrator.update_location(lat, lon)
-                    self.orchestrator.start_step3_geography(sci_name)
                 else:
                     self._identificar_ave()
 
@@ -1171,10 +1141,7 @@ class JanelaPrincipal(QMainWindow):
         from PySide6.QtCore import QSettings
         settings = QSettings("iBirder", "App")
         import os
-        if not settings.value("ebird_api_key", os.environ.get("EBIRD_API_KEY", "")).strip():
-            self.lbl_ebird_fallback.setVisible(True)
-        else:
-            self.lbl_ebird_fallback.setVisible(False)
+        pass
         self.dados_identificacao_atual = dados
         
         nc = dados.get("nome_comum", "-")
@@ -1288,18 +1255,6 @@ class JanelaPrincipal(QMainWindow):
         if not layout:
             return
 
-        # Nudge de Ativação (Dona Maria) v0.4.1
-        if resultados and isinstance(resultados[0], dict) and resultados[0].get("status") == "KEY_MISSING":
-            self.lbl_audio_placeholder.setVisible(False)
-            btn_nudge = QPushButton("Clique aqui para ativar o som das aves")
-            btn_nudge.setProperty("class", "alert-nudge")
-            btn_nudge.setCursor(Qt.PointingHandCursor)
-            btn_nudge.clicked.connect(lambda: __import__("ui.dialogs.api_settings_dialog", fromlist=["APISettingsDialog"]).APISettingsDialog(self).exec())
-            layout.addWidget(btn_nudge)
-            # Guardamos para limpeza no reset
-            if not hasattr(self, 'active_audio_players'): self.active_audio_players = []
-            self.active_audio_players.append(btn_nudge)
-            return
 
         # Adiciona players (v0.4.3)
         for audio in resultados:
@@ -1328,16 +1283,32 @@ class JanelaPrincipal(QMainWindow):
         audio_markers = []
         for audio in resultados:
             if audio.get('lat') is not None and audio.get('lon') is not None:
+                tipo = audio.get('tipo_canto')
+                title = f"{tipo} - {audio.get('autor', 'Gravador')}" if tipo else f"Graveção de {audio.get('autor', 'Autor')}"
                 audio_markers.append({
                      'lat': audio['lat'],
                      'lon': audio['lon'],
-                     'title': f"{audio.get('tipo_canto')} - {audio.get('autor', 'Gravador')}"
+                     'title': title
                 })
         
         if audio_markers:
             print(f"[UI] Plotando {len(audio_markers)} pins musicais no mapa.")
             sci = self._obter_sciname_atual()
-            self.map_principal.update_map(self.lat_atual, self.lon_atual, zoom=6, add_marker=True, scientific_name=sci, audio_markers=audio_markers)
+            
+            # Localização de centralização (v0.8.1: Fallback se GPS ausente)
+            lat = self.lat_atual
+            lon = self.lon_atual
+            add_main_marker = True
+            
+            if lat is None or lon is None:
+                lat = -15.7801
+                lon = -47.9292
+                add_main_marker = False
+                current_zoom = 4
+            else:
+                current_zoom = 6
+                
+            self.map_principal.update_map(lat, lon, zoom=current_zoom, add_marker=add_main_marker, scientific_name=sci, audio_markers=audio_markers)
 
     def _registrar_audio_session(self, audio):
         if not audio or not hasattr(self, 'session_logger'):
@@ -1354,7 +1325,9 @@ class JanelaPrincipal(QMainWindow):
             "audio_lon": audio.get('lon'),
             "audio_distancia_km": audio.get('distancia'),
             "audio_link_web": audio.get('link_web', ''),
-            "audio_source": audio.get('fonte', 'Xeno-canto')
+            "audio_source": audio.get('fonte', 'Xeno-canto'),
+            "audio_data_gravacao": audio.get('data', 'Desconhecida'),
+            "audio_comentarios": audio.get('comentarios', '')
         }
         self.session_logger.atualizar_ultimo_registro(dados_etapa_4)
 
@@ -1372,6 +1345,11 @@ class JanelaPrincipal(QMainWindow):
         
         # Limpar áudios anteriores para nova busca geo-sincronizada (v0.4.3)
         self._limpar_painel_audio()
+
+        # CONEXÃO COM O CÉREBRO (v0.8.9)
+        # Sincroniza as coordenadas no Orchestrator usando o fluxo centralizado de reprocessamento
+        if self.orchestrator:
+             self.orchestrator.reprocessar_localizacao(lat, lon)
 
     def _ao_clicar_pin_audio(self, audio_id):
         """Lida com o clique no pin de áudio do mapa, destacando o player UI (v0.4.4)."""
@@ -1419,44 +1397,6 @@ class JanelaPrincipal(QMainWindow):
 
         # 2. Registro em Segundo Plano (v0.4.33)
         self._registrar_dados_geo_iucn()
-        
-        # 3. IUCN Fallback Alert
-        from PySide6.QtCore import QSettings
-        settings = QSettings("iBirder", "App")
-        import os
-        if not settings.value("iucn_api_key", os.environ.get("TOKEN_IUCN", "")).strip():
-            self.lbl_iucn_fallback.setVisible(True)
-        else:
-            self.lbl_iucn_fallback.setVisible(False)
-        
-        # Ativar Placeholder Etapa 3 (se a chave nao existe)
-        from PySide6.QtCore import QSettings
-        settings = QSettings("iBirder", "App")
-        import os
-        if not settings.value("iucn_api_key", os.environ.get("TOKEN_IUCN", "")).strip():
-            self.lbl_iucn_fallback.setVisible(True)
-        else:
-            self.lbl_iucn_fallback.setVisible(False)
-
-    # --- IUCN e Integração Geoespacial (v0.3.19) ---
-    def _abrir_configuracoes_iucn(self):
-        from modules.step3_geography.iucn_ui import IUCNSettingsDialog
-        dlg = IUCNSettingsDialog(self)
-        if dlg.exec() == QDialog.Accepted:
-            # Re-disparar worker caso chave inserida no meio de uma sessao
-            sci = self._obter_sciname_atual()
-            if sci and "Inconclusiva" not in sci:
-                if hasattr(self, 'orchestrator'):
-                    self.orchestrator.start_step3_geography(sci)
-
-    def _abrir_configuracoes_ebird(self):
-        from modules.step5_taxonomy.ebird_ui import EBirdSettingsDialog
-        dlg = EBirdSettingsDialog(self)
-        if dlg.exec() == QDialog.Accepted:
-            sci = self._obter_sciname_atual()
-            if sci and "Inconclusiva" not in sci:
-                if hasattr(self, 'orchestrator'):
-                    self.orchestrator.start_step5_taxonomy(sci)
         
     def _ao_concluir_iucn(self, results):
         self.last_iucn_data = results
@@ -1613,8 +1553,7 @@ class JanelaPrincipal(QMainWindow):
         
         self.lbl_geo_details.setText("Aguardando localização...")
         self.lbl_geo_details.setVisible(False)
-        self.lbl_iucn_fallback.setVisible(False)
-        self.lbl_ebird_fallback.setVisible(False)
+        pass
         
         # 5. Reset de Campos de Texto
         self.txt_descricao.clear()

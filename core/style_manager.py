@@ -335,6 +335,21 @@ class StyleManager:
             .container-borda-cinza {{ border: 1px solid {border}; border-radius: 6px; padding: 4px; color: {text_primary}; }}
             .container-borda-cinza-fill {{ background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 6px; padding: 6px; color: #1F2937; font-size: 11px; }}
             
+            /* Botão Fechar Modal (Lightbox) */
+            QPushButton.btn-fechar-modal {{
+                background-color: transparent;
+                color: #374151;
+                border: none;
+                font-size: 16px;
+                font-weight: bold;
+                padding: 0px;
+                border-radius: 16px;
+            }}
+            QPushButton.btn-fechar-modal:hover {{
+                background-color: #F3F4F6;
+                color: #1F2937;
+            }}
+            
             /* Overlays de Alerta */
             QFrame#overlay_alert {{
                 background-color: {"rgba(254, 243, 199, 0.95)" if not dark_mode else "rgba(69, 26, 3, 0.9)"};

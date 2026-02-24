@@ -17,34 +17,11 @@ class IUCNWorker(QThread):
     def run(self):
         print(f"[IUCN Worker] Iniciando processamento para {self.scientific_name}")
         # 1. Obter Status da IUCN
-        settings = QSettings("iBirder", "App")
-        token = settings.value("iucn_api_key", os.environ.get("TOKEN_IUCN", "")).strip()
+        # Transição API-Free (v0.8.0): IUCN API desativada.
         iucn_status = "Não Avaliado"
         url_iucn = ""
-        is_fallback = False
+        is_fallback = True
         
-        if token:
-            try:
-                 api_url = f"https://apiv3.iucnredlist.org/api/v3/species/{self.scientific_name}?token={token}"
-                 print(f"[IUCN Worker] Consultando API IUCN...")
-                 resp = requests.get(api_url, timeout=10)
-                 if resp.status_code == 200:
-                     data = resp.json()
-                     if data.get("result"):
-                         iucn_status = data["result"][0].get("category", "Não Avaliado")
-                         url_iucn = f"https://www.iucnredlist.org/search?query={self.scientific_name.replace(' ', '+')}&searchType=species"
-                         print(f"[IUCN Worker] Status IUCN oficial: {iucn_status}")
-                     else:
-                         print("[IUCN Worker] Espécie não retornou resultados na IUCN Red List oficial.")
-                 else:
-                     print(f"[IUCN Worker] Erro HTTP IUCN: {resp.status_code}. Tentando fallback.")
-                     is_fallback = True
-            except Exception as e:
-                 print(f"[IUCN Worker] Erro na API da IUCN: {e}. Tentando fallback.")
-                 is_fallback = True
-        else:
-            print("[IUCN Worker] IUCN API Key ausente. Ativando Fallback para iNaturalist.")
-            is_fallback = True
             
         # URL oficial (sempre formamos o search, pra ajudar o usuario msm que nao tenha a exata string da categoria)
         if not url_iucn:

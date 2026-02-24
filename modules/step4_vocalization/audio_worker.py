@@ -58,16 +58,20 @@ class AudioWorker(QThread):
 
         results = []
         try:
-            # 1. Tentativa Xeno-canto (Hierárquica)
-            results = self._search_xeno_canto()
+            # 1. Obter resultados de ambas as fontes (v0.8.7)
+            xeno_results = self._search_xeno_canto()
+            inat_results = self._search_inaturalist()
             
-            # 2. Fallback iNaturalist se Xeno-canto não retornou nada
-            if not results:
-                print(f"[AUDIO] Xeno-canto sem resultados para {self.scientific_name}. Tentando iNaturalist...")
-                results = self._search_inaturalist()
+            # 2. Unificar e Rankear: Qualidade (DESC) > Distância (ASC)
+            all_audios = xeno_results + inat_results
+            all_audios.sort(key=lambda x: (-x.get('q_score', 0), x.get('distancia', float('inf'))))
             
-            if results:
-                self.audio_found.emit(results)
+            # 3. Limitar aos 3 melhores registros conforme solicitado
+            final_results = all_audios[:3]
+            
+            if final_results:
+                print(f"[AUDIO] Ranking concluído. {len(final_results)} melhores áudios selecionados (Top Quality > Proximidade).")
+                self.audio_found.emit(final_results)
             else:
                 self.search_failed.emit()
 
@@ -77,26 +81,19 @@ class AudioWorker(QThread):
             self.search_failed.emit()
 
     def _get_xeno_recordings(self, query):
-        """Executa a chamada real para a API do Xeno-canto."""
+        """Executa a chamada para a API pública do Xeno-canto (Transição API-Free)."""
         import urllib.parse
-        from core.config import carregar_config
         
-        config = carregar_config()
-        xc_key = config.get("xc_api_key", "").strip()
-        if not xc_key:
-            return "KEY_MISSING"
-
         headers = {"User-Agent": "iBirder-App/1.0"}
         quoted_query = urllib.parse.quote(query)
-        url = f"https://xeno-canto.org/api/3/recordings?query={quoted_query}&key={xc_key}"
+        # O Xeno-canto permite buscas públicas sem necessidade de chave
+        url = f"https://xeno-canto.org/api/3/recordings?query={quoted_query}"
         
         try:
             resp = requests.get(url, headers=headers, timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
                 return data.get('recordings', [])
-            elif resp.status_code == 401:
-                return "KEY_INVALID"
         except Exception:
             pass
         return []
@@ -131,14 +128,20 @@ class AudioWorker(QThread):
             # Distância (Apenas para exibição)
             dist = haversine_distance(self.lat, self.lon, r_lat, r_lng) if self.lat else float('inf')
 
+            # Pontuação de Qualidade (Xeno-canto: A=5, B=4, C=3, D=2, E=1)
+            q_map = {'A': 5, 'B': 4, 'C': 3, 'D': 2, 'E': 1}
+            q_score = q_map.get(str(rec.get('q', '')).upper(), 1)
+
             processed.append({
                 'raw': rec,
                 'distancia': dist,
                 'type': clean_type,
                 'q': rec.get('q'),
+                'q_score': q_score,
                 'lat': r_lat,
                 'lon': r_lng,
-                'id': rec.get('id')
+                'id': rec.get('id'),
+                'comentarios': rec.get('remarks', '') or rec.get('notes', '')
             })
         return processed
 
@@ -169,7 +172,7 @@ class AudioWorker(QThread):
                         'url': rec.get('file'),
                         'autor': rec.get('rec', 'Desconhecido'),
                         'licenca': rec.get('lic', 'CC BY-NC'),
-                        'data': rec.get('date', 'Desconhecido'),
+                        'data': rec.get('date', 'Desconhecida'),
                         'duracao': rec.get('length', '0:00'),
                         'fonte': 'Xeno-canto',
                         'tipo_canto': tipo_str if t != 'other' else str(rec.get('type')).capitalize(),
@@ -179,7 +182,9 @@ class AudioWorker(QThread):
                         'lon': item['lon'],
                         'link_web': "https://xeno-canto.org/" + str(rec.get('id', '')),
                         'id': rec.get('id'),
-                        'q': item['q']
+                        'q': item['q'],
+                        'q_score': item['q_score'],
+                        'comentarios': item['comentarios']
                     }
                     faltantes.remove(t)
 
@@ -229,14 +234,23 @@ class AudioWorker(QThread):
 
                 for sound in obs.get('sounds', []):
                     if file_url := sound.get('file_url'):
+                        # Métrica Social de Qualidade (v0.8.7): 0-2 votos=2, 3+ votos=4
+                        votos = obs.get('faves_count', 0)
+                        social_q = 4 if votos >= 3 else 2
+                        
                         audios.append({
                             'url': file_url,
                             'autor': obs.get('user', {}).get('login', 'Desconhecido'),
                             'fonte': 'iNaturalist',
-                            'tipo_canto': 'Gravação Geral',
-                            'distancia_texto': '',
+                            'data': obs.get('observed_on_string', 'Desconhecida'),
+                            'comentarios': obs.get('description', ''),
+                            'link_web': f"https://www.inaturalist.org/observations/{obs.get('id')}",
+                            'id': obs.get('id'),
                             'lat': obs_lat,
-                            'lon': obs_lon
+                            'lon': obs_lon,
+                            'distancia': haversine_distance(self.lat, self.lon, obs_lat, obs_lon) if self.lat else float('inf'),
+                            'q': f"⭐ {votos}",
+                            'q_score': social_q
                         })
                         break
                 if len(audios) >= 2: break
