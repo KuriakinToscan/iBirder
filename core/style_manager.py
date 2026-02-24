@@ -198,10 +198,10 @@ class StyleManager:
                 color: {text_primary};
             }}
             QListWidget::item:hover, QListView::item:hover {{
-                background-color: {"#F3F4F6" if not dark_mode else "#374151"};
+                background-color: #F3F4F6;
             }}
             QListWidget::item:selected, QListView::item:selected {{
-                background-color: {"#E5E7EB" if not dark_mode else "#4B5563"};
+                background-color: #E5E7EB;
                 color: {text_primary};
             }}
 
@@ -242,7 +242,7 @@ class StyleManager:
             
             /* Botões Ícone */
             QPushButton[class="icon-btn"] {{ background-color: transparent; color: {text_secondary}; padding: 4px; border: none; }}
-            QPushButton[class="icon-btn"]:hover {{ background-color: {"#E5E7EB" if not dark_mode else "#4B5563"}; border-radius: 4px; }}
+            QPushButton[class="icon-btn"]:hover {{ background-color: #E5E7EB; border-radius: 4px; }}
             
             /* Botões de Link */
             QPushButton.btn-link {{
@@ -256,7 +256,7 @@ class StyleManager:
             }}
             QPushButton.btn-link:hover {{ color: #2563EB; }}
 
-            /* Menus (Harmonização v0.6.7) */
+            /* Menus (Harmonização v0.6.7+ - Blindagem 2.0) */
             QMenu {{
                 background-color: #FFFFFF !important;
                 border: 1px solid #D1D5DB !important;
@@ -264,11 +264,11 @@ class StyleManager:
                 padding: 6px !important;
             }}
             QMenu::item {{
+                background-color: transparent !important;
                 color: #1F2937 !important;
                 padding: 8px 32px 8px 12px !important;
                 border-radius: 6px !important;
                 margin: 2px 4px !important;
-                background-color: transparent !important;
             }}
             QMenu::item:selected {{
                 background-color: #F3F4F6 !important;
@@ -326,6 +326,7 @@ class StyleManager:
             /* Classes Abstratas para Widgets Customizados */
             .lbl-titulo-sessao {{ font-weight: bold; color: {text_secondary}; font-size: 11px; }}
             .container-borda-cinza {{ border: 1px solid {border}; border-radius: 6px; padding: 4px; color: {text_primary}; }}
+            .container-borda-cinza-fill {{ background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 6px; padding: 6px; color: #1F2937; font-size: 11px; }}
             
             /* Overlays de Alerta */
             QFrame#overlay_alert {{
