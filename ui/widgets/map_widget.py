@@ -162,7 +162,8 @@ class MapWidget(QWebEngineView):
                 name='Dist. Geográfica (GBIF)',
                 overlay=True, 
                 control=True, 
-                show=True
+                show=True,
+                opacity=0.5
             ).add_to(m)
 
             if add_marker:

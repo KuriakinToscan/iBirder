@@ -77,6 +77,9 @@ class Orchestrator(QObject):
         self.current_lon = None
         self.has_location = False # Flag de estado (v0.4.3)
         
+        # Travas de Redundância v0.8.9
+        self._last_geo_run = {"sci_name": None, "lat": None, "lon": None}
+        
         # Inteligência Evolutiva (OTA Updater)
         import time
         start_ota_time = time.time()
@@ -278,24 +281,38 @@ class Orchestrator(QObject):
     # --- Etapa 3 ---
     def start_step3_geography(self, sci_name):
         """Etapa 3: Geografia (IUCN + GeoAnalyst/Nominatim)."""
+        # Trava de Redundância Atômica v0.8.9
+        if (self._last_geo_run["sci_name"] == sci_name and 
+            self._last_geo_run["lat"] == self.current_lat and 
+            self._last_geo_run["lon"] == self.current_lon):
+            print(f"[Orchestrator] Geografia para {sci_name} já processada nesta posição. Ignorando disparo redundante.")
+            return
+
+        self._last_geo_run = {"sci_name": sci_name, "lat": self.current_lat, "lon": self.current_lon}
         self._last_sci_name = sci_name
         
-        # 3A. IUCN
-        config = carregar_config()
-        token = config.get("iucn_api_key", "").strip() or os.environ.get("TOKEN_IUCN", "").strip()
-        
-        if not token:
-            print("[Orchestrator] Chave IUCN ausente. Aguardando fallback biológico (WikiAves).")
-            self.esperando_fallback_iucn = True
-        else:
-            if self.iucn_worker: self.iucn_worker.deleteLater()
-            self.iucn_worker = IUCNWorker(sci_name, parent=self)
-            self.iucn_worker.finished.connect(self._on_step3_finished)
-            self.iucn_worker.start()
+        if self.iucn_worker:
+            try:
+                self.iucn_worker.finished.disconnect()
+                # Não deletamos imediatamente se estiver rodando para evitar crash
+                if not self.iucn_worker.isRunning():
+                    self.iucn_worker.deleteLater()
+            except: pass
+            
+        self.iucn_worker = IUCNWorker(sci_name, parent=self)
+        self.iucn_worker.finished.connect(self._on_step3_finished)
+        self.iucn_worker.start()
 
         # 3B. GeoAnalyst (Nominatim/Pampa) - Sempre roda se tivermos coords ou para centroide
         if self.current_lat and self.current_lon:
-            if self.geo_worker: self.geo_worker.deleteLater()
+            if self.geo_worker:
+                try:
+                    self.geo_worker.finished.disconnect()
+                    # Não deletamos imediatamente se estiver rodando v0.8.9
+                    if not self.geo_worker.isRunning():
+                        self.geo_worker.deleteLater()
+                except: pass
+                
             self.geo_worker = GeoWorker(self.current_lat, self.current_lon, parent=self)
             self.geo_worker.finished.connect(self._on_step3_geo_finished)
             self.geo_worker.start()
@@ -415,28 +432,6 @@ class Orchestrator(QObject):
         if sci_name in self.species_cache:
             print(f"[Orchestrator] Cache Hit em eBird Taxonomia para {sci_name}. Pulando Thread!")
             self._on_step5_finished(self.species_cache[sci_name])
-            return
-
-        config = carregar_config()
-        token = config.get("ebird_api_key", "").strip() or os.environ.get("EBIRD_API_KEY", "").strip()
-        
-        if not token:
-            print("[Orchestrator] Chave eBird ausente. Evitando instanciar Thread e usando fallback rápido.")
-            fallback_res = {
-                "nome_ingles": "Desconhecido", "classe": "Aves", "ordem": "Desconhecida",
-                "familia": "Desconhecida", "ebird_code": "", "raridade_regional": "Não Avaliado (Fallback Local)", "link_ebird": ""
-            }
-            try:
-                resp = requests.get(f"https://api.inaturalist.org/v1/taxa?q={sci_name}&is_active=true&rank=species", timeout=3)
-                if resp.status_code == 200 and resp.json().get("results"):
-                    taxon = resp.json()["results"][0]
-                    fallback_res["nome_ingles"] = taxon.get("english_common_name", "Desconhecido")
-                    for anc in taxon.get("ancestors", []):
-                        if anc.get("rank") == "order": fallback_res["ordem"] = anc.get("name", "Desconhecida").capitalize()
-                        elif anc.get("rank") == "family": fallback_res["familia"] = anc.get("name", "Desconhecida").capitalize()
-            except Exception: pass
-            
-            self._on_step5_finished(fallback_res, sci_name=sci_name)
             return
 
         if self.ebird_worker: self.ebird_worker.deleteLater()
