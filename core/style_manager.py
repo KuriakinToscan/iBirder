@@ -359,39 +359,44 @@ class StyleManager:
         """
 
     @staticmethod
-    def setup_window_theme(window):
-        """Ajusta a Title Bar via DWM API para combinar com o tema (v0.6.3.1)."""
+    def setup_window_theme(window, force_dark=True):
+        """
+        Ajusta a Title Bar via DWM API para combinar com o tema (v0.8.0).
+        Utiliza Immersive Dark Mode e Força Refresh de Frame (SWP_FRAMECHANGED).
+        """
         if platform.system() != "Windows":
             return
             
         try:
             from ctypes import wintypes
+            import ctypes
+            
             hwnd = window.winId()
             if hasattr(hwnd, 'id'): hwnd = hwnd.id()
             
-            # Garantir tipagem HWND para 64-bit (Prevenir crash silencioso)
             handle = wintypes.HWND(hwnd)
             dark_mode = StyleManager.detect_dark_mode()
             
-            # 1. Ativar modo escuro imersivo na barra
-            # DWMWA_USE_IMMERSIVE_DARK_MODE = 20
-            mode = ctypes.c_int(1 if dark_mode else 0)
-            ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                handle, 20, ctypes.byref(mode), ctypes.sizeof(mode)
-            )
+            is_dark = 1 if (dark_mode or force_dark) else 0
+            mode = ctypes.c_int(is_dark)
             
-            # 2. Cor da Barra (DWMWA_CAPTION_COLOR = 35)
-            # Valor em 0x00RRGGBB (B e R invertidos para BGR)
-            bg_color = ctypes.c_int(0x00514137 if not dark_mode else 0x00271811)
-            ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                handle, 35, ctypes.byref(bg_color), ctypes.sizeof(bg_color)
-            )
+            # 1. Ativar modo escuro imersivo (Compatibilidade Win10/11)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(handle, 19, ctypes.byref(mode), ctypes.sizeof(mode))
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(handle, 20, ctypes.byref(mode), ctypes.sizeof(mode))
             
-            # 3. Cor do Texto (DWMWA_TEXT_COLOR = 36)
+            # 2. Cor da Barra e Texto (v0.8.0: Re-introduzidos para consistência visual)
+            # DWMWA_CAPTION_COLOR = 35, DWMWA_TEXT_COLOR = 36
+            # iBirder Dark Gray: #374151 -> BGR: 0x00514137
+            bg_color = ctypes.c_int(0x00514137)
             text_color = ctypes.c_int(0x00FFFFFF)
-            ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                handle, 36, ctypes.byref(text_color), ctypes.sizeof(text_color)
-            )
+            
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(handle, 35, ctypes.byref(bg_color), ctypes.sizeof(bg_color))
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(handle, 36, ctypes.byref(text_color), ctypes.sizeof(text_color))
+            
+            # 3. FORÇA REFRESH DE FRAME (CRÍTICO v0.8.0)
+            # Isso força o Windows 11 a re-calcular a área dos botões (Min/Max/Close)
+            # SWP_FRAMECHANGED = 0x0020, SWP_NOMOVE = 0x0002, SWP_NOSIZE = 0x0001, SWP_NOZORDER = 0x0004
+            ctypes.windll.user32.SetWindowPos(handle, 0, 0, 0, 0, 0, 0x0020 | 0x0002 | 0x0001 | 0x0004 | 0x0010)
             
         except Exception as e:
             print(f"[STYLE] Erro ao ajustar Title Bar: {e}")

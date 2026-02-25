@@ -29,8 +29,9 @@ from modules.step4_vocalization.audio_worker import AudioWorker
 from core.logger import save_crash_log
 from core.style_manager import StyleManager
 from ui.widgets.map_widget import MapWidget
-from ui.custom_widgets import ImageCardWidget, AudioPlayerWidget
+from ui.custom_widgets import ImageCardWidget, AudioPlayerWidget, VocalAuditCard
 from ui.dialogs.location_dialog import LocationDialog
+from ui.dialogs.vocal_detail_dialog import VocalDetailDialog
 from modules.step3_geography.geo_analyst import GeoAnalyst
 from core.session_logger import SessionLogger
 from modules.step3_geography.iucn_worker import IUCNWorker
@@ -697,7 +698,7 @@ class JanelaPrincipal(QMainWindow):
         lbl_titulo_audio.setProperty("margin-bottom", "md")
         layout_audio.addWidget(lbl_titulo_audio)
         
-        self.lbl_audio_placeholder = QLabel("Áudio não carregado")
+        self.lbl_audio_placeholder = QLabel("Aguardando localização do registro fotográfico ...")
         self.lbl_audio_placeholder.setAlignment(Qt.AlignCenter)
         self.lbl_audio_placeholder.setProperty("class", "container-borda-tracejada")
         layout_audio.addWidget(self.lbl_audio_placeholder)
@@ -1256,24 +1257,26 @@ class JanelaPrincipal(QMainWindow):
             return
 
 
-        # Adiciona players (v0.4.3)
-        for audio in resultados:
-            player = AudioPlayerWidget(
-                url=audio['url'], 
-                autor=audio['autor'], 
-                fonte=audio['fonte'], 
-                tipo_canto=audio.get('tipo_canto', ''), 
-                distancia_texto=audio.get('distancia_texto', ''),
+        # Adiciona cards de auditoria (v0.7.1)
+        # Os áudios já vêm ordenados pelo Ranking Concêntrico do AudioWorker
+        for i, audio in enumerate(resultados):
+            card = VocalAuditCard(
                 audio_data=audio,
-                on_play=self._registrar_audio_session,
+                ranking_index=i+1, # v0.7.3: Adiciona 1, 2, 3
+                on_click=self._abrir_detalhes_vocal,
                 parent=layout.parentWidget()
             )
-            layout.addWidget(player)
+            layout.addWidget(card)
             
             # Guardar referencia para limpeza futura
             if not hasattr(self, 'active_audio_players'):
                 self.active_audio_players = []
-            self.active_audio_players.append(player)
+            self.active_audio_players.append(card)
+            
+    def _abrir_detalhes_vocal(self, audio_data):
+        """Abre a janela de auditoria detalhada ao clicar no ícone vocal (v0.7.1)."""
+        dialog = VocalDetailDialog(audio_data, self)
+        dialog.exec()
             
     def _plotar_pins_audio(self, resultados):
         """Extrai coordenadas das vocalizações e plota no mapa (v0.4.3)."""
@@ -1559,6 +1562,9 @@ class JanelaPrincipal(QMainWindow):
         self.txt_descricao.clear()
         self.txt_etimologia.clear()
         self.txt_etimologia.setPlaceholderText("Aguardando identificação...")
+        
+        self.lbl_audio_placeholder.setText("Aguardando localização do registro fotográfico ...")
+        self.lbl_audio_placeholder.setVisible(True)
         
         # 6. Reset de Painéis e Mapas
         self.frame_etimologia.setVisible(False) 

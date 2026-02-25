@@ -445,3 +445,85 @@ class AudioPlayerWidget(QWidget):
         """Destaque visual temporário ao clicar no pin do mapa (v0.4.4)."""
         self.setStyleSheet("background-color: #FEF3C7; border: 2px solid #F59E0B; border-radius: 6px;")
         QTimer.singleShot(3000, lambda: self.setStyleSheet(""))
+
+class VocalAuditCard(QWidget):
+    """
+    Widget de Auditoria Vocal (v0.7.1).
+    Exibe um ícone responsivo (logo_ave_vocal.svg) e a distância do registro.
+    Ao clicar no ícone, dispara um callback para abrir detalhes.
+    """
+    def __init__(self, audio_data, ranking_index=None, on_click=None, parent=None):
+        super().__init__(parent)
+        self.audio_data = audio_data
+        self.ranking_index = ranking_index
+        self.on_click_callback = on_click
+        
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(8, 4, 8, 4)
+        layout.setSpacing(8)
+        
+        # 0. Número de Ordem (v0.7.3)
+        if self.ranking_index:
+            self.lbl_ranking = QLabel(f"{self.ranking_index}.")
+            self.lbl_ranking.setStyleSheet("color: #9CA3AF; font-size: 11px; font-weight: bold; min-width: 15px;")
+            layout.addWidget(self.lbl_ranking)
+        
+        # 1. Ícone Responsivo (Botão Flat v0.7.3)
+        self.btn_icon = QPushButton()
+        self.btn_icon.setCursor(Qt.PointingHandCursor)
+        self.btn_icon.setFixedSize(72, 72) # v0.7.5: Tamanho dobrado
+        
+        # Buscar ícone nos assets
+        icon_path = self._get_asset_path("logo_ave_vocal.svg")
+        if icon_path and os.path.exists(icon_path):
+            self.btn_icon.setIcon(QIcon(icon_path))
+            self.btn_icon.setIconSize(self.btn_icon.size() * 0.9)
+        else:
+            self.btn_icon.setText("📻")
+            
+        self.btn_icon.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                border: none;
+                padding: 0px;
+            }
+            QPushButton:hover {
+                background-color: #F3F4F6;
+                border-radius: 4px;
+            }
+        """)
+        
+        if self.on_click_callback:
+            self.btn_icon.clicked.connect(lambda: self.on_click_callback(self.audio_data))
+            
+        layout.addWidget(self.btn_icon)
+        
+        # 2. Texto de Distância
+        dist = self.audio_data.get('distancia_km', 0)
+        # Formatação amigável
+        dist_str = f"{dist:.0f}" if dist >= 1 else f"{dist:.1f}"
+        
+        self.lbl_distancia = QLabel(f"Registrado a {dist_str} km do local da fotografia.")
+        self.lbl_distancia.setStyleSheet("color: #4B5563; font-size: 11px; font-weight: 500;")
+        self.lbl_distancia.setWordWrap(True)
+        
+        layout.addWidget(self.lbl_distancia, stretch=1)
+        
+        # Estilo do Card
+        self.setObjectName("vocal_audit_card")
+        self.setStyleSheet("""
+            QWidget#vocal_audit_card {
+                background-color: #FFFFFF;
+                border-bottom: 1px solid #F3F4F6;
+            }
+        """)
+
+    def _get_asset_path(self, filename):
+        # Reuso do método auxiliar existente no ImageCardWidget
+        if getattr(sys, 'frozen', False):
+             base_path = Path(sys._MEIPASS)
+        else:
+             base_path = Path(__file__).parent.parent / 'assets'
+        
+        full_path = base_path / filename
+        return str(full_path) if full_path.exists() else None
