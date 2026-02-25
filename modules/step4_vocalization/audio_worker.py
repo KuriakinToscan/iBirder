@@ -27,6 +27,17 @@ TRADUCOES_TIPO = {
     'alarm call': 'Alarme',
 }
 
+TRADUCOES_LICENCA = {
+    'cc-by': 'CC BY',
+    'cc-by-nc': 'CC BY-NC',
+    'cc-by-nd': 'CC BY-ND',
+    'cc-by-sa': 'CC BY-SA',
+    'cc-by-nc-nd': 'CC BY-NC-ND',
+    'cc-by-nc-sa': 'CC BY-NC-SA',
+    'cc0': 'CC0 (Domínio Público)',
+    'pd': 'Domínio Público',
+}
+
 MAPA_ESTADOS = {
     "ac": "acre", "al": "alagoas", "ap": "amapá", "am": "amazonas", "ba": "bahia",
     "ce": "ceará", "df": "distrito federal", "es": "espírito santo", "go": "goiás",
@@ -157,12 +168,20 @@ class AudioWorker(QThread):
                         votos = obs.get('faves_count', 0)
                         social_q = 4 if votos >= 3 else 2
                         
+                        licenca_raw = sound.get('license_code') or obs.get('license_code') or 'copyright'
+                        licenca = TRADUCOES_LICENCA.get(str(licenca_raw).lower(), "Direitos reservados")
+                        if licenca == "Direitos reservados" and licenca_raw != 'copyright':
+                             licenca = f"Alguns direitos reservados ({str(licenca_raw).upper()})"
+                        elif licenca == "Direitos reservados":
+                             licenca = "Todos os direitos reservados"
+
                         audios.append({
                             'url': file_url,
                             'link_audio': file_url,
                             'link_observacao': f"https://www.inaturalist.org/observations/{obs.get('id')}",
                             'id_original': obs.get('id'),
-                            'autor': obs.get('user', {}).get('login', 'Desconhecido'),
+                            'autor': obs.get('user', {}).get('name') or obs.get('user', {}).get('login', 'Desconhecido'),
+                            'licenca': licenca,
                             'fonte': 'iNaturalist',
                             'data': obs.get('observed_on_string', 'Desconhecida'),
                             'comentarios': obs.get('description', ''),

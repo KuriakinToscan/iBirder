@@ -499,11 +499,19 @@ class VocalAuditCard(QWidget):
         layout.addWidget(self.btn_icon)
         
         # 2. Texto de Distância
-        dist = self.audio_data.get('distancia_km', 0)
-        # Formatação amigável
-        dist_str = f"{dist:.0f}" if dist >= 1 else f"{dist:.1f}"
+        dist = self.audio_data.get('distancia_km')
+        import math
         
-        self.lbl_distancia = QLabel(f"Registrado a {dist_str} km do local da fotografia.")
+        if dist is None or dist == float('inf') or (isinstance(dist, float) and math.isinf(dist)):
+            # Fallback para quando o GPS da foto está ausente
+            localidade = self.audio_data.get('audit_geo', 'Local desconhecido')
+            texto_distancia = f"Registrado em {localidade} (GPS fotográfico indisponível)."
+        else:
+            # Formatação amigável para distâncias válidas
+            dist_str = f"{dist:.0f}" if dist >= 1 else f"{dist:.1f}"
+            texto_distancia = f"Registrado a {dist_str} km do local da fotografia."
+        
+        self.lbl_distancia = QLabel(texto_distancia)
         self.lbl_distancia.setStyleSheet("color: #4B5563; font-size: 11px; font-weight: 500;")
         self.lbl_distancia.setWordWrap(True)
         

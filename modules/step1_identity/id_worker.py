@@ -140,7 +140,7 @@ class LocalIdentificationWorker(QThread):
                  # Em vez de erro, retornamos um resultado "Inconclusivo" para a UI tratar
                  resultado = {
                     "nome_cientifico": "Identificação Inconclusiva",
-                    "nome_comum": "Não foi possível identificar com segurança",
+                    "nome_comum": "",
                     "descricao": "A foto pode estar pouco nítida ou a ave está muito distante.",
                     "confianca": float(confidence),
                     "status_msg": "Baixa confiança"
@@ -168,7 +168,7 @@ class LocalIdentificationWorker(QThread):
                 # Resultado
                 resultado = {
                     "nome_cientifico": top3_results[0]["nome_cientifico"],
-                    "nome_comum": "Analisando...", 
+                    "nome_comum": "", 
                     "descricao": "Identificado localmente (iNaturalist Vision).",
                     "confianca": float(confidence),
                     "top3": top3_results

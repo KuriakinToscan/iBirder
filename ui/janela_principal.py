@@ -561,20 +561,20 @@ class JanelaPrincipal(QMainWindow):
         # Grupo Resultados
         grupo_resultados = QGroupBox("") 
         layout_res = QVBoxLayout()
-        layout_res.setSpacing(8)
+        layout_res.setSpacing(StyleManager.SPACING_XS) # Espaçamento extra-compacto (v1.5.2)
         
-        self.lbl_nome_comum = QLabel("-")
+        self.lbl_nome_comum = QLabel("")
         self.lbl_nome_comum.setObjectName("lbl_nome_comum")
         self.lbl_nome_comum.setFont(QFont("Segoe UI", 13))
         self.lbl_nome_comum.setWordWrap(True)
         self.lbl_nome_comum.setTextInteractionFlags(Qt.TextSelectableByMouse)
         
-        self.lbl_confianca = QLabel("-")
+        self.lbl_confianca = QLabel("")
         self.lbl_confianca.setObjectName("lbl_confianca")
         self.lbl_confianca.setProperty("class", "lbl-titulo-sessao")
         self.lbl_confianca.setTextInteractionFlags(Qt.TextSelectableByMouse)
         
-        self.lbl_descricao = QLabel("-") 
+        self.lbl_descricao = QLabel("") 
         self.lbl_descricao.setObjectName("lbl_descricao")
         self.lbl_descricao.setWordWrap(True)
         self.lbl_descricao.setTextInteractionFlags(Qt.TextSelectableByMouse)
@@ -618,11 +618,24 @@ class JanelaPrincipal(QMainWindow):
         
         layout_res.addLayout(container_busca)
 
+        # --- SEÇÃO 3: IDENTIFICAÇÃO (Item 3 reconfigurado) ---
+        lbl_titulo_id = QLabel("Identificação")
+        lbl_titulo_id.setProperty("class", "lbl-titulo-sessao")
+        # margin-top removido para colagem cirúrgica (v1.5.1)
+        layout_res.addWidget(lbl_titulo_id)
+
+        layout_res.addWidget(self.lbl_nome_comum)
+        layout_res.addWidget(self.lbl_descricao)
+        
+        self.lbl_nome_comum.setVisible(False)
+        self.lbl_descricao.setVisible(False)
+        # self.lbl_confianca agora oculto, integrado na string de lbl_descricao (v1.5.0)
+        self.lbl_confianca.setVisible(False) 
+        
         # --- NOVOS CAMPOS: ETIMOLOGIA (Abaixo do Nome Científico) ---
         self.lbl_titulo_etimologia = QLabel('Etimologia <i>(WikiAves)</i>')
         self.lbl_titulo_etimologia.setProperty("class", "lbl-titulo-sessao")
-        self.lbl_titulo_etimologia.setProperty("margin-top", "md")
-        self.lbl_titulo_etimologia.setVisible(True)
+        # margin-top md mantido apenas se houver info acima, layout gerencia
         layout_res.addWidget(self.lbl_titulo_etimologia)
 
         self.txt_etimologia = QTextEdit()
@@ -636,9 +649,9 @@ class JanelaPrincipal(QMainWindow):
         layout_res.addWidget(self.txt_etimologia)
         # -------------------------------------------------------------
 
-        layout_res.addWidget(QLabel("Info:"))
-        layout_res.addWidget(self.lbl_descricao)
-        layout_res.addWidget(self.lbl_confianca)
+        # layout_res.addWidget(QLabel("Info:")) # Removido conforme nova hierarquia
+        # layout_res.addWidget(self.lbl_descricao) # Já adicionado acima na nova ordem
+        # layout_res.addWidget(self.lbl_confianca) # Já removido/ocultado acima
         
         # Botões de Busca Externa
         layout_botoes = QHBoxLayout()
@@ -691,26 +704,12 @@ class JanelaPrincipal(QMainWindow):
         
         self.frame_etimologia.setVisible(False)
         layout_res.addWidget(self.frame_etimologia)
-        
-        # --- NOVO: Card Vocalizações (v0.3.3) ---
-        grupo_audio = QGroupBox("")
-        grupo_audio.setProperty("class", "grupo-sessao-inferior")
-        layout_audio = QVBoxLayout()
-        
-        lbl_titulo_audio = QLabel("Vocalizações")
-        lbl_titulo_audio.setProperty("class", "lbl-titulo-sessao")
-        lbl_titulo_audio.setProperty("margin-bottom", "md")
-        layout_audio.addWidget(lbl_titulo_audio)
-        
-        self.lbl_audio_placeholder = QLabel("Aguardando localização do registro fotográfico ...")
-        self.lbl_audio_placeholder.setAlignment(Qt.AlignCenter)
-        self.lbl_audio_placeholder.setProperty("class", "container-borda-tracejada")
-        layout_audio.addWidget(self.lbl_audio_placeholder)
-        
-        grupo_audio.setLayout(layout_audio)
-        layout_res.addWidget(grupo_audio)
 
-        # --- NOVO: Card Informações Geográficas (v0.3.5) ---
+        self.btn_gravar_exif = QPushButton("Confirmar a identificação e gravar dados na fotografia.")
+        self.btn_gravar_exif.setCursor(Qt.PointingHandCursor)
+        # O user disse que definiremos a função do botão depois, então deixamos sem connect por enquanto.
+        layout_res.addWidget(self.btn_gravar_exif)
+        
         # --- NOVO: Card Dados Geográficos (v0.3.19 - Realocado) ---
         grupo_geo = QGroupBox("")
         grupo_geo.setProperty("class", "grupo-sessao-inferior")
@@ -726,15 +725,30 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_geo_details.setWordWrap(True)
         self.lbl_geo_details.setTextFormat(Qt.RichText)
         self.lbl_geo_details.setProperty("class", "container-borda-cinza-fill")
-        # Diferente da esquerda, aqui ele pode começar visivel como placeholder ou invisivel. 
-        # O User pediu para seguir formatação dos demais. Vamos manter visivel com placeholder ou vazio.
-        # Mas a logica de _ao_concluir atualiza o texto. Vamos iniciar vazio ou com msg.
         self.lbl_geo_details.setVisible(False) 
         
         layout_geo.addWidget(self.lbl_geo_details)
         
         grupo_geo.setLayout(layout_geo)
         layout_res.addWidget(grupo_geo)
+
+        # --- NOVO: Card Vocalizações (v0.3.3) ---
+        grupo_audio = QGroupBox("")
+        grupo_audio.setProperty("class", "grupo-sessao-inferior")
+        layout_audio = QVBoxLayout()
+        
+        self.lbl_vocal_title = QLabel("Vocalizações")
+        self.lbl_vocal_title.setProperty("class", "lbl-titulo-sessao")
+        self.lbl_vocal_title.setProperty("margin-bottom", "md")
+        layout_audio.addWidget(self.lbl_vocal_title)
+        
+        self.lbl_audio_placeholder = QLabel("<i>Aguardando localização geográfica da fotografia...</i>")
+        self.lbl_audio_placeholder.setAlignment(Qt.AlignCenter)
+        self.lbl_audio_placeholder.setProperty("class", "container-borda-tracejada")
+        layout_audio.addWidget(self.lbl_audio_placeholder)
+        
+        grupo_audio.setLayout(layout_audio)
+        layout_res.addWidget(grupo_audio)
         # ---------------------------------------------------
         
         grupo_resultados.setLayout(layout_res)
@@ -848,7 +862,10 @@ class JanelaPrincipal(QMainWindow):
 
         self.dados_identificacao_atual["nome_cientifico"] = sci_formatted
         self.especie_em_processamento = sci_formatted # Persistência Atômica v0.6.8
-        self.lbl_nome_comum.setText("...")
+        self.lbl_nome_comum.setText("")
+        self.lbl_nome_comum.setVisible(True)
+        self.lbl_descricao.setText("<i>Identificado pelo usuário.</i>")
+        self.lbl_descricao.setVisible(True)
         
         self.input_especie.setText(sci_formatted) # Garante o texto no widget
         
@@ -1165,6 +1182,7 @@ class JanelaPrincipal(QMainWindow):
         status_msg = dados.get("status_msg", "")
         
         self.lbl_nome_comum.setText(nc)
+        self.lbl_nome_comum.setVisible(bool(nc))
         
         if "Inconclusiva" not in status_msg and "Baixa" not in status_msg and sci:
             sci_clean = re.sub(r"[(\[].*?[)\]]", "", sci).strip()
@@ -1188,7 +1206,8 @@ class JanelaPrincipal(QMainWindow):
              self.input_especie.style().unpolish(self.input_especie)
              self.input_especie.style().polish(self.input_especie)
         
-        self.lbl_descricao.setText(desc)
+        self.lbl_descricao.setText(f"<i>Identificado com iNaturalist Vision (Prob {conf*100:.1f}%)</i>")
+        self.lbl_descricao.setVisible(True)
         
         if status_msg == "Baixa confiança":
             self.lbl_confianca.setText(f"{conf*100:.1f}% (Baixa)")
@@ -1205,7 +1224,7 @@ class JanelaPrincipal(QMainWindow):
             self.card_ref.set_pixmap(None)
             self.card_ref.set_overlay_text(None)
             
-            self.lbl_descricao.setText("Não foi possível identificar com segurança.\n\nUse o Google Lens para identificação manual")
+            self.lbl_descricao.setText("<i>Não foi possível identificar com segurança.</i><br><i>Use o Google Lens para identificação manual.</i>")
             self.btn_google_lens.setEnabled(True)
 
         else:
@@ -1348,7 +1367,7 @@ class JanelaPrincipal(QMainWindow):
         self.session_logger.atualizar_ultimo_registro(dados_etapa_4)
 
     def _ao_erro_audio(self):
-        self.lbl_audio_placeholder.setText("Nenhuma gravação encontrada.")
+        self.lbl_audio_placeholder.setText("<i>Nenhuma gravação encontrada.</i>")
         self.lbl_audio_placeholder.setVisible(True)
 
     def _atualizar_geo_info(self, lat, lon):
@@ -1427,10 +1446,7 @@ class JanelaPrincipal(QMainWindow):
             <b>Bioma:</b> {details.get('bioma', '-')}<br>
             """
             
-            # Preservar Status IUCN se já existir (v0.4.33)
-            iucn_status = getattr(self, 'last_iucn_data', {}).get("iucn_status")
-            if iucn_status:
-                texto += f"<b>Status:</b> {iucn_status}"
+            # Status IUCN removido do card de dados geográficos (v1.6.1)
                 
             self.lbl_geo_details.setText(texto)
             self.lbl_geo_details.setVisible(True)
@@ -1443,24 +1459,8 @@ class JanelaPrincipal(QMainWindow):
         self.last_iucn_data = results
         self._registrar_dados_geo_iucn()
         
-        # Atualização visual do Status (v0.3.53)
-        if hasattr(self, 'lbl_geo_details'):
-            current_text = self.lbl_geo_details.text()
-            iucn_status = results.get("iucn_status", "Não Avaliado")
-            
-            # Garante a acessibilidade TextSelectableByMouse
-            self.lbl_geo_details.setTextInteractionFlags(Qt.TextSelectableByMouse)
-            
-            novo_status_html = f"<br><b>Status:</b> {iucn_status}"
-            
-            if "<b>Status:</b>" in current_text:
-                import re
-                current_text = re.sub(r'<br><b>Status:</b>.*?(<br>|$)', novo_status_html + r'\1', current_text)
-            else:
-                current_text += novo_status_html
-                
-            self.lbl_geo_details.setText(current_text)
-            self.lbl_geo_details.setVisible(True)
+        # Atualização visual do Status removida do card de dados geográficos (v1.6.1)
+        pass
 
     # A busca do ebird foi movida para o Orchestrator
         
@@ -1543,11 +1543,11 @@ class JanelaPrincipal(QMainWindow):
                 for i in reversed(range(layout.count())):
                     item = layout.itemAt(i)
                     widget = item.widget()
-                    if widget and widget != self.lbl_audio_placeholder:
+                    if widget and widget not in [self.lbl_audio_placeholder, self.lbl_vocal_title]:
                         widget.setParent(None)
                         widget.deleteLater()
 
-            self.lbl_audio_placeholder.setText("Áudio não carregado")
+            self.lbl_audio_placeholder.setText("<i>Aguardando localização geográfica da fotografia...</i>")
             self.lbl_audio_placeholder.setVisible(True)
 
     def _resetar_interface(self, manter_imagem=False):
@@ -1589,10 +1589,13 @@ class JanelaPrincipal(QMainWindow):
         self.input_especie.style().polish(self.input_especie)
         
         # 4. Reset de Labels de Dados
-        self.lbl_nome_comum.setText("-")
-        self.lbl_descricao.setText("-")
+        self.lbl_nome_comum.setText("")
+        self.lbl_nome_comum.setVisible(False)
+        self.lbl_descricao.setText("")
+        self.lbl_descricao.setVisible(False)
         
-        self.lbl_confianca.setText("-")
+        self.lbl_confianca.setText("")
+        self.lbl_confianca.setVisible(False)
         self.lbl_confianca.setProperty("class", "lbl-titulo-sessao") # Remove classes de cor alta/baixa
         self.lbl_confianca.style().unpolish(self.lbl_confianca)
         self.lbl_confianca.style().polish(self.lbl_confianca)
@@ -1606,7 +1609,7 @@ class JanelaPrincipal(QMainWindow):
         self.txt_etimologia.clear()
         self.txt_etimologia.setPlaceholderText("Aguardando identificação...")
         
-        self.lbl_audio_placeholder.setText("Aguardando localização do registro fotográfico ...")
+        self.lbl_audio_placeholder.setText("<i>Aguardando localização geográfica da fotografia...</i>")
         self.lbl_audio_placeholder.setVisible(True)
         
         # 6. Reset de Painéis e Mapas
