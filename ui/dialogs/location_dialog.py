@@ -45,12 +45,7 @@ class LocationDialog(BaseDialog):
         self.debounce_timer.timeout.connect(self._buscar_preditivo)
         self.input_busca.textChanged.connect(self._on_text_changed)
         
-        self.btn_buscar = QPushButton("Buscar")
-        self.btn_buscar.setCursor(Qt.PointingHandCursor)
-        self.btn_buscar.clicked.connect(self._buscar)
-        
         container_busca.addWidget(self.input_busca)
-        container_busca.addWidget(self.btn_buscar)
         self.main_layout.addLayout(container_busca)
         
         # --- Resultados ---
@@ -102,7 +97,6 @@ class LocationDialog(BaseDialog):
         
         self.lista_resultados.clear()
         self.lista_resultados.addItem("Buscando...")
-        self.btn_buscar.setEnabled(False)
         
         # Safe Reassignment Logic
         if self.search_worker is not None:
@@ -118,7 +112,6 @@ class LocationDialog(BaseDialog):
         self.search_worker.start()
 
     def _ao_receber_resultados(self, resultados):
-        self.btn_buscar.setEnabled(True)
         self.lista_resultados.clear()
         
         if not resultados:
@@ -132,7 +125,6 @@ class LocationDialog(BaseDialog):
             self.lista_resultados.addItem(item)
 
     def _ao_erro_busca(self, erro_msg):
-        self.btn_buscar.setEnabled(True)
         self.lista_resultados.clear()
         self.lista_resultados.addItem(f"Erro: {erro_msg}")
         QMessageBox.warning(self, "Erro na Busca", erro_msg)
