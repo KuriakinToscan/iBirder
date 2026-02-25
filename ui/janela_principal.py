@@ -199,6 +199,7 @@ class JanelaPrincipal(QMainWindow):
              self.btn_fonte.setEnabled(False)
 
     def _ao_receber_info_especie(self, dados):
+        print(f"[UI] SINAL: Dados biológicos recebidos via Orchestrator (WikiAves). Especial: {dados.get('nome_comum')}")
         # Mapeamento do BuscadorBlindado (Agora com chaves nativas corretas - v0.3.17)
         etimologia_texto = dados.get("etimologia", "")
         caracteristicas = dados.get("caracteristicas", "")
@@ -235,6 +236,9 @@ class JanelaPrincipal(QMainWindow):
         # Atualiza Campo Descrição (Rodapé)
         if caracteristicas and caracteristicas != "Não encontrado":
             self.txt_descricao.setPlainText(caracteristicas)
+            self.txt_descricao.setVisible(True)
+            self.lbl_titulo_etimologia.setVisible(True)
+            self.txt_etimologia.setVisible(True)
             
         self.frame_etimologia.setVisible(False) # Esconde o antigo frame do iNaturalist se ainda visível
 
@@ -1284,14 +1288,20 @@ class JanelaPrincipal(QMainWindow):
             return
             
         audio_markers = []
-        for audio in resultados:
+        for i, audio in enumerate(resultados):
             if audio.get('lat') is not None and audio.get('lon') is not None:
                 tipo = audio.get('tipo_canto')
-                title = f"{tipo} - {audio.get('autor', 'Gravador')}" if tipo else f"Graveção de {audio.get('autor', 'Autor')}"
+                ranking = i + 1
+                title = f"#{ranking} {tipo} - {audio.get('autor', 'Gravador')}" if tipo else f"#{ranking} Gravação de {audio.get('autor', 'Autor')}"
                 audio_markers.append({
                      'lat': audio['lat'],
                      'lon': audio['lon'],
-                     'title': title
+                     'title': title,
+                     'id': audio.get('id', audio.get('url', '')),
+                     'ranking': ranking,
+                     'tipo_canto': tipo,
+                     'autor': audio.get('autor'),
+                     'distancia_km': audio.get('distancia_km')
                 })
         
         if audio_markers:
@@ -1355,17 +1365,24 @@ class JanelaPrincipal(QMainWindow):
              self.orchestrator.reprocessar_localizacao(lat, lon)
 
     def _ao_clicar_pin_audio(self, audio_id):
-        """Lida com o clique no pin de áudio do mapa, destacando o player UI (v0.4.4)."""
+        """Lida com o clique no pin de áudio do mapa, abrindo detalhes (v0.9.3)."""
         if not hasattr(self, 'active_audio_players'):
             return
             
         for player in self.active_audio_players:
-            if isinstance(player, AudioPlayerWidget):
+            # player é um VocalAuditCard (v0.7.1)
+            if hasattr(player, 'audio_data'):
                 # O ID pode ser o ID do Xeno ou a URL (fallback)
-                p_id = player.audio_data.get('id', player.url)
+                p_id = player.audio_data.get('id', player.audio_data.get('url', ''))
                 if str(p_id) == str(audio_id):
-                    player.highlight()
-                    # Scroll até o player (opcional, mas bom UX)
+                    # 1. Destaque Visual no Card (Opcional, mas mantemos se AudioPlayerWidget for usado depois)
+                    if hasattr(player, 'highlight'):
+                        player.highlight()
+                    
+                    # 2. Abre a janela de detalhes automaticamente
+                    self._abrir_detalhes_vocal(player.audio_data)
+                    
+                    # 3. Scroll até o card
                     self.scroll_area.ensureWidgetVisible(player)
                     break
         
@@ -1515,7 +1532,12 @@ class JanelaPrincipal(QMainWindow):
     def _resetar_interface(self, manter_imagem=False):
         # 1. Parar Orchestrator e Workers (v0.5.1)
         if hasattr(self, 'orchestrator'):
+            print("[UI] Solicitando reset total ao Orchestrator...")
             self.orchestrator.reset()
+
+        if hasattr(self, 'session_logger'):
+            print("[UI] Resetando SessionLogger...")
+            self.session_logger.reset()
             
         self._limpar_painel_audio()
         

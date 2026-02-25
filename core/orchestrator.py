@@ -151,6 +151,11 @@ class Orchestrator(QObject):
         self.has_location = False
         self._last_sci_name = None
         
+        # Invalidação total de caches (v0.6.9)
+        self.species_cache = {}
+        self._cache_audio = {}
+        self._last_geo_run = {"sci_name": None, "lat": None, "lon": None}
+        
     def start_cascade_from_step2(self, sci_name):
         """Inicia a cascata linear estrita 2->3->4->5 (v0.4.8)."""
         print(f"[Orchestrator] Iniciando cascata linear a partir da Etapa 2 para: {sci_name}")

@@ -57,6 +57,11 @@ class SessionLogger:
         except Exception as e:
             print(f"[SessionLogger] Atenção: não foi possível remover o tmp {self.filepath}: {e}")
 
+    def reset(self):
+        """Limpa o buffer da RAM para permitir um novo início limpo sem deletar o arquivo."""
+        print("[SessionLogger] Resetando buffer da caderneta para novo ciclo.")
+        self.buffer = []
+
     def atualizar_ultimo_registro(self, novos_dados: dict):
         """Atualiza o último registro no RAM Logger, sem bater no disco."""
         try:

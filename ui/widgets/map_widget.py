@@ -162,7 +162,7 @@ class MapWidget(QWebEngineView):
                 name='Dist. Geográfica (GBIF)',
                 overlay=True, 
                 control=True, 
-                show=True,
+                show=False,
                 opacity=0.5
             ).add_to(m)
 
@@ -198,25 +198,73 @@ class MapWidget(QWebEngineView):
                 m.get_root().html.add_child(folium.Element(drag_js))
                 
             if audio_markers:
+                import base64
+                import os
+                import sys
+                from pathlib import Path
+
+                # Obter caminho do asset (v0.9.3)
+                if getattr(sys, 'frozen', False):
+                    base_path = Path(sys._MEIPASS)
+                else:
+                    base_path = Path(__file__).parent.parent.parent / 'assets'
+                
+                vocal_pin_path = base_path / "vocal_pin_base.png"
+                vocal_pin_b64 = ""
+                if vocal_pin_path.exists():
+                    with open(vocal_pin_path, "rb") as f:
+                        vocal_pin_b64 = base64.b64encode(f.read()).decode()
+
+                fg_audio = folium.FeatureGroup(name='Vocalizações', show=False)
                 for am in audio_markers:
                     a_lat = am.get('lat')
                     a_lon = am.get('lon')
                     if a_lat is not None and a_lon is not None:
-                        # Icone Premium v0.4.4: 24px, DarkGray, Clicável
+                        # Icone Premium v0.9.3: Pin Customizado com Badge Numerado
                         audio_id = am.get('id', am.get('url', ''))
+                        ranking = am.get('ranking', '?')
                         
+                        # Pin background image + Badge superior
                         icon_html = f"""
-                        <div style="font-size: 24px; color: #414141; cursor: pointer; text-shadow: 1px 1px 2px white;" 
-                             onclick="window.location.href='ibirder://audio_click?id={audio_id}'">
-                             🎵
+                        <div style="position: relative; width: 44px; height: 44px;">
+                            <!-- Pin Base -->
+                            <img src="data:image/png;base64,{vocal_pin_b64}" 
+                                 style="width: 44px; height: 44px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));"
+                                 onclick="window.location.href='ibirder://audio_click?id={audio_id}'">
+                            
+                            <!-- Badge Numerado -->
+                            <div style="
+                                position: absolute;
+                                top: -2px;
+                                right: -2px;
+                                background-color: #ef4444; 
+                                color: white; 
+                                border: 1.5px solid white;
+                                border-radius: 50%;
+                                width: 20px;
+                                height: 20px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                font-weight: bold;
+                                font-size: 11px;
+                                box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+                                pointer-events: none;
+                                font-family: 'Segoe UI', sans-serif;">
+                                {ranking}
+                            </div>
                         </div>
                         """
                         
+                        dist_val = am.get('distancia_km', 0)
+                        dist_str = f"{dist_val:.0f}" if dist_val >= 1 else f"{dist_val:.1f}"
+                        
                         folium.Marker(
                              [a_lat, a_lon],
-                             icon=folium.DivIcon(html=icon_html, icon_size=(24, 24), icon_anchor=(12, 12)),
-                             tooltip=f"{am.get('tipo_canto', 'Áudio')} - {am.get('autor', 'Desconhecido')}"
-                        ).add_to(m)
+                             icon=folium.DivIcon(html=icon_html, icon_size=(44, 44), icon_anchor=(22, 44)),
+                             tooltip=f"Distância {dist_str}km"
+                        ).add_to(fg_audio)
+                fg_audio.add_to(m)
 
             folium.LayerControl(position='topright', collapsed=False).add_to(m)
             
