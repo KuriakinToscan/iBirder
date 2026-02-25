@@ -31,6 +31,13 @@ class VocalDetailDialog(BaseDialog):
         self.webview_player.setStyleSheet("background: transparent; border: none;")
         self.webview_player.page().setBackgroundColor(Qt.transparent)
         self.main_layout.addWidget(self.webview_player)
+        
+        # 0.1 Créditos (v1.6.0 - Movido para baixo do player)
+        self.lbl_creditos = QLabel("")
+        self.lbl_creditos.setStyleSheet("font-size: 11px; color: #4B5563; font-style: italic; margin-bottom: 5px;")
+        self.lbl_creditos.setWordWrap(True)
+        self.lbl_creditos.setAlignment(Qt.AlignCenter)
+        self.main_layout.addWidget(self.lbl_creditos)
 
         # 1. Identificação do Registro
         lbl_instrucao = QLabel("Identificação do Registro:")
@@ -52,36 +59,48 @@ class VocalDetailDialog(BaseDialog):
         container_id.addWidget(self.input_fonte, stretch=1)
         self.main_layout.addLayout(container_id)
         
-        # 2. Links Externos
-        layout_links = QHBoxLayout()
+        # 2. Localização do Registro (v1.6.0)
+        lbl_loc_title = QLabel("Localização do Registro:")
+        lbl_loc_title.setStyleSheet("font-weight: bold; color: #111827; margin-top: 10px;")
+        self.main_layout.addWidget(lbl_loc_title)
+        
+        self.lbl_localizacao = QLabel("Desconhecida")
+        self.lbl_localizacao.setStyleSheet("color: #374151; font-size: 11px; margin-bottom: 10px;")
+        self.lbl_localizacao.setWordWrap(True)
+        self.main_layout.addWidget(self.lbl_localizacao)
+
+        # 3. Ações no Rodapé
+        self.main_layout.addStretch()
+        layout_botoes = QHBoxLayout()
+        
         self.btn_registro = QPushButton("Abrir Registro")
         self.btn_registro.setCursor(Qt.PointingHandCursor)
         self.btn_registro.clicked.connect(self._abrir_registro)
-        self.btn_registro.setVisible(False)
+        self.btn_registro.setFixedHeight(32)
         
-        self.btn_audio = QPushButton("Áudio Bruto")
-        self.btn_audio.setCursor(Qt.PointingHandCursor)
-        self.btn_audio.clicked.connect(self._abrir_audio)
-        self.btn_audio.setVisible(False)
-        
-        layout_links.addWidget(self.btn_registro)
-        layout_links.addWidget(self.btn_audio)
-        self.main_layout.addLayout(layout_links)
-
-        # 3. Botão Fechar
         self.btn_fechar = QPushButton("Fechar")
         self.btn_fechar.setCursor(Qt.PointingHandCursor)
         self.btn_fechar.clicked.connect(self.accept)
-        self.btn_fechar.setStyleSheet("""
+        self.btn_fechar.setFixedHeight(32)
+        
+        # Estilo Padronizado (Grey-Dark Sovereign)
+        estilo_btn = """
             QPushButton {
                 background-color: #374151;
                 color: white;
+                font-weight: bold;
+                border-radius: 4px;
             }
             QPushButton:hover {
                 background-color: #1F2937;
             }
-        """)
-        self.main_layout.addWidget(self.btn_fechar)
+        """
+        self.btn_registro.setStyleSheet(estilo_btn)
+        self.btn_fechar.setStyleSheet(estilo_btn)
+        
+        layout_botoes.addWidget(self.btn_registro)
+        layout_botoes.addWidget(self.btn_fechar)
+        self.main_layout.addLayout(layout_botoes)
 
     def preencher_dados(self):
         # 0. Carregar Player (Robusto v1.0.0)
@@ -115,22 +134,24 @@ class VocalDetailDialog(BaseDialog):
         self.input_id.setText(str(id_reg))
         self.input_fonte.setText(fonte)
         
+        # 1.1 Preencher Créditos (v1.6.0 - Font 11px)
+        autor = self.audio_data.get('autor', 'Desconhecido')
+        licenca = self.audio_data.get('licenca', 'Todos os direitos reservados')
+        self.lbl_creditos.setText(f"© {autor}, {licenca}")
+        
+        # 1.2 Preencher Localização (v1.6.0)
+        local = self.audio_data.get('audit_geo') or "Localização não informada"
+        self.lbl_localizacao.setText(local)
+        
         # Configurar Links com Fallbacks
         link_obs = self.audio_data.get('link_observacao') or self.audio_data.get('link_web')
         if link_obs:
             self.btn_registro.setVisible(True)
             self.audio_data['final_link_obs'] = link_obs # Cache interno
-            
-        if url_audio:
-            self.btn_audio.setVisible(True)
-            self.audio_data['final_link_audio'] = url_audio # Cache interno
+        else:
+            self.btn_registro.setVisible(False)
 
     def _abrir_registro(self):
         url = self.audio_data.get('final_link_obs')
-        if url:
-            QDesktopServices.openUrl(QUrl(url))
-
-    def _abrir_audio(self):
-        url = self.audio_data.get('final_link_audio')
         if url:
             QDesktopServices.openUrl(QUrl(url))

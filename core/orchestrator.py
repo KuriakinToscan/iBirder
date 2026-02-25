@@ -336,14 +336,14 @@ class Orchestrator(QObject):
             self.geo_worker.finished.connect(self._on_step3_geo_finished)
             self.geo_worker.start()
         else:
-            print("[Orchestrator] Lat/Lon ausentes. Saltando Etapa 3-Geo e prosseguindo para Etapa 4 (v0.4.8).")
+            print("[Orchestrator] Lat/Lon ausentes. Etapa 3-Geo aguardando localização manual.")
             # REGISTRO DE DADOS AUSENTES (v0.4.6/0.4.8)
             if self.session_logger:
                 self.session_logger.atualizar_ultimo_registro({
                     "municipio": "Não informado", "estado": "N/A", "bioma": "Não mapeado"
                 })
-            # Engatilha a próxima etapa imediatamente para não quebrar a corrente linear
-            self.start_step4_vocalization(sci_name)
+            # REMOVIDO: self.start_step4_vocalization(sci_name)
+            # Agora aguarda o reprocessar_localizacao ser chamado pela UI
 
     def _on_step3_geo_finished(self, details):
         mun = details.get('municipio', 'N/D')

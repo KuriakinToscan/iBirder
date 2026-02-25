@@ -7,6 +7,7 @@ class StyleManager:
     """Centralizador de Estilos e Temas do iBirder (v0.6.6)"""
     
     # Constantes de Design
+    SPACING_XS = 4
     SPACING_SM = 8
     SPACING_MD = 12
     SPACING_LG = 20
