@@ -163,6 +163,20 @@ class Orchestrator(QObject):
         self.start_step2_biology(sci_name)
         # As etapas seguintes (3, 4 e 5) serão disparadas sequencialmente pelos callbacks.
 
+    def get_audio_data_by_id(self, audio_id):
+        """Busca os dados completos de um áudio no cache central pelo ID (v1.0.0)."""
+        if not hasattr(self, '_cache_audio') or not self._cache_audio:
+            return None
+            
+        str_id = str(audio_id)
+        # Iterar sobre todos os áudios em cache (de todas as espécies buscadas na sessão)
+        for sci_name, audios in self._cache_audio.items():
+            for audio in audios:
+                p_id = audio.get('id') or audio.get('url', '')
+                if str(p_id) == str_id:
+                    return audio
+        return None
+
     def reprocessar_localizacao(self, lat, lon):
         """Atualiza coordenadas, invalida cache de áudio e reinicia busca geo-acústica."""
         # Trava de Redundância (v0.4.3)

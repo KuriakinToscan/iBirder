@@ -1278,9 +1278,12 @@ class JanelaPrincipal(QMainWindow):
             self.active_audio_players.append(card)
             
     def _abrir_detalhes_vocal(self, audio_data):
-        """Abre a janela de auditoria detalhada ao clicar no ícone vocal (v0.7.1)."""
+        """Abre a janela de auditoria detalhada ao clicar no ícone vocal (v1.3.1)."""
+        print(f"[UI] Chamada para abrir detalhes do áudio: {audio_data.get('id')} em {audio_data.get('audit_geo')}")
         dialog = VocalDetailDialog(audio_data, self)
+        print(f"[UI] Executando modal VocalDetailDialog para o ID {audio_data.get('id')}...")
         dialog.exec()
+        print(f"[UI] Janela de detalhes {audio_data.get('id')} fechada.")
             
     def _plotar_pins_audio(self, resultados):
         """Extrai coordenadas das vocalizações e plota no mapa (v0.4.3)."""
@@ -1365,26 +1368,44 @@ class JanelaPrincipal(QMainWindow):
              self.orchestrator.reprocessar_localizacao(lat, lon)
 
     def _ao_clicar_pin_audio(self, audio_id):
-        """Lida com o clique no pin de áudio do mapa, abrindo detalhes (v0.9.3)."""
+        """Lida com o clique no pin de áudio do mapa, garantindo paridade total com o card (v1.2.5)."""
         if not hasattr(self, 'active_audio_players'):
+            print("[MAPA] ERRO: Lista de players ativos não inicializada.")
             return
             
+        print(f"\n[DIAGNÓSTICO MAPA] Clique interceptado. ID Alvo: {audio_id}")
+        card_encontrado = False
+        
         for player in self.active_audio_players:
             # player é um VocalAuditCard (v0.7.1)
             if hasattr(player, 'audio_data'):
-                # O ID pode ser o ID do Xeno ou a URL (fallback)
-                p_id = player.audio_data.get('id', player.audio_data.get('url', ''))
-                if str(p_id) == str(audio_id):
-                    # 1. Destaque Visual no Card (Opcional, mas mantemos se AudioPlayerWidget for usado depois)
+                # Padronização agressiva de ID para comparação (Xeno ID, iNat ID ou URL)
+                p_id = str(player.audio_data.get('id', '')).strip()
+                t_id = str(audio_id).strip()
+                
+                if p_id == t_id:
+                    print(f"[DIAGNÓSTICO MAPA] Card localizado: {p_id}. Disparando callback do card.")
+                    card_encontrado = True
+                    
+                    # 1. Execução Direta (Solicitação do Usuário v1.2.5)
+                    # Em vez de simular clique no botão, chamamos o callback original com os dados do card
+                    if hasattr(player, 'on_click_callback') and player.on_click_callback:
+                        # Simulação visual de clique (Feedback para o usuário)
+                        # O animateClick() já emite o sinal 'clicked' de forma assíncrona após 100ms,
+                        # o que resolve o conflito com o WebEngine e evita a abertura dupla (v1.3.2).
+                        if hasattr(player, 'btn_icon'):
+                            player.btn_icon.animateClick()
+                    else:
+                        print("[DIAGNÓSTICO MAPA] AVISO: Card não possui on_click_callback válido.")
+                    
+                    # 2. Feedback Visual e Scroll
                     if hasattr(player, 'highlight'):
                         player.highlight()
-                    
-                    # 2. Abre a janela de detalhes automaticamente
-                    self._abrir_detalhes_vocal(player.audio_data)
-                    
-                    # 3. Scroll até o card
                     self.scroll_area.ensureWidgetVisible(player)
                     break
+        
+        if not card_encontrado:
+             print(f"[DIAGNÓSTICO MAPA] FALHA: Nenhum card encontrado com ID {audio_id} na lista atual ({len(self.active_audio_players)} cards).")
         
     def _ao_concluir_geo_analise(self, details):
         self.last_geo_data = details
