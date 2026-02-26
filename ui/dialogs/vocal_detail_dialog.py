@@ -7,7 +7,7 @@ from core.style_manager import StyleManager
 
 class VocalDetailDialog(BaseDialog):
     """
-    Janela de Detalhes de Auditoria Vocal (v1.0.0).
+    Janela de Detalhes de Auditoria Vocal (v0.8.2).
     Interface simplificada com player no topo e foco na identificação.
     """
     def __init__(self, audio_data, parent=None):
@@ -32,7 +32,7 @@ class VocalDetailDialog(BaseDialog):
         self.webview_player.page().setBackgroundColor(Qt.transparent)
         self.main_layout.addWidget(self.webview_player)
         
-        # 0.1 Créditos (v1.6.0 - Movido para baixo do player)
+        # 0.1 Créditos (v0.8.2 - Movido para baixo do player)
         self.lbl_creditos = QLabel("")
         self.lbl_creditos.setStyleSheet("font-size: 11px; color: #4B5563; font-style: italic; margin-bottom: 5px;")
         self.lbl_creditos.setWordWrap(True)
@@ -59,7 +59,7 @@ class VocalDetailDialog(BaseDialog):
         container_id.addWidget(self.input_fonte, stretch=1)
         self.main_layout.addLayout(container_id)
         
-        # 2. Localização do Registro (v1.6.0)
+        # 2. Localização do Registro (v0.8.2)
         lbl_loc_title = QLabel("Localização do Registro:")
         lbl_loc_title.setStyleSheet("font-weight: bold; color: #111827; margin-top: 10px;")
         self.main_layout.addWidget(lbl_loc_title)
@@ -103,7 +103,7 @@ class VocalDetailDialog(BaseDialog):
         self.main_layout.addLayout(layout_botoes)
 
     def preencher_dados(self):
-        # 0. Carregar Player (Robusto v1.0.0)
+        # 0. Carregar Player (Robusto v0.8.2)
         url_audio = (
             self.audio_data.get('url') or 
             self.audio_data.get('link_audio') or 
@@ -134,12 +134,12 @@ class VocalDetailDialog(BaseDialog):
         self.input_id.setText(str(id_reg))
         self.input_fonte.setText(fonte)
         
-        # 1.1 Preencher Créditos (v1.6.0 - Font 11px)
+        # 1.1 Preencher Créditos (v0.8.2 - Font 11px)
         autor = self.audio_data.get('autor', 'Desconhecido')
         licenca = self.audio_data.get('licenca', 'Todos os direitos reservados')
         self.lbl_creditos.setText(f"© {autor}, {licenca}")
         
-        # 1.2 Preencher Localização (v1.6.0)
+        # 1.2 Preencher Localização (v0.8.2)
         local = self.audio_data.get('audit_geo') or "Localização não informada"
         self.lbl_localizacao.setText(local)
         

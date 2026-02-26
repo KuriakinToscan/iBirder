@@ -52,7 +52,7 @@ class AudioWorker(QThread):
     """
     Worker para realizar a busca de áudios de aves.
     Estratégia:
-    1. iNaturalist (Fonte única de áudio v1.0.0)
+    1. iNaturalist (Fonte única de áudio v0.8.2)
     """
     audio_found = Signal(list)
     search_failed = Signal()
@@ -68,7 +68,7 @@ class AudioWorker(QThread):
         self.pais = pais or 'Brazil'
 
     def run(self):
-        print(f"[AUDIO] AudioWorker v1.0.0 iniciado para {self.scientific_name}")
+        print(f"[AUDIO] AudioWorker v0.8.2 iniciado para {self.scientific_name}")
         if not self.scientific_name or "Inconclusiva" in self.scientific_name:
             print(f"[AudioWorker] Busca abortada: Nome '{self.scientific_name}' inválido.")
             self.search_failed.emit()
@@ -79,7 +79,7 @@ class AudioWorker(QThread):
             return
 
         try:
-            # 1. Busca exclusivamente no iNaturalist (v1.0.0)
+            # 1. Busca exclusivamente no iNaturalist (v0.8.2)
             inat_results = self._search_inaturalist()
             
             all_audios = inat_results
@@ -140,7 +140,7 @@ class AudioWorker(QThread):
         return 4
 
     def _search_inaturalist(self):
-        """Busca observações com sons no iNaturalist (v1.0.0)."""
+        """Busca observações com sons no iNaturalist (v0.8.2)."""
         try:
             url = "https://api.inaturalist.org/v1/observations"
             params = {

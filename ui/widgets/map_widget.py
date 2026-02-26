@@ -203,7 +203,7 @@ class MapWidget(QWebEngineView):
                 import sys
                 from pathlib import Path
 
-                # Obter caminho do asset (v0.9.3)
+                # Obter caminho do asset (v0.8.2)
                 if getattr(sys, 'frozen', False):
                     base_path = Path(sys._MEIPASS)
                 else:
@@ -220,7 +220,7 @@ class MapWidget(QWebEngineView):
                     a_lat = am.get('lat')
                     a_lon = am.get('lon')
                     if a_lat is not None and a_lon is not None:
-                        # Icone Premium v0.9.3: Pin Customizado com Badge Numerado
+                        # Icone Premium v0.8.2: Pin Customizado com Badge Numerado
                         audio_id = am.get('id', am.get('url', ''))
                         ranking = am.get('ranking', '?')
                         

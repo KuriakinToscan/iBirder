@@ -157,7 +157,7 @@ class StyleManager:
             QMainWindow {{ background-color: {bg_app}; }}
             QDialog {{ background-color: {bg_app}; }}
             
-            /* Estrutura de Containers (v1.9.1 Centralizado) */
+            /* Estrutura de Containers (v0.8.2 Centralizado) */
             QScrollArea#scroll_area_principal {{ border: none; background-color: {bg_app}; }}
             QWidget#container_rolagem {{ background-color: {bg_app}; }}
             QFrame#painel_direito {{ background: transparent; border: none; }}
@@ -246,7 +246,7 @@ class StyleManager:
             }}
             QPushButton:hover {{ background-color: {accent_hover}; }}
             
-            /* Botões Secundários Adaptativos (v1.9.1) */
+            /* Botões Secundários Adaptativos (v0.8.2) */
             *[class~="secundario"] {{
                 background-color: #E5E7EB;
                 color: #374151;
