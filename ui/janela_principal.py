@@ -57,6 +57,7 @@ class JanelaPrincipal(QMainWindow):
         self.orchestrator.step2_wiki_concluida.connect(self._ao_receber_info_especie)
         self.orchestrator.step3_iucn_concluida.connect(self._ao_concluir_iucn)
         self.orchestrator.step3_geo_concluida.connect(self._ao_concluir_geo_analise)
+        self.orchestrator.step3_conservacao_concluida.connect(self._ao_concluir_conservacao_nacional)
         self.orchestrator.step4_audio_concluido.connect(self._ao_encontrar_audio)
         self.orchestrator.step4_audio_erro.connect(self._ao_erro_audio)
         self.orchestrator.audio_processed.connect(self._plotar_pins_audio)
@@ -742,10 +743,20 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_vocal_title.setProperty("margin-bottom", "md")
         layout_audio.addWidget(self.lbl_vocal_title)
         
+        # Frame Interno Padronizado (v1.7.0)
+        self.frame_interno_audio = QFrame()
+        self.frame_interno_audio.setProperty("class", "container-borda-cinza-fill")
+        self.layout_interno_audio = QVBoxLayout(self.frame_interno_audio)
+        self.layout_interno_audio.setContentsMargins(10, 10, 10, 10)
+        self.layout_interno_audio.setSpacing(StyleManager.SPACING_SM)
+        
         self.lbl_audio_placeholder = QLabel("<i>Aguardando localização geográfica da fotografia...</i>")
         self.lbl_audio_placeholder.setAlignment(Qt.AlignCenter)
-        self.lbl_audio_placeholder.setProperty("class", "container-borda-tracejada")
-        layout_audio.addWidget(self.lbl_audio_placeholder)
+        self.lbl_audio_placeholder.setWordWrap(True)
+        # Placeholder agora vive dentro do frame interno
+        self.layout_interno_audio.addWidget(self.lbl_audio_placeholder)
+        
+        layout_audio.addWidget(self.frame_interno_audio)
         
         grupo_audio.setLayout(layout_audio)
         layout_res.addWidget(grupo_audio)
@@ -1280,16 +1291,15 @@ class JanelaPrincipal(QMainWindow):
             return
 
 
-        # Adiciona cards de auditoria (v0.7.1)
-        # Os áudios já vêm ordenados pelo Ranking Concêntrico do AudioWorker
+        # Adiciona cards de auditoria (v1.7.0 - Dentro do Frame Interno)
         for i, audio in enumerate(resultados):
             card = VocalAuditCard(
                 audio_data=audio,
-                ranking_index=i+1, # v0.7.3: Adiciona 1, 2, 3
+                ranking_index=i+1,
                 on_click=self._abrir_detalhes_vocal,
-                parent=layout.parentWidget()
+                parent=self.frame_interno_audio
             )
-            layout.addWidget(card)
+            self.layout_interno_audio.addWidget(card)
             
             # Guardar referencia para limpeza futura
             if not hasattr(self, 'active_audio_players'):
@@ -1438,12 +1448,18 @@ class JanelaPrincipal(QMainWindow):
             lat_str = f"{lat:.5f}" if isinstance(lat, (float, int)) else "?"
             lon_str = f"{lon:.5f}" if isinstance(lon, (float, int)) else "?"
 
+            pais = details.get('pais', '-')
+            bioma = details.get('bioma', '-')
+            
+            if pais.lower() not in ["brazil", "brasil"]:
+                bioma = "Informação Não Disponível (Registro Internacional)"
+
             texto = f"""
             <b>Coordenadas:</b> Lat {lat_str}, Long {lon_str}<br>
-            <b>País:</b> {details.get('pais', '-')}<br>
+            <b>País:</b> {pais}<br>
             <b>Estado:</b> {details.get('estado', '-')}<br>
             <b>Município:</b> {details.get('municipio', '-')}<br>
-            <b>Bioma:</b> {details.get('bioma', '-')}<br>
+            <b>Bioma:</b> {bioma}<br>
             """
             
             # Status IUCN removido do card de dados geográficos (v1.6.1)
@@ -1456,11 +1472,62 @@ class JanelaPrincipal(QMainWindow):
         self._registrar_dados_geo_iucn()
         
     def _ao_concluir_iucn(self, results):
+        from modules.step3_geography.conservation_worker import NationalConservationWorker
+        
+        raw_status = results.get("iucn_status", "Não Avaliado")
+        # Traduzir para extenso conforme solicitação
+        results["iucn_status"] = NationalConservationWorker.traduzir_iucn(raw_status)
+        
         self.last_iucn_data = results
         self._registrar_dados_geo_iucn()
         
-        # Atualização visual do Status removida do card de dados geográficos (v1.6.1)
-        pass
+    def _ao_concluir_conservacao_nacional(self, results):
+        self.last_conservation_data = results
+        print(f"[UI] Dados de conservação nacional recebidos: {results}")
+        
+        # Atualizar visualmente o card geográfico com a nova soberania de dados
+        if hasattr(self, 'lbl_geo_details') and hasattr(self, 'last_geo_data'):
+            geo = self.last_geo_data
+            lat = geo.get('lat', 0)
+            lon = geo.get('lon', 0)
+            
+            pais = geo.get('pais', '-')
+            bioma = geo.get('bioma', '-')
+            
+            if pais.lower() not in ["brazil", "brasil"]:
+                bioma = "Informação Não Disponível (Registro Internacional)"
+            
+            # Badge de Endemismo
+            endemismo_str = ""
+            if results.get("endemismo") == "Sim":
+                endemismo_str = '<br><b style="color: #059669;">✨ Endêmica do Brasil</b>'
+            
+            # Status ICMBio e CITES
+            # O status_icmbio já vem tratado do worker, mas garantimos aqui se necessário
+            status_br_val = results.get('status_icmbio', '-')
+            status_br = f"<br><b>ICMBio:</b> {status_br_val}"
+            status_cites = f"<br><b>CITES:</b> {results.get('status_cites', '-')}"
+            
+            # Mensagem de Distribuição
+            msg_dist = results.get("msg_distribuicao", "")
+            if "Fora" in msg_dist:
+                msg_dist = f'<br><b style="color: #dc2626;">⚠ Fora da distribuição conhecida</b>'
+            else:
+                msg_dist = ""
+
+            texto_atual = self.lbl_geo_details.text()
+            # Inserir as novas informações de conservação mantendo os dados geo
+            texto_base = f"""
+            <b>Coordenadas:</b> {lat:.5f}, {lon:.5f}<br>
+            <b>País:</b> {pais}<br>
+            <b>Estado:</b> {geo.get('estado', '-')}<br>
+            <b>Município:</b> {geo.get('municipio', '-')}<br>
+            <b>Bioma:</b> {bioma}{endemismo_str}
+            <hr>
+            <b>IUCN:</b> {self.last_iucn_data.get('iucn_status', '-')}{status_br}{status_cites}{msg_dist}
+            """
+            self.lbl_geo_details.setText(texto_base)
+            self.lbl_geo_details.setVisible(True)
 
     # A busca do ebird foi movida para o Orchestrator
         
@@ -1535,18 +1602,17 @@ class JanelaPrincipal(QMainWindow):
                 except: pass
             self.active_audio_players = []
         
-        # Limpeza agressiva do layout para evitar ghosting (v0.5.1)
+        # Limpeza agressiva do frame interno (v1.7.0)
+        if hasattr(self, 'layout_interno_audio') and self.layout_interno_audio:
+            # Remove qualquer widget que não seja a label placeholder
+            for i in reversed(range(self.layout_interno_audio.count())):
+                item = self.layout_interno_audio.itemAt(i)
+                widget = item.widget()
+                if widget and widget != self.lbl_audio_placeholder:
+                    widget.setParent(None)
+                    widget.deleteLater()
+        
         if hasattr(self, 'lbl_audio_placeholder'):
-            layout = self.lbl_audio_placeholder.parentWidget().layout()
-            if layout:
-                # Remove qualquer widget que não seja a label placeholder
-                for i in reversed(range(layout.count())):
-                    item = layout.itemAt(i)
-                    widget = item.widget()
-                    if widget and widget not in [self.lbl_audio_placeholder, self.lbl_vocal_title]:
-                        widget.setParent(None)
-                        widget.deleteLater()
-
             self.lbl_audio_placeholder.setText("<i>Aguardando localização geográfica da fotografia...</i>")
             self.lbl_audio_placeholder.setVisible(True)
 
