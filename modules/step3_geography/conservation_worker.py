@@ -21,7 +21,7 @@ class NationalConservationWorker(QThread):
         "NT": "Quase Ameaçada",
         "LC": "Pouco Preocupante",
         "DD": "Dados Insuficientes",
-        "NE": "Não Avaliada"
+        "NE": "Não Listado"
     }
 
     def __init__(self, scientific_name, country="Brazil", parent=None):
@@ -33,7 +33,7 @@ class NationalConservationWorker(QThread):
         print(f"[ConservationWorker] Iniciando análise para: {self.scientific_name} (País: {self.country})")
         
         results = {
-            "status_icmbio": "Não Avaliado",
+            "status_icmbio": "Não Listado",
             "status_cites": "Não Listado",
             "endemismo": "Não",
             "msg_distribuicao": "Distribuição padrão",

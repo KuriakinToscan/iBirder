@@ -83,6 +83,11 @@ class Orchestrator(QObject):
         # Travas de Redundância v0.8.9
         self._last_geo_run = {"sci_name": None, "lat": None, "lon": None}
         
+        # Flags de Sincronização Etapa 3 (v0.9.9)
+        self._step3a_done = False # IUCN
+        self._step3b_done = False # GeoAnalyst
+        self._step3c_started = False # Conservação Nacional
+        
         # Inteligência Evolutiva (OTA Updater)
         import time
         start_ota_time = time.time()
@@ -314,6 +319,11 @@ class Orchestrator(QObject):
 
         self._last_geo_run = {"sci_name": sci_name, "lat": self.current_lat, "lon": self.current_lon}
         self._last_sci_name = sci_name
+
+        # Reset Flags de Sincronização (v0.9.9)
+        self._step3a_done = False
+        self._step3b_done = False
+        self._step3c_started = False
         
         if self.iucn_worker:
             try:
@@ -364,7 +374,13 @@ class Orchestrator(QObject):
         if self.session_logger:
             self.session_logger.atualizar_ultimo_registro(details)
             
+        self._step3b_done = True
         self.step3_geo_concluida.emit(details)
+        
+        # Sincronização 3B -> 3C (v0.9.9)
+        if self._step3a_done:
+            print("[Orchestrator] Step 3B concluiu após 3A. Disparando Conservação Nacional.")
+            self._disparar_conservacao_sincronizada()
         
         # DISPARO SEQUENCIAL DO ÁUDIO (Blindagem v0.4.5)
         # O áudio só é buscado após o GeoAnalyst garantir as coordenadas precisas.
@@ -377,14 +393,28 @@ class Orchestrator(QObject):
         print(f"[Orchestrator] Etapa 3 (IUCN) Concluída. Status: {iucn}")
         if self.session_logger:
             self.session_logger.atualizar_ultimo_registro({"iucn_status": iucn})
+        
+        self._step3a_done = True
         self.step3_iucn_concluida.emit(results)
         
-        # CASCATA LINEAR CONTINUA: 3A (IUCN) -> 3C (Conservação Nacional)
-        # Identificamos o país a partir do último registro seguro (v0.9.8)
+        # Sincronização 3A -> 3C (v0.9.9)
+        if self._step3b_done:
+            print("[Orchestrator] Step 3A concluiu após 3B. Disparando Conservação Nacional.")
+            self._disparar_conservacao_sincronizada()
+        else:
+            print("[Orchestrator] Step 3A concluiu primeiro. Aguardando Step 3B (Geo) para definir território.")
+
+    def _disparar_conservacao_sincronizada(self):
+        """Dispara a Etapa 3C garantindo que sabemos o país e evitando disparos duplos (v0.9.9)."""
+        if self._step3c_started:
+            return
+            
+        self._step3c_started = True
         pais = "Brazil"
         if self.session_logger and self.session_logger.buffer:
             pais = self.session_logger.buffer[-1].get("pais", "Brazil")
-            
+        
+        print(f"[Orchestrator] Disparando Conservação Sincronizada para: {self._last_sci_name} ({pais})")
         self.start_step3_conservation(self._last_sci_name, pais=pais)
 
     # --- Etapa 3C ---
