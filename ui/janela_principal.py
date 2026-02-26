@@ -220,7 +220,7 @@ class JanelaPrincipal(QMainWindow):
         self.dados_identificacao_atual.update(dados_etapa_2)
         self.dados_identificacao_atual["nome_cientifico"] = sci_persist
 
-        # Atualiza Campo Etimologia (v1.9.0)
+        # Atualiza Campo Etimologia (v0.8.2)
         if etimologia_texto and etimologia_texto != "Não encontrado":
             self.lbl_etimologia_texto.setText(etimologia_texto)
             self.card_etimologia.setVisible(True)
@@ -233,7 +233,7 @@ class JanelaPrincipal(QMainWindow):
             self.txt_descricao.setPlainText(caracteristicas)
             self.txt_descricao.setVisible(True)
 
-        # --- AJUSTE ESTÉTICO v0.8.5: Padronização de Fontes ---
+        # --- AJUSTE ESTÉTICO v0.8.2: Padronização de Fontes ---
         nome_pop = dados.get("nome_comum")
         if nome_pop and nome_pop != "Não encontrado":
             self.lbl_nome_popular.setText(f"<b>Nome Popular:</b> {nome_pop}")
@@ -500,7 +500,7 @@ class JanelaPrincipal(QMainWindow):
         # Ancorando estritamente ao topo sem stretch inflador:
         layout_cards_superiores.addLayout(layout_imagem_btn_ref, 1, 1, alignment=Qt.AlignTop)
         
-        # Célula (1, 2) - Coluna de Cards (Modular v1.9.1)
+        # Célula (1, 2) - Coluna de Cards (Modular v0.8.2)
         self.painel_direito = QFrame()
         self.painel_direito.setObjectName("painel_direito")
         
@@ -558,7 +558,7 @@ class JanelaPrincipal(QMainWindow):
         # Adiciona o bloco inferior restrito às colunas 0 e 1 do Grid (Logo abaixo das imagens)
         layout_cards_superiores.addLayout(layout_inferior, 2, 0, 2, 2)
         
-        # --- CARD 1: IDENTIFICAÇÃO E TAXONOMIA (v1.9.1) ---
+        # --- CARD 1: IDENTIFICAÇÃO E TAXONOMIA (v0.8.2) ---
         self.card_id = QFrame()
         self.card_id.setProperty("class", "painel")
         self.card_id.setAttribute(Qt.WA_StyledBackground, True)
@@ -634,7 +634,7 @@ class JanelaPrincipal(QMainWindow):
 
         layout_direito.addWidget(self.card_id)
 
-        # --- CARD 1.5: TAXONOMIA (v1.9.2 - Fora do ID) ---
+        # --- CARD 1.5: TAXONOMIA (v0.8.2 - Fora do ID) ---
         self.card_taxonomia = QFrame()
         self.card_taxonomia.setProperty("class", "painel")
         self.card_taxonomia.setAttribute(Qt.WA_StyledBackground, True)
@@ -663,7 +663,7 @@ class JanelaPrincipal(QMainWindow):
         self.card_taxonomia.setVisible(True)
         layout_direito.addWidget(self.card_taxonomia)
 
-        # --- BOTÕES DE BUSCA EXTERNA (SOLTOS v1.9.1) ---
+        # --- BOTÕES DE BUSCA EXTERNA (SOLTOS v0.8.2) ---
         layout_botoes = QHBoxLayout()
         layout_botoes.setSpacing(StyleManager.SPACING_MD)
         layout_botoes.setContentsMargins(0, 5, 0, 5)
@@ -685,7 +685,7 @@ class JanelaPrincipal(QMainWindow):
         
         layout_direito.addLayout(layout_botoes)
         
-        # --- CARD 2: ETIMOLOGIA (v1.9.1) ---
+        # --- CARD 2: ETIMOLOGIA (v0.8.2) ---
         self.card_etimologia = QFrame()
         self.card_etimologia.setProperty("class", "painel")
         self.card_etimologia.setAttribute(Qt.WA_StyledBackground, True)
@@ -704,7 +704,7 @@ class JanelaPrincipal(QMainWindow):
         lbl_titulo_etimologia.setProperty("margin-bottom", "md")
         layout_card_etimologia.addWidget(lbl_titulo_etimologia)
         
-        # Frame Interno Verde (Estilo Legado v1.8.0 mantido em container painel)
+        # Frame Interno Verde (Estilo Legado v0.8.2 mantido em container painel)
         self.frame_etimologia_info = QFrame()
         self.frame_etimologia_info.setObjectName("frame_etimologia")
         self.frame_etimologia_info.setStyleSheet("""
@@ -732,7 +732,7 @@ class JanelaPrincipal(QMainWindow):
         self.btn_gravar_exif.setCursor(Qt.PointingHandCursor)
         layout_direito.addWidget(self.btn_gravar_exif)
         
-        # --- CARD 3: DADOS GEOGRÁFICOS (v1.9.1) ---
+        # --- CARD 3: DADOS GEOGRÁFICOS (v0.8.2) ---
         self.card_geo = QFrame()
         self.card_geo.setProperty("class", "painel")
         self.card_geo.setAttribute(Qt.WA_StyledBackground, True)
@@ -760,7 +760,7 @@ class JanelaPrincipal(QMainWindow):
         
         layout_direito.addWidget(self.card_geo)
 
-        # --- CARD 4: VOCALIZAÇÕES (v1.9.1) ---
+        # --- CARD 4: VOCALIZAÇÕES (v0.8.2) ---
         self.card_audio = QFrame()
         self.card_audio.setProperty("class", "painel")
         self.card_audio.setAttribute(Qt.WA_StyledBackground, True)
@@ -1172,7 +1172,7 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_confianca.setVisible(True)
         self.txt_descricao.clear() # Limpa descrição rica
         
-        # Etimologia agora em card separado (v1.9.0)
+        # Etimologia agora em card separado (v0.8.2)
         self.lbl_etimologia_texto.setText("Carregando...")
         self.card_etimologia.setVisible(False)
         
@@ -1323,7 +1323,7 @@ class JanelaPrincipal(QMainWindow):
             return
 
 
-        # Adiciona cards de auditoria (v1.7.0 - Dentro do Frame Interno)
+        # Adiciona cards de auditoria (v0.8.2 - Dentro do Frame Interno)
         for i, audio in enumerate(resultados):
             card = VocalAuditCard(
                 audio_data=audio,
@@ -1339,7 +1339,7 @@ class JanelaPrincipal(QMainWindow):
             self.active_audio_players.append(card)
             
     def _abrir_detalhes_vocal(self, audio_data):
-        """Abre a janela de auditoria detalhada ao clicar no ícone vocal (v1.3.1)."""
+        """Abre a janela de auditoria detalhada ao clicar no ícone vocal (v0.8.2)."""
         print(f"[UI] Chamada para abrir detalhes do áudio: {audio_data.get('id')} em {audio_data.get('audit_geo')}")
         dialog = VocalDetailDialog(audio_data, self)
         print(f"[UI] Executando modal VocalDetailDialog para o ID {audio_data.get('id')}...")
@@ -1423,13 +1423,13 @@ class JanelaPrincipal(QMainWindow):
         # Limpar áudios anteriores para nova busca geo-sincronizada (v0.4.3)
         self._limpar_painel_audio()
 
-        # CONEXÃO COM O CÉREBRO (v0.8.9)
+        # CONEXÃO COM O CÉREBRO (v0.8.2)
         # Sincroniza as coordenadas no Orchestrator usando o fluxo centralizado de reprocessamento
         if self.orchestrator:
              self.orchestrator.reprocessar_localizacao(lat, lon)
 
     def _ao_clicar_pin_audio(self, audio_id):
-        """Lida com o clique no pin de áudio do mapa, garantindo paridade total com o card (v1.2.5)."""
+        """Lida com o clique no pin de áudio do mapa, garantindo paridade total com o card (v0.8.2)."""
         if not hasattr(self, 'active_audio_players'):
             print("[MAPA] ERRO: Lista de players ativos não inicializada.")
             return
@@ -1448,12 +1448,12 @@ class JanelaPrincipal(QMainWindow):
                     print(f"[DIAGNÓSTICO MAPA] Card localizado: {p_id}. Disparando callback do card.")
                     card_encontrado = True
                     
-                    # 1. Execução Direta (Solicitação do Usuário v1.2.5)
+                    # 1. Execução Direta (Solicitação do Usuário v0.8.2)
                     # Em vez de simular clique no botão, chamamos o callback original com os dados do card
                     if hasattr(player, 'on_click_callback') and player.on_click_callback:
                         # Simulação visual de clique (Feedback para o usuário)
                         # O animateClick() já emite o sinal 'clicked' de forma assíncrona após 100ms,
-                        # o que resolve o conflito com o WebEngine e evita a abertura dupla (v1.3.2).
+                        # o que resolve o conflito com o WebEngine e evita a abertura dupla (v0.8.2).
                         if hasattr(player, 'btn_icon'):
                             player.btn_icon.animateClick()
                     else:
@@ -1494,7 +1494,7 @@ class JanelaPrincipal(QMainWindow):
             <b>Bioma:</b> {bioma}<br>
             """
             
-            # Status IUCN removido do card de dados geográficos (v1.6.1)
+            # Status IUCN removido do card de dados geográficos (v0.8.2)
                 
             self.lbl_geo_details.setText(texto)
             self.lbl_geo_details.setVisible(True)
@@ -1576,7 +1576,7 @@ class JanelaPrincipal(QMainWindow):
             # Aqui focamos apenas no Nome em Inglês (iNaturalist).
             
             nome_ingles = results.get("nome_ingles", "Unknown")
-            # v0.8.3.1: O iNaturalist agora é apenas um fallback silencioso na caderneta.
+            # v0.8.2: O iNaturalist agora é apenas um fallback silencioso na caderneta.
             # A UI é soberana ao WikiAves. Só atualizamos se o label estiver vazio ou com o placeholder.
             texto_atual = self.lbl_nome_ingles.text()
             if "Buscando" in texto_atual or not texto_atual:
@@ -1586,7 +1586,7 @@ class JanelaPrincipal(QMainWindow):
 
             print("[UI] Etapa 5 (eBird/Clements) integrada ao SessionLogger.")
             
-            # Atualizar Card de Taxonomia (v1.8.0)
+            # Atualizar Card de Taxonomia (v0.8.2)
             sci_name = self.dados_identificacao_atual.get("nome_cientifico", "") or self.especie_em_processamento
             genero = sci_name.split()[0] if sci_name else "-"
             
@@ -1652,7 +1652,7 @@ class JanelaPrincipal(QMainWindow):
                 except: pass
             self.active_audio_players = []
         
-        # Limpeza agressiva do frame interno (v1.7.0)
+        # Limpeza agressiva do frame interno (v0.8.2)
         if hasattr(self, 'layout_interno_audio') and self.layout_interno_audio:
             # Remove qualquer widget que não seja a label placeholder
             for i in reversed(range(self.layout_interno_audio.count())):

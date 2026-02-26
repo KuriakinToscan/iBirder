@@ -80,10 +80,10 @@ class Orchestrator(QObject):
         self.current_lon = None
         self.has_location = False # Flag de estado (v0.4.3)
         
-        # Travas de Redundância v0.8.9
+        # Travas de Redundância v0.8.2
         self._last_geo_run = {"sci_name": None, "lat": None, "lon": None}
         
-        # Flags de Sincronização Etapa 3 (v0.9.9)
+        # Flags de Sincronização Etapa 3 (v0.8.2)
         self._step3a_done = False # IUCN
         self._step3b_done = False # GeoAnalyst
         self._step3c_started = False # Conservação Nacional
@@ -174,7 +174,7 @@ class Orchestrator(QObject):
         # As etapas seguintes (3, 4 e 5) serão disparadas sequencialmente pelos callbacks.
 
     def get_audio_data_by_id(self, audio_id):
-        """Busca os dados completos de um áudio no cache central pelo ID (v1.0.0)."""
+        """Busca os dados completos de um áudio no cache central pelo ID (v0.8.2)."""
         if not hasattr(self, '_cache_audio') or not self._cache_audio:
             return None
             
@@ -310,7 +310,7 @@ class Orchestrator(QObject):
     # --- Etapa 3 ---
     def start_step3_geography(self, sci_name):
         """Etapa 3: Geografia (IUCN + GeoAnalyst/Nominatim)."""
-        # Trava de Redundância Atômica v0.8.9
+        # Trava de Redundância Atômica v0.8.2
         if (self._last_geo_run["sci_name"] == sci_name and 
             self._last_geo_run["lat"] == self.current_lat and 
             self._last_geo_run["lon"] == self.current_lon):
@@ -320,7 +320,7 @@ class Orchestrator(QObject):
         self._last_geo_run = {"sci_name": sci_name, "lat": self.current_lat, "lon": self.current_lon}
         self._last_sci_name = sci_name
 
-        # Reset Flags de Sincronização (v0.9.9)
+        # Reset Flags de Sincronização (v0.8.2)
         self._step3a_done = False
         self._step3b_done = False
         self._step3c_started = False
@@ -342,7 +342,7 @@ class Orchestrator(QObject):
             if self.geo_worker:
                 try:
                     self.geo_worker.finished.disconnect()
-                    # Não deletamos imediatamente se estiver rodando v0.8.9
+                    # Não deletamos imediatamente se estiver rodando v0.8.2
                     if not self.geo_worker.isRunning():
                         self.geo_worker.deleteLater()
                 except: pass
@@ -377,7 +377,7 @@ class Orchestrator(QObject):
         self._step3b_done = True
         self.step3_geo_concluida.emit(details)
         
-        # Sincronização 3B -> 3C (v0.9.9)
+        # Sincronização 3B -> 3C (v0.8.2)
         if self._step3a_done:
             print("[Orchestrator] Step 3B concluiu após 3A. Disparando Conservação Nacional.")
             self._disparar_conservacao_sincronizada()
@@ -397,7 +397,7 @@ class Orchestrator(QObject):
         self._step3a_done = True
         self.step3_iucn_concluida.emit(results)
         
-        # Sincronização 3A -> 3C (v0.9.9)
+        # Sincronização 3A -> 3C (v0.8.2)
         if self._step3b_done:
             print("[Orchestrator] Step 3A concluiu após 3B. Disparando Conservação Nacional.")
             self._disparar_conservacao_sincronizada()
@@ -405,7 +405,7 @@ class Orchestrator(QObject):
             print("[Orchestrator] Step 3A concluiu primeiro. Aguardando Step 3B (Geo) para definir território.")
 
     def _disparar_conservacao_sincronizada(self):
-        """Dispara a Etapa 3C garantindo que sabemos o país e evitando disparos duplos (v0.9.9)."""
+        """Dispara a Etapa 3C garantindo que sabemos o país e evitando disparos duplos (v0.8.2)."""
         if self._step3c_started:
             return
             
