@@ -21,6 +21,7 @@ A caderneta funciona como um log de sessão temporário (arquivo JSON) que armaz
 *   **Fonte:** [WikiAves](https://www.wikiaves.com.br) (via Scraper automatizado).
 *   **Informações Salvas:**
     *   `nome_comum`: Nome popular da ave em português (ex: Sabiá-laranjeira).
+    *   `nome_ingles`: Nome comum internacional oficial (ex: Rufous-bellied Thrush). [v0.8.3]
     *   `etimologia`: A origem e significado do nome científico.
     *   `descricao`: Características físicas detalhadas da espécie.
     *   `link_origem`: URL direta para a página da espécie no WikiAves.
@@ -52,7 +53,6 @@ A caderneta funciona como um log de sessão temporário (arquivo JSON) que armaz
 ### 🟡 Etapa 5: Taxonomia Complementar
 *   **Fonte:** [iNaturalist](https://api.inaturalist.org) / [eBird](https://ebird.org).
 *   **Informações Salvas:**
-    *   `nome_ingles`: Nome comum oficial em inglês (ex: Rufous-bellied Thrush).
     *   `classe` / `ordem` / `familia`: Classificação taxonômica completa.
     *   `ebird_code`: Código único da espécie no sistema eBird.
     *   `raridade_regional`: Status de raridade conforme base regional.
