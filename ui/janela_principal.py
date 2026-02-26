@@ -203,6 +203,7 @@ class JanelaPrincipal(QMainWindow):
             "link_origem": dados.get("link_origem", ""),
             "descricao": caracteristicas,
             "nome_comum": dados.get("nome_comum", ""),
+            "nome_ingles": dados.get("nome_ingles", ""),
             "etimologia": etimologia_texto
         }
         
@@ -231,6 +232,21 @@ class JanelaPrincipal(QMainWindow):
         if caracteristicas and caracteristicas != "Não encontrado":
             self.txt_descricao.setPlainText(caracteristicas)
             self.txt_descricao.setVisible(True)
+
+        # --- AJUSTE ESTÉTICO v0.8.5: Padronização de Fontes ---
+        nome_pop = dados.get("nome_comum")
+        if nome_pop and nome_pop != "Não encontrado":
+            self.lbl_nome_popular.setText(f"<b>Nome Popular:</b> {nome_pop}")
+        else:
+            self.lbl_nome_popular.setText("<b>Nome Popular:</b> <i>Não encontrado no WikiAves</i>")
+        self.lbl_nome_popular.setVisible(True)
+
+        nome_en = dados.get("nome_ingles")
+        if nome_en and nome_en != "Não encontrado":
+            self.lbl_nome_ingles.setText(f"<b>Nome em Inglês:</b> {nome_en}")
+        else:
+            self.lbl_nome_ingles.setText("<b>Nome em Inglês:</b> <i>Não encontrado no WikiAves</i>")
+        self.lbl_nome_ingles.setVisible(True)
 
         # --- ATUALIZAR MAPA COM GBIF (v0.3.8) ---
         # Se temos nome científico e o mapa está ativo, atualizamos a camada
@@ -591,23 +607,30 @@ class JanelaPrincipal(QMainWindow):
         lbl_titulo_id.setProperty("class", "lbl-titulo-sessao")
         layout_card_id.addWidget(lbl_titulo_id)
 
-        self.lbl_nome_comum = QLabel("")
-        self.lbl_nome_comum.setObjectName("lbl_nome_comum")
-        self.lbl_nome_comum.setFont(QFont("Segoe UI", 13))
-        self.lbl_nome_comum.setWordWrap(True)
-        self.lbl_nome_comum.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        self.lbl_nome_comum.setVisible(False)
-        layout_card_id.addWidget(self.lbl_nome_comum)
-
-        self.lbl_descricao = QLabel("") 
-        self.lbl_descricao.setObjectName("lbl_descricao")
-        self.lbl_descricao.setWordWrap(True)
-        self.lbl_descricao.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        self.lbl_descricao.setVisible(False)
-        layout_card_id.addWidget(self.lbl_descricao)
-        
         self.lbl_confianca = QLabel("")
-        self.lbl_confianca.setVisible(False) 
+        self.lbl_confianca.setObjectName("lbl_confianca")
+        self.lbl_confianca.setWordWrap(True)
+        self.lbl_confianca.setVisible(False)
+        layout_card_id.addWidget(self.lbl_confianca)
+
+        self.lbl_nome_popular = QLabel("<b>Nome Popular:</b> <i>Aguardando identificação...</i>")
+        self.lbl_nome_popular.setObjectName("lbl_nome_popular")
+        self.lbl_nome_popular.setWordWrap(True)
+        self.lbl_nome_popular.setTextFormat(Qt.RichText)
+        self.lbl_nome_popular.setProperty("class", "container-borda-cinza-fill")
+        self.lbl_nome_popular.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.lbl_nome_popular.setVisible(True)
+        layout_card_id.addWidget(self.lbl_nome_popular)
+
+        self.lbl_nome_ingles = QLabel("<b>Nome em Inglês:</b> <i>Aguardando identificação...</i>")
+        self.lbl_nome_ingles.setObjectName("lbl_nome_ingles")
+        self.lbl_nome_ingles.setWordWrap(True)
+        self.lbl_nome_ingles.setTextFormat(Qt.RichText)
+        self.lbl_nome_ingles.setProperty("class", "container-borda-cinza-fill")
+        self.lbl_nome_ingles.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.lbl_nome_ingles.setVisible(True)
+        layout_card_id.addWidget(self.lbl_nome_ingles)
+        
 
         layout_direito.addWidget(self.card_id)
 
@@ -687,7 +710,6 @@ class JanelaPrincipal(QMainWindow):
         self.frame_etimologia_info.setStyleSheet("""
             QFrame#frame_etimologia {
                 background-color: #F8F9FA;
-                border-left: 4px solid #10B981;
                 border-radius: 4px;
                 padding: 10px;
             }
@@ -1142,8 +1164,12 @@ class JanelaPrincipal(QMainWindow):
              msg.exec()
              return
 
-        self.lbl_nome_comum.setText("...")
-        self.lbl_descricao.setText("-")
+        self.lbl_nome_popular.setText("<b>Nome Popular:</b> <i>Buscando...</i>")
+        self.lbl_nome_popular.setVisible(True)
+        self.lbl_nome_ingles.setText("<b>Nome em Inglês:</b> <i>Buscando...</i>")
+        self.lbl_nome_ingles.setVisible(True)
+        self.lbl_confianca.setText("<b>IA Local:</b> Analisando pixels...")
+        self.lbl_confianca.setVisible(True)
         self.txt_descricao.clear() # Limpa descrição rica
         
         # Etimologia agora em card separado (v1.9.0)
@@ -1199,9 +1225,7 @@ class JanelaPrincipal(QMainWindow):
         desc = dados.get("descricao", "")
         conf = dados.get("confianca", 0.0)
         status_msg = dados.get("status_msg", "")
-        
-        self.lbl_nome_comum.setText(nc)
-        self.lbl_nome_comum.setVisible(bool(nc))
+        self.lbl_confianca.setVisible(True)
         
         if "Inconclusiva" not in status_msg and "Baixa" not in status_msg and sci:
             sci_clean = re.sub(r"[(\[].*?[)\]]", "", sci).strip()
@@ -1225,12 +1249,12 @@ class JanelaPrincipal(QMainWindow):
              self.input_especie.style().unpolish(self.input_especie)
              self.input_especie.style().polish(self.input_especie)
         
-        self.lbl_descricao.setText(f"<i>Identificado com iNaturalist Vision (Prob {conf*100:.1f}%)</i>")
-        self.lbl_descricao.setVisible(True)
+        self.lbl_confianca.setText(f"<i>Identificado com iNaturalist Vision (Prob {conf*100:.1f}%)</i>")
+        self.lbl_confianca.setVisible(True)
         
         if status_msg == "Baixa confiança":
-            self.lbl_confianca.setText(f"{conf*100:.1f}% (Baixa)")
-            self.lbl_confianca.setProperty("class", "lbl-titulo-sessao lbl-confianca-baixa")
+            self.lbl_confianca.setText(f"<b>Identificação com Baixa Confiança:</b> {conf*100:.1f}%")
+            self.lbl_confianca.setProperty("class", "lbl-confianca-baixa")
             self.lbl_confianca.style().unpolish(self.lbl_confianca)
             self.lbl_confianca.style().polish(self.lbl_confianca)
             self.status_bar.showMessage("Identificação inconclusiva.")
@@ -1243,12 +1267,10 @@ class JanelaPrincipal(QMainWindow):
             self.card_ref.set_pixmap(None)
             self.card_ref.set_overlay_text(None)
             
-            self.lbl_descricao.setText("<i>Não foi possível identificar com segurança.</i><br><i>Use o Google Lens para identificação manual.</i>")
+            self.txt_descricao.setPlainText("Não foi possível identificar com segurança. Use o Google Lens ou a busca manual.")
             self.btn_google_lens.setEnabled(True)
-
         else:
-            self.lbl_confianca.setText(f"{conf*100:.1f}%")
-            self.lbl_confianca.setProperty("class", "lbl-titulo-sessao lbl-confianca-alta")
+            self.lbl_confianca.setProperty("class", "lbl-confianca-alta")
             self.lbl_confianca.style().unpolish(self.lbl_confianca)
             self.lbl_confianca.style().polish(self.lbl_confianca)
             self.status_bar.showMessage("Identificação concluída.")
@@ -1256,6 +1278,7 @@ class JanelaPrincipal(QMainWindow):
             self.btn_wiki.setVisible(True)
             self.btn_google.setVisible(True)
             self.btn_ebird.setVisible(True)
+            self.btn_google_lens.setEnabled(False)
             
             if sci:
                 self._iniciar_busca_imagem(sci)
@@ -1394,7 +1417,7 @@ class JanelaPrincipal(QMainWindow):
         if not hasattr(self, 'lbl_geo_details'):
              return
 
-        self.lbl_geo_details.setText("🔄 Analisando local e bioma...")
+        self.lbl_geo_details.setText("Analisando local e bioma...")
         self.lbl_geo_details.setVisible(True)
         
         # Limpar áudios anteriores para nova busca geo-sincronizada (v0.4.3)
@@ -1513,7 +1536,6 @@ class JanelaPrincipal(QMainWindow):
                 endemismo_str = '<br><b style="color: #059669;">✨ Endêmica do Brasil</b>'
             
             # Status ICMBio e CITES
-            # O status_icmbio já vem tratado do worker, mas garantimos aqui se necessário
             status_br_val = results.get('status_icmbio', '-')
             status_br = f"<br><b>ICMBio:</b> {status_br_val}"
             status_cites = f"<br><b>CITES:</b> {results.get('status_cites', '-')}"
@@ -1525,8 +1547,6 @@ class JanelaPrincipal(QMainWindow):
             else:
                 msg_dist = ""
 
-            texto_atual = self.lbl_geo_details.text()
-            # Inserir as novas informações de conservação mantendo os dados geo
             texto_base = f"""
             <b>Coordenadas:</b> {lat:.5f}, {lon:.5f}<br>
             <b>País:</b> {pais}<br>
@@ -1539,8 +1559,6 @@ class JanelaPrincipal(QMainWindow):
             self.lbl_geo_details.setText(texto_base)
             self.lbl_geo_details.setVisible(True)
 
-    # A busca do ebird foi movida para o Orchestrator
-        
     def _ao_concluir_ebird(self, results):
         if hasattr(self, 'session_logger'):
             self.session_logger.atualizar_ultimo_registro({
@@ -1552,6 +1570,20 @@ class JanelaPrincipal(QMainWindow):
                 "raridade_regional": results.get("raridade_regional", ""),
                 "link_ebird": results.get("link_ebird", "")
             })
+            
+            # Atualizar Card de Identificação (Nomes) (v0.8.2.3 - Higienização de Fontes)
+            # Nome Popular é gerido exclusivamente pelo WikiAves na Etapa 2.
+            # Aqui focamos apenas no Nome em Inglês (iNaturalist).
+            
+            nome_ingles = results.get("nome_ingles", "Unknown")
+            # v0.8.3.1: O iNaturalist agora é apenas um fallback silencioso na caderneta.
+            # A UI é soberana ao WikiAves. Só atualizamos se o label estiver vazio ou com o placeholder.
+            texto_atual = self.lbl_nome_ingles.text()
+            if "Buscando" in texto_atual or not texto_atual:
+                if nome_ingles and nome_ingles not in ["Unknown", "Desconhecido"]:
+                    self.lbl_nome_ingles.setText(f"<b>Nome em Inglês:</b> {nome_ingles}")
+                    self.lbl_nome_ingles.setVisible(True)
+
             print("[UI] Etapa 5 (eBird/Clements) integrada ao SessionLogger.")
             
             # Atualizar Card de Taxonomia (v1.8.0)
@@ -1568,13 +1600,7 @@ class JanelaPrincipal(QMainWindow):
             self.lbl_taxo_details.setVisible(True)
             self.card_taxonomia.setVisible(True)
             
-            # Preparar persistência EXIF (Futuro v0.3.22+)
-            # from modules.step6_persistence.exif_manager import EXIFManager
-            # exif_manager = EXIFManager()
-            # Se a imagem tiver um caminho salvo no widget card principal, passarremos.
-            # exif_manager.escrever_metadados_completos(self.card_user.image_path, self.session_logger.obter_ultimo_registro())
             print("[EXIF] Módulo placeholder preparado para receber dados (Etapa Final).")
-
 
     def _registrar_dados_geo_iucn(self):
         geo = getattr(self, 'last_geo_data', {})
@@ -1679,10 +1705,10 @@ class JanelaPrincipal(QMainWindow):
         self.input_especie.style().polish(self.input_especie)
         
         # 4. Reset de Labels de Dados
-        self.lbl_nome_comum.setText("")
-        self.lbl_nome_comum.setVisible(False)
-        self.lbl_descricao.setText("")
-        self.lbl_descricao.setVisible(False)
+        self.lbl_nome_popular.setText("<b>Nome Popular:</b> <i>Aguardando identificação...</i>")
+        self.lbl_nome_popular.setVisible(True)
+        self.lbl_nome_ingles.setText("<b>Nome em Inglês:</b> <i>Aguardando identificação...</i>")
+        self.lbl_nome_ingles.setVisible(True)
         
         self.lbl_confianca.setText("")
         self.lbl_confianca.setVisible(False)

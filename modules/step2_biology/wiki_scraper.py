@@ -174,9 +174,11 @@ class BuscadorBlindado:
         dados = {}
 
         # 🔹 Nome Comum (Título Principal h1)
-        # O .strip() no get_text previne espaços e quebras indesejadas
-        tag_h1 = soup.find("h1", id="titulo")
+        # Refinado v0.8.4.3: IDs dinâmicos no WikiAves exigem busca por classe ou tag genérica
+        tag_h1 = soup.find("h1", class_="sectionedit1") or soup.find("h1", id="titulo") or soup.find("h1")
+        
         if tag_h1:
+             # O .strip() no get_text previne espaços e quebras indesejadas
              dados["nome_comum"] = tag_h1.get_text(separator=" ", strip=True)
         else:
              dados["nome_comum"] = "Não encontrado"
@@ -211,17 +213,22 @@ class BuscadorBlindado:
                     dados["caracteristicas"] = "Descrição não disponível."
             else:
                 dados["caracteristicas"] = "Não encontrado"
-        else:
-            dados["caracteristicas"] = "Não encontrado"
-            
-        # 🔹 Estado de Conservação (Fallback IUCN)
-        dados["status_conservacao"] = "Não encontrado"
-        links_iucn = soup.find_all("a", href=lambda href: href and "lista_vermelha_iucn" in href.lower())
-        for link in links_iucn:
-            texto = link.get_text(strip=True)
-            if texto and "IUCN" not in texto.upper():
-                dados["status_conservacao"] = texto
-                break
+        # 🔹 Nome em Inglês (v0.8.3)
+        sec_ingles = soup.find("h2", string=lambda t: t and "Nome em Inglês" in t)
+        if sec_ingles:
+            # O nome em inglês costuma vir como um text node logo após o h2
+            proximo = sec_ingles.next_sibling
+            if proximo and isinstance(proximo, str):
+                dados["nome_ingles"] = proximo.strip()
+            elif sec_ingles.next_element:
+                # Tenta pegar o próximo elemento se não for string direta
+                texto_ingles = sec_ingles.find_next(string=True)
+                if texto_ingles:
+                    dados["nome_ingles"] = texto_ingles.strip()
+                else:
+                    dados["nome_ingles"] = "Não encontrado"
+        # v0.8.4.2: Garantir que o link de origem seja persistido
+        dados["link_origem"] = url
 
         return dados
 
