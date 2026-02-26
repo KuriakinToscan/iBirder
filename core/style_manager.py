@@ -157,7 +157,13 @@ class StyleManager:
             QMainWindow {{ background-color: {bg_app}; }}
             QDialog {{ background-color: {bg_app}; }}
             
-            QFrame.painel {{ 
+            /* Estrutura de Containers (v1.9.1 Centralizado) */
+            QScrollArea#scroll_area_principal {{ border: none; background-color: {bg_app}; }}
+            QWidget#container_rolagem {{ background-color: {bg_app}; }}
+            QFrame#painel_direito {{ background: transparent; border: none; }}
+            
+            /* Cards Estilo Premium */
+            *[class~="painel"] {{ 
                 background-color: {bg_card}; 
                 border-radius: 12px; 
                 border: 1px solid {border}; 
@@ -240,13 +246,13 @@ class StyleManager:
             }}
             QPushButton:hover {{ background-color: {accent_hover}; }}
             
-            /* Botões Secundários */
-            QPushButton.secundario {{
+            /* Botões Secundários Adaptativos (v1.9.1) */
+            *[class~="secundario"] {{
                 background-color: #E5E7EB;
                 color: #374151;
                 border: 1px solid #D1D5DB;
             }}
-            QPushButton.secundario:hover {{ background-color: #D1D5DB; }}
+            *[class~="secundario"]:hover {{ background-color: #D1D5DB; }}
             
             /* Botões Ícone */
             QPushButton[class="icon-btn"] {{ background-color: transparent; color: {text_secondary}; padding: 4px; border: none; }}
@@ -334,7 +340,7 @@ class StyleManager:
             /* Classes Abstratas para Widgets Customizados */
             .lbl-titulo-sessao {{ font-weight: bold; color: {text_secondary}; font-size: 11px; }}
             .container-borda-cinza {{ border: 1px solid {border}; border-radius: 6px; padding: 4px; color: {text_primary}; }}
-            .container-borda-cinza-fill {{ background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 6px; padding: 6px; color: #1F2937; font-size: 11px; }}
+            *[class~="container-borda-cinza-fill"] {{ background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 6px; padding: 6px; color: #1F2937; font-size: 11px; }}
             
             /* Botão Fechar Modal (Lightbox) */
             QPushButton.btn-fechar-modal {{

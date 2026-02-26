@@ -112,10 +112,8 @@ class JanelaPrincipal(QMainWindow):
         self.txt_descricao.clear() # Reset descrição anterior
         
         # Reset para estado "Aguardando"
-        self.txt_etimologia.clear()
-        self.txt_etimologia.setPlaceholderText("Aguardando identificação...")
-        self.lbl_titulo_etimologia.setVisible(True)
-        self.txt_etimologia.setVisible(True)
+        self.lbl_etimologia_texto.setText("Carregando...")
+        self.card_etimologia.setVisible(True)
 
         # Limpeza segura do worker anterior
         old_worker_ref = getattr(self, "worker_referencia", None)
@@ -135,11 +133,6 @@ class JanelaPrincipal(QMainWindow):
         self.worker_referencia.image_found.connect(self._ao_encontrar_imagem_referencia)
         self.worker_referencia.search_failed.connect(lambda: self.card_ref.set_placeholder("Sem referência"))
         self.worker_referencia.start()
-        
-        self.worker_referencia.start()
-        
-        # A busca de biologia via iNaturalist/WikiAves foi transferida para o Orchestrator
-        
         
     def _ao_update_disponivel(self, manifest_data):
         ver = manifest_data.get("version", "?")
@@ -226,22 +219,18 @@ class JanelaPrincipal(QMainWindow):
         self.dados_identificacao_atual.update(dados_etapa_2)
         self.dados_identificacao_atual["nome_cientifico"] = sci_persist
 
-        # Atualiza Campo Etimologia
-        # Atualiza Campo Etimologia
+        # Atualiza Campo Etimologia (v1.9.0)
         if etimologia_texto and etimologia_texto != "Não encontrado":
-            self.txt_etimologia.setPlainText(etimologia_texto)
+            self.lbl_etimologia_texto.setText(etimologia_texto)
+            self.card_etimologia.setVisible(True)
         elif etimologia_texto == "Não encontrado":
-            self.txt_etimologia.setPlaceholderText("Etimologia não disponível.")
-            self.txt_etimologia.clear()
+            self.lbl_etimologia_texto.setText("Etimologia não disponível.")
+            self.card_etimologia.setVisible(True)
 
         # Atualiza Campo Descrição (Rodapé)
         if caracteristicas and caracteristicas != "Não encontrado":
             self.txt_descricao.setPlainText(caracteristicas)
             self.txt_descricao.setVisible(True)
-            self.lbl_titulo_etimologia.setVisible(True)
-            self.txt_etimologia.setVisible(True)
-            
-        self.frame_etimologia.setVisible(False) # Esconde o antigo frame do iNaturalist se ainda visível
 
         # --- ATUALIZAR MAPA COM GBIF (v0.3.8) ---
         # Se temos nome científico e o mapa está ativo, atualizamos a camada
@@ -292,11 +281,11 @@ class JanelaPrincipal(QMainWindow):
     def _ao_erro_api(self, erro_msg):
         print(f"[UI] Erro na API (Info Espécie): {erro_msg}")
         self.lbl_etimologia_texto.setText(f"Erro ao buscar informações: {erro_msg}")
-        self.frame_etimologia.setVisible(True)
+        self.card_etimologia.setVisible(True)
 
     def _ao_erro_identificacao(self, erro_msg):
         self.lbl_etimologia_texto.setText(f"Erro: {erro_msg}")
-        self.frame_etimologia.setVisible(True)
+        self.card_etimologia.setVisible(True)
 
     def _ajustar_altura_descricao(self):
         """Ajusta a altura do campo de descrição conforme o conteúdo."""
@@ -304,16 +293,9 @@ class JanelaPrincipal(QMainWindow):
         margins = self.txt_descricao.contentsMargins().top() + self.txt_descricao.contentsMargins().bottom() + 15
         self.txt_descricao.setFixedHeight(max(int(doc_height + 10), 45))
 
-    def _ajustar_altura_etimologia(self):
-        """Ajusta a altura do campo de etimologia conforme o conteúdo."""
-        doc_height = self.txt_etimologia.document().size().height()
-        # Ajuste fino para evitar scrollbar e espaço extra (padding css + margem segurança)
-        self.txt_etimologia.setFixedHeight(max(int(doc_height + 10), 45))
-
     def resizeEvent(self, event):
         """Recalcula altura dos campos de texto ao redimensionar a janela."""
         # Usa timer para garantir que o layout já foi atualizado e a largura dos campos está correta
-        QTimer.singleShot(0, self._ajustar_altura_etimologia)
         QTimer.singleShot(0, self._ajustar_altura_descricao)
         super().resizeEvent(event)
 
@@ -329,14 +311,11 @@ class JanelaPrincipal(QMainWindow):
 
         # Container Principal com Scroll
         self.scroll_area = QScrollArea()
+        self.scroll_area.setObjectName("scroll_area_principal")
         self.scroll_area.setWidgetResizable(True)
-        # Garante fundo claro na área de scroll
-        self.scroll_area.setStyleSheet("QScrollArea { border: none; background-color: #F0F2F5; }")
 
         widget_central = QWidget()
         widget_central.setObjectName("container_rolagem")
-        # Garante que o widget interno também tenha fundo claro, mas sem afetar filhos
-        widget_central.setStyleSheet("#container_rolagem { background-color: #F0F2F5; }")
         self.scroll_area.setWidget(widget_central)
         self.setCentralWidget(self.scroll_area)
 
@@ -462,6 +441,13 @@ class JanelaPrincipal(QMainWindow):
         self.card_user.set_placeholder("Arraste e solte uma foto aqui\n\nou clique para selecionar")
         self.card_user.set_on_drop(self._carregar_imagem)
         self.card_user.set_on_click(self._abrir_seletor_arquivo)
+        
+        sombra_user = QGraphicsDropShadowEffect(self.card_user)
+        sombra_user.setBlurRadius(18)
+        sombra_user.setColor(QColor(0, 0, 0, 25))
+        sombra_user.setOffset(0, 4)
+        self.card_user.setGraphicsEffect(sombra_user)
+        
         layout_imagem_btn_user.addWidget(self.card_user, stretch=1)
         
         self.btn_google_lens = QPushButton("Pesquisar com Google Lens")
@@ -479,6 +465,13 @@ class JanelaPrincipal(QMainWindow):
         
         self.card_ref = ImageCardWidget()
         self.card_ref.set_placeholder("Aguardando a identificação da ave.")
+        
+        sombra_ref = QGraphicsDropShadowEffect(self.card_ref)
+        sombra_ref.setBlurRadius(18)
+        sombra_ref.setColor(QColor(0, 0, 0, 25))
+        sombra_ref.setOffset(0, 4)
+        self.card_ref.setGraphicsEffect(sombra_ref)
+        
         layout_imagem_btn_ref.addWidget(self.card_ref, stretch=1)
         
         self.btn_fonte = QPushButton("Abrir Fonte")
@@ -491,20 +484,14 @@ class JanelaPrincipal(QMainWindow):
         # Ancorando estritamente ao topo sem stretch inflador:
         layout_cards_superiores.addLayout(layout_imagem_btn_ref, 1, 1, alignment=Qt.AlignTop)
         
-        # Célula (1, 2) - Painel de Resultados (Antigo Lado Direito)
+        # Célula (1, 2) - Coluna de Cards (Modular v1.9.1)
         self.painel_direito = QFrame()
-        self.painel_direito.setProperty("class", "painel")
+        self.painel_direito.setObjectName("painel_direito")
         
-        sombra = QGraphicsDropShadowEffect()
-        sombra.setBlurRadius(20)
-        sombra.setColor(QColor(0, 0, 0, 20))
-        sombra.setOffset(0, 5)
-        self.painel_direito.setGraphicsEffect(sombra)
-
         layout_direito = QVBoxLayout()
         self.painel_direito.setLayout(layout_direito)
-        layout_direito.setSpacing(StyleManager.SPACING_MD)
-        layout_direito.setContentsMargins(12, 18, 12, 12)
+        layout_direito.setSpacing(StyleManager.SPACING_MD + 5) # Aumento leve no gap entre cards
+        layout_direito.setContentsMargins(0, 0, 0, 0)
         
         layout_cards_superiores.addWidget(self.painel_direito, 1, 2, 3, 1) # RowSpan=3, ColSpan=1
         
@@ -553,197 +540,223 @@ class JanelaPrincipal(QMainWindow):
         
         
         # Adiciona o bloco inferior restrito às colunas 0 e 1 do Grid (Logo abaixo das imagens)
-        layout_cards_superiores.addLayout(layout_inferior, 2, 0, 2, 2) # Row=2, Col=0, RowSpan=2, ColSpan=2
+        layout_cards_superiores.addLayout(layout_inferior, 2, 0, 2, 2)
         
-        # Painel Branco Interno Layouts
-        # (O layout_direito já foi inicializado e setado acima no `self.painel_direito.setLayout(layout_direito)`)
-        # Layouts de grupo_resultados continuarão a ser inseridos nele mais tarde no código.
+        # --- CARD 1: IDENTIFICAÇÃO E TAXONOMIA (v1.9.1) ---
+        self.card_id = QFrame()
+        self.card_id.setProperty("class", "painel")
+        self.card_id.setAttribute(Qt.WA_StyledBackground, True)
         
-        # Grupo Resultados
-        grupo_resultados = QGroupBox("") 
-        layout_res = QVBoxLayout()
-        layout_res.setSpacing(StyleManager.SPACING_XS) # Espaçamento extra-compacto (v1.5.2)
+        sombra_id = QGraphicsDropShadowEffect(self.card_id)
+        sombra_id.setBlurRadius(18)
+        sombra_id.setColor(QColor(0, 0, 0, 25))
+        sombra_id.setOffset(0, 4)
+        self.card_id.setGraphicsEffect(sombra_id)
         
-        self.lbl_nome_comum = QLabel("")
-        self.lbl_nome_comum.setObjectName("lbl_nome_comum")
-        self.lbl_nome_comum.setFont(QFont("Segoe UI", 13))
-        self.lbl_nome_comum.setWordWrap(True)
-        self.lbl_nome_comum.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        layout_card_id = QVBoxLayout(self.card_id)
+        layout_card_id.setSpacing(StyleManager.SPACING_SM)
+        layout_card_id.setContentsMargins(15, 18, 15, 15)
         
-        self.lbl_confianca = QLabel("")
-        self.lbl_confianca.setObjectName("lbl_confianca")
-        self.lbl_confianca.setProperty("class", "lbl-titulo-sessao")
-        self.lbl_confianca.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        
-        self.lbl_descricao = QLabel("") 
-        self.lbl_descricao.setObjectName("lbl_descricao")
-        self.lbl_descricao.setWordWrap(True)
-        self.lbl_descricao.setTextInteractionFlags(Qt.TextSelectableByMouse)
-
-        self.lbl_descricao.setWordWrap(True)
-        
-        # Label Nome Científico Padronizado
+        # Nome Científico / Busca
         lbl_titulo_nc = QLabel("Nome Científico")
         lbl_titulo_nc.setProperty("class", "lbl-titulo-sessao")
-        lbl_titulo_nc.setProperty("margin-top", "md")
-        layout_res.addWidget(lbl_titulo_nc)
+        layout_card_id.addWidget(lbl_titulo_nc)
 
-        # Container de Busca Manual
         container_busca = QHBoxLayout()
-        container_busca.setContentsMargins(0, 0, 0, 0)
         container_busca.setSpacing(StyleManager.SPACING_SM)
-        
         self.input_especie = QLineEdit()
         self.input_especie.setPlaceholderText("pesquise ou digite")
-        # Estilo Biológico Rigoroso (v0.8.1)
         self.input_especie.setProperty("class", "sci-name-input")
         self.input_especie.returnPressed.connect(self._realizar_busca_manual)
         
         self.btn_search = QPushButton()
         self.btn_search.setCursor(Qt.PointingHandCursor)
         self.btn_search.setFixedSize(32, 32)
-        # O botão da lupa é icon-only e não usa os backgrounds globais.
         self.btn_search.setStyleSheet("background-color: transparent; border: none;") 
-        
         caminho_lupa = self._obter_caminho_asset("search_loupe.svg")
         if os.path.exists(caminho_lupa):
              self.btn_search.setIcon(QIcon(caminho_lupa))
              self.btn_search.setIconSize(QSize(20, 20))
         else:
              self.btn_search.setText("🔍")
-             
         self.btn_search.clicked.connect(self._realizar_busca_manual)
         
         container_busca.addWidget(self.input_especie)
         container_busca.addWidget(self.btn_search)
-        
-        layout_res.addLayout(container_busca)
+        layout_card_id.addLayout(container_busca)
+        layout_card_id.addSpacing(10)
 
-        # --- SEÇÃO 3: IDENTIFICAÇÃO (Item 3 reconfigurado) ---
+        # Identificação
         lbl_titulo_id = QLabel("Identificação")
         lbl_titulo_id.setProperty("class", "lbl-titulo-sessao")
-        # margin-top removido para colagem cirúrgica (v1.5.1)
-        layout_res.addWidget(lbl_titulo_id)
+        layout_card_id.addWidget(lbl_titulo_id)
 
-        layout_res.addWidget(self.lbl_nome_comum)
-        layout_res.addWidget(self.lbl_descricao)
-        
+        self.lbl_nome_comum = QLabel("")
+        self.lbl_nome_comum.setObjectName("lbl_nome_comum")
+        self.lbl_nome_comum.setFont(QFont("Segoe UI", 13))
+        self.lbl_nome_comum.setWordWrap(True)
+        self.lbl_nome_comum.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.lbl_nome_comum.setVisible(False)
+        layout_card_id.addWidget(self.lbl_nome_comum)
+
+        self.lbl_descricao = QLabel("") 
+        self.lbl_descricao.setObjectName("lbl_descricao")
+        self.lbl_descricao.setWordWrap(True)
+        self.lbl_descricao.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.lbl_descricao.setVisible(False)
-        # self.lbl_confianca agora oculto, integrado na string de lbl_descricao (v1.5.0)
+        layout_card_id.addWidget(self.lbl_descricao)
+        
+        self.lbl_confianca = QLabel("")
         self.lbl_confianca.setVisible(False) 
-        
-        # --- NOVOS CAMPOS: ETIMOLOGIA (Abaixo do Nome Científico) ---
-        self.lbl_titulo_etimologia = QLabel('Etimologia <i>(WikiAves)</i>')
-        self.lbl_titulo_etimologia.setProperty("class", "lbl-titulo-sessao")
-        # margin-top md mantido apenas se houver info acima, layout gerencia
-        layout_res.addWidget(self.lbl_titulo_etimologia)
 
-        self.txt_etimologia = QTextEdit()
-        self.txt_etimologia.setReadOnly(True)
-        self.txt_etimologia.setPlaceholderText("Aguardando identificação...")
-        self.txt_etimologia.setMinimumHeight(30) 
-        self.txt_etimologia.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.txt_etimologia.textChanged.connect(self._ajustar_altura_etimologia)
-        self.txt_etimologia.setProperty("class", "container-borda-cinza")
-        self.txt_etimologia.setVisible(True)
-        layout_res.addWidget(self.txt_etimologia)
-        # -------------------------------------------------------------
+        layout_direito.addWidget(self.card_id)
 
-        # layout_res.addWidget(QLabel("Info:")) # Removido conforme nova hierarquia
-        # layout_res.addWidget(self.lbl_descricao) # Já adicionado acima na nova ordem
-        # layout_res.addWidget(self.lbl_confianca) # Já removido/ocultado acima
+        # --- CARD 1.5: TAXONOMIA (v1.9.2 - Fora do ID) ---
+        self.card_taxonomia = QFrame()
+        self.card_taxonomia.setProperty("class", "painel")
+        self.card_taxonomia.setAttribute(Qt.WA_StyledBackground, True)
         
-        # Botões de Busca Externa
+        sombra_taxo = QGraphicsDropShadowEffect(self.card_taxonomia)
+        sombra_taxo.setBlurRadius(15)
+        sombra_taxo.setColor(QColor(0, 0, 0, 20))
+        sombra_taxo.setOffset(0, 3)
+        self.card_taxonomia.setGraphicsEffect(sombra_taxo)
+        
+        layout_card_taxo = QVBoxLayout(self.card_taxonomia)
+        layout_card_taxo.setContentsMargins(15, 15, 15, 15)
+        
+        lbl_titulo_taxo = QLabel("Taxonomia")
+        lbl_titulo_taxo.setProperty("class", "lbl-titulo-sessao")
+        lbl_titulo_taxo.setProperty("margin-bottom", "md")
+        layout_card_taxo.addWidget(lbl_titulo_taxo)
+        
+        self.lbl_taxo_details = QLabel("<i>Aguardando identificação da ave...</i>")
+        self.lbl_taxo_details.setWordWrap(True)
+        self.lbl_taxo_details.setTextFormat(Qt.RichText)
+        self.lbl_taxo_details.setProperty("class", "container-borda-cinza-fill")
+        self.lbl_taxo_details.setVisible(True)
+        layout_card_taxo.addWidget(self.lbl_taxo_details)
+        
+        self.card_taxonomia.setVisible(True)
+        layout_direito.addWidget(self.card_taxonomia)
+
+        # --- BOTÕES DE BUSCA EXTERNA (SOLTOS v1.9.1) ---
         layout_botoes = QHBoxLayout()
-        layout_botoes.setSpacing(10)
+        layout_botoes.setSpacing(StyleManager.SPACING_MD)
+        layout_botoes.setContentsMargins(0, 5, 0, 5)
         
         self.btn_wiki = QPushButton("WikiAves")
         self.btn_wiki.setCursor(Qt.PointingHandCursor)
-        # Estilo Global
         self.btn_wiki.clicked.connect(self._buscar_wikiaves)
-        layout_botoes.addWidget(self.btn_wiki)
+        layout_botoes.addWidget(self.btn_wiki, stretch=1)
         
         self.btn_ebird = QPushButton("eBird")
         self.btn_ebird.setCursor(Qt.PointingHandCursor)
-        # Estilo Global
         self.btn_ebird.clicked.connect(self._buscar_ebird)
-        layout_botoes.addWidget(self.btn_ebird)
-
+        layout_botoes.addWidget(self.btn_ebird, stretch=1)
+ 
         self.btn_google = QPushButton("Google")
         self.btn_google.setCursor(Qt.PointingHandCursor)
-        # Estilo Global
         self.btn_google.clicked.connect(self._buscar_google)
-        layout_botoes.addWidget(self.btn_google)
+        layout_botoes.addWidget(self.btn_google, stretch=1)
         
-        layout_res.addLayout(layout_botoes)
+        layout_direito.addLayout(layout_botoes)
         
-        # --- Card Etimologia ---
-        self.frame_etimologia = QFrame()
-        self.frame_etimologia.setObjectName("frame_etimologia")
-        self.frame_etimologia.setStyleSheet("""
+        # --- CARD 2: ETIMOLOGIA (v1.9.1) ---
+        self.card_etimologia = QFrame()
+        self.card_etimologia.setProperty("class", "painel")
+        self.card_etimologia.setAttribute(Qt.WA_StyledBackground, True)
+        
+        sombra_etim = QGraphicsDropShadowEffect(self.card_etimologia)
+        sombra_etim.setBlurRadius(15)
+        sombra_etim.setColor(QColor(0, 0, 0, 20))
+        sombra_etim.setOffset(0, 3)
+        self.card_etimologia.setGraphicsEffect(sombra_etim)
+        
+        layout_card_etimologia = QVBoxLayout(self.card_etimologia)
+        layout_card_etimologia.setContentsMargins(15, 15, 15, 15)
+        
+        lbl_titulo_etimologia = QLabel("Etimologia (WikiAves)")
+        lbl_titulo_etimologia.setProperty("class", "lbl-titulo-sessao")
+        lbl_titulo_etimologia.setProperty("margin-bottom", "md")
+        layout_card_etimologia.addWidget(lbl_titulo_etimologia)
+        
+        # Frame Interno Verde (Estilo Legado v1.8.0 mantido em container painel)
+        self.frame_etimologia_info = QFrame()
+        self.frame_etimologia_info.setObjectName("frame_etimologia")
+        self.frame_etimologia_info.setStyleSheet("""
             QFrame#frame_etimologia {
                 background-color: #F8F9FA;
                 border-left: 4px solid #10B981;
                 border-radius: 4px;
                 padding: 10px;
-                margin-top: 10px;
             }
         """)
-        
-        layout_etimologia = QVBoxLayout(self.frame_etimologia)
-        layout_etimologia.setContentsMargins(0, 0, 0, 0)
-        
-        lbl_titulo = QLabel("Detalhes (WikiAves)")
-        lbl_titulo.setStyleSheet("font-weight: bold; color: #059669; font-size: 11px; text-transform: uppercase;")
-        layout_etimologia.addWidget(lbl_titulo)
+        layout_etim_info = QVBoxLayout(self.frame_etimologia_info)
+        layout_etim_info.setContentsMargins(0, 0, 0, 0)
         
         self.lbl_etimologia_texto = QLabel("Carregando...")
         self.lbl_etimologia_texto.setWordWrap(True)
-        self.lbl_etimologia_texto.setStyleSheet("color: #374151; font-size: 12px; margin-top: 4px;")
-        layout_etimologia.addWidget(self.lbl_etimologia_texto)
+        self.lbl_etimologia_texto.setStyleSheet("color: #374151; font-size: 12px;")
+        layout_etim_info.addWidget(self.lbl_etimologia_texto)
         
-        self.frame_etimologia.setVisible(False)
-        layout_res.addWidget(self.frame_etimologia)
+        layout_card_etimologia.addWidget(self.frame_etimologia_info)
+        self.card_etimologia.setVisible(False)
+        layout_direito.addWidget(self.card_etimologia)
 
+        # (Taxonomia movida para Card ID) 
+        
         self.btn_gravar_exif = QPushButton("Confirmar a identificação e gravar dados na fotografia.")
         self.btn_gravar_exif.setCursor(Qt.PointingHandCursor)
-        # O user disse que definiremos a função do botão depois, então deixamos sem connect por enquanto.
-        layout_res.addWidget(self.btn_gravar_exif)
+        layout_direito.addWidget(self.btn_gravar_exif)
         
-        # --- NOVO: Card Dados Geográficos (v0.3.19 - Realocado) ---
-        grupo_geo = QGroupBox("")
-        grupo_geo.setProperty("class", "grupo-sessao-inferior")
-        layout_geo = QVBoxLayout()
+        # --- CARD 3: DADOS GEOGRÁFICOS (v1.9.1) ---
+        self.card_geo = QFrame()
+        self.card_geo.setProperty("class", "painel")
+        self.card_geo.setAttribute(Qt.WA_StyledBackground, True)
+        
+        sombra_geo = QGraphicsDropShadowEffect(self.card_geo)
+        sombra_geo.setBlurRadius(15)
+        sombra_geo.setColor(QColor(0, 0, 0, 20))
+        sombra_geo.setOffset(0, 3)
+        self.card_geo.setGraphicsEffect(sombra_geo)
+        
+        layout_card_geo = QVBoxLayout(self.card_geo)
+        layout_card_geo.setContentsMargins(15, 15, 15, 15)
         
         lbl_titulo_geo_card = QLabel("Dados Geográficos")
         lbl_titulo_geo_card.setProperty("class", "lbl-titulo-sessao")
         lbl_titulo_geo_card.setProperty("margin-bottom", "md")
-        layout_geo.addWidget(lbl_titulo_geo_card)
+        layout_card_geo.addWidget(lbl_titulo_geo_card)
         
-        # Reutilizando self.lbl_geo_details aqui
         self.lbl_geo_details = QLabel("Aguardando localização...")
         self.lbl_geo_details.setWordWrap(True)
         self.lbl_geo_details.setTextFormat(Qt.RichText)
         self.lbl_geo_details.setProperty("class", "container-borda-cinza-fill")
-        self.lbl_geo_details.setVisible(False) 
+        self.lbl_geo_details.setVisible(True) 
+        layout_card_geo.addWidget(self.lbl_geo_details)
         
-        layout_geo.addWidget(self.lbl_geo_details)
-        
-        grupo_geo.setLayout(layout_geo)
-        layout_res.addWidget(grupo_geo)
+        layout_direito.addWidget(self.card_geo)
 
-        # --- NOVO: Card Vocalizações (v0.3.3) ---
-        grupo_audio = QGroupBox("")
-        grupo_audio.setProperty("class", "grupo-sessao-inferior")
-        layout_audio = QVBoxLayout()
+        # --- CARD 4: VOCALIZAÇÕES (v1.9.1) ---
+        self.card_audio = QFrame()
+        self.card_audio.setProperty("class", "painel")
+        self.card_audio.setAttribute(Qt.WA_StyledBackground, True)
+        
+        sombra_audio = QGraphicsDropShadowEffect(self.card_audio)
+        sombra_audio.setBlurRadius(15)
+        sombra_audio.setColor(QColor(0, 0, 0, 20))
+        sombra_audio.setOffset(0, 3)
+        self.card_audio.setGraphicsEffect(sombra_audio)
+        
+        layout_card_audio = QVBoxLayout(self.card_audio)
+        layout_card_audio.setContentsMargins(15, 15, 15, 15)
         
         self.lbl_vocal_title = QLabel("Vocalizações")
         self.lbl_vocal_title.setProperty("class", "lbl-titulo-sessao")
         self.lbl_vocal_title.setProperty("margin-bottom", "md")
-        layout_audio.addWidget(self.lbl_vocal_title)
+        layout_card_audio.addWidget(self.lbl_vocal_title)
         
-        # Frame Interno Padronizado (v1.7.0)
         self.frame_interno_audio = QFrame()
         self.frame_interno_audio.setProperty("class", "container-borda-cinza-fill")
         self.layout_interno_audio = QVBoxLayout(self.frame_interno_audio)
@@ -753,17 +766,11 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_audio_placeholder = QLabel("<i>Aguardando localização geográfica da fotografia...</i>")
         self.lbl_audio_placeholder.setAlignment(Qt.AlignCenter)
         self.lbl_audio_placeholder.setWordWrap(True)
-        # Placeholder agora vive dentro do frame interno
         self.layout_interno_audio.addWidget(self.lbl_audio_placeholder)
         
-        layout_audio.addWidget(self.frame_interno_audio)
+        layout_card_audio.addWidget(self.frame_interno_audio)
+        layout_direito.addWidget(self.card_audio)
         
-        grupo_audio.setLayout(layout_audio)
-        layout_res.addWidget(grupo_audio)
-        # ---------------------------------------------------
-        
-        grupo_resultados.setLayout(layout_res)
-        layout_direito.addWidget(grupo_resultados)
         layout_direito.addStretch()
 
         self.status_bar = QStatusBar()
@@ -1042,6 +1049,7 @@ class JanelaPrincipal(QMainWindow):
             # Atualiza card geo
             # Atualiza card geo
             self.lbl_geo_details.setVisible(True)
+            self.card_geo.setVisible(True)
             self.lbl_geo_details.setText(f"Lat: {lat:.4f}, Lon: {lon:.4f} (Processando...)")
             self.lbl_geo_details.setProperty("class", "container-borda-cinza-fill")
             self.lbl_geo_details.style().unpolish(self.lbl_geo_details)
@@ -1065,6 +1073,7 @@ class JanelaPrincipal(QMainWindow):
                  self.map_principal.show_placeholder_message(msg_erro)
                  self.map_principal.show_placeholder_message(msg_erro)
                  self.lbl_geo_details.setVisible(True)
+                 self.card_geo.setVisible(True)
                  self.lbl_geo_details.setText("Localização não detectada na imagem.")
                  self.lbl_geo_details.setProperty("class", "container-borda-cinza-fill")
                  self.lbl_geo_details.style().unpolish(self.lbl_geo_details)
@@ -1137,10 +1146,9 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_descricao.setText("-")
         self.txt_descricao.clear() # Limpa descrição rica
         
-        self.txt_etimologia.clear()
-        self.txt_etimologia.setPlaceholderText("Aguardando identificação...")
-        self.lbl_titulo_etimologia.setVisible(True)
-        self.txt_etimologia.setVisible(True)
+        # Etimologia agora em card separado (v1.9.0)
+        self.lbl_etimologia_texto.setText("Carregando...")
+        self.card_etimologia.setVisible(False)
         
         self.input_especie.clear() 
         self.input_especie.setProperty("class", "sci-name-input")
@@ -1271,6 +1279,7 @@ class JanelaPrincipal(QMainWindow):
 
     def _ao_encontrar_audio(self, resultados):
         """Recebe lista de áudios e cria os players."""
+        self.card_audio.setVisible(True)
         self.lbl_audio_placeholder.setVisible(False)
         
         # Recuperar o layout do grupo de áudio
@@ -1466,6 +1475,7 @@ class JanelaPrincipal(QMainWindow):
                 
             self.lbl_geo_details.setText(texto)
             self.lbl_geo_details.setVisible(True)
+            self.card_geo.setVisible(True)
             self.lbl_geo_details.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
         # 2. Registro em Segundo Plano (v0.4.33)
@@ -1543,6 +1553,20 @@ class JanelaPrincipal(QMainWindow):
                 "link_ebird": results.get("link_ebird", "")
             })
             print("[UI] Etapa 5 (eBird/Clements) integrada ao SessionLogger.")
+            
+            # Atualizar Card de Taxonomia (v1.8.0)
+            sci_name = self.dados_identificacao_atual.get("nome_cientifico", "") or self.especie_em_processamento
+            genero = sci_name.split()[0] if sci_name else "-"
+            
+            taxo_html = f"""
+            <b>Classe:</b> {results.get("classe", "Aves")}<br>
+            <b>Ordem:</b> {results.get("ordem", "-")}<br>
+            <b>Família:</b> {results.get("familia", "-")}<br>
+            <b>Gênero:</b> <i>{genero}</i>
+            """
+            self.lbl_taxo_details.setText(taxo_html)
+            self.lbl_taxo_details.setVisible(True)
+            self.card_taxonomia.setVisible(True)
             
             # Preparar persistência EXIF (Futuro v0.3.22+)
             # from modules.step6_persistence.exif_manager import EXIFManager
@@ -1667,19 +1691,24 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_confianca.style().polish(self.lbl_confianca)
         
         self.lbl_geo_details.setText("Aguardando localização...")
-        self.lbl_geo_details.setVisible(False)
+        self.lbl_geo_details.setVisible(True)
         pass
         
         # 5. Reset de Campos de Texto
         self.txt_descricao.clear()
-        self.txt_etimologia.clear()
-        self.txt_etimologia.setPlaceholderText("Aguardando identificação...")
+        self.lbl_etimologia_texto.setText("Carregando...")
         
         self.lbl_audio_placeholder.setText("<i>Aguardando localização geográfica da fotografia...</i>")
         self.lbl_audio_placeholder.setVisible(True)
         
         # 6. Reset de Painéis e Mapas
-        self.frame_etimologia.setVisible(False) 
+        self.card_id.setVisible(True) # Card ID sempre visível
+        self.card_etimologia.setVisible(False) 
+        self.card_geo.setVisible(True)
+        self.card_audio.setVisible(True)
+        self.card_taxonomia.setVisible(True)
+        self.lbl_taxo_details.setText("<i>Aguardando identificação da ave...</i>")
+        self.lbl_taxo_details.setVisible(True)
         
         if self.map_principal:
              self.map_principal.show_placeholder_message("Aguardando dados de Localização")
