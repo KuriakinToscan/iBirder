@@ -430,9 +430,10 @@ class JanelaPrincipal(QMainWindow):
         
         # FASE S.1 (v0.3.53) - GRAVIDADE ZERO DAS IMAGENS, SUCÇÃO PELO MAPA
         layout_cards_superiores.setRowStretch(1, 0)
-        layout_cards_superiores.setRowStretch(2, 1)
+        layout_cards_superiores.setRowStretch(2, 0)
+        layout_cards_superiores.setRowStretch(3, 1)
 
-        # LINHA 0: TÍTULOS
+        # ANCORAGEM 0: TÍTULOS
         lbl_titulo_user = QLabel("Imagem Pesquisada")
         lbl_titulo_user.setProperty("class", "lbl-titulo-sessao")
         lbl_titulo_user.setProperty("margin-bottom", "sm")
@@ -447,12 +448,9 @@ class JanelaPrincipal(QMainWindow):
         lbl_titulo_res.setProperty("class", "lbl-titulo-sessao")
         lbl_titulo_res.setProperty("margin-bottom", "sm")
         layout_cards_superiores.addWidget(lbl_titulo_res, 0, 2)
-        
-        # LINHA 1: WIDGETS E PAINÉIS
-        # Célula (1, 0) - Imagem User e Botão Lens (Integrados Diretamente no Grid + VBoxLayout filho p/ botao)
-        layout_imagem_btn_user = QVBoxLayout()
-        layout_imagem_btn_user.setSpacing(StyleManager.SPACING_SM)
-        
+
+        # ANCORAGEM 1: INICIALIZAÇÃO ATÔMICA DOS WIDGETS CRÍTICOS (v2.0)
+        # --- Lado Esquerdo ---
         self.card_user = ImageCardWidget()
         self.card_user.set_placeholder("Arraste e solte uma foto aqui\n\nou clique para selecionar")
         self.card_user.set_on_drop(self._carregar_imagem)
@@ -464,21 +462,12 @@ class JanelaPrincipal(QMainWindow):
         sombra_user.setOffset(0, 4)
         self.card_user.setGraphicsEffect(sombra_user)
         
-        layout_imagem_btn_user.addWidget(self.card_user, stretch=1)
-        
         self.btn_google_lens = QPushButton("Pesquisar com Google Lens")
         self.btn_google_lens.setCursor(Qt.PointingHandCursor)
         self.btn_google_lens.setEnabled(False)
         self.btn_google_lens.clicked.connect(self._abrir_google_lens)
-        layout_imagem_btn_user.addWidget(self.btn_google_lens)
-        
-        # Ancorando estritamente ao topo sem stretch inflador:
-        layout_cards_superiores.addLayout(layout_imagem_btn_user, 1, 0, alignment=Qt.AlignTop)
 
-        # Célula (1, 1) - Imagem Referência e Botão Fonte
-        layout_imagem_btn_ref = QVBoxLayout()
-        layout_imagem_btn_ref.setSpacing(StyleManager.SPACING_SM)
-        
+        # --- Lado Centro ---
         self.card_ref = ImageCardWidget()
         self.card_ref.set_placeholder("Aguardando a identificação da ave.")
         
@@ -488,30 +477,42 @@ class JanelaPrincipal(QMainWindow):
         sombra_ref.setOffset(0, 4)
         self.card_ref.setGraphicsEffect(sombra_ref)
         
-        layout_imagem_btn_ref.addWidget(self.card_ref, stretch=1)
-        
         self.btn_fonte = QPushButton("Abrir Fonte")
         self.btn_fonte.setCursor(Qt.PointingHandCursor)
-        self.btn_fonte.setVisible(True)
         self.btn_fonte.setEnabled(False)
         self.btn_fonte.clicked.connect(lambda: QDesktopServices.openUrl(self.btn_fonte.property("url_alvo")))
-        layout_imagem_btn_ref.addWidget(self.btn_fonte)
+
+        # --- Lado Direito (Ações Separadas p/ Grade) ---
+        self.btn_gravar_exif = QPushButton("Confirmar a identificação")
+        self.btn_gravar_exif.setToolTip("Gravar dados na fotografia")
+        self.btn_gravar_exif.setCursor(Qt.PointingHandCursor)
+
+        # ANCORAGEM 2: MONTAGEM DO GRID v2.0 (GRAVIDADE ZERO)
         
-        # Ancorando estritamente ao topo sem stretch inflador:
-        layout_cards_superiores.addLayout(layout_imagem_btn_ref, 1, 1, alignment=Qt.AlignTop)
+        # LINHA 1: IMAGENS E PAINEL SUPERIOR
+        layout_cards_superiores.addWidget(self.card_user, 1, 0, alignment=Qt.AlignTop)
+        layout_cards_superiores.addWidget(self.card_ref, 1, 1, alignment=Qt.AlignTop)
         
-        # Célula (1, 2) - Coluna de Cards (Modular v0.8.2)
-        self.painel_direito = QFrame()
-        self.painel_direito.setObjectName("painel_direito")
+        self.painel_direito_superior = QFrame()
+        self.layout_direito_superior = QVBoxLayout(self.painel_direito_superior)
+        self.layout_direito_superior.setSpacing(StyleManager.SPACING_MD)
+        self.layout_direito_superior.setContentsMargins(0, 0, 0, 0)
+        layout_cards_superiores.addWidget(self.painel_direito_superior, 1, 2)
+
+        # LINHA 2: BOTÕES ALINHADOS (A META DO USUÁRIO)
+        layout_cards_superiores.addWidget(self.btn_google_lens, 2, 0)
+        layout_cards_superiores.addWidget(self.btn_fonte, 2, 1)
+        layout_cards_superiores.addWidget(self.btn_gravar_exif, 2, 2)
         
-        layout_direito = QVBoxLayout()
-        self.painel_direito.setLayout(layout_direito)
-        layout_direito.setSpacing(StyleManager.SPACING_MD + 5) # Aumento leve no gap entre cards
-        layout_direito.setContentsMargins(0, 0, 0, 0)
+        # Célula (1, 2) - Coluna de Cards Inferior
+        self.painel_direito_inferior = QFrame()
+        self.layout_direito_inferior = QVBoxLayout(self.painel_direito_inferior)
+        self.layout_direito_inferior.setSpacing(StyleManager.SPACING_MD + 5)
+        self.layout_direito_inferior.setContentsMargins(0, 0, 0, 0)
         
-        layout_cards_superiores.addWidget(self.painel_direito, 1, 2, 3, 1) # RowSpan=3, ColSpan=1
-        
-        # Junta o bloco principal de 3 colunas ao mestre
+        layout_cards_superiores.addWidget(self.painel_direito_inferior, 3, 2)
+
+        # Junta o mestre
         layout_mestre.addLayout(layout_cards_superiores)
         
         # --- BLOCO INFERIOR CENTRALIZADO (PÓS-GRID) ---
@@ -555,8 +556,8 @@ class JanelaPrincipal(QMainWindow):
         layout_inferior.addWidget(self.map_principal)
         
         
-        # Adiciona o bloco inferior restrito às colunas 0 e 1 do Grid (Logo abaixo das imagens)
-        layout_cards_superiores.addLayout(layout_inferior, 2, 0, 2, 2)
+        # Adiciona o bloco inferior restrito às colunas 0 e 1 do Grid
+        layout_cards_superiores.addLayout(layout_inferior, 3, 0, 1, 2)
         
         # --- CARD 1: IDENTIFICAÇÃO E TAXONOMIA (v0.8.2) ---
         self.card_id = QFrame()
@@ -632,7 +633,7 @@ class JanelaPrincipal(QMainWindow):
         layout_card_id.addWidget(self.lbl_nome_ingles)
         
 
-        layout_direito.addWidget(self.card_id)
+        self.layout_direito_superior.addWidget(self.card_id)
 
         # --- CARD 1.5: TAXONOMIA (v0.8.2 - Fora do ID) ---
         self.card_taxonomia = QFrame()
@@ -661,7 +662,35 @@ class JanelaPrincipal(QMainWindow):
         layout_card_taxo.addWidget(self.lbl_taxo_details)
         
         self.card_taxonomia.setVisible(True)
-        layout_direito.addWidget(self.card_taxonomia)
+        self.layout_direito_superior.addWidget(self.card_taxonomia)
+
+        # --- CARD 1.6: STATUS DE CONSERVAÇÃO (NOVO v0.8.2) ---
+        self.card_conservacao = QFrame()
+        self.card_conservacao.setProperty("class", "painel")
+        self.card_conservacao.setAttribute(Qt.WA_StyledBackground, True)
+        
+        sombra_cons = QGraphicsDropShadowEffect(self.card_conservacao)
+        sombra_cons.setBlurRadius(15)
+        sombra_cons.setColor(QColor(0, 0, 0, 20))
+        sombra_cons.setOffset(0, 3)
+        self.card_conservacao.setGraphicsEffect(sombra_cons)
+        
+        layout_card_cons = QVBoxLayout(self.card_conservacao)
+        layout_card_cons.setContentsMargins(15, 15, 15, 15)
+        
+        lbl_titulo_cons = QLabel("Status de Conservação")
+        lbl_titulo_cons.setProperty("class", "lbl-titulo-sessao")
+        lbl_titulo_cons.setProperty("margin-bottom", "md")
+        layout_card_cons.addWidget(lbl_titulo_cons)
+        
+        self.lbl_status_conservacao = QLabel("<i>Aguardando identificação da ave...</i>")
+        self.lbl_status_conservacao.setWordWrap(True)
+        self.lbl_status_conservacao.setTextFormat(Qt.RichText)
+        self.lbl_status_conservacao.setProperty("class", "container-borda-cinza-fill")
+        self.lbl_status_conservacao.setVisible(True)
+        layout_card_cons.addWidget(self.lbl_status_conservacao)
+        
+        self.layout_direito_superior.addWidget(self.card_conservacao)
 
         # --- BOTÕES DE BUSCA EXTERNA (SOLTOS v0.8.2) ---
         layout_botoes = QHBoxLayout()
@@ -683,7 +712,11 @@ class JanelaPrincipal(QMainWindow):
         self.btn_google.clicked.connect(self._buscar_google)
         layout_botoes.addWidget(self.btn_google, stretch=1)
         
-        layout_direito.addLayout(layout_botoes)
+        self.layout_direito_superior.addLayout(layout_botoes)
+        
+
+        # Botão movido para a linha 2 do Grid (v0.8.2 Refinement)
+        pass
         
         # --- CARD 2: ETIMOLOGIA (v0.8.2) ---
         self.card_etimologia = QFrame()
@@ -723,14 +756,11 @@ class JanelaPrincipal(QMainWindow):
         layout_etim_info.addWidget(self.lbl_etimologia_texto)
         
         layout_card_etimologia.addWidget(self.frame_etimologia_info)
-        self.card_etimologia.setVisible(False)
-        layout_direito.addWidget(self.card_etimologia)
+        self.card_etimologia.setVisible(True)
+        self.layout_direito_inferior.addWidget(self.card_etimologia)
 
-        # (Taxonomia movida para Card ID) 
-        
-        self.btn_gravar_exif = QPushButton("Confirmar a identificação e gravar dados na fotografia.")
-        self.btn_gravar_exif.setCursor(Qt.PointingHandCursor)
-        layout_direito.addWidget(self.btn_gravar_exif)
+        # Botão Confirmar agora reside na Linha 2 do QGridLayout Principal (v2.0)
+        pass
         
         # --- CARD 3: DADOS GEOGRÁFICOS (v0.8.2) ---
         self.card_geo = QFrame()
@@ -758,7 +788,7 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_geo_details.setVisible(True) 
         layout_card_geo.addWidget(self.lbl_geo_details)
         
-        layout_direito.addWidget(self.card_geo)
+        self.layout_direito_inferior.addWidget(self.card_geo)
 
         # --- CARD 4: VOCALIZAÇÕES (v0.8.2) ---
         self.card_audio = QFrame()
@@ -791,9 +821,8 @@ class JanelaPrincipal(QMainWindow):
         self.layout_interno_audio.addWidget(self.lbl_audio_placeholder)
         
         layout_card_audio.addWidget(self.frame_interno_audio)
-        layout_direito.addWidget(self.card_audio)
-        
-        layout_direito.addStretch()
+        self.layout_direito_inferior.addWidget(self.card_audio)
+        self.layout_direito_inferior.addStretch()
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
@@ -1493,8 +1522,6 @@ class JanelaPrincipal(QMainWindow):
             <b>Município:</b> {details.get('municipio', '-')}<br>
             <b>Bioma:</b> {bioma}<br>
             """
-            
-            # Status IUCN removido do card de dados geográficos (v0.8.2)
                 
             self.lbl_geo_details.setText(texto)
             self.lbl_geo_details.setVisible(True)
@@ -1530,10 +1557,16 @@ class JanelaPrincipal(QMainWindow):
             if pais.lower() not in ["brazil", "brasil"]:
                 bioma = "Informação Não Disponível (Registro Internacional)"
             
-            # Badge de Endemismo
-            endemismo_str = ""
-            if results.get("endemismo") == "Sim":
-                endemismo_str = '<br><b style="color: #059669;">✨ Endêmica do Brasil</b>'
+            # Lógica de Endemismo Permanente (v0.8.2)
+            endemismo_val = results.get("endemismo")
+            if endemismo_val == "Sim":
+                endemismo_texto = '<b style="color: #059669;">Sim (✨)</b>'
+            elif endemismo_val == "Não":
+                endemismo_texto = "Não"
+            else:
+                endemismo_texto = "<i>Sem informação</i>"
+            
+            status_endemismo = f"<br><b>Endêmica do Brasil:</b> {endemismo_texto}"
             
             # Status ICMBio e CITES
             status_br_val = results.get('status_icmbio', '-')
@@ -1552,12 +1585,17 @@ class JanelaPrincipal(QMainWindow):
             <b>País:</b> {pais}<br>
             <b>Estado:</b> {geo.get('estado', '-')}<br>
             <b>Município:</b> {geo.get('municipio', '-')}<br>
-            <b>Bioma:</b> {bioma}{endemismo_str}
-            <hr>
-            <b>IUCN:</b> {self.last_iucn_data.get('iucn_status', '-')}{status_br}{status_cites}{msg_dist}
+            <b>Bioma:</b> {bioma}
             """
             self.lbl_geo_details.setText(texto_base)
-            self.lbl_geo_details.setVisible(True)
+
+            # Atualizar Novo Card de Status de Conservação (v0.8.2)
+            texto_cons = f"""
+            <b>IUCN:</b> {self.last_iucn_data.get('iucn_status', '-')}{status_br}{status_cites}{status_endemismo}{msg_dist}
+            """
+            self.lbl_status_conservacao.setText(texto_cons)
+            self.lbl_status_conservacao.setVisible(True)
+            self.card_conservacao.setVisible(True)
 
     def _ao_concluir_ebird(self, results):
         if hasattr(self, 'session_logger'):
@@ -1619,6 +1657,8 @@ class JanelaPrincipal(QMainWindow):
             "municipio": geo.get("municipio", "-"),
             "bioma": geo.get("bioma", "-"),
             "iucn_status": iucn.get("iucn_status", "Não Avaliado"),
+            "status_icmbio": getattr(self, "last_conservation_data", {}).get("status_icmbio", "-"),
+            "endemismo": getattr(self, "last_conservation_data", {}).get("endemismo", "Não"),
             "link_gbif": link_gbif,
             "link_iucn": iucn.get("link_iucn", ""),
             "caminho_geojson": iucn.get("geojson_path", "")
@@ -1718,7 +1758,15 @@ class JanelaPrincipal(QMainWindow):
         
         self.lbl_geo_details.setText("Aguardando localização...")
         self.lbl_geo_details.setVisible(True)
-        pass
+        
+        self.lbl_status_conservacao.setText("<i>Aguardando identificação da ave...</i>")
+        self.lbl_status_conservacao.setVisible(True)
+        self.card_conservacao.setVisible(True)
+        
+        # Reset de buffers de conservação (v0.8.2)
+        self.last_iucn_data = {}
+        self.last_geo_data = {}
+        self.last_conservation_data = {}
         
         # 5. Reset de Campos de Texto
         self.txt_descricao.clear()
@@ -1729,7 +1777,7 @@ class JanelaPrincipal(QMainWindow):
         
         # 6. Reset de Painéis e Mapas
         self.card_id.setVisible(True) # Card ID sempre visível
-        self.card_etimologia.setVisible(False) 
+        self.card_etimologia.setVisible(True) 
         self.card_geo.setVisible(True)
         self.card_audio.setVisible(True)
         self.card_taxonomia.setVisible(True)
