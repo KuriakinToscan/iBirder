@@ -65,6 +65,10 @@ class EBirdWorker(QThread):
                         except Exception as e_id:
                             print(f"[eBird Worker] Erro na busca por ID: {e_id}")
                             
+                        # Link eBird v0.8.7 -> v0.8.9
+                        # O link real é agora capturado pelo BuscadorWorker na Etapa 2.
+                        # NÃO definir como vazio aqui para não sobrescrever o dado correto no estado global.
+                        
                         resultados["raridade_regional"] = "Não Avaliado (Fallback iNaturalist)"
                     else:
                         resultados["raridade_regional"] = "Espécie não encontrada (iNaturalist)"

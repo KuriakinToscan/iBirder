@@ -300,11 +300,33 @@ class Orchestrator(QObject):
             "link_iucn": f"https://www.iucnredlist.org/search?query={sci_name.replace(' ', '+')}&searchType=species"
         }
         try:
-            resp = requests.get(f"https://api.inaturalist.org/v1/taxa?q={sci_name}&is_active=true&rank=species", timeout=3)
-            if resp.status_code == 200 and resp.json().get("results"):
-                cs = resp.json()["results"][0].get("conservation_status")
-                fallback_res["iucn_status"] = f"{cs.get('status', 'Não Avaliado').upper()} (via iNaturalist)" if cs else "Não Avaliado / Seguro (via iNaturalist)"
-        except Exception: pass
+            # Passo 1: Buscar ID
+            search_url = f"https://api.inaturalist.org/v1/taxa?q={sci_name}&is_active=true&rank=species"
+            resp_search = requests.get(search_url, timeout=5)
+            if resp_search.status_code == 200 and resp_search.json().get("results"):
+                taxon_id = resp_search.json()["results"][0]["id"]
+                
+                # Passo 2: Detalhes
+                resp_detail = requests.get(f"https://api.inaturalist.org/v1/taxa/{taxon_id}", timeout=5)
+                if resp_detail.status_code == 200:
+                    results = resp_detail.json().get("results", [])
+                    if results:
+                        c_statuses = results[0].get("conservation_statuses", [])
+                        iucn_entry = next((s for s in c_statuses if "IUCN" in (s.get("authority") or "")), None)
+                        
+                        if iucn_entry:
+                            raw = iucn_entry.get("status", "NE").upper()
+                            mapeamento = {
+                                "LC": "Pouco Preocupante (LC)", "NT": "Quase Ameaçada (NT)",
+                                "VU": "Vulnerável (VU)", "EN": "Em Perigo (EN)",
+                                "CR": "Criticamente em Perigo (CR)", "EW": "Extinta na Natureza (EW)",
+                                "EX": "Extinta (EX)", "DD": "Dados Insuficientes (DD)", "NE": "Não Avaliada (NE)"
+                            }
+                            fallback_res["iucn_status"] = f"{mapeamento.get(raw, raw)} (via iNaturalist)"
+                        else:
+                            fallback_res["iucn_status"] = "Não Avaliado / Seguro (via iNaturalist)"
+        except Exception: 
+            pass
         self._on_step3_finished(fallback_res)
 
     # --- Etapa 3 ---

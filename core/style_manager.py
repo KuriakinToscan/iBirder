@@ -240,11 +240,35 @@ class StyleManager:
                 background-color: {accent_btn}; 
                 color: white; 
                 border-radius: 8px; 
-                padding: 10px 16px; 
+                padding: 6px 16px; 
+                min-height: 36px;
                 font-weight: bold; 
                 font-family: 'Segoe UI';
             }}
             QPushButton:hover {{ background-color: {accent_hover}; }}
+            
+            /* Botões de Ação Alinhados (v2.5 Slim 36px) */
+            QPushButton.btn-acao-alinhado {{
+                min-height: 36px;
+                min-width: 120px;
+                padding: 6px 16px;
+                font-size: 13px;
+                font-weight: bold;
+            }}
+            
+            /* Botões de Ação Unificados (v2.5 Sovereign Slim) */
+            QPushButton.btn-secundario-alinhado {{
+                min-height: 36px;
+                padding: 6px 16px;
+                font-size: 13px;
+                font-weight: bold;
+                background-color: {accent_btn};
+                color: white;
+                border-radius: 8px;
+            }}
+            QPushButton.btn-secundario-alinhado:hover {{
+                background-color: {accent_hover};
+            }}
             
             /* Botões Secundários Adaptativos (v0.8.2) */
             *[class~="secundario"] {{
@@ -339,8 +363,20 @@ class StyleManager:
 
             /* Classes Abstratas para Widgets Customizados */
             .lbl-titulo-sessao {{ font-weight: bold; color: {text_secondary}; font-size: 11px; }}
+            .lbl-placeholder {{ color: #6B7280 !important; font-size: 12px !important; font-style: italic !important; line-height: 1.6; }}
+            .lbl-data {{ color: {text_secondary} !important; font-size: 12px !important; font-style: normal !important; line-height: 1.6; }}
             .container-borda-cinza {{ border: 1px solid {border}; border-radius: 6px; padding: 4px; color: {text_primary}; }}
             *[class~="container-borda-cinza-fill"] {{ background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 6px; padding: 6px; color: #1F2937; font-size: 11px; }}
+            
+            /* Botão de Ícone Minimalista (Zoom/Expandir) */
+            QPushButton.btn-icon-minimal {{ 
+                background-color: rgba(255, 255, 255, 0.7); 
+                border: none; 
+                border-radius: 4px; 
+            }}
+            QPushButton.btn-icon-minimal:hover {{ 
+                background-color: rgba(255, 255, 255, 0.9); 
+            }}
             
             /* Botão Fechar Modal (Lightbox) */
             QPushButton.btn-fechar-modal {{
