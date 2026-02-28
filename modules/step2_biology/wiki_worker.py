@@ -20,13 +20,20 @@ class BuscadorWorker(QThread):
         bot = None
         try:
             bot = BuscadorBlindado()
-            link = bot.buscar_link_wikiaves(self.scientific_name)
+            link_wiki = bot.buscar_link_wikiaves(self.scientific_name)
             
-            if link:
-                dados = bot.extrair_dados_especie(link)
+            # Novo v0.8.6: Captura de Link eBird real via automação
+            link_ebird = bot.buscar_link_ebird(self.scientific_name)
+            
+            if link_wiki:
+                dados = bot.extrair_dados_especie(link_wiki)
                 # Injetar o nome original usado na busca para uso no GBIF
-                # O WikiAves retorna a ETIMOLOGIA no campo 'nome_cientifico', o que quebra o GBIF.
                 dados['original_scientific_name'] = self.scientific_name
+                
+                # Injetar link do eBird se encontrado
+                if link_ebird:
+                    dados['link_ebird'] = link_ebird
+                    
                 self.info_found.emit(dados)
             else:
                 self.error_occurred.emit("Espécie não encontrada no WikiAves.")

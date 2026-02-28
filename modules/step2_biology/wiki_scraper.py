@@ -59,20 +59,112 @@ class BuscadorBlindado:
 
     def buscar_link_wikiaves(self, scientific_name):
 
-        print(f"\n🚀 Buscando: {scientific_name}")
+        print(f"\n🚀 Buscando WikiAves: {scientific_name}")
 
-        link = self._tentar_google(scientific_name)
+        link = self._search_google_site("wikiaves.com.br/wiki/", scientific_name)
 
         if not link:
-            print("⚠ Google falhou. Tentando Bing...")
-            link = self._tentar_bing(scientific_name)
+            print("⚠ Google falhou no WikiAves. Tentando Bing...")
+            link = self._search_bing_site("wikiaves.com.br/wiki/", scientific_name)
 
         if link:
-            print(f"✅ Link encontrado: {link}")
+            print(f"✅ WikiAves encontrado: {link}")
             return link
         else:
-            print("❌ Nenhum link encontrado.")
-            self.driver.save_screenshot("erro_tela.png")
+            print("❌ Nenhum link WikiAves encontrado.")
+            return None
+
+    def buscar_link_ebird(self, scientific_name):
+        """Novo método v0.8.6: Busca o Species Code real do eBird via Google com Fallback Bing."""
+        print(f"\n🚀 Buscando eBird: {scientific_name}")
+        
+        # O eBird exige aspas para precisão no nome científico
+        link = self._search_google_site("ebird.org/species/", f'"{scientific_name}"')
+        
+        if not link:
+            print("⚠ Google falhou no eBird. Tentando Bing...")
+            link = self._search_bing_site("ebird.org/species/", f'"{scientific_name}"')
+
+        if link:
+            print(f"✅ eBird encontrado: {link}")
+            return link
+        else:
+            print("❌ Nenhum link eBird encontrado.")
+            return None
+
+    def _search_google_site(self, site_pattern, term):
+        try:
+            query = f'site:{site_pattern} {term}'
+            url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
+
+            print(f"🔎 Google: {url}")
+            self.driver.get(url)
+            
+            # Detecção de Bloqueio/Login (v0.8.7)
+            if "accounts.google.com" in self.driver.current_url or "ServiceLogin" in self.driver.current_url:
+                print("🛑 Google detectou robô (Login Ref). Abortando busca no Google.")
+                return None
+
+            self._espera_humana()
+            self._aceitar_consentimento_google()
+
+            # Re-verificar após consentimento
+            if "accounts.google.com" in self.driver.current_url:
+                return None
+
+            self.wait.until(
+                EC.presence_of_element_located(
+                    (By.XPATH, f"//a[contains(@href,'{site_pattern}')]")
+                )
+            )
+
+            links = self.driver.find_elements(
+                By.XPATH, f"//a[contains(@href,'{site_pattern}')]"
+            )
+
+            for l in links:
+                href = l.get_attribute("href")
+                if href and site_pattern in href:
+                    # FILTRO DE SEGURANÇA v0.8.7: Jamais retornar link do próprio Google/Login
+                    if "google.com" in href or "google.com.br" in href:
+                        continue
+                        
+                    # Limpeza de parâmetros
+                    return href.split("&")[0].split("?")[0]
+
+            return None
+        except:
+            return None
+
+    def _search_bing_site(self, site_pattern, term):
+        try:
+            query = f'site:{site_pattern} {term}'
+            url = f"https://www.bing.com/search?q={urllib.parse.quote(query)}"
+
+            print(f"🔎 Bing: {url}")
+            self.driver.get(url)
+            self._espera_humana()
+
+            self.wait.until(
+                EC.presence_of_element_located(
+                    (By.XPATH, f"//a[contains(@href,'{site_pattern}')]")
+                )
+            )
+
+            links = self.driver.find_elements(
+                By.XPATH, f"//a[contains(@href,'{site_pattern}')]"
+            )
+
+            for l in links:
+                href = l.get_attribute("href")
+                if href and site_pattern in href:
+                    # FILTRO DE SEGURANÇA v0.8.7: Jamais retornar link do próprio Bing
+                    if "bing.com" in href:
+                        continue
+                    return href.split("&")[0].split("?")[0]
+
+            return None
+        except:
             return None
 
     # ==================================================

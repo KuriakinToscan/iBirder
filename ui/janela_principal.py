@@ -99,7 +99,7 @@ class JanelaPrincipal(QMainWindow):
 
     def _iniciar_busca_imagem(self, nome_cientifico):
         # Reset visual
-        self.card_ref.set_placeholder("Aguardando a identificação da ave.")
+        self.card_ref.set_placeholder("Aguardando identificação...")
         self.card_ref.set_pixmap(None)
         self.card_ref.set_overlay_text(None)
         self.btn_fonte.setEnabled(False) 
@@ -109,10 +109,14 @@ class JanelaPrincipal(QMainWindow):
         # Mas aqui é _iniciar_busca_imagem(nome_cientifico), chamado após identificação ou busca manual de texto.
         # Não devemos resetar a localização aqui se ela veio da imagem carregada.
         
-        self.txt_descricao.clear() # Reset descrição anterior
+        self.txt_descricao.setText("") # Limpa texto real
+        self.txt_descricao.setPlaceholderText("Aguardando identificação...")
         
         # Reset para estado "Aguardando"
-        self.lbl_etimologia_texto.setText("Carregando...")
+        self.lbl_etimologia_texto.setProperty("class", "lbl-placeholder")
+        self.lbl_etimologia_texto.setText("Aguardando identificação...")
+        self.lbl_etimologia_texto.style().unpolish(self.lbl_etimologia_texto)
+        self.lbl_etimologia_texto.style().polish(self.lbl_etimologia_texto)
         self.card_etimologia.setVisible(True)
 
         # Limpeza segura do worker anterior
@@ -201,6 +205,7 @@ class JanelaPrincipal(QMainWindow):
         # LOGGING DE SESSÃO: ETAPA 2 (v0.3.17)
         dados_etapa_2 = {
             "link_origem": dados.get("link_origem", ""),
+            "link_ebird": dados.get("link_ebird", ""),
             "descricao": caracteristicas,
             "nome_comum": dados.get("nome_comum", ""),
             "nome_ingles": dados.get("nome_ingles", ""),
@@ -222,6 +227,9 @@ class JanelaPrincipal(QMainWindow):
 
         # Atualiza Campo Etimologia (v0.8.2)
         if etimologia_texto and etimologia_texto != "Não encontrado":
+            self.lbl_etimologia_texto.setProperty("class", "lbl-data")
+            self.lbl_etimologia_texto.style().unpolish(self.lbl_etimologia_texto)
+            self.lbl_etimologia_texto.style().polish(self.lbl_etimologia_texto)
             self.lbl_etimologia_texto.setText(etimologia_texto)
             self.card_etimologia.setVisible(True)
         elif etimologia_texto == "Não encontrado":
@@ -236,16 +244,26 @@ class JanelaPrincipal(QMainWindow):
         # --- AJUSTE ESTÉTICO v0.8.2: Padronização de Fontes ---
         nome_pop = dados.get("nome_comum")
         if nome_pop and nome_pop != "Não encontrado":
+            self.lbl_nome_popular.setProperty("class", "lbl-data")
+            self.lbl_nome_popular.style().unpolish(self.lbl_nome_popular)
+            self.lbl_nome_popular.style().polish(self.lbl_nome_popular)
+            self.lbl_nome_popular.setContentsMargins(0, 0, 0, 0) # Zerar para evitar recuo
+            self.lbl_nome_popular.setAlignment(Qt.AlignLeft)
             self.lbl_nome_popular.setText(f"<b>Nome Popular:</b> {nome_pop}")
         else:
-            self.lbl_nome_popular.setText("<b>Nome Popular:</b> <i>Não encontrado no WikiAves</i>")
+            self.lbl_nome_popular.setText("<b>Nome Popular:</b> Não encontrado no WikiAves")
         self.lbl_nome_popular.setVisible(True)
 
         nome_en = dados.get("nome_ingles")
         if nome_en and nome_en != "Não encontrado":
+            self.lbl_nome_ingles.setProperty("class", "lbl-data")
+            self.lbl_nome_ingles.style().unpolish(self.lbl_nome_ingles)
+            self.lbl_nome_ingles.style().polish(self.lbl_nome_ingles)
+            self.lbl_nome_ingles.setContentsMargins(0, 0, 0, 0) # Zerar para evitar recuo
+            self.lbl_nome_ingles.setAlignment(Qt.AlignLeft)
             self.lbl_nome_ingles.setText(f"<b>Nome em Inglês:</b> {nome_en}")
         else:
-            self.lbl_nome_ingles.setText("<b>Nome em Inglês:</b> <i>Não encontrado no WikiAves</i>")
+            self.lbl_nome_ingles.setText("<b>Nome em Inglês:</b> Não encontrado no WikiAves")
         self.lbl_nome_ingles.setVisible(True)
 
         # --- ATUALIZAR MAPA COM GBIF (v0.3.8) ---
@@ -463,13 +481,14 @@ class JanelaPrincipal(QMainWindow):
         self.card_user.setGraphicsEffect(sombra_user)
         
         self.btn_google_lens = QPushButton("Pesquisar com Google Lens")
+        self.btn_google_lens.setProperty("class", "btn-acao-alinhado")
         self.btn_google_lens.setCursor(Qt.PointingHandCursor)
         self.btn_google_lens.setEnabled(False)
         self.btn_google_lens.clicked.connect(self._abrir_google_lens)
 
         # --- Lado Centro ---
         self.card_ref = ImageCardWidget()
-        self.card_ref.set_placeholder("Aguardando a identificação da ave.")
+        self.card_ref.set_placeholder("Aguardando identificação...")
         
         sombra_ref = QGraphicsDropShadowEffect(self.card_ref)
         sombra_ref.setBlurRadius(18)
@@ -478,12 +497,14 @@ class JanelaPrincipal(QMainWindow):
         self.card_ref.setGraphicsEffect(sombra_ref)
         
         self.btn_fonte = QPushButton("Abrir Fonte")
+        self.btn_fonte.setProperty("class", "btn-acao-alinhado")
         self.btn_fonte.setCursor(Qt.PointingHandCursor)
         self.btn_fonte.setEnabled(False)
         self.btn_fonte.clicked.connect(lambda: QDesktopServices.openUrl(self.btn_fonte.property("url_alvo")))
 
         # --- Lado Direito (Ações Separadas p/ Grade) ---
-        self.btn_gravar_exif = QPushButton("Confirmar a identificação")
+        self.btn_gravar_exif = QPushButton("Gravar dados na Fotografia")
+        self.btn_gravar_exif.setProperty("class", "btn-acao-alinhado")
         self.btn_gravar_exif.setToolTip("Gravar dados na fotografia")
         self.btn_gravar_exif.setCursor(Qt.PointingHandCursor)
 
@@ -519,45 +540,92 @@ class JanelaPrincipal(QMainWindow):
         layout_inferior = QVBoxLayout()
         layout_inferior.setSpacing(StyleManager.SPACING_MD)
         
-        # --- Campo de Descrição Rica (v0.2.1) ---
-        lbl_titulo_desc = QLabel('Descrição da Espécie <i>(WikiAves)</i>')
+        # --- CARD 2.5: DESCRIÇÃO DA ESPÉCIE (v0.8.2 - Sincronizado com Etimologia) ---
+        self.card_descricao = QFrame()
+        self.card_descricao.setProperty("class", "painel")
+        self.card_descricao.setAttribute(Qt.WA_StyledBackground, True)
+        
+        sombra_desc = QGraphicsDropShadowEffect(self.card_descricao)
+        sombra_desc.setBlurRadius(15)
+        sombra_desc.setColor(QColor(0, 0, 0, 20))
+        sombra_desc.setOffset(0, 3)
+        self.card_descricao.setGraphicsEffect(sombra_desc)
+        
+        layout_card_descricao = QVBoxLayout(self.card_descricao)
+        layout_card_descricao.setContentsMargins(15, 15, 15, 15)
+        
+        lbl_titulo_desc = QLabel('Descrição da Espécie (WikiAves)')
         lbl_titulo_desc.setProperty("class", "lbl-titulo-sessao")
-        lbl_titulo_desc.setProperty("margin-top", "md")
-        layout_inferior.addWidget(lbl_titulo_desc)
+        lbl_titulo_desc.setProperty("margin-bottom", "md")
+        layout_card_descricao.addWidget(lbl_titulo_desc)
+
+        # Frame Interno (Estilo Sincronizado com Etimologia)
+        self.frame_descricao_info = QFrame()
+        self.frame_descricao_info.setObjectName("frame_descricao_container")
+        self.frame_descricao_info.setStyleSheet("""
+            QFrame#frame_descricao_container {
+                background-color: #F8F9FA;
+                border-radius: 4px;
+                padding: 10px;
+            }
+        """)
+        layout_desc_info = QVBoxLayout(self.frame_descricao_info)
+        layout_desc_info.setContentsMargins(0, 0, 0, 0)
 
         self.txt_descricao = QTextEdit()
         self.txt_descricao.setReadOnly(True)
-        self.txt_descricao.setPlaceholderText("Descrição da espécie...")
+        self.txt_descricao.setProperty("class", "lbl-placeholder")
+        self.txt_descricao.setText("Aguardando identificação...")
         self.txt_descricao.setMinimumHeight(45) 
         self.txt_descricao.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.txt_descricao.setStyleSheet("background: transparent; border: none;")
         self.txt_descricao.textChanged.connect(self._ajustar_altura_descricao)
         
-        self.txt_descricao.setProperty("class", "container-borda-cinza")
+        layout_desc_info.addWidget(self.txt_descricao)
+        layout_card_descricao.addWidget(self.frame_descricao_info)
         
-        layout_inferior.addWidget(self.txt_descricao)
+        layout_inferior.addWidget(self.card_descricao)
         
         self.btn_nova = QPushButton("Nova Identificação")
+        self.btn_nova.setProperty("class", "btn-secundario-alinhado")
         self.btn_nova.setCursor(Qt.PointingHandCursor)
         self.btn_nova.clicked.connect(self._abrir_seletor_arquivo)
-        layout_inferior.addWidget(self.btn_nova)
+        # layout_inferior.addWidget(self.btn_nova) # Movido para Linha 4 do Grid Principal
         
-        # --- NOVO: Mapa Único (v0.3.3) ---
+        # Adiciona o bloco de descrição à Linha 3
+        layout_cards_superiores.addLayout(layout_inferior, 3, 0, 1, 2)
+        
+        # --- CARD 5: LOCALIZAÇÃO GEOGRÁFICA (Mapa v2.3 - Sincronizado) ---
+        self.card_mapa_container = QFrame()
+        self.card_mapa_container.setProperty("class", "painel")
+        self.card_mapa_container.setAttribute(Qt.WA_StyledBackground, True)
+        
+        sombra_mapa = QGraphicsDropShadowEffect(self.card_mapa_container)
+        sombra_mapa.setBlurRadius(15)
+        sombra_mapa.setColor(QColor(0, 0, 0, 20))
+        sombra_mapa.setOffset(0, 3)
+        self.card_mapa_container.setGraphicsEffect(sombra_mapa)
+        
+        layout_card_mapa = QVBoxLayout(self.card_mapa_container)
+        layout_card_mapa.setContentsMargins(15, 15, 15, 15)
+        layout_card_mapa.setSpacing(StyleManager.SPACING_MD)
+        
         lbl_titulo_geo = QLabel("Localização Geográfica")
         lbl_titulo_geo.setProperty("class", "lbl-titulo-sessao")
         lbl_titulo_geo.setProperty("margin-bottom", "md")
-        layout_inferior.addWidget(lbl_titulo_geo)
-        
+
         self.map_principal = MapWidget()
-        self.map_principal.setMinimumHeight(350) 
-        self.map_principal.show_placeholder_message("Aguardando dados de Localização")
+        self.map_principal.setMinimumHeight(400) # Ligeiro aumento para preencher o card
+        self.map_principal.show_placeholder_message("Aguardando localização...")
         self.map_principal.marker_dragged.connect(self._ao_arrastar_pino)
         self.map_principal.audio_clicked.connect(self._ao_clicar_pin_audio)
-        self.map_principal.alert_clicked.connect(self._abrir_dialogo_localizacao) # v0.6.3
-        layout_inferior.addWidget(self.map_principal)
+        self.map_principal.alert_clicked.connect(self._abrir_dialogo_localizacao)
         
+        layout_card_mapa.addWidget(lbl_titulo_geo)
+        layout_card_mapa.addWidget(self.map_principal)
         
-        # Adiciona o bloco inferior restrito às colunas 0 e 1 do Grid
-        layout_cards_superiores.addLayout(layout_inferior, 3, 0, 1, 2)
+        # O Mapa será adicionado ao Grid na Linha 5
+        layout_cards_superiores.addWidget(self.card_mapa_container, 5, 0, 2, 2)
         
         # --- CARD 1: IDENTIFICAÇÃO E TAXONOMIA (v0.8.2) ---
         self.card_id = QFrame()
@@ -582,7 +650,7 @@ class JanelaPrincipal(QMainWindow):
         container_busca = QHBoxLayout()
         container_busca.setSpacing(StyleManager.SPACING_SM)
         self.input_especie = QLineEdit()
-        self.input_especie.setPlaceholderText("pesquise ou digite")
+        self.input_especie.setPlaceholderText("Pesquise por nome científico.")
         self.input_especie.setProperty("class", "sci-name-input")
         self.input_especie.returnPressed.connect(self._realizar_busca_manual)
         
@@ -654,10 +722,10 @@ class JanelaPrincipal(QMainWindow):
         lbl_titulo_taxo.setProperty("margin-bottom", "md")
         layout_card_taxo.addWidget(lbl_titulo_taxo)
         
-        self.lbl_taxo_details = QLabel("<i>Aguardando identificação da ave...</i>")
+        self.lbl_taxo_details = QLabel("Aguardando identificação...")
+        self.lbl_taxo_details.setProperty("class", "lbl-placeholder container-borda-cinza-fill")
         self.lbl_taxo_details.setWordWrap(True)
-        self.lbl_taxo_details.setTextFormat(Qt.RichText)
-        self.lbl_taxo_details.setProperty("class", "container-borda-cinza-fill")
+        self.lbl_taxo_details.setTextFormat(Qt.PlainText) # Força PlainText para evitar conflito com <i> ou <b>
         self.lbl_taxo_details.setVisible(True)
         layout_card_taxo.addWidget(self.lbl_taxo_details)
         
@@ -683,36 +751,17 @@ class JanelaPrincipal(QMainWindow):
         lbl_titulo_cons.setProperty("margin-bottom", "md")
         layout_card_cons.addWidget(lbl_titulo_cons)
         
-        self.lbl_status_conservacao = QLabel("<i>Aguardando identificação da ave...</i>")
+        self.lbl_status_conservacao = QLabel("Aguardando identificação...")
+        self.lbl_status_conservacao.setProperty("class", "lbl-placeholder container-borda-cinza-fill")
         self.lbl_status_conservacao.setWordWrap(True)
-        self.lbl_status_conservacao.setTextFormat(Qt.RichText)
-        self.lbl_status_conservacao.setProperty("class", "container-borda-cinza-fill")
+        self.lbl_status_conservacao.setTextFormat(Qt.PlainText)
         self.lbl_status_conservacao.setVisible(True)
         layout_card_cons.addWidget(self.lbl_status_conservacao)
         
         self.layout_direito_superior.addWidget(self.card_conservacao)
 
-        # --- BOTÕES DE BUSCA EXTERNA (SOLTOS v0.8.2) ---
-        layout_botoes = QHBoxLayout()
-        layout_botoes.setSpacing(StyleManager.SPACING_MD)
-        layout_botoes.setContentsMargins(0, 5, 0, 5)
-        
-        self.btn_wiki = QPushButton("WikiAves")
-        self.btn_wiki.setCursor(Qt.PointingHandCursor)
-        self.btn_wiki.clicked.connect(self._buscar_wikiaves)
-        layout_botoes.addWidget(self.btn_wiki, stretch=1)
-        
-        self.btn_ebird = QPushButton("eBird")
-        self.btn_ebird.setCursor(Qt.PointingHandCursor)
-        self.btn_ebird.clicked.connect(self._buscar_ebird)
-        layout_botoes.addWidget(self.btn_ebird, stretch=1)
- 
-        self.btn_google = QPushButton("Google")
-        self.btn_google.setCursor(Qt.PointingHandCursor)
-        self.btn_google.clicked.connect(self._buscar_google)
-        layout_botoes.addWidget(self.btn_google, stretch=1)
-        
-        self.layout_direito_superior.addLayout(layout_botoes)
+        # --- BOTÕES DE BUSCA EXTERNA MOVIDOS (v2.2) ---
+        pass
         
 
         # Botão movido para a linha 2 do Grid (v0.8.2 Refinement)
@@ -750,14 +799,42 @@ class JanelaPrincipal(QMainWindow):
         layout_etim_info = QVBoxLayout(self.frame_etimologia_info)
         layout_etim_info.setContentsMargins(0, 0, 0, 0)
         
-        self.lbl_etimologia_texto = QLabel("Carregando...")
+        self.lbl_etimologia_texto = QLabel("Aguardando identificação...")
+        self.lbl_etimologia_texto.setProperty("class", "lbl-placeholder")
         self.lbl_etimologia_texto.setWordWrap(True)
-        self.lbl_etimologia_texto.setStyleSheet("color: #374151; font-size: 12px;")
         layout_etim_info.addWidget(self.lbl_etimologia_texto)
         
         layout_card_etimologia.addWidget(self.frame_etimologia_info)
         self.card_etimologia.setVisible(True)
         self.layout_direito_inferior.addWidget(self.card_etimologia)
+
+        # --- BOTÕES DE BUSCA EXTERNA EM LINHA DEDICADA (v2.2) ---
+        container_botoes_busca = QWidget()
+        layout_botoes_busca = QHBoxLayout(container_botoes_busca)
+        layout_botoes_busca.setSpacing(StyleManager.SPACING_MD)
+        layout_botoes_busca.setContentsMargins(0, 0, 0, 0)
+        
+        self.btn_wiki = QPushButton("WikiAves")
+        self.btn_wiki.setProperty("class", "btn-secundario-alinhado")
+        self.btn_wiki.setCursor(Qt.PointingHandCursor)
+        self.btn_wiki.clicked.connect(self._buscar_wikiaves)
+        layout_botoes_busca.addWidget(self.btn_wiki)
+        
+        self.btn_ebird = QPushButton("eBird")
+        self.btn_ebird.setProperty("class", "btn-secundario-alinhado")
+        self.btn_ebird.setCursor(Qt.PointingHandCursor)
+        self.btn_ebird.clicked.connect(self._buscar_ebird)
+        layout_botoes_busca.addWidget(self.btn_ebird)
+ 
+        self.btn_google = QPushButton("Google")
+        self.btn_google.setProperty("class", "btn-secundario-alinhado")
+        self.btn_google.setCursor(Qt.PointingHandCursor)
+        self.btn_google.clicked.connect(self._buscar_google)
+        layout_botoes_busca.addWidget(self.btn_google)
+
+        # --- SOLDA DE ALINHAMENTO ABSOLUTO (LINHA 4) ---
+        layout_cards_superiores.addWidget(self.btn_nova, 4, 0, 1, 2)
+        layout_cards_superiores.addWidget(container_botoes_busca, 4, 2)
 
         # Botão Confirmar agora reside na Linha 2 do QGridLayout Principal (v2.0)
         pass
@@ -775,18 +852,27 @@ class JanelaPrincipal(QMainWindow):
         
         layout_card_geo = QVBoxLayout(self.card_geo)
         layout_card_geo.setContentsMargins(15, 15, 15, 15)
+        layout_card_geo.setSpacing(10) # Distância fixa título-caixa
         
         lbl_titulo_geo_card = QLabel("Dados Geográficos")
         lbl_titulo_geo_card.setProperty("class", "lbl-titulo-sessao")
         lbl_titulo_geo_card.setProperty("margin-bottom", "md")
         layout_card_geo.addWidget(lbl_titulo_geo_card)
         
+        # Frame Interno (Sincronizado com Etimologia/Vocalizações)
+        self.frame_interno_geo = QFrame()
+        self.frame_interno_geo.setProperty("class", "container-borda-cinza-fill")
+        layout_interno_geo = QVBoxLayout(self.frame_interno_geo)
+        layout_interno_geo.setContentsMargins(10, 10, 10, 10)
+        
         self.lbl_geo_details = QLabel("Aguardando localização...")
+        self.lbl_geo_details.setProperty("class", "lbl-placeholder")
         self.lbl_geo_details.setWordWrap(True)
-        self.lbl_geo_details.setTextFormat(Qt.RichText)
-        self.lbl_geo_details.setProperty("class", "container-borda-cinza-fill")
+        self.lbl_geo_details.setTextFormat(Qt.PlainText)
         self.lbl_geo_details.setVisible(True) 
-        layout_card_geo.addWidget(self.lbl_geo_details)
+        layout_interno_geo.addWidget(self.lbl_geo_details)
+        
+        layout_card_geo.addWidget(self.frame_interno_geo)
         
         self.layout_direito_inferior.addWidget(self.card_geo)
 
@@ -803,6 +889,7 @@ class JanelaPrincipal(QMainWindow):
         
         layout_card_audio = QVBoxLayout(self.card_audio)
         layout_card_audio.setContentsMargins(15, 15, 15, 15)
+        layout_card_audio.setSpacing(10) # Distância fixa título-caixa
         
         self.lbl_vocal_title = QLabel("Vocalizações")
         self.lbl_vocal_title.setProperty("class", "lbl-titulo-sessao")
@@ -815,13 +902,20 @@ class JanelaPrincipal(QMainWindow):
         self.layout_interno_audio.setContentsMargins(10, 10, 10, 10)
         self.layout_interno_audio.setSpacing(StyleManager.SPACING_SM)
         
-        self.lbl_audio_placeholder = QLabel("<i>Aguardando localização geográfica da fotografia...</i>")
-        self.lbl_audio_placeholder.setAlignment(Qt.AlignCenter)
+        self.lbl_audio_placeholder = QLabel("Aguardando localização...")
+        self.lbl_audio_placeholder.setProperty("class", "lbl-placeholder")
+        self.lbl_audio_placeholder.setAlignment(Qt.AlignLeft)
         self.lbl_audio_placeholder.setWordWrap(True)
         self.layout_interno_audio.addWidget(self.lbl_audio_placeholder)
         
         layout_card_audio.addWidget(self.frame_interno_audio)
-        self.layout_direito_inferior.addWidget(self.card_audio)
+        
+        # Painel de Geo e Áudio adicionado à Linha 5, Coluna 2
+        layout_cards_superiores.addWidget(self.card_geo, 5, 2)
+        layout_cards_superiores.addWidget(self.card_audio, 6, 2) # v2.2: Empilhados para simetria horizontal com o mapa
+        
+        # self.layout_direito_inferior.addWidget(self.card_geo)
+        # self.layout_direito_inferior.addWidget(self.card_audio)
         self.layout_direito_inferior.addStretch()
 
         self.status_bar = QStatusBar()
@@ -871,16 +965,27 @@ class JanelaPrincipal(QMainWindow):
 
     def _buscar_wikiaves(self):
         sciname = self._obter_sciname_atual()
-        if sciname and "Inconclusiva" not in sciname:
+        # Priorizar link direto capturado (v0.8.3)
+        url_direta = self.dados_identificacao_atual.get("link_origem")
+        
+        if url_direta:
+            QDesktopServices.openUrl(url_direta)
+        elif sciname and "Inconclusiva" not in sciname:
             url = f"https://www.wikiaves.com.br/index.php?t=s&s={sciname}"
             QDesktopServices.openUrl(url)
 
     def _buscar_ebird(self):
+        # v0.8.8: Priorizar o link_ebird real capturado durante a Etapa 2 (Scraper)
+        url_direta = self.dados_identificacao_atual.get("link_ebird")
         sciname = self._obter_sciname_atual()
-        if sciname and "Inconclusiva" not in sciname:
-            url = f"https://ebird.org/species/{sciname.replace(' ', '%20')}" 
-            # Tentativa de link direto melhorado, ou busca google falback
-            url = f"https://www.google.com/search?q={sciname}+site:ebird.org"
+        
+        if url_direta and "ebird.org/species/" in url_direta:
+            print(f"[UI] Abrindo link eBird oficial: {url_direta}")
+            QDesktopServices.openUrl(url_direta)
+        elif sciname and "Inconclusiva" not in sciname:
+            # Fallback de busca se o link direto não foi capturado
+            print(f"[UI] Link direto não encontrado. Abrindo busca eBird para: {sciname}")
+            url = f"https://www.google.com/search?q=site:ebird.org+{sciname}" 
             QDesktopServices.openUrl(url)
 
     def _atualizar_mapa_com_gbif(self, sciname):
@@ -931,10 +1036,10 @@ class JanelaPrincipal(QMainWindow):
 
         self.dados_identificacao_atual["nome_cientifico"] = sci_formatted
         self.especie_em_processamento = sci_formatted # Persistência Atômica v0.6.8
-        self.lbl_nome_comum.setText("")
-        self.lbl_nome_comum.setVisible(True)
-        self.lbl_descricao.setText("<i>Identificado pelo usuário.</i>")
-        self.lbl_descricao.setVisible(True)
+        self.lbl_nome_popular.setText("")
+        self.lbl_nome_popular.setVisible(True)
+        self.txt_descricao.setHtml("<i>Identificado pelo usuário.</i>")
+        self.txt_descricao.setVisible(True)
         
         self.input_especie.setText(sci_formatted) # Garante o texto no widget
         
@@ -959,6 +1064,7 @@ class JanelaPrincipal(QMainWindow):
         
         clipboard = QApplication.clipboard()
         clipboard.setText(self.caminho_imagem_atual)
+        self.status_bar.showMessage(f"Caminho copiado: {self.caminho_imagem_atual}. Cole no site do Google Lens.", 5000)
         QDesktopServices.openUrl("https://lens.google.com/upload")
         
         settings = QSettings("iBirder", "App")
@@ -1102,7 +1208,7 @@ class JanelaPrincipal(QMainWindow):
             self.lbl_geo_details.setVisible(True)
             self.card_geo.setVisible(True)
             self.lbl_geo_details.setText(f"Lat: {lat:.4f}, Lon: {lon:.4f} (Processando...)")
-            self.lbl_geo_details.setProperty("class", "container-borda-cinza-fill")
+            self.lbl_geo_details.setProperty("class", "lbl-placeholder")
             self.lbl_geo_details.style().unpolish(self.lbl_geo_details)
             self.lbl_geo_details.style().polish(self.lbl_geo_details)
             
@@ -1307,7 +1413,7 @@ class JanelaPrincipal(QMainWindow):
             self.btn_wiki.setVisible(True)
             self.btn_google.setVisible(True)
             self.btn_ebird.setVisible(True)
-            self.btn_google_lens.setEnabled(False)
+            self.btn_google_lens.setEnabled(True)
             
             if sci:
                 self._iniciar_busca_imagem(sci)
@@ -1321,8 +1427,8 @@ class JanelaPrincipal(QMainWindow):
     def _ao_erro_identificacao(self, erro_msg):
         self.status_bar.showMessage("Erro na identificação.")
         self.card_user.setAcceptDrops(True)
-        self.lbl_nome_comum.setText("Erro")
-        self.lbl_descricao.setText(erro_msg)
+        self.lbl_nome_popular.setText("Erro")
+        self.txt_descricao.setHtml(f"<span style='color: red;'>{erro_msg}</span>")
         self.lbl_etimologia_texto.setText("Ocorreu um erro durante a identificação local.")
         
     # --- Áudio Player (v0.4.0) ---
@@ -1523,6 +1629,10 @@ class JanelaPrincipal(QMainWindow):
             <b>Bioma:</b> {bioma}<br>
             """
                 
+            self.lbl_geo_details.setProperty("class", "lbl-data")
+            self.lbl_geo_details.setTextFormat(Qt.RichText)
+            self.lbl_geo_details.style().unpolish(self.lbl_geo_details)
+            self.lbl_geo_details.style().polish(self.lbl_geo_details)
             self.lbl_geo_details.setText(texto)
             self.lbl_geo_details.setVisible(True)
             self.card_geo.setVisible(True)
@@ -1599,15 +1709,26 @@ class JanelaPrincipal(QMainWindow):
 
     def _ao_concluir_ebird(self, results):
         if hasattr(self, 'session_logger'):
-            self.session_logger.atualizar_ultimo_registro({
+            dados_ebird = {
                 "nome_ingles": results.get("nome_ingles", ""),
                 "classe": results.get("classe", "Aves"),
                 "ordem": results.get("ordem", ""),
                 "familia": results.get("familia", ""),
                 "ebird_code": results.get("ebird_code", ""),
-                "raridade_regional": results.get("raridade_regional", ""),
-                "link_ebird": results.get("link_ebird", "")
-            })
+                "raridade_regional": results.get("raridade_regional", "")
+            }
+            
+            # Preservar link anterior se o novo for vazio (v0.8.9)
+            novo_link = results.get("link_ebird", "")
+            if novo_link:
+                dados_ebird["link_ebird"] = novo_link
+            
+            self.session_logger.atualizar_ultimo_registro(dados_ebird)
+            
+            # Persistência v0.8.3
+            if not self.dados_identificacao_atual:
+                self.dados_identificacao_atual = {}
+            self.dados_identificacao_atual.update(dados_ebird)
             
             # Atualizar Card de Identificação (Nomes) (v0.8.2.3 - Higienização de Fontes)
             # Nome Popular é gerido exclusivamente pelo WikiAves na Etapa 2.
@@ -1629,11 +1750,17 @@ class JanelaPrincipal(QMainWindow):
             genero = sci_name.split()[0] if sci_name else "-"
             
             taxo_html = f"""
+            <div style='line-height: 160%;'>
             <b>Classe:</b> {results.get("classe", "Aves")}<br>
             <b>Ordem:</b> {results.get("ordem", "-")}<br>
             <b>Família:</b> {results.get("familia", "-")}<br>
             <b>Gênero:</b> <i>{genero}</i>
+            </div>
             """
+            self.lbl_taxo_details.setProperty("class", "lbl-data")
+            self.lbl_taxo_details.setTextFormat(Qt.RichText)
+            self.lbl_taxo_details.style().unpolish(self.lbl_taxo_details)
+            self.lbl_taxo_details.style().polish(self.lbl_taxo_details)
             self.lbl_taxo_details.setText(taxo_html)
             self.lbl_taxo_details.setVisible(True)
             self.card_taxonomia.setVisible(True)
@@ -1643,12 +1770,11 @@ class JanelaPrincipal(QMainWindow):
     def _registrar_dados_geo_iucn(self):
         geo = getattr(self, 'last_geo_data', {})
         iucn = getattr(self, 'last_iucn_data', {})
+        conservacao = getattr(self, "last_conservation_data", {})
         
         if not geo and not iucn: return
         
-        # GBIF link generation removed from main thread (v0.4.33)
         link_gbif = ""
-
         dados = {
             "lat": self.lat_atual,
             "lon": self.lon_atual,
@@ -1657,13 +1783,31 @@ class JanelaPrincipal(QMainWindow):
             "municipio": geo.get("municipio", "-"),
             "bioma": geo.get("bioma", "-"),
             "iucn_status": iucn.get("iucn_status", "Não Avaliado"),
-            "status_icmbio": getattr(self, "last_conservation_data", {}).get("status_icmbio", "-"),
-            "endemismo": getattr(self, "last_conservation_data", {}).get("endemismo", "Não"),
+            "status_icmbio": conservacao.get("status_icmbio", "-"),
+            "endemismo": conservacao.get("endemismo", "Não"),
             "link_gbif": link_gbif,
             "link_iucn": iucn.get("link_iucn", ""),
             "caminho_geojson": iucn.get("geojson_path", "")
         }
+
+        # Atualização Visual (v0.8.2.3 - Higienização de Fontes)
+        html_conservacao = f"""
+        <div style='line-height: 160%;'>
+        <b>IUCN (Global):</b> {dados['iucn_status']}<br>
+        <b>ICMBio (Brasil):</b> {dados['status_icmbio']}<br>
+        <b>Endêmica do Brasil:</b> {dados['endemismo']}
+        </div>
+        """
         
+        if hasattr(self, 'lbl_status_conservacao'):
+            self.lbl_status_conservacao.setProperty("class", "lbl-data")
+            self.lbl_status_conservacao.setTextFormat(Qt.RichText)
+            self.lbl_status_conservacao.style().unpolish(self.lbl_status_conservacao)
+            self.lbl_status_conservacao.style().polish(self.lbl_status_conservacao)
+            self.lbl_status_conservacao.setText(html_conservacao)
+            self.lbl_status_conservacao.setVisible(True)
+            self.card_conservacao.setVisible(True)
+
         if hasattr(self, 'session_logger'):
              self.session_logger.atualizar_ultimo_registro(dados)
 
@@ -1729,7 +1873,7 @@ class JanelaPrincipal(QMainWindow):
         self.dados_identificacao_atual = {}
         
         self.card_ref.set_image_path(None)
-        self.card_ref.set_placeholder("Aguardando a identificação da ave.")
+        self.card_ref.set_placeholder("Aguardando identificação...")
         self.card_ref.set_overlay_text(None)
         
         # 3. Reset de Botões e Inputs
@@ -1745,9 +1889,11 @@ class JanelaPrincipal(QMainWindow):
         self.input_especie.style().polish(self.input_especie)
         
         # 4. Reset de Labels de Dados
-        self.lbl_nome_popular.setText("<b>Nome Popular:</b> <i>Aguardando identificação...</i>")
+        self.lbl_nome_popular.setText("<b>Nome Popular:</b> Aguardando identificação...")
+        self.lbl_nome_popular.setProperty("class", "lbl-placeholder")
         self.lbl_nome_popular.setVisible(True)
-        self.lbl_nome_ingles.setText("<b>Nome em Inglês:</b> <i>Aguardando identificação...</i>")
+        self.lbl_nome_ingles.setText("<b>Nome em Inglês:</b> Aguardando identificação...")
+        self.lbl_nome_ingles.setProperty("class", "lbl-placeholder")
         self.lbl_nome_ingles.setVisible(True)
         
         self.lbl_confianca.setText("")
@@ -1757,9 +1903,13 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_confianca.style().polish(self.lbl_confianca)
         
         self.lbl_geo_details.setText("Aguardando localização...")
+        self.lbl_geo_details.setProperty("class", "lbl-placeholder")
         self.lbl_geo_details.setVisible(True)
         
-        self.lbl_status_conservacao.setText("<i>Aguardando identificação da ave...</i>")
+        self.lbl_status_conservacao.setText("Aguardando identificação...")
+        self.lbl_status_conservacao.setProperty("class", "lbl-placeholder")
+        self.lbl_status_conservacao.style().unpolish(self.lbl_status_conservacao)
+        self.lbl_status_conservacao.style().polish(self.lbl_status_conservacao)
         self.lbl_status_conservacao.setVisible(True)
         self.card_conservacao.setVisible(True)
         
@@ -1769,23 +1919,31 @@ class JanelaPrincipal(QMainWindow):
         self.last_conservation_data = {}
         
         # 5. Reset de Campos de Texto
-        self.txt_descricao.clear()
-        self.lbl_etimologia_texto.setText("Carregando...")
+        self.txt_descricao.setText("")
+        self.txt_descricao.setPlaceholderText("Aguardando identificação...")
+        self.lbl_etimologia_texto.setText("Aguardando identificação...")
+        self.lbl_etimologia_texto.setProperty("class", "lbl-placeholder")
         
-        self.lbl_audio_placeholder.setText("<i>Aguardando localização geográfica da fotografia...</i>")
+        self.lbl_audio_placeholder.setText("Aguardando localização...")
+        self.lbl_audio_placeholder.setProperty("class", "lbl-placeholder")
         self.lbl_audio_placeholder.setVisible(True)
         
         # 6. Reset de Painéis e Mapas
         self.card_id.setVisible(True) # Card ID sempre visível
         self.card_etimologia.setVisible(True) 
+        self.card_descricao.setVisible(True)
+        self.card_mapa_container.setVisible(True)
         self.card_geo.setVisible(True)
         self.card_audio.setVisible(True)
         self.card_taxonomia.setVisible(True)
-        self.lbl_taxo_details.setText("<i>Aguardando identificação da ave...</i>")
+        self.lbl_taxo_details.setText("Aguardando identificação...")
+        self.lbl_taxo_details.setProperty("class", "lbl-placeholder container-borda-cinza-fill")
+        self.lbl_taxo_details.style().unpolish(self.lbl_taxo_details)
+        self.lbl_taxo_details.style().polish(self.lbl_taxo_details)
         self.lbl_taxo_details.setVisible(True)
         
         if self.map_principal:
-             self.map_principal.show_placeholder_message("Aguardando dados de Localização")
+             self.map_principal.show_placeholder_message("Aguardando localização...")
              self.map_principal.alert_frame.hide() # Esconde alerta se estiver visivel
              
         self.status_bar.showMessage("Pronto para nova identificação")
