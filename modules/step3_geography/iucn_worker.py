@@ -28,29 +28,61 @@ class IUCNWorker(QThread):
              url_iucn = f"https://www.iucnredlist.org/search?query={self.scientific_name.replace(' ', '+')}&searchType=species"
 
         # -------------------
-        # Fallback iNaturalist
+        # Fallback iNaturalist (v0.8.3 - Consulta em 2 Etapas)
         # -------------------
         if is_fallback:
             try:
-                print(f"[IUCN Worker] Buscando status no iNaturalist para {self.scientific_name}...")
-                inat_url = f"https://api.inaturalist.org/v1/taxa?q={self.scientific_name}&is_active=true&rank=species"
-                resp_inat = requests.get(inat_url, timeout=10)
-                if resp_inat.status_code == 200:
-                    data = resp_inat.json()
-                    if data.get("results") and len(data["results"]) > 0:
-                        taxon = data["results"][0]
-                        cs = taxon.get("conservation_status")
-                        if cs:
-                            iucn_status = f"{cs.get('status', 'Não Avaliado').upper()} (via iNaturalist)"
+                print(f"[IUCN Worker] Passo 1: Buscando ID no iNaturalist para {self.scientific_name}...")
+                search_url = f"https://api.inaturalist.org/v1/taxa?q={self.scientific_name}&is_active=true&rank=species"
+                resp_search = requests.get(search_url, timeout=10)
+                
+                if resp_search.status_code == 200:
+                    search_data = resp_search.json()
+                    if search_data.get("results") and len(search_data["results"]) > 0:
+                        taxon_id = search_data["results"][0]["id"]
+                        
+                        print(f"[IUCN Worker] Passo 2: Buscando detalhes para Taxon ID {taxon_id}...")
+                        detail_url = f"https://api.inaturalist.org/v1/taxa/{taxon_id}"
+                        resp_detail = requests.get(detail_url, timeout=10)
+                        
+                        if resp_detail.status_code == 200:
+                            detail_data = resp_detail.json()
+                            results = detail_data.get("results", [])
+                            if results:
+                                taxon_details = results[0]
+                                c_statuses = taxon_details.get("conservation_statuses", [])
+                                
+                                # Busca o status global da IUCN
+                                iucn_entry = next((s for s in c_statuses if "IUCN" in (s.get("authority") or "")), None)
+                                
+                                if iucn_entry:
+                                    raw_status = iucn_entry.get("status", "NE").upper()
+                                    # Mapeamento para Português (v0.8.3)
+                                    mapeamento = {
+                                        "LC": "Pouco Preocupante (LC)",
+                                        "NT": "Quase Ameaçada (NT)",
+                                        "VU": "Vulnerável (VU)",
+                                        "EN": "Em Perigo (EN)",
+                                        "CR": "Criticamente em Perigo (CR)",
+                                        "EW": "Extinta na Natureza (EW)",
+                                        "EX": "Extinta (EX)",
+                                        "DD": "Dados Insuficientes (DD)",
+                                        "NE": "Não Avaliada (NE)"
+                                    }
+                                    status_traduzido = mapeamento.get(raw_status, raw_status)
+                                    iucn_status = f"{status_traduzido} (via iNaturalist)"
+                                else:
+                                    iucn_status = "Não Avaliado / Seguro (via iNaturalist)"
+                            else:
+                                iucn_status = "Erro nos detalhes (iNaturalist)"
                         else:
-                             # Se o iNat não tem o bloco de conservation status, mas a espécie existe
-                             iucn_status = "Não Avaliado / Seguro (via iNaturalist)"
+                            iucn_status = "Erro na API de Detalhes (iNaturalist)"
                     else:
                         iucn_status = "Espécie não encontrada (iNaturalist)"
                 else:
-                    iucn_status = "Inconclusivo (via iNaturalist)"
+                    iucn_status = "Erro na API de Busca (iNaturalist)"
                 
-                print(f"[IUCN Worker] Status Fallback Resolvido: {iucn_status}")
+                print(f"[IUCN Worker] Status IUCN Final: {iucn_status}")
             except Exception as e:
                 print(f"[IUCN Worker] Erro GERAL no Fallback iNaturalist: {e}")
                 iucn_status = "Erro de Conexão (Fallback)"
