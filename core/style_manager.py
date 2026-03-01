@@ -191,6 +191,18 @@ class StyleManager:
                 padding: 6px;
                 color: {text_primary};
             }}
+
+            QLineEdit::placeholder, QTextEdit::placeholder {{
+                color: #9CA3AF;
+                font-style: italic;
+            }}
+
+            .lbl-placeholder {{
+                color: #9CA3AF;
+                font-style: italic;
+                font-weight: 500;
+                font-size: 13px;
+            }}
             
             QListWidget, QListView {{
                 background-color: {bg_card};
@@ -229,12 +241,14 @@ class StyleManager:
             }}
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0px; }}
             
-            /* Botões Primários */
+            /* Botões Primários (Padrão Extra-Slim 26px) */
             QPushButton {{ 
                 background-color: {accent_btn}; 
                 color: white; 
                 border-radius: 8px; 
-                padding: 10px 16px; 
+                padding: 2px 16px; 
+                min-height: 26px;
+                max-height: 26px;
                 font-weight: bold; 
                 font-family: 'Segoe UI';
             }}

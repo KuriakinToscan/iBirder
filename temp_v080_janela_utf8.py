@@ -1,4 +1,4 @@
-# ADVERTÊNCIA: Proibido adicionar barras de menu ou ferramentas tradicionais conforme RULES v1.1.
+﻿# ADVERT├èNCIA: Proibido adicionar barras de menu ou ferramentas tradicionais conforme RULES v1.1.
 import sys
 import os
 import json
@@ -18,7 +18,7 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from PIL import Image, ExifTags
 from datetime import datetime
 
-# Importações do Core
+# Importa├º├Áes do Core
 from modules.step3_geography.geo_utils import extract_lat_lon
 from modules.step1_identity.id_worker import LocalIdentificationWorker
 from modules.step1_identity.finder_ui import JanelaManual
@@ -40,17 +40,15 @@ from modules.step5_taxonomy.ebird_worker import EBirdWorker
 # GeoWorker migrado para o Orchestrator v0.4.2
 
 class JanelaPrincipal(QMainWindow):
-    PLACEHOLDER_TEXT = "Aguardando identificação...."
-
     def __init__(self, nome_icone_janela="logo_ave.svg", modo_inicial="online", ai_status="READY"):
         super().__init__()
         self.nome_icone_janela = nome_icone_janela
         self.ai_status = ai_status
         
-        # Logging de Sessão Temporária (v0.3.15)
+        # Logging de Sess├úo Tempor├íria (v0.3.15)
         self.session_logger = SessionLogger()
         
-        # O Cérebro do Aplicativo (Orchestrator via Feature-Based Architecture)
+        # O C├®rebro do Aplicativo (Orchestrator via Feature-Based Architecture)
         from core.orchestrator import Orchestrator
         self.orchestrator = Orchestrator(self.session_logger, parent=self)
         self.orchestrator.step1_identificacao_concluida.connect(self._ao_concluir_identificacao)
@@ -59,6 +57,7 @@ class JanelaPrincipal(QMainWindow):
         self.orchestrator.step2_wiki_concluida.connect(self._ao_receber_info_especie)
         self.orchestrator.step3_iucn_concluida.connect(self._ao_concluir_iucn)
         self.orchestrator.step3_geo_concluida.connect(self._ao_concluir_geo_analise)
+        self.orchestrator.step3_conservacao_concluida.connect(self._ao_concluir_conservacao_nacional)
         self.orchestrator.step4_audio_concluido.connect(self._ao_encontrar_audio)
         self.orchestrator.step4_audio_erro.connect(self._ao_erro_audio)
         self.orchestrator.audio_processed.connect(self._plotar_pins_audio)
@@ -74,17 +73,17 @@ class JanelaPrincipal(QMainWindow):
         self.lat_atual = None
         self.lon_atual = None
         
-        # Flag de Persistência Atômica (v0.6.8)
-        # Mantém o nome científico mesmo durante resets de interface
+        # Flag de Persist├¬ncia At├┤mica (v0.6.8)
+        # Mant├®m o nome cient├¡fico mesmo durante resets de interface
         self.especie_em_processamento = None 
         
-        # Trava de Estilo (v0.6.9): Impede recursão infinita no changeEvent
+        # Trava de Estilo (v0.6.9): Impede recurs├úo infinita no changeEvent
         self._bloqueio_palette = False
 
         self._configurar_ui()
         self._aplicar_estilo()
         
-        # Reforço de Title Bar Dark (v0.7.2)
+        # Refor├ºo de Title Bar Dark (v0.7.2)
         StyleManager.setup_window_theme(self)
         
         # Ajuste inicial de alturas
@@ -98,46 +97,23 @@ class JanelaPrincipal(QMainWindow):
             base_path = Path(__file__).parent.parent / 'assets'
         return str(base_path / nome_arquivo)
 
-    def _format_nome_ave(self, prefixo, valor, is_placeholder=False):
-        """Formata o prefixo e o valor com o estilo exato do Nome Científico ou Placeholder."""
-        cor_valor = "#9CA3AF" if is_placeholder else "#1F2937"
-        span_prefixo = f"<span style=\"font-family: 'Segoe UI'; font-weight: bold; color: #4B5563; font-size: 11px;\">{prefixo}</span>"
-        span_valor = f"<span style=\"font-family: 'Segoe UI'; font-style: italic; font-weight: 500; color: {cor_valor}; font-size: 13px;\">{valor}</span>"
-        return f"{span_prefixo}&nbsp;&nbsp;{span_valor}"
-
-    def _set_placeholder_style(self, label, active=True):
-        """Adiciona ou remove a classe de placeholder de uma label."""
-        if not label: return
-        
-        classe_atual = label.property("class") or ""
-        if active:
-            if "lbl-placeholder" not in classe_atual:
-                label.setProperty("class", f"{classe_atual} lbl-placeholder".strip())
-        else:
-            if "lbl-placeholder" in classe_atual:
-                label.setProperty("class", classe_atual.replace("lbl-placeholder", "").strip())
-        
-        label.style().unpolish(label)
-        label.style().polish(label)
-
-
     def _iniciar_busca_imagem(self, nome_cientifico):
         # Reset visual
-        self.card_ref.set_placeholder(self.PLACEHOLDER_TEXT)
+        self.card_ref.set_placeholder("Aguardando a identifica├º├úo da ave.")
         self.card_ref.set_pixmap(None)
         self.card_ref.set_overlay_text(None)
         self.btn_fonte.setEnabled(False) 
         
-        # Reset mapa e botão de location se for nova busca por texto (manual)
+        # Reset mapa e bot├úo de location se for nova busca por texto (manual)
         # Se for por imagem, o _carregar_imagem lida com isso.
-        # Mas aqui é _iniciar_busca_imagem(nome_cientifico), chamado após identificação ou busca manual de texto.
-        # Não devemos resetar a localização aqui se ela veio da imagem carregada.
+        # Mas aqui ├® _iniciar_busca_imagem(nome_cientifico), chamado ap├│s identifica├º├úo ou busca manual de texto.
+        # N├úo devemos resetar a localiza├º├úo aqui se ela veio da imagem carregada.
         
-        self.txt_descricao.clear() # Reset descrição anterior
+        self.txt_descricao.clear() # Reset descri├º├úo anterior
         
         # Reset para estado "Aguardando"
         self.txt_etimologia.clear()
-        self.txt_etimologia.setPlaceholderText(self.PLACEHOLDER_TEXT)
+        self.txt_etimologia.setPlaceholderText("Aguardando identifica├º├úo...")
         self.lbl_titulo_etimologia.setVisible(True)
         self.txt_etimologia.setVisible(True)
 
@@ -157,7 +133,7 @@ class JanelaPrincipal(QMainWindow):
 
         self.worker_referencia = ReferenceImageWorker(nome_cientifico, parent=self)
         self.worker_referencia.image_found.connect(self._ao_encontrar_imagem_referencia)
-        self.worker_referencia.search_failed.connect(lambda: self.card_ref.set_placeholder("Sem referência"))
+        self.worker_referencia.search_failed.connect(lambda: self.card_ref.set_placeholder("Sem refer├¬ncia"))
         self.worker_referencia.start()
         
         self.worker_referencia.start()
@@ -167,7 +143,7 @@ class JanelaPrincipal(QMainWindow):
         
     def _ao_update_disponivel(self, manifest_data):
         ver = manifest_data.get("version", "?")
-        btn_update = QPushButton(f"Nova I.A. das Aves (v{ver}) Disponível! Clique para turbinar.")
+        btn_update = QPushButton(f"Nova I.A. das Aves (v{ver}) Dispon├¡vel! Clique para turbinar.")
         btn_update.setStyleSheet("background-color: #27ae60; color: white; border-radius: 4px; padding: 2px 10px; font-weight: bold; font-size: 11px;")
         btn_update.setCursor(Qt.PointingHandCursor)
         btn_update.clicked.connect(lambda: self._iniciar_download_update(manifest_data))
@@ -178,10 +154,10 @@ class JanelaPrincipal(QMainWindow):
     def _iniciar_download_update(self, manifest_data):
         resposta = QMessageBox.question(
             self,
-            "Turbinar Inteligência Artificial",
-            "Deseja ensinar centenas de novas espécies de aves ao iBirder?\n\n"
-            "Isso consumirá cerca de 3.5 MB de dados rápidos.\n"
-            "O aplicativo continuará funcionando normalmente durante o aprendizado.",
+            "Turbinar Intelig├¬ncia Artificial",
+            "Deseja ensinar centenas de novas esp├®cies de aves ao iBirder?\n\n"
+            "Isso consumir├í cerca de 3.5 MB de dados r├ípidos.\n"
+            "O aplicativo continuar├í funcionando normalmente durante o aprendizado.",
             QMessageBox.Yes | QMessageBox.No
         )
         if resposta == QMessageBox.Yes:
@@ -201,10 +177,10 @@ class JanelaPrincipal(QMainWindow):
     def _ao_concluir_download_ota(self, info_dict):
         from modules.step1_identity.id_worker import free_interpreter_cache
         free_interpreter_cache()
-        self.statusBar().showMessage("Inteligência artificial turbinada com sucesso! O cérebro foi substituído silenciosamente.", 8000)
+        self.statusBar().showMessage("Intelig├¬ncia artificial turbinada com sucesso! O c├®rebro foi substitu├¡do silenciosamente.", 8000)
         
     def _ao_erro_download_ota(self, erro_msg):
-        self.statusBar().showMessage(f"Falha na atualização invisível: {erro_msg}", 8000)
+        self.statusBar().showMessage(f"Falha na atualiza├º├úo invis├¡vel: {erro_msg}", 8000)
 
 
     def _ao_encontrar_imagem_referencia(self, path, creditos, url_fonte=""):
@@ -224,26 +200,24 @@ class JanelaPrincipal(QMainWindow):
              self.btn_fonte.setEnabled(False)
 
     def _ao_receber_info_especie(self, dados):
-        print(f"[UI] SINAL: Dados biológicos recebidos via Orchestrator (WikiAves). Especial: {dados.get('nome_comum')}")
+        print(f"[UI] SINAL: Dados biol├│gicos recebidos via Orchestrator (WikiAves). Especial: {dados.get('nome_comum')}")
         # Mapeamento do BuscadorBlindado (Agora com chaves nativas corretas - v0.3.17)
         etimologia_texto = dados.get("etimologia", "")
         caracteristicas = dados.get("caracteristicas", "")
         
-        # LOGGING DE SESSÃO: ETAPA 2 (v1.6.3)
+        # LOGGING DE SESS├âO: ETAPA 2 (v0.3.17)
         dados_etapa_2 = {
             "link_origem": dados.get("link_origem", ""),
             "descricao": caracteristicas,
             "nome_comum": dados.get("nome_comum", ""),
-            "etimologia": etimologia_texto,
-            "ordem": dados.get("ordem", "Desconhecida"),
-            "familia": dados.get("familia", "Desconhecida")
+            "etimologia": etimologia_texto
         }
         
         if hasattr(self, 'session_logger'):
             self.session_logger.atualizar_ultimo_registro(dados_etapa_2)
 
-        # Persistência de Estado (v0.6.7): Garante que dados retornados populem o dicionário de identificação atual
-        # Usamos o nome original da busca (taxonômico) para não poluir o estado com etimologia
+        # Persist├¬ncia de Estado (v0.6.7): Garante que dados retornados populem o dicion├írio de identifica├º├úo atual
+        # Usamos o nome original da busca (taxon├┤mico) para n├úo poluir o estado com etimologia
         sci_persist = dados.get("original_scientific_name", self.dados_identificacao_atual.get("nome_cientifico", ""))
         
         if not self.dados_identificacao_atual:
@@ -251,97 +225,73 @@ class JanelaPrincipal(QMainWindow):
             
         self.dados_identificacao_atual.update(dados_etapa_2)
         self.dados_identificacao_atual["nome_cientifico"] = sci_persist
-        
-        # UI Update: Nome Comum (v0.8.2)
-        nc = dados.get("nome_comum", "")
-        if nc and nc.lower() not in ["nome comum não encontrado", "não encontrado"]:
-            self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", nc))
-        else:
-            self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", "Não encontrado"))
-
-        # UI Update: Nome em Inglês (v0.8.5 - Agora via WikiAves)
-        ni = dados.get("nome_ingles", "")
-        if ni and ni.lower() not in ["desconhecido", "unknown"]:
-            self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", ni))
-        else:
-            if nc:
-                self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", "Desconhecido"))
 
         # Atualiza Campo Etimologia
         # Atualiza Campo Etimologia
-        if etimologia_texto and etimologia_texto != "Não encontrado":
-            # Aplicação do padrão estético visual (line-height 150%) para o texto via HTML
-            html_etimologia = f'<div style="line-height: 150%;">{etimologia_texto}</div>'
-            self.txt_etimologia.setHtml(html_etimologia)
-        elif etimologia_texto == "Não encontrado":
-            self.txt_etimologia.setPlaceholderText("Etimologia não disponível.")
+        if etimologia_texto and etimologia_texto != "N├úo encontrado":
+            self.txt_etimologia.setPlainText(etimologia_texto)
+        elif etimologia_texto == "N├úo encontrado":
+            self.txt_etimologia.setPlaceholderText("Etimologia n├úo dispon├¡vel.")
             self.txt_etimologia.clear()
 
-        # Atualiza Campo Descrição (Rodapé)
-        if caracteristicas and caracteristicas != "Não encontrado":
+        # Atualiza Campo Descri├º├úo (Rodap├®)
+        if caracteristicas and caracteristicas != "N├úo encontrado":
             self.txt_descricao.setPlainText(caracteristicas)
             self.txt_descricao.setVisible(True)
             self.lbl_titulo_etimologia.setVisible(True)
             self.txt_etimologia.setVisible(True)
             
-        # 🔹 Atualização de Taxonomia (WikiAves v1.6.2)
-        # Se o WikiAves retornar taxonomia, já populamos o card para evitar sensação de "vazio"
-        ordem = dados.get("ordem")
-        familia = dados.get("familia")
-        if (ordem and ordem != "Desconhecida") or (familia and familia != "Desconhecida"):
-            print(f"[UI] Taxonomia recebida do WikiAves: {ordem} / {familia}")
-            self._atualizar_card_taxonomia(ordem=ordem, familia=familia)
-        self.frame_etimologia.setVisible(False) # Esconde o antigo frame do iNaturalist se ainda visível
+        self.frame_etimologia.setVisible(False) # Esconde o antigo frame do iNaturalist se ainda vis├¡vel
 
         # --- ATUALIZAR MAPA COM GBIF (v0.3.8) ---
-        # Se temos nome científico e o mapa está ativo, atualizamos a camada
-        # IMPORTANTE: Usar o nome original, pois 'nome_cientifico' do WikiAves contém a etimologia.
+        # Se temos nome cient├¡fico e o mapa est├í ativo, atualizamos a camada
+        # IMPORTANTE: Usar o nome original, pois 'nome_cientifico' do WikiAves cont├®m a etimologia.
         raw_sciname = dados.get("original_scientific_name") or dados.get("nome_cientifico", "")
         
-        # Validação Robusta para evitar chamadas inúteis ao GBIF
-        termos_invalidos = ["Não encontrado", "Inconclusiva", "Baixa confiança", "Erro", "Analisando..."]
+        # Valida├º├úo Robusta para evitar chamadas in├║teis ao GBIF
+        termos_invalidos = ["N├úo encontrado", "Inconclusiva", "Baixa confian├ºa", "Erro", "Analisando..."]
         sciname_valido = raw_sciname and not any(termo in raw_sciname for termo in termos_invalidos)
         
         sciname = raw_sciname if sciname_valido else None
         
         if self.map_principal:
-             # Atualização do Mapa com Camada GBIF (Desacoplado do GPS)
-             # Usa coordenadas da classe (já extraídas no carregamento ou manual)
+             # Atualiza├º├úo do Mapa com Camada GBIF (Desacoplado do GPS)
+             # Usa coordenadas da classe (j├í extra├¡das no carregamento ou manual)
              lat = self.lat_atual
              lon = self.lon_atual
              add_marker = True
              zoom_level = 6
 
-             # Fallback: Se não tem coords, usa Centro do Brasil apenas para mostrar a distribuição
+             # Fallback: Se n├úo tem coords, usa Centro do Brasil apenas para mostrar a distribui├º├úo
              if lat is None or lon is None:
                  lat = -15.7801
                  lon = -47.9292
                  add_marker = False
                  zoom_level = 4
-                 print("[UI] Sem GPS: Usando fallback (Centro BR) para exibir mapa de distribuição.")
+                 print("[UI] Sem GPS: Usando fallback (Centro BR) para exibir mapa de distribui├º├úo.")
 
              print(f"[UI] Atualizando Widget de Mapa... (GBIF: {sciname}) [Lat: {lat}, Lon: {lon}]")
              try:
                  self.map_principal.update_map(lat, lon, zoom=zoom_level, add_marker=add_marker, scientific_name=sciname)
                  
                  # GeoAnalyst: Removido disparo manual v0.8.9. 
-                 # A cascata 2 -> 3 agora é gerida exclusivamente pelo Orchestrator para evitar crash de threads.
+                 # A cascata 2 -> 3 agora ├® gerida exclusivamente pelo Orchestrator para evitar crash de threads.
                  if add_marker:
-                     # Apenas atualizamos a label visual na UI, se necessário
+                     # Apenas atualizamos a label visual na UI, se necess├írio
                      pass
                  
                  print("[UI] Mapa renderizado com sucesso.")
              except Exception as e:
-                 print(f"[UI] ERRO CRÍTICO ao atualizar mapa: {e}")
+                 print(f"[UI] ERRO CR├ìTICO ao atualizar mapa: {e}")
             
-             # REFORÇO V0.7.7: Reafirmar soberania após carga de componentes Chromium
+             # REFOR├çO V0.7.7: Reafirmar soberania ap├│s carga de componentes Chromium
              StyleManager.setup_window_theme(self)
              
-             print("[UI] --- PROCESSO DE IDENTIFICAÇÃO FINALIZADO ---\n")
+             print("[UI] --- PROCESSO DE IDENTIFICA├ç├âO FINALIZADO ---\n")
         
     def _ao_erro_api(self, erro_msg):
-        print(f"[UI] Erro na API (Info Espécie): {erro_msg}")
-        self.lbl_etimologia_texto.setText(f"Erro ao buscar informações: {erro_msg}")
+        print(f"[UI] Erro na API (Info Esp├®cie): {erro_msg}")
+        self.lbl_etimologia_texto.setText(f"Erro ao buscar informa├º├Áes: {erro_msg}")
         self.frame_etimologia.setVisible(True)
 
     def _ao_erro_identificacao(self, erro_msg):
@@ -349,20 +299,20 @@ class JanelaPrincipal(QMainWindow):
         self.frame_etimologia.setVisible(True)
 
     def _ajustar_altura_descricao(self):
-        """Ajusta a altura do campo de descrição conforme o conteúdo."""
+        """Ajusta a altura do campo de descri├º├úo conforme o conte├║do."""
         doc_height = self.txt_descricao.document().size().height()
         margins = self.txt_descricao.contentsMargins().top() + self.txt_descricao.contentsMargins().bottom() + 15
         self.txt_descricao.setFixedHeight(max(int(doc_height + 10), 45))
 
     def _ajustar_altura_etimologia(self):
-        """Ajusta a altura do campo de etimologia conforme o conteúdo."""
+        """Ajusta a altura do campo de etimologia conforme o conte├║do."""
         doc_height = self.txt_etimologia.document().size().height()
-        # Ajuste fino para evitar scrollbar e espaço extra (padding css + margem segurança)
+        # Ajuste fino para evitar scrollbar e espa├ºo extra (padding css + margem seguran├ºa)
         self.txt_etimologia.setFixedHeight(max(int(doc_height + 10), 45))
 
     def resizeEvent(self, event):
         """Recalcula altura dos campos de texto ao redimensionar a janela."""
-        # Usa timer para garantir que o layout já foi atualizado e a largura dos campos está correta
+        # Usa timer para garantir que o layout j├í foi atualizado e a largura dos campos est├í correta
         QTimer.singleShot(0, self._ajustar_altura_etimologia)
         QTimer.singleShot(0, self._ajustar_altura_descricao)
         super().resizeEvent(event)
@@ -374,18 +324,18 @@ class JanelaPrincipal(QMainWindow):
             QFontDatabase.addApplicationFont(caminho_figtree)
 
 
-        # --- CARREGAMENTO DO ÍCONE DA JANELA (Dinâmico v0.6.5) ---
+        # --- CARREGAMENTO DO ├ìCONE DA JANELA (Din├ómico v0.6.5) ---
         StyleManager.set_app_icon(self)
 
         # Container Principal com Scroll
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
-        # Garante fundo claro na área de scroll
+        # Garante fundo claro na ├írea de scroll
         self.scroll_area.setStyleSheet("QScrollArea { border: none; background-color: #F0F2F5; }")
 
         widget_central = QWidget()
         widget_central.setObjectName("container_rolagem")
-        # Garante que o widget interno também tenha fundo claro, mas sem afetar filhos
+        # Garante que o widget interno tamb├®m tenha fundo claro, mas sem afetar filhos
         widget_central.setStyleSheet("#container_rolagem { background-color: #F0F2F5; }")
         self.scroll_area.setWidget(widget_central)
         self.setCentralWidget(self.scroll_area)
@@ -410,7 +360,7 @@ class JanelaPrincipal(QMainWindow):
             pixmap_logo = QIcon(caminho_logo_painel).pixmap(QSize(130, 130))
             lbl_logo.setPixmap(pixmap_logo)
         else:
-            lbl_logo.setText("🐦")
+            lbl_logo.setText("­ƒÉª")
             lbl_logo.setFont(QFont("Segoe UI Emoji", 32))
         
         layout_branding.addWidget(lbl_logo)
@@ -426,10 +376,10 @@ class JanelaPrincipal(QMainWindow):
         layout_branding.addLayout(layout_textos_header)
         layout_header.addLayout(layout_branding)
         
-        # Espaçador Central
+        # Espa├ºador Central
         layout_header.addStretch()
 
-        # Botões Header (Reload, Ajuda, Config)
+        # Bot├Áes Header (Reload, Ajuda, Config)
         layout_ajuda = QHBoxLayout()
         
         self.btn_reload = QPushButton()
@@ -442,7 +392,7 @@ class JanelaPrincipal(QMainWindow):
             self.btn_reload.setIcon(QIcon(caminho_reload))
             self.btn_reload.setIconSize(QSize(24, 24))
         else:
-            self.btn_reload.setText("⟳")
+            self.btn_reload.setText("Ôƒ│")
             self.btn_reload.setFont(QFont("Segoe UI", 16, QFont.Bold))
         self.btn_reload.clicked.connect(self._resetar_interface)
         
@@ -452,7 +402,7 @@ class JanelaPrincipal(QMainWindow):
         self.btn_ajuda.setFixedSize(40, 40)
         self.btn_ajuda.setProperty("class", "icon-btn")
         self.btn_ajuda.setCursor(Qt.PointingHandCursor)
-        self.btn_ajuda.setToolTip("Manual de Instruções")
+        self.btn_ajuda.setToolTip("Manual de Instru├º├Áes")
         caminho_help = self._obter_caminho_asset("icon_help.svg")
         if os.path.exists(caminho_help):
             self.btn_ajuda.setIcon(QIcon(caminho_help))
@@ -464,10 +414,10 @@ class JanelaPrincipal(QMainWindow):
         
         layout_ajuda.addWidget(self.btn_ajuda)
         
-        # Novo: Botão de Configurações
+        # Novo: Bot├úo de Configura├º├Áes
         pass
         
-        # --- SOLDA CIRÚRGICA DE BRANDING PERDIDA NA FASE L ---
+        # --- SOLDA CIR├ÜRGICA DE BRANDING PERDIDA NA FASE L ---
         layout_header.addLayout(layout_ajuda)
         
         # Adiciona o Frame do Header ao Layout Mestre
@@ -483,28 +433,28 @@ class JanelaPrincipal(QMainWindow):
         layout_cards_superiores.setColumnStretch(1, 1)
         layout_cards_superiores.setColumnStretch(2, 1)
         
-        # FASE S.1 (v0.3.53) - GRAVIDADE ZERO DAS IMAGENS, SUCÇÃO PELO MAPA
+        # FASE S.1 (v0.3.53) - GRAVIDADE ZERO DAS IMAGENS, SUC├ç├âO PELO MAPA
         layout_cards_superiores.setRowStretch(1, 0)
         layout_cards_superiores.setRowStretch(2, 1)
 
-        # LINHA 0: TÍTULOS
+        # LINHA 0: T├ìTULOS
         lbl_titulo_user = QLabel("Imagem Pesquisada")
         lbl_titulo_user.setProperty("class", "lbl-titulo-sessao")
         lbl_titulo_user.setProperty("margin-bottom", "sm")
         layout_cards_superiores.addWidget(lbl_titulo_user, 0, 0)
         
-        lbl_titulo_ref = QLabel("Imagem Referência")
+        lbl_titulo_ref = QLabel("Imagem Refer├¬ncia")
         lbl_titulo_ref.setProperty("class", "lbl-titulo-sessao")
         lbl_titulo_ref.setProperty("margin-bottom", "sm")
         layout_cards_superiores.addWidget(lbl_titulo_ref, 0, 1)
 
-        lbl_titulo_res = QLabel("Resultados da Análise")
+        lbl_titulo_res = QLabel("Resultados da An├ílise")
         lbl_titulo_res.setProperty("class", "lbl-titulo-sessao")
         lbl_titulo_res.setProperty("margin-bottom", "sm")
         layout_cards_superiores.addWidget(lbl_titulo_res, 0, 2)
         
-        # LINHA 1: WIDGETS E PAINÉIS
-        # Célula (1, 0) - Imagem User e Botão Lens (Integrados Diretamente no Grid + VBoxLayout filho p/ botao)
+        # LINHA 1: WIDGETS E PAIN├ëIS
+        # C├®lula (1, 0) - Imagem User e Bot├úo Lens (Integrados Diretamente no Grid + VBoxLayout filho p/ botao)
         layout_imagem_btn_user = QVBoxLayout()
         layout_imagem_btn_user.setSpacing(StyleManager.SPACING_SM)
         
@@ -523,12 +473,12 @@ class JanelaPrincipal(QMainWindow):
         # Ancorando estritamente ao topo sem stretch inflador:
         layout_cards_superiores.addLayout(layout_imagem_btn_user, 1, 0, alignment=Qt.AlignTop)
 
-        # Célula (1, 1) - Imagem Referência e Botão Fonte
+        # C├®lula (1, 1) - Imagem Refer├¬ncia e Bot├úo Fonte
         layout_imagem_btn_ref = QVBoxLayout()
         layout_imagem_btn_ref.setSpacing(StyleManager.SPACING_SM)
         
         self.card_ref = ImageCardWidget()
-        self.card_ref.set_placeholder(self.PLACEHOLDER_TEXT)
+        self.card_ref.set_placeholder("Aguardando a identifica├º├úo da ave.")
         layout_imagem_btn_ref.addWidget(self.card_ref, stretch=1)
         
         self.btn_fonte = QPushButton("Abrir Fonte")
@@ -541,32 +491,39 @@ class JanelaPrincipal(QMainWindow):
         # Ancorando estritamente ao topo sem stretch inflador:
         layout_cards_superiores.addLayout(layout_imagem_btn_ref, 1, 1, alignment=Qt.AlignTop)
         
-        # Célula (1, 2) - Painel de Resultados (Antigo Lado Direito)
-        # Célula (1, 2) - Container Vertical (Coluna Direita)
-        self.painel_direito = QWidget()
+        # C├®lula (1, 2) - Painel de Resultados (Antigo Lado Direito)
+        self.painel_direito = QFrame()
+        self.painel_direito.setProperty("class", "painel")
         
-        layout_direito = QVBoxLayout(self.painel_direito)
+        sombra = QGraphicsDropShadowEffect()
+        sombra.setBlurRadius(20)
+        sombra.setColor(QColor(0, 0, 0, 20))
+        sombra.setOffset(0, 5)
+        self.painel_direito.setGraphicsEffect(sombra)
+
+        layout_direito = QVBoxLayout()
+        self.painel_direito.setLayout(layout_direito)
         layout_direito.setSpacing(StyleManager.SPACING_MD)
-        layout_direito.setContentsMargins(0, 0, 0, 0)
+        layout_direito.setContentsMargins(12, 18, 12, 12)
         
         layout_cards_superiores.addWidget(self.painel_direito, 1, 2, 3, 1) # RowSpan=3, ColSpan=1
         
         # Junta o bloco principal de 3 colunas ao mestre
         layout_mestre.addLayout(layout_cards_superiores)
         
-        # --- BLOCO INFERIOR CENTRALIZADO (PÓS-GRID) ---
+        # --- BLOCO INFERIOR CENTRALIZADO (P├ôS-GRID) ---
         layout_inferior = QVBoxLayout()
         layout_inferior.setSpacing(StyleManager.SPACING_MD)
         
-        # --- Campo de Descrição Rica (v0.2.1) ---
-        lbl_titulo_desc = QLabel('Descrição da Espécie <i>(WikiAves)</i>')
+        # --- Campo de Descri├º├úo Rica (v0.2.1) ---
+        lbl_titulo_desc = QLabel('Descri├º├úo da Esp├®cie <i>(WikiAves)</i>')
         lbl_titulo_desc.setProperty("class", "lbl-titulo-sessao")
         lbl_titulo_desc.setProperty("margin-top", "md")
         layout_inferior.addWidget(lbl_titulo_desc)
 
         self.txt_descricao = QTextEdit()
         self.txt_descricao.setReadOnly(True)
-        self.txt_descricao.setPlaceholderText(self.PLACEHOLDER_TEXT)
+        self.txt_descricao.setPlaceholderText("Descri├º├úo da esp├®cie...")
         self.txt_descricao.setMinimumHeight(45) 
         self.txt_descricao.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.txt_descricao.textChanged.connect(self._ajustar_altura_descricao)
@@ -575,46 +532,41 @@ class JanelaPrincipal(QMainWindow):
         
         layout_inferior.addWidget(self.txt_descricao)
         
-        self.btn_nova = QPushButton("Nova Identificação")
+        self.btn_nova = QPushButton("Nova Identifica├º├úo")
         self.btn_nova.setCursor(Qt.PointingHandCursor)
         self.btn_nova.clicked.connect(self._abrir_seletor_arquivo)
         layout_inferior.addWidget(self.btn_nova)
         
-        # --- NOVO: Mapa Único (v0.3.3) ---
-        lbl_titulo_geo = QLabel("Localização Geográfica")
+        # --- NOVO: Mapa ├Ünico (v0.3.3) ---
+        lbl_titulo_geo = QLabel("Localiza├º├úo Geogr├ífica")
         lbl_titulo_geo.setProperty("class", "lbl-titulo-sessao")
         lbl_titulo_geo.setProperty("margin-bottom", "md")
         layout_inferior.addWidget(lbl_titulo_geo)
         
         self.map_principal = MapWidget()
         self.map_principal.setMinimumHeight(350) 
-        self.map_principal.show_placeholder_message(self.PLACEHOLDER_TEXT)
+        self.map_principal.show_placeholder_message("Aguardando dados de Localiza├º├úo")
         self.map_principal.marker_dragged.connect(self._ao_arrastar_pino)
         self.map_principal.audio_clicked.connect(self._ao_clicar_pin_audio)
         self.map_principal.alert_clicked.connect(self._abrir_dialogo_localizacao) # v0.6.3
         layout_inferior.addWidget(self.map_principal)
         
         
-        # Adiciona o bloco inferior restrito às colunas 0 e 1 do Grid (Logo abaixo das imagens)
+        # Adiciona o bloco inferior restrito ├ás colunas 0 e 1 do Grid (Logo abaixo das imagens)
         layout_cards_superiores.addLayout(layout_inferior, 2, 0, 2, 2) # Row=2, Col=0, RowSpan=2, ColSpan=2
         
-        # --- CARDS MENORES DA COLUNA DIREITA ---
+        # Painel Branco Interno Layouts
+        # (O layout_direito j├í foi inicializado e setado acima no `self.painel_direito.setLayout(layout_direito)`)
+        # Layouts de grupo_resultados continuar├úo a ser inseridos nele mais tarde no c├│digo.
         
-        # 1. Card Identificação
-        grupo_resultados = QFrame()
-        grupo_resultados.setProperty("class", "painel")
+        # Grupo Resultados
+        grupo_resultados = QGroupBox("") 
+        layout_res = QVBoxLayout()
+        layout_res.setSpacing(StyleManager.SPACING_XS) # Espa├ºamento extra-compacto (v1.5.2)
         
-        sombra1 = QGraphicsDropShadowEffect()
-        sombra1.setBlurRadius(20)
-        sombra1.setColor(QColor(0, 0, 0, 20))
-        sombra1.setOffset(0, 5)
-        grupo_resultados.setGraphicsEffect(sombra1)
-
-        layout_res = QVBoxLayout(grupo_resultados)
-        layout_res.setContentsMargins(12, 18, 12, 12)
-        
-        self.lbl_nome_comum = QLabel(self._format_nome_ave("Nome Comum:", self.PLACEHOLDER_TEXT, is_placeholder=True))
+        self.lbl_nome_comum = QLabel("")
         self.lbl_nome_comum.setObjectName("lbl_nome_comum")
+        self.lbl_nome_comum.setFont(QFont("Segoe UI", 13))
         self.lbl_nome_comum.setWordWrap(True)
         self.lbl_nome_comum.setTextInteractionFlags(Qt.TextSelectableByMouse)
         
@@ -623,16 +575,17 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_confianca.setProperty("class", "lbl-titulo-sessao")
         self.lbl_confianca.setTextInteractionFlags(Qt.TextSelectableByMouse)
         
-        self.lbl_nome_ingles = QLabel(self._format_nome_ave("Nome em Inglês:", self.PLACEHOLDER_TEXT, is_placeholder=True))
-        self.lbl_nome_ingles.setObjectName("lbl_nome_ingles")
-        self.lbl_nome_ingles.setWordWrap(True)
-        self.lbl_nome_ingles.setTextFormat(Qt.RichText)
-        self.lbl_nome_ingles.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.lbl_descricao = QLabel("") 
+        self.lbl_descricao.setObjectName("lbl_descricao")
+        self.lbl_descricao.setWordWrap(True)
+        self.lbl_descricao.setTextInteractionFlags(Qt.TextSelectableByMouse)
+
+        self.lbl_descricao.setWordWrap(True)
         
-        # Label Nome Científico Padronizado
-        lbl_titulo_nc = QLabel("Nome Científico")
+        # Label Nome Cient├¡fico Padronizado
+        lbl_titulo_nc = QLabel("Nome Cient├¡fico")
         lbl_titulo_nc.setProperty("class", "lbl-titulo-sessao")
-        lbl_titulo_nc.setProperty("margin-bottom", "md")
+        lbl_titulo_nc.setProperty("margin-top", "md")
         layout_res.addWidget(lbl_titulo_nc)
 
         # Container de Busca Manual
@@ -642,14 +595,14 @@ class JanelaPrincipal(QMainWindow):
         
         self.input_especie = QLineEdit()
         self.input_especie.setPlaceholderText("pesquise ou digite")
-        # Estilo Biológico Rigoroso (v0.8.1)
+        # Estilo Biol├│gico Rigoroso (v0.8.1)
         self.input_especie.setProperty("class", "sci-name-input")
         self.input_especie.returnPressed.connect(self._realizar_busca_manual)
         
         self.btn_search = QPushButton()
         self.btn_search.setCursor(Qt.PointingHandCursor)
         self.btn_search.setFixedSize(32, 32)
-        # O botão da lupa é icon-only e não usa os backgrounds globais.
+        # O bot├úo da lupa ├® icon-only e n├úo usa os backgrounds globais.
         self.btn_search.setStyleSheet("background-color: transparent; border: none;") 
         
         caminho_lupa = self._obter_caminho_asset("search_loupe.svg")
@@ -657,7 +610,7 @@ class JanelaPrincipal(QMainWindow):
              self.btn_search.setIcon(QIcon(caminho_lupa))
              self.btn_search.setIconSize(QSize(20, 20))
         else:
-             self.btn_search.setText("🔍")
+             self.btn_search.setText("­ƒöì")
              
         self.btn_search.clicked.connect(self._realizar_busca_manual)
         
@@ -666,68 +619,66 @@ class JanelaPrincipal(QMainWindow):
         
         layout_res.addLayout(container_busca)
 
+        # --- SE├ç├âO 3: IDENTIFICA├ç├âO (Item 3 reconfigurado) ---
+        lbl_titulo_id = QLabel("Identifica├º├úo")
+        lbl_titulo_id.setProperty("class", "lbl-titulo-sessao")
+        # margin-top removido para colagem cir├║rgica (v1.5.1)
+        layout_res.addWidget(lbl_titulo_id)
+
         layout_res.addWidget(self.lbl_nome_comum)
-        layout_res.addWidget(self.lbl_nome_ingles)
+        layout_res.addWidget(self.lbl_descricao)
         
-        # Nome comum e inglês nascem ativos com texto default em Italico (já configurado na criação)
-        self.lbl_nome_comum.setTextFormat(Qt.RichText)
+        self.lbl_nome_comum.setVisible(False)
+        self.lbl_descricao.setVisible(False)
+        # self.lbl_confianca agora oculto, integrado na string de lbl_descricao (v1.5.0)
         self.lbl_confianca.setVisible(False) 
         
-        layout_direito.addWidget(grupo_resultados)
-
-        # -------------------------------------------------------------
-        # Botões de Busca Externa (Realocados FORA dos cards)
-        layout_botoes = QHBoxLayout()
-        layout_botoes.setSpacing(10)
-        
-        self.btn_wiki = QPushButton("WikiAves")
-        self.btn_wiki.setCursor(Qt.PointingHandCursor)
-        self.btn_wiki.clicked.connect(self._buscar_wikiaves)
-        layout_botoes.addWidget(self.btn_wiki)
-        
-        self.btn_ebird = QPushButton("eBird")
-        self.btn_ebird.setCursor(Qt.PointingHandCursor)
-        self.btn_ebird.clicked.connect(self._buscar_ebird)
-        layout_botoes.addWidget(self.btn_ebird)
-
-        self.btn_google = QPushButton("Google")
-        self.btn_google.setCursor(Qt.PointingHandCursor)
-        self.btn_google.clicked.connect(self._buscar_google)
-        layout_botoes.addWidget(self.btn_google)
-        
-        layout_direito.addLayout(layout_botoes)
-        
-        # --- CARDS MENORES NO PAINEL DE RESULTADOS ---
-        # 2. Card Etimologia
-        grupo_etimologia = QFrame()
-        grupo_etimologia.setProperty("class", "painel")
-        
-        sombra_eti = QGraphicsDropShadowEffect()
-        sombra_eti.setBlurRadius(20)
-        sombra_eti.setColor(QColor(0, 0, 0, 20))
-        sombra_eti.setOffset(0, 5)
-        grupo_etimologia.setGraphicsEffect(sombra_eti)
-
-        layout_eti = QVBoxLayout(grupo_etimologia)
-        layout_eti.setContentsMargins(12, 18, 12, 12)
-        
+        # --- NOVOS CAMPOS: ETIMOLOGIA (Abaixo do Nome Cient├¡fico) ---
         self.lbl_titulo_etimologia = QLabel('Etimologia <i>(WikiAves)</i>')
         self.lbl_titulo_etimologia.setProperty("class", "lbl-titulo-sessao")
-        self.lbl_titulo_etimologia.setProperty("margin-bottom", "md")
-        layout_eti.addWidget(self.lbl_titulo_etimologia)
+        # margin-top md mantido apenas se houver info acima, layout gerencia
+        layout_res.addWidget(self.lbl_titulo_etimologia)
 
         self.txt_etimologia = QTextEdit()
-        self.txt_etimologia.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.txt_etimologia.setReadOnly(True)
-        self.txt_etimologia.setPlaceholderText(self.PLACEHOLDER_TEXT)
+        self.txt_etimologia.setPlaceholderText("Aguardando identifica├º├úo...")
         self.txt_etimologia.setMinimumHeight(30) 
         self.txt_etimologia.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.txt_etimologia.textChanged.connect(self._ajustar_altura_etimologia)
         self.txt_etimologia.setProperty("class", "container-borda-cinza")
         self.txt_etimologia.setVisible(True)
-        layout_eti.addWidget(self.txt_etimologia)
+        layout_res.addWidget(self.txt_etimologia)
+        # -------------------------------------------------------------
+
+        # layout_res.addWidget(QLabel("Info:")) # Removido conforme nova hierarquia
+        # layout_res.addWidget(self.lbl_descricao) # J├í adicionado acima na nova ordem
+        # layout_res.addWidget(self.lbl_confianca) # J├í removido/ocultado acima
         
-        # Card Interno: Etimologia Detalhes
+        # Bot├Áes de Busca Externa
+        layout_botoes = QHBoxLayout()
+        layout_botoes.setSpacing(10)
+        
+        self.btn_wiki = QPushButton("WikiAves")
+        self.btn_wiki.setCursor(Qt.PointingHandCursor)
+        # Estilo Global
+        self.btn_wiki.clicked.connect(self._buscar_wikiaves)
+        layout_botoes.addWidget(self.btn_wiki)
+        
+        self.btn_ebird = QPushButton("eBird")
+        self.btn_ebird.setCursor(Qt.PointingHandCursor)
+        # Estilo Global
+        self.btn_ebird.clicked.connect(self._buscar_ebird)
+        layout_botoes.addWidget(self.btn_ebird)
+
+        self.btn_google = QPushButton("Google")
+        self.btn_google.setCursor(Qt.PointingHandCursor)
+        # Estilo Global
+        self.btn_google.clicked.connect(self._buscar_google)
+        layout_botoes.addWidget(self.btn_google)
+        
+        layout_res.addLayout(layout_botoes)
+        
+        # --- Card Etimologia ---
         self.frame_etimologia = QFrame()
         self.frame_etimologia.setObjectName("frame_etimologia")
         self.frame_etimologia.setStyleSheet("""
@@ -753,121 +704,66 @@ class JanelaPrincipal(QMainWindow):
         layout_etimologia.addWidget(self.lbl_etimologia_texto)
         
         self.frame_etimologia.setVisible(False)
-        layout_eti.addWidget(self.frame_etimologia)
+        layout_res.addWidget(self.frame_etimologia)
 
-        layout_direito.addWidget(grupo_etimologia)
-
-        # 2.5 Card Taxonomia (Novo)
-        grupo_taxonomia = QFrame()
-        grupo_taxonomia.setProperty("class", "painel")
-        
-        sombra_tax = QGraphicsDropShadowEffect()
-        sombra_tax.setBlurRadius(20)
-        sombra_tax.setColor(QColor(0, 0, 0, 20))
-        sombra_tax.setOffset(0, 5)
-        grupo_taxonomia.setGraphicsEffect(sombra_tax)
-
-        layout_taxonomia = QVBoxLayout(grupo_taxonomia)
-        layout_taxonomia.setContentsMargins(12, 18, 12, 12)
-        
-        lbl_titulo_tax = QLabel("Taxonomia")
-        lbl_titulo_tax.setProperty("class", "lbl-titulo-sessao")
-        lbl_titulo_tax.setProperty("margin-bottom", "md")
-        layout_taxonomia.addWidget(lbl_titulo_tax)
-
-        self.lbl_taxonomia_texto = QLabel(self.PLACEHOLDER_TEXT)
-        self.lbl_taxonomia_texto.setWordWrap(True)
-        self.lbl_taxonomia_texto.setTextFormat(Qt.RichText)
-        self.lbl_taxonomia_texto.setProperty("class", "container-borda-cinza-fill lbl-placeholder")
-        self.lbl_taxonomia_texto.setVisible(True)
-        layout_taxonomia.addWidget(self.lbl_taxonomia_texto)
-
-        layout_direito.addWidget(grupo_taxonomia)
-
-        self.btn_gravar_exif = QPushButton("Gravar Dados na Fotografia")
+        self.btn_gravar_exif = QPushButton("Confirmar a identifica├º├úo e gravar dados na fotografia.")
         self.btn_gravar_exif.setCursor(Qt.PointingHandCursor)
-        # O user disse que definiremos a função do botão depois, então deixamos sem connect por enquanto.
-        layout_direito.addWidget(self.btn_gravar_exif)
+        # O user disse que definiremos a fun├º├úo do bot├úo depois, ent├úo deixamos sem connect por enquanto.
+        layout_res.addWidget(self.btn_gravar_exif)
         
-        # 3. Card Status de Conservação (Novo)
-        grupo_conservacao = QFrame()
-        grupo_conservacao.setProperty("class", "painel")
+        # --- NOVO: Card Dados Geogr├íficos (v0.3.19 - Realocado) ---
+        grupo_geo = QGroupBox("")
+        grupo_geo.setProperty("class", "grupo-sessao-inferior")
+        layout_geo = QVBoxLayout()
         
-        sombra_cons = QGraphicsDropShadowEffect()
-        sombra_cons.setBlurRadius(20)
-        sombra_cons.setColor(QColor(0, 0, 0, 20))
-        sombra_cons.setOffset(0, 5)
-        grupo_conservacao.setGraphicsEffect(sombra_cons)
-        
-        layout_conservacao = QVBoxLayout(grupo_conservacao)
-        layout_conservacao.setContentsMargins(12, 18, 12, 12)
-        
-        lbl_titulo_cons = QLabel("Status de Conservação")
-        lbl_titulo_cons.setProperty("class", "lbl-titulo-sessao")
-        lbl_titulo_cons.setProperty("margin-bottom", "md")
-        layout_conservacao.addWidget(lbl_titulo_cons)
-        
-        self.lbl_conservacao_texto = QLabel(self.PLACEHOLDER_TEXT)
-        self.lbl_conservacao_texto.setWordWrap(True)
-        self.lbl_conservacao_texto.setTextFormat(Qt.RichText)
-        self.lbl_conservacao_texto.setProperty("class", "container-borda-cinza-fill lbl-placeholder")
-        self.lbl_conservacao_texto.setVisible(True)
-        layout_conservacao.addWidget(self.lbl_conservacao_texto)
-        
-        layout_direito.addWidget(grupo_conservacao)
-        
-        # 4. Card Dados Geográficos (v0.3.19 - Realocado)
-        grupo_geo = QFrame()
-        grupo_geo.setProperty("class", "painel")
-        
-        sombra2 = QGraphicsDropShadowEffect()
-        sombra2.setBlurRadius(20)
-        sombra2.setColor(QColor(0, 0, 0, 20))
-        sombra2.setOffset(0, 5)
-        grupo_geo.setGraphicsEffect(sombra2)
-        
-        layout_geo = QVBoxLayout(grupo_geo)
-        layout_geo.setContentsMargins(12, 18, 12, 12)
-        
-        lbl_titulo_geo_card = QLabel("Dados Geográficos")
+        lbl_titulo_geo_card = QLabel("Dados Geogr├íficos")
         lbl_titulo_geo_card.setProperty("class", "lbl-titulo-sessao")
         lbl_titulo_geo_card.setProperty("margin-bottom", "md")
         layout_geo.addWidget(lbl_titulo_geo_card)
         
         # Reutilizando self.lbl_geo_details aqui
-        self.lbl_geo_details = QLabel(self.PLACEHOLDER_TEXT)
+        self.lbl_geo_details = QLabel("Aguardando localiza├º├úo...")
         self.lbl_geo_details.setWordWrap(True)
         self.lbl_geo_details.setTextFormat(Qt.RichText)
-        self.lbl_geo_details.setProperty("class", "container-borda-cinza-fill lbl-placeholder")
-        self.lbl_geo_details.setVisible(True) 
+        self.lbl_geo_details.setProperty("class", "container-borda-cinza-fill")
+        self.lbl_geo_details.setVisible(False) 
         
         layout_geo.addWidget(self.lbl_geo_details)
-        layout_direito.addWidget(grupo_geo)
+        
+        grupo_geo.setLayout(layout_geo)
+        layout_res.addWidget(grupo_geo)
 
-        # 4. Card Vocalizações (v0.3.3)
-        grupo_audio = QFrame()
-        grupo_audio.setProperty("class", "painel")
+        # --- NOVO: Card Vocaliza├º├Áes (v0.3.3) ---
+        grupo_audio = QGroupBox("")
+        grupo_audio.setProperty("class", "grupo-sessao-inferior")
+        layout_audio = QVBoxLayout()
         
-        sombra3 = QGraphicsDropShadowEffect()
-        sombra3.setBlurRadius(20)
-        sombra3.setColor(QColor(0, 0, 0, 20))
-        sombra3.setOffset(0, 5)
-        grupo_audio.setGraphicsEffect(sombra3)
-        
-        layout_audio = QVBoxLayout(grupo_audio)
-        layout_audio.setContentsMargins(12, 18, 12, 12)
-        
-        self.lbl_vocal_title = QLabel("Vocalizações")
+        self.lbl_vocal_title = QLabel("Vocaliza├º├Áes")
         self.lbl_vocal_title.setProperty("class", "lbl-titulo-sessao")
         self.lbl_vocal_title.setProperty("margin-bottom", "md")
         layout_audio.addWidget(self.lbl_vocal_title)
         
-        self.lbl_audio_placeholder = QLabel(self.PLACEHOLDER_TEXT)
-        self.lbl_audio_placeholder.setProperty("class", "lbl-placeholder")
-        self.lbl_audio_placeholder.setProperty("class", "container-borda-tracejada lbl-placeholder")
-        layout_audio.addWidget(self.lbl_audio_placeholder)
+        # Frame Interno Padronizado (v1.7.0)
+        self.frame_interno_audio = QFrame()
+        self.frame_interno_audio.setProperty("class", "container-borda-cinza-fill")
+        self.layout_interno_audio = QVBoxLayout(self.frame_interno_audio)
+        self.layout_interno_audio.setContentsMargins(10, 10, 10, 10)
+        self.layout_interno_audio.setSpacing(StyleManager.SPACING_SM)
         
-        layout_direito.addWidget(grupo_audio)
+        self.lbl_audio_placeholder = QLabel("<i>Aguardando localiza├º├úo geogr├ífica da fotografia...</i>")
+        self.lbl_audio_placeholder.setAlignment(Qt.AlignCenter)
+        self.lbl_audio_placeholder.setWordWrap(True)
+        # Placeholder agora vive dentro do frame interno
+        self.layout_interno_audio.addWidget(self.lbl_audio_placeholder)
+        
+        layout_audio.addWidget(self.frame_interno_audio)
+        
+        grupo_audio.setLayout(layout_audio)
+        layout_res.addWidget(grupo_audio)
+        # ---------------------------------------------------
+        
+        grupo_resultados.setLayout(layout_res)
+        layout_direito.addWidget(grupo_resultados)
         layout_direito.addStretch()
 
         self.status_bar = QStatusBar()
@@ -876,13 +772,13 @@ class JanelaPrincipal(QMainWindow):
 
     def _aplicar_estilo(self):
         """Configura o estilo visual da janela via Sovereign Style (v0.6.3 / v0.8.0)."""
-        # Agora o estilo é 100% centralizado no StyleManager.py. 
+        # Agora o estilo ├® 100% centralizado no StyleManager.py. 
         # Mantemos esta chamada apenas para retrocompatibilidade de fluxo.
         pass
 
     def changeEvent(self, event):
-        """Blindagem Atômica de Cores (v0.6.8 / v0.6.9 - Anti-Recursion): 
-        Rechaça mudanças de paleta impostas pelo Windows Dark Mode com trava de segurança."""
+        """Blindagem At├┤mica de Cores (v0.6.8 / v0.6.9 - Anti-Recursion): 
+        Recha├ºa mudan├ºas de paleta impostas pelo Windows Dark Mode com trava de seguran├ºa."""
         from PySide6.QtCore import QEvent
         if event.type() == QEvent.PaletteChange:
             if self._bloqueio_palette:
@@ -890,16 +786,16 @@ class JanelaPrincipal(QMainWindow):
                 
             self._bloqueio_palette = True
             try:
-                # Sincronia de Title Bar e Ícone v0.6.6 (Soberania Off-White)
-                # O corpo da janela ignora a mudança de paleta para evitar o bug de inversão.
+                # Sincronia de Title Bar e ├ìcone v0.6.6 (Soberania Off-White)
+                # O corpo da janela ignora a mudan├ºa de paleta para evitar o bug de invers├úo.
                 dark_mode = StyleManager.detect_dark_mode()
                 
-                print(f"[STYLE] Watchdog v0.6.6: Forçando Soberania Off-White. DarkMode: {dark_mode}")
+                print(f"[STYLE] Watchdog v0.6.6: For├ºando Soberania Off-White. DarkMode: {dark_mode}")
                 app = QApplication.instance()
                 if app:
                     StyleManager.apply_theme(app, dark_mode=dark_mode)
                 
-                # Sincronia de Title Bar e Ícone
+                # Sincronia de Title Bar e ├ìcone
                 StyleManager.setup_window_theme(self)
                 StyleManager.set_app_icon(self, dark_mode=dark_mode)
                 
@@ -932,7 +828,7 @@ class JanelaPrincipal(QMainWindow):
     def _atualizar_mapa_com_gbif(self, sciname):
         """Atualiza o mapa com a camada GBIF se houver coordenadas definidas."""
         # Tenta recuperar coordenadas do card geo ou do mapa (se tivessemos getter)
-        # Vamos assumir que se o mapa está visivel, temos coordenadas no self.map_principal (folium não guarda estado fácil assim no widget)
+        # Vamos assumir que se o mapa est├í visivel, temos coordenadas no self.map_principal (folium n├úo guarda estado f├ícil assim no widget)
         # Melhor abordagem: Se temos sciname, re-renderizamos o mapa com as coordenadas atuais.
         # Mas onde guardamos as coords atuais?
         # Vamos extrair do texto do placeholder por enquanto ou salvar numa variavel de estado da classe.
@@ -952,14 +848,14 @@ class JanelaPrincipal(QMainWindow):
              return
         
         # 1. Resetar Interface PRIMEIRO (v0.6.6)
-        # Preserva a foto do usuário e as coordenadas atuais antes da nova cascata
+        # Preserva a foto do usu├írio e as coordenadas atuais antes da nova cascata
         self._resetar_interface(manter_imagem=True)
         
         self.status_bar.showMessage(f"Busca manual: {texto}")
         if self.dados_identificacao_atual is None:
              self.dados_identificacao_atual = {}
              
-        # Formatação Taxonômica Rigorosa
+        # Formata├º├úo Taxon├┤mica Rigorosa
         import re
         sci_clean = re.sub(r'[\(\[].*?[\)\]]', '', texto).strip()
         parts = sci_clean.split()
@@ -970,23 +866,23 @@ class JanelaPrincipal(QMainWindow):
             
         # Atualiza Campo e Estilo
         self.input_especie.setText(sci_formatted)
-        # Estilo Biológico Centralizado (v0.8.1/v0.6.6)
+        # Estilo Biol├│gico Centralizado (v0.8.1/v0.6.6)
         self.input_especie.setProperty("class", "sci-name-input")
         self.input_especie.style().unpolish(self.input_especie)
         self.input_especie.style().polish(self.input_especie)
 
         self.dados_identificacao_atual["nome_cientifico"] = sci_formatted
-        self.especie_em_processamento = sci_formatted # Persistência Atômica v0.6.8
-        self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", ""))
+        self.especie_em_processamento = sci_formatted # Persist├¬ncia At├┤mica v0.6.8
+        self.lbl_nome_comum.setText("")
         self.lbl_nome_comum.setVisible(True)
-        self.lbl_descricao.setText("<i>Identificado pelo usuário.</i>")
+        self.lbl_descricao.setText("<i>Identificado pelo usu├írio.</i>")
         self.lbl_descricao.setVisible(True)
         
         self.input_especie.setText(sci_formatted) # Garante o texto no widget
         
         self._iniciar_busca_imagem(sci_formatted)
         
-        # Sincronizar localização atual com Orchestrator (v0.4.8)
+        # Sincronizar localiza├º├úo atual com Orchestrator (v0.4.8)
         self.orchestrator.update_location(self.lat_atual, self.lon_atual)
         
         # O Orchestrator assume a cascata linear 1->2->3->4->5 a partir daqui (v0.4.6)
@@ -996,7 +892,7 @@ class JanelaPrincipal(QMainWindow):
         self.btn_google.setVisible(True)
         self.btn_ebird.setVisible(True)
 
-        # LOGGING DE SESSÃO: ETAPA 1 (Removido aqui, agora centralizado no Orchestrator v0.4.6)
+        # LOGGING DE SESS├âO: ETAPA 1 (Removido aqui, agora centralizado no Orchestrator v0.4.6)
         pass
 
     def _abrir_google_lens(self):
@@ -1056,14 +952,14 @@ class JanelaPrincipal(QMainWindow):
         
         msg.setText("O Google Lens foi aberto no seu navegador.")
         msg.setInformativeText(
-            "Agora, <b>arraste a foto do iBirder</b> ou copie e cole (Ctrl+V) a imagem na página para identificar.<br><br>"
-            "<i>(O caminho da imagem foi copiado para sua área de transferência)</i>"
+            "Agora, <b>arraste a foto do iBirder</b> ou copie e cole (Ctrl+V) a imagem na p├ígina para identificar.<br><br>"
+            "<i>(O caminho da imagem foi copiado para sua ├írea de transfer├¬ncia)</i>"
             "<br><br><span style='font-size: 10px; color: #6B7280;'>Nota: A imagem foi otimizada para garantir a compatibilidade com o Google.</span>"
         )
         msg.setIcon(QMessageBox.Information)
         msg.addButton("Entendi", QMessageBox.AcceptRole)
         
-        chk_dont_show = QCheckBox("Não exibir esta mensagem novamente", msg)
+        chk_dont_show = QCheckBox("N├úo exibir esta mensagem novamente", msg)
         msg.setCheckBox(chk_dont_show)
         msg.exec()
         
@@ -1077,9 +973,9 @@ class JanelaPrincipal(QMainWindow):
         # Carrega no card (e configura drag)
         self.card_user.set_image_path(caminho) 
         
-        # --- Extração de Metadados (EXIF) v0.3.14 (Granular & Safe) ---
+        # --- Extra├º├úo de Metadados (EXIF) v0.3.14 (Granular & Safe) ---
         autor_exif = "Autor desconhecido"
-        data_exif = "Data não disponível"
+        data_exif = "Data n├úo dispon├¡vel"
         
         exif_raw = None
         try:
@@ -1089,7 +985,7 @@ class JanelaPrincipal(QMainWindow):
             pass
             
         if exif_raw:
-            # Mapear Tags (Código -> Nome)
+            # Mapear Tags (C├│digo -> Nome)
             try:
                 exif = {ExifTags.TAGS.get(k, k): v for k, v in exif_raw.items()}
             except Exception:
@@ -1103,12 +999,12 @@ class JanelaPrincipal(QMainWindow):
                 if artist:
                      autor_exif = f"Autor: {str(artist).strip()}"
                 elif xp_author:
-                     # XP tags geralmente são bytes com null terminator
+                     # XP tags geralmente s├úo bytes com null terminator
                      if isinstance(xp_author, bytes):
                         val = xp_author.decode("utf-16le").replace('\x00', '').strip()
                         if val: autor_exif = f"Autor: {val}"
             except Exception:
-                pass # Mantém default "Autor desconhecido"
+                pass # Mant├®m default "Autor desconhecido"
             
             # 2. Data (Isolado)
             try:
@@ -1117,11 +1013,11 @@ class JanelaPrincipal(QMainWindow):
                      dt = datetime.strptime(date_str, "%Y:%m:%d %H:%M:%S")
                      data_exif = dt.strftime("%d/%m/%Y - %H:%M")
             except Exception:
-                pass # Mantém default "Data não disponível"
+                pass # Mant├®m default "Data n├úo dispon├¡vel"
 
         self.card_user.set_overlay_details(autor_exif, data_exif)
         
-        # Persistência
+        # Persist├¬ncia
         folder = str(Path(caminho).parent)
         settings = QSettings("iBirder", "App")
         settings.setValue("last_folder", folder)
@@ -1140,7 +1036,7 @@ class JanelaPrincipal(QMainWindow):
             
             if self.map_principal:
                 # Mapa atualiza apenas com coordenadas por enquanto. 
-                # O nome científico virá depois, na identificação.
+                # O nome cient├¡fico vir├í depois, na identifica├º├úo.
                 self.map_principal.update_map(lat, lon, zoom=6, add_marker=True)
                 
             # Atualiza card geo
@@ -1155,21 +1051,21 @@ class JanelaPrincipal(QMainWindow):
             self._atualizar_geo_info(lat, lon)
                 
         else:
-            # Se não tem na imagem, verifica se tem manual anterior para manter como atual
+            # Se n├úo tem na imagem, verifica se tem manual anterior para manter como atual
             if getattr(self, "ultima_localizacao_manual", None):
                  self.lat_atual, self.lon_atual = self.ultima_localizacao_manual
             
             print("[MAPA] Sem dados GPS. Exibindo mensagem de aviso.")
-            msg_erro = "Dados de localização não disponíveis na imagem"
+            msg_erro = "Dados de localiza├º├úo n├úo dispon├¡veis na imagem"
             
             if self.map_principal:
-                 # Se já tivermos uma localização manual definida anteriormente, não mostramos erro, mantemos o mapa.
-                 # Mas como é uma NOVA imagem carregada, o ideal é resetar ou mostrar o erro.
-                 # Vamos mostrar o erro para incentivar o uso do botão manual se necessário.
+                 # Se j├í tivermos uma localiza├º├úo manual definida anteriormente, n├úo mostramos erro, mantemos o mapa.
+                 # Mas como ├® uma NOVA imagem carregada, o ideal ├® resetar ou mostrar o erro.
+                 # Vamos mostrar o erro para incentivar o uso do bot├úo manual se necess├írio.
                  self.map_principal.show_placeholder_message(msg_erro)
                  self.map_principal.show_placeholder_message(msg_erro)
                  self.lbl_geo_details.setVisible(True)
-                 self.lbl_geo_details.setText("Localização não detectada na imagem.")
+                 self.lbl_geo_details.setText("Localiza├º├úo n├úo detectada na imagem.")
                  self.lbl_geo_details.setProperty("class", "container-borda-cinza-fill")
                  self.lbl_geo_details.style().unpolish(self.lbl_geo_details)
                  self.lbl_geo_details.style().polish(self.lbl_geo_details)
@@ -1196,12 +1092,12 @@ class JanelaPrincipal(QMainWindow):
                 self.lon_atual = lon
                 # Atualizar mapa
                 if self.map_principal:
-                    # Se já temos espécie identificada, passamos o nome para o GBIF
+                    # Se j├í temos esp├®cie identificada, passamos o nome para o GBIF
                     sciname = self.dados_identificacao_atual.get("nome_cientifico")
                     self.map_principal.update_map(lat, lon, zoom=6, add_marker=True, scientific_name=sciname)
                 
-                # Atualizar card geográfico
-                # Atualizar card geográfico
+                # Atualizar card geogr├ífico
+                # Atualizar card geogr├ífico
                 self.lbl_geo_details.setVisible(True)
                 self.lbl_geo_details.setText(f"Lat: {lat:.4f}, Lon: {lon:.4f} (Manual)")
                 self.lbl_geo_details.setProperty("class", "container-borda-cinza-fill")
@@ -1210,17 +1106,17 @@ class JanelaPrincipal(QMainWindow):
                 
                 self._atualizar_geo_info(lat, lon)
                 
-                # Salva a localização manual para ser usada ao recarregar imagem ou atualizar mapa
+                # Salva a localiza├º├úo manual para ser usada ao recarregar imagem ou atualizar mapa
                 self.ultima_localizacao_manual = (lat, lon)
                 
-                # ATUALIZAÇÃO INTELIGENTE (v0.6.8): 
-                # Blindagem contra volatilidade do dicionário de dados.
+                # ATUALIZA├ç├âO INTELIGENTE (v0.6.8): 
+                # Blindagem contra volatilidade do dicion├írio de dados.
                 sci_name = self.dados_identificacao_atual.get("nome_cientifico") or self.especie_em_processamento
-                print(f"[DEBUG GPS] Nome científico detectado (Estado/Flag): '{sci_name}'")
+                print(f"[DEBUG GPS] Nome cient├¡fico detectado (Estado/Flag): '{sci_name}'")
                 
-                if sci_name and sci_name != "Identificação Inconclusiva" and "..." not in sci_name:
-                    print(f"[UI] Espécie '{sci_name}' já identificada. Refinando apenas dados regionais via _atualizar_geo_info...")
-                    self.status_bar.showMessage("Localização atualizada. Refinando dados regionais...")
+                if sci_name and sci_name != "Identifica├º├úo Inconclusiva" and "..." not in sci_name:
+                    print(f"[UI] Esp├®cie '{sci_name}' j├í identificada. Refinando apenas dados regionais via _atualizar_geo_info...")
+                    self.status_bar.showMessage("Localiza├º├úo atualizada. Refinando dados regionais...")
                 else:
                     self._identificar_ave()
 
@@ -1231,55 +1127,33 @@ class JanelaPrincipal(QMainWindow):
         if self.ai_status == 'RESTART_REQUIRED':
              msg = QMessageBox()
              msg.setIcon(QMessageBox.Information)
-             msg.setWindowTitle("Reinicialização Necessária")
-             msg.setText("Os componentes de Inteligência Artificial foram instalados com sucesso!\n\nPor favor, feche e abra o iBirder novamente para ativar o novo sistema.")
+             msg.setWindowTitle("Reinicializa├º├úo Necess├íria")
+             msg.setText("Os componentes de Intelig├¬ncia Artificial foram instalados com sucesso!\n\nPor favor, feche e abra o iBirder novamente para ativar o novo sistema.")
              msg.addButton("Entendi, vou reiniciar", QMessageBox.AcceptRole)
              msg.exec()
              return
 
-        self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", self.PLACEHOLDER_TEXT, is_placeholder=True))
-        self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", self.PLACEHOLDER_TEXT, is_placeholder=True))
+        self.lbl_nome_comum.setText("...")
+        self.lbl_descricao.setText("-")
+        self.txt_descricao.clear() # Limpa descri├º├úo rica
         
         self.txt_etimologia.clear()
-        self.txt_etimologia.setPlaceholderText(self.PLACEHOLDER_TEXT)
+        self.txt_etimologia.setPlaceholderText("Aguardando identifica├º├úo...")
         self.lbl_titulo_etimologia.setVisible(True)
         self.txt_etimologia.setVisible(True)
-        
-        if hasattr(self, 'lbl_taxonomia_texto'):
-            self.lbl_taxonomia_texto.setText(self.PLACEHOLDER_TEXT)
-            self.lbl_taxonomia_texto.setProperty("class", "container-borda-cinza-fill lbl-placeholder")
-            self.lbl_taxonomia_texto.setVisible(True)
         
         self.input_especie.clear() 
         self.input_especie.setProperty("class", "sci-name-input")
         self.input_especie.style().unpolish(self.input_especie)
         self.input_especie.style().polish(self.input_especie)
         
-        self.lbl_geo_details.setText(self.PLACEHOLDER_TEXT)
-        self.lbl_geo_details.setProperty("class", "container-borda-cinza-fill lbl-placeholder")
-        self.lbl_geo_details.setVisible(True)
-        
-        if hasattr(self, 'lbl_conservacao_texto'):
-            self.lbl_conservacao_texto.setText(self.PLACEHOLDER_TEXT)
-            self.lbl_conservacao_texto.setProperty("class", "container-borda-cinza-fill lbl-placeholder")
-            self.lbl_conservacao_texto.setVisible(True)
-            
-        self.txt_descricao.clear()
-        self.txt_descricao.setPlaceholderText(self.PLACEHOLDER_TEXT)
-        
-        self.lbl_audio_placeholder.setText(self.PLACEHOLDER_TEXT)
-        self.lbl_audio_placeholder.setProperty("class", "container-borda-tracejada lbl-placeholder")
-        self.lbl_audio_placeholder.setVisible(True)
-        
-        if self.map_principal:
-             self.map_principal.show_placeholder_message(self.PLACEHOLDER_TEXT)
-        self.card_ref.set_placeholder(self.PLACEHOLDER_TEXT)
+        self.card_ref.set_placeholder("aguardando identifica├º├úo da esp├®cie...")
         self.status_bar.showMessage("Iniciando IA Local...")
         
         self.card_user.setAcceptDrops(False) # Bloqueia novos drops durante processamento
         
         try:
-            # Sincronizar localização atual com Orchestrator ANTES de iniciar (v0.4.8)
+            # Sincronizar localiza├º├úo atual com Orchestrator ANTES de iniciar (v0.4.8)
             self.orchestrator.update_location(self.lat_atual, self.lon_atual)
             self.orchestrator.start_pipeline_identificacao(self.caminho_imagem_atual)
         except Exception as e:
@@ -1293,7 +1167,7 @@ class JanelaPrincipal(QMainWindow):
         self._atualizar_info_ave(resultado)
 
     def _atualizar_info_ave(self, dados: dict):
-        print("\n[UI] --- INICIANDO ATUALIZAÇÃO DA INTERFACE ---")
+        print("\n[UI] --- INICIANDO ATUALIZA├ç├âO DA INTERFACE ---")
         print(f"[UI] Dados recebidos do WikiAves. Link: {dados.get('link_origem')}")
         
         # Ativar Placeholder Etapa 5 (se a chave nao existe)
@@ -1303,6 +1177,7 @@ class JanelaPrincipal(QMainWindow):
         pass
         self.dados_identificacao_atual = dados
         
+        nc = dados.get("nome_comum", "-")
         raw_sci = dados.get("nome_cientifico", "")
         
         import re
@@ -1317,17 +1192,20 @@ class JanelaPrincipal(QMainWindow):
         conf = dados.get("confianca", 0.0)
         status_msg = dados.get("status_msg", "")
         
+        self.lbl_nome_comum.setText(nc)
+        self.lbl_nome_comum.setVisible(bool(nc))
+        
         if "Inconclusiva" not in status_msg and "Baixa" not in status_msg and sci:
             sci_clean = re.sub(r"[(\[].*?[)\]]", "", sci).strip()
             parts = sci_clean.split()
             if len(parts) >= 2:
-                # Regra Biológica: Gênero epíteto (v0.8.1)
+                # Regra Biol├│gica: G├¬nero ep├¡teto (v0.8.1)
                 sci_formatted = f"{parts[0].capitalize()} {parts[1].lower()}"
             else:
                 sci_formatted = sci_clean.capitalize()
 
             self.input_especie.setText(sci_formatted)
-            # A classe 'sci-name-input' no StyleManager garante o itálico
+            # A classe 'sci-name-input' no StyleManager garante o it├ílico
             self.input_especie.style().unpolish(self.input_especie)
             self.input_especie.style().polish(self.input_especie)
             
@@ -1339,15 +1217,15 @@ class JanelaPrincipal(QMainWindow):
              self.input_especie.style().unpolish(self.input_especie)
              self.input_especie.style().polish(self.input_especie)
         
-        # Descrição removida visualmente da UI.
-        # Fallbacks agora tratam os placeholders.
+        self.lbl_descricao.setText(f"<i>Identificado com iNaturalist Vision (Prob {conf*100:.1f}%)</i>")
+        self.lbl_descricao.setVisible(True)
         
-        if status_msg == "Baixa confiança":
+        if status_msg == "Baixa confian├ºa":
             self.lbl_confianca.setText(f"{conf*100:.1f}% (Baixa)")
             self.lbl_confianca.setProperty("class", "lbl-titulo-sessao lbl-confianca-baixa")
             self.lbl_confianca.style().unpolish(self.lbl_confianca)
             self.lbl_confianca.style().polish(self.lbl_confianca)
-            self.status_bar.showMessage("Identificação inconclusiva.")
+            self.status_bar.showMessage("Identifica├º├úo inconclusiva.")
             
             self.btn_wiki.setVisible(False)
             self.btn_google.setVisible(False)
@@ -1357,8 +1235,7 @@ class JanelaPrincipal(QMainWindow):
             self.card_ref.set_pixmap(None)
             self.card_ref.set_overlay_text(None)
             
-            self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", "Não foi possível identificar com segurança.<br>Use o Google Lens para identificação manual."))
-            self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", "Não foi possível identificar com segurança.<br>Use o Google Lens para identificação manual."))
+            self.lbl_descricao.setText("<i>N├úo foi poss├¡vel identificar com seguran├ºa.</i><br><i>Use o Google Lens para identifica├º├úo manual.</i>")
             self.btn_google_lens.setEnabled(True)
 
         else:
@@ -1366,7 +1243,7 @@ class JanelaPrincipal(QMainWindow):
             self.lbl_confianca.setProperty("class", "lbl-titulo-sessao lbl-confianca-alta")
             self.lbl_confianca.style().unpolish(self.lbl_confianca)
             self.lbl_confianca.style().polish(self.lbl_confianca)
-            self.status_bar.showMessage("Identificação concluída.")
+            self.status_bar.showMessage("Identifica├º├úo conclu├¡da.")
             
             self.btn_wiki.setVisible(True)
             self.btn_google.setVisible(True)
@@ -1375,55 +1252,54 @@ class JanelaPrincipal(QMainWindow):
             if sci:
                 self._iniciar_busca_imagem(sci)
                 
-            # LOGGING DE SESSÃO: ETAPA 1 (Removido aqui, agora centralizado no Orchestrator v0.4.6)
+            # LOGGING DE SESS├âO: ETAPA 1 (Removido aqui, agora centralizado no Orchestrator v0.4.6)
             pass
         
         if status_msg:
-             print(f"[UI] Status de Identificação: {status_msg}")
+             print(f"[UI] Status de Identifica├º├úo: {status_msg}")
 
     def _ao_erro_identificacao(self, erro_msg):
-        self.status_bar.showMessage("Erro na identificação.")
+        self.status_bar.showMessage("Erro na identifica├º├úo.")
         self.card_user.setAcceptDrops(True)
-        self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", erro_msg))
-        self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", erro_msg))
-        self.lbl_etimologia_texto.setText("Ocorreu um erro durante a identificação local.")
+        self.lbl_nome_comum.setText("Erro")
+        self.lbl_descricao.setText(erro_msg)
+        self.lbl_etimologia_texto.setText("Ocorreu um erro durante a identifica├º├úo local.")
         
-    # --- Áudio Player (v0.4.0) ---
+    # --- ├üudio Player (v0.4.0) ---
 
-    # A busca de áudio foi encapsulada no Orchestrator
+    # A busca de ├íudio foi encapsulada no Orchestrator
 
     def _ao_encontrar_audio(self, resultados):
-        """Recebe lista de áudios e cria os players."""
+        """Recebe lista de ├íudios e cria os players."""
         self.lbl_audio_placeholder.setVisible(False)
         
-        # Recuperar o layout do grupo de áudio
-        # self.grupo_audio está em self.layout_direito -> ...
-        # Precisamos acessar o layout onde os players serão inseridos.
+        # Recuperar o layout do grupo de ├íudio
+        # self.grupo_audio est├í em self.layout_direito -> ...
+        # Precisamos acessar o layout onde os players ser├úo inseridos.
         # No init, criamos: grupo_audio = QGroupBox... layout_audio = QVBoxLayout()
-        # Mas não guardamos self.layout_audio como atributo.
+        # Mas n├úo guardamos self.layout_audio como atributo.
         # Vamos achar pelo findChild ou guardar no init. 
-        # Como não posso editar o init agora facilmente sem ver tudo, vou tentar achar o widget container.
-        # O widget placeholder é self.lbl_audio_placeholder. O parent dele é o layout ou widget?
-        # Layouts não são parents de widgets. O parent do lbl_audio_placeholder é o grupo? Não, o addWidget não reparenta sempre.
-        # O QGroupBox 'grupo_audio' (que não é self) tem o layout.
+        # Como n├úo posso editar o init agora facilmente sem ver tudo, vou tentar achar o widget container.
+        # O widget placeholder ├® self.lbl_audio_placeholder. O parent dele ├® o layout ou widget?
+        # Layouts n├úo s├úo parents de widgets. O parent do lbl_audio_placeholder ├® o grupo? N├úo, o addWidget n├úo reparenta sempre.
+        # O QGroupBox 'grupo_audio' (que n├úo ├® self) tem o layout.
         
-        # Correção: O 'grupo_audio' não foi salvo em self. Apenas adicionado ao layout.
-        # Mas 'self.lbl_audio_placeholder' está lá. Podemos pegar o layout dele.
+        # Corre├º├úo: O 'grupo_audio' n├úo foi salvo em self. Apenas adicionado ao layout.
+        # Mas 'self.lbl_audio_placeholder' est├í l├í. Podemos pegar o layout dele.
         layout = self.lbl_audio_placeholder.parentWidget().layout()
         if not layout:
             return
 
 
-        # Adiciona cards de auditoria (v0.7.1)
-        # Os áudios já vêm ordenados pelo Ranking Concêntrico do AudioWorker
+        # Adiciona cards de auditoria (v1.7.0 - Dentro do Frame Interno)
         for i, audio in enumerate(resultados):
             card = VocalAuditCard(
                 audio_data=audio,
-                ranking_index=i+1, # v0.7.3: Adiciona 1, 2, 3
+                ranking_index=i+1,
                 on_click=self._abrir_detalhes_vocal,
-                parent=layout.parentWidget()
+                parent=self.frame_interno_audio
             )
-            layout.addWidget(card)
+            self.layout_interno_audio.addWidget(card)
             
             # Guardar referencia para limpeza futura
             if not hasattr(self, 'active_audio_players'):
@@ -1431,15 +1307,15 @@ class JanelaPrincipal(QMainWindow):
             self.active_audio_players.append(card)
             
     def _abrir_detalhes_vocal(self, audio_data):
-        """Abre a janela de auditoria detalhada ao clicar no ícone vocal (v1.3.1)."""
-        print(f"[UI] Chamada para abrir detalhes do áudio: {audio_data.get('id')} em {audio_data.get('audit_geo')}")
+        """Abre a janela de auditoria detalhada ao clicar no ├¡cone vocal (v1.3.1)."""
+        print(f"[UI] Chamada para abrir detalhes do ├íudio: {audio_data.get('id')} em {audio_data.get('audit_geo')}")
         dialog = VocalDetailDialog(audio_data, self)
         print(f"[UI] Executando modal VocalDetailDialog para o ID {audio_data.get('id')}...")
         dialog.exec()
         print(f"[UI] Janela de detalhes {audio_data.get('id')} fechada.")
             
     def _plotar_pins_audio(self, resultados):
-        """Extrai coordenadas das vocalizações e plota no mapa (v0.4.3)."""
+        """Extrai coordenadas das vocaliza├º├Áes e plota no mapa (v0.4.3)."""
         if not resultados or not self.map_principal:
             return
             
@@ -1448,7 +1324,7 @@ class JanelaPrincipal(QMainWindow):
             if audio.get('lat') is not None and audio.get('lon') is not None:
                 tipo = audio.get('tipo_canto')
                 ranking = i + 1
-                title = f"#{ranking} {tipo} - {audio.get('autor', 'Gravador')}" if tipo else f"#{ranking} Gravação de {audio.get('autor', 'Autor')}"
+                title = f"#{ranking} {tipo} - {audio.get('autor', 'Gravador')}" if tipo else f"#{ranking} Grava├º├úo de {audio.get('autor', 'Autor')}"
                 audio_markers.append({
                      'lat': audio['lat'],
                      'lon': audio['lon'],
@@ -1464,7 +1340,7 @@ class JanelaPrincipal(QMainWindow):
             print(f"[UI] Plotando {len(audio_markers)} pins musicais no mapa.")
             sci = self._obter_sciname_atual()
             
-            # Localização de centralização (v0.8.1: Fallback se GPS ausente)
+            # Localiza├º├úo de centraliza├º├úo (v0.8.1: Fallback se GPS ausente)
             lat = self.lat_atual
             lon = self.lon_atual
             add_main_marker = True
@@ -1501,7 +1377,7 @@ class JanelaPrincipal(QMainWindow):
         self.session_logger.atualizar_ultimo_registro(dados_etapa_4)
 
     def _ao_erro_audio(self):
-        self.lbl_audio_placeholder.setText("<i>Nenhuma gravação encontrada.</i>")
+        self.lbl_audio_placeholder.setText("<i>Nenhuma grava├º├úo encontrada.</i>")
         self.lbl_audio_placeholder.setVisible(True)
 
     def _atualizar_geo_info(self, lat, lon):
@@ -1509,47 +1385,47 @@ class JanelaPrincipal(QMainWindow):
         if not hasattr(self, 'lbl_geo_details'):
              return
 
-        self.lbl_geo_details.setText("🔄 Analisando local e bioma...")
+        self.lbl_geo_details.setText("­ƒöä Analisando local e bioma...")
         self.lbl_geo_details.setVisible(True)
         
-        # Limpar áudios anteriores para nova busca geo-sincronizada (v0.4.3)
+        # Limpar ├íudios anteriores para nova busca geo-sincronizada (v0.4.3)
         self._limpar_painel_audio()
 
-        # CONEXÃO COM O CÉREBRO (v0.8.9)
+        # CONEX├âO COM O C├ëREBRO (v0.8.9)
         # Sincroniza as coordenadas no Orchestrator usando o fluxo centralizado de reprocessamento
         if self.orchestrator:
              self.orchestrator.reprocessar_localizacao(lat, lon)
 
     def _ao_clicar_pin_audio(self, audio_id):
-        """Lida com o clique no pin de áudio do mapa, garantindo paridade total com o card (v1.2.5)."""
+        """Lida com o clique no pin de ├íudio do mapa, garantindo paridade total com o card (v1.2.5)."""
         if not hasattr(self, 'active_audio_players'):
-            print("[MAPA] ERRO: Lista de players ativos não inicializada.")
+            print("[MAPA] ERRO: Lista de players ativos n├úo inicializada.")
             return
             
-        print(f"\n[DIAGNÓSTICO MAPA] Clique interceptado. ID Alvo: {audio_id}")
+        print(f"\n[DIAGN├ôSTICO MAPA] Clique interceptado. ID Alvo: {audio_id}")
         card_encontrado = False
         
         for player in self.active_audio_players:
-            # player é um VocalAuditCard (v0.7.1)
+            # player ├® um VocalAuditCard (v0.7.1)
             if hasattr(player, 'audio_data'):
-                # Padronização agressiva de ID para comparação (Xeno ID, iNat ID ou URL)
+                # Padroniza├º├úo agressiva de ID para compara├º├úo (Xeno ID, iNat ID ou URL)
                 p_id = str(player.audio_data.get('id', '')).strip()
                 t_id = str(audio_id).strip()
                 
                 if p_id == t_id:
-                    print(f"[DIAGNÓSTICO MAPA] Card localizado: {p_id}. Disparando callback do card.")
+                    print(f"[DIAGN├ôSTICO MAPA] Card localizado: {p_id}. Disparando callback do card.")
                     card_encontrado = True
                     
-                    # 1. Execução Direta (Solicitação do Usuário v1.2.5)
-                    # Em vez de simular clique no botão, chamamos o callback original com os dados do card
+                    # 1. Execu├º├úo Direta (Solicita├º├úo do Usu├írio v1.2.5)
+                    # Em vez de simular clique no bot├úo, chamamos o callback original com os dados do card
                     if hasattr(player, 'on_click_callback') and player.on_click_callback:
-                        # Simulação visual de clique (Feedback para o usuário)
-                        # O animateClick() já emite o sinal 'clicked' de forma assíncrona após 100ms,
+                        # Simula├º├úo visual de clique (Feedback para o usu├írio)
+                        # O animateClick() j├í emite o sinal 'clicked' de forma ass├¡ncrona ap├│s 100ms,
                         # o que resolve o conflito com o WebEngine e evita a abertura dupla (v1.3.2).
                         if hasattr(player, 'btn_icon'):
                             player.btn_icon.animateClick()
                     else:
-                        print("[DIAGNÓSTICO MAPA] AVISO: Card não possui on_click_callback válido.")
+                        print("[DIAGN├ôSTICO MAPA] AVISO: Card n├úo possui on_click_callback v├ílido.")
                     
                     # 2. Feedback Visual e Scroll
                     if hasattr(player, 'highlight'):
@@ -1558,119 +1434,123 @@ class JanelaPrincipal(QMainWindow):
                     break
         
         if not card_encontrado:
-             print(f"[DIAGNÓSTICO MAPA] FALHA: Nenhum card encontrado com ID {audio_id} na lista atual ({len(self.active_audio_players)} cards).")
+             print(f"[DIAGN├ôSTICO MAPA] FALHA: Nenhum card encontrado com ID {audio_id} na lista atual ({len(self.active_audio_players)} cards).")
         
     def _ao_concluir_geo_analise(self, details):
         self.last_geo_data = details
         self.lat_atual = details.get('lat')
         self.lon_atual = details.get('lon')
         
-        # 1. Atualização Visual Imediata (v0.4.33)
+        # 1. Atualiza├º├úo Visual Imediata (v0.4.33)
         if hasattr(self, 'lbl_geo_details'):
             lat = details.get('lat')
             lon = details.get('lon')
             lat_str = f"{lat:.5f}" if isinstance(lat, (float, int)) else "?"
             lon_str = f"{lon:.5f}" if isinstance(lon, (float, int)) else "?"
 
+            pais = details.get('pais', '-')
+            bioma = details.get('bioma', '-')
+            
+            if pais.lower() not in ["brazil", "brasil"]:
+                bioma = "Informa├º├úo N├úo Dispon├¡vel (Registro Internacional)"
+
             texto = f"""
-            <div style="line-height: 150%;">
             <b>Coordenadas:</b> Lat {lat_str}, Long {lon_str}<br>
-            <b>País:</b> {details.get('pais', '-')}<br>
+            <b>Pa├¡s:</b> {pais}<br>
             <b>Estado:</b> {details.get('estado', '-')}<br>
-            <b>Município:</b> {details.get('municipio', '-')}<br>
-            <b>Bioma:</b> {details.get('bioma', '-')}<br>
-            </div>
+            <b>Munic├¡pio:</b> {details.get('municipio', '-')}<br>
+            <b>Bioma:</b> {bioma}<br>
             """
             
-            # Status IUCN removido do card de dados geográficos (v1.6.1)
+            # Status IUCN removido do card de dados geogr├íficos (v1.6.1)
                 
             self.lbl_geo_details.setText(texto)
             self.lbl_geo_details.setVisible(True)
-            self._set_placeholder_style(self.lbl_geo_details, active=False)
             self.lbl_geo_details.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
         # 2. Registro em Segundo Plano (v0.4.33)
         self._registrar_dados_geo_iucn()
         
     def _ao_concluir_iucn(self, results):
+        from modules.step3_geography.conservation_worker import NationalConservationWorker
+        
+        raw_status = results.get("iucn_status", "N├úo Avaliado")
+        # Traduzir para extenso conforme solicita├º├úo
+        results["iucn_status"] = NationalConservationWorker.traduzir_iucn(raw_status)
+        
         self.last_iucn_data = results
         self._registrar_dados_geo_iucn()
         
-        # Atualização visual do Status (v1.6.2 - Restaurado)
-        status = results.get("iucn_status", "Não Avaliado")
-        if hasattr(self, 'lbl_conservacao_texto'):
-            self.lbl_conservacao_texto.setText(f'<div style="line-height: 150%;"><b>Status:</b> {status}</div>')
-            self._set_placeholder_style(self.lbl_conservacao_texto, active=False)
-            self.lbl_conservacao_texto.setVisible(True)
+    def _ao_concluir_conservacao_nacional(self, results):
+        self.last_conservation_data = results
+        print(f"[UI] Dados de conserva├º├úo nacional recebidos: {results}")
+        
+        # Atualizar visualmente o card geogr├ífico com a nova soberania de dados
+        if hasattr(self, 'lbl_geo_details') and hasattr(self, 'last_geo_data'):
+            geo = self.last_geo_data
+            lat = geo.get('lat', 0)
+            lon = geo.get('lon', 0)
+            
+            pais = geo.get('pais', '-')
+            bioma = geo.get('bioma', '-')
+            
+            if pais.lower() not in ["brazil", "brasil"]:
+                bioma = "Informa├º├úo N├úo Dispon├¡vel (Registro Internacional)"
+            
+            # Badge de Endemismo
+            endemismo_str = ""
+            if results.get("endemismo") == "Sim":
+                endemismo_str = '<br><b style="color: #059669;">Ô£¿ End├¬mica do Brasil</b>'
+            
+            # Status ICMBio e CITES
+            # O status_icmbio j├í vem tratado do worker, mas garantimos aqui se necess├írio
+            status_br_val = results.get('status_icmbio', '-')
+            status_br = f"<br><b>ICMBio:</b> {status_br_val}"
+            status_cites = f"<br><b>CITES:</b> {results.get('status_cites', '-')}"
+            
+            # Mensagem de Distribui├º├úo
+            msg_dist = results.get("msg_distribuicao", "")
+            if "Fora" in msg_dist:
+                msg_dist = f'<br><b style="color: #dc2626;">ÔÜá Fora da distribui├º├úo conhecida</b>'
+            else:
+                msg_dist = ""
+
+            texto_atual = self.lbl_geo_details.text()
+            # Inserir as novas informa├º├Áes de conserva├º├úo mantendo os dados geo
+            texto_base = f"""
+            <b>Coordenadas:</b> {lat:.5f}, {lon:.5f}<br>
+            <b>Pa├¡s:</b> {pais}<br>
+            <b>Estado:</b> {geo.get('estado', '-')}<br>
+            <b>Munic├¡pio:</b> {geo.get('municipio', '-')}<br>
+            <b>Bioma:</b> {bioma}{endemismo_str}
+            <hr>
+            <b>IUCN:</b> {self.last_iucn_data.get('iucn_status', '-')}{status_br}{status_cites}{msg_dist}
+            """
+            self.lbl_geo_details.setText(texto_base)
+            self.lbl_geo_details.setVisible(True)
 
     # A busca do ebird foi movida para o Orchestrator
         
     def _ao_concluir_ebird(self, results):
         if hasattr(self, 'session_logger'):
-            # Precedência de Dados (v1.6.3): Se já temos ordem/familia (do WikiAves), não sobrescrevemos com vazio/desconhecido
-            ordem_atual = self.dados_identificacao_atual.get("ordem")
-            familia_atual = self.dados_identificacao_atual.get("familia")
-            
-            ordem_final = results.get("ordem") if (results.get("ordem") and results.get("ordem") != "Desconhecida") else ordem_atual
-            familia_final = results.get("familia") if (results.get("familia") and results.get("familia") != "Desconhecida") else familia_atual
-
             self.session_logger.atualizar_ultimo_registro({
                 "nome_ingles": results.get("nome_ingles", ""),
                 "classe": results.get("classe", "Aves"),
-                "ordem": ordem_final or "Desconhecida",
-                "familia": familia_final or "Desconhecida",
+                "ordem": results.get("ordem", ""),
+                "familia": results.get("familia", ""),
                 "ebird_code": results.get("ebird_code", ""),
                 "raridade_regional": results.get("raridade_regional", ""),
                 "link_ebird": results.get("link_ebird", "")
             })
             print("[UI] Etapa 5 (eBird/Clements) integrada ao SessionLogger.")
             
-        # Injetar Nome Inglês na Tela (Removido v0.8.5 - Agora extraído via WikiAves)
-        pass
-            
-        # Extração de Gênero a partir do nome científico + Formatação HTML Taxonomia
-        if hasattr(self, 'lbl_taxonomia_texto'):
-            # Re-confirmar precedência na atualização visual
-            ordem_vis = results.get('ordem') if (results.get('ordem') and results.get('ordem') != "Desconhecida") else self.dados_identificacao_atual.get("ordem")
-            familia_vis = results.get('familia') if (results.get('familia') and results.get('familia') != "Desconhecida") else self.dados_identificacao_atual.get("familia")
-
-            self._atualizar_card_taxonomia(
-                classe=results.get('classe', 'Aves'),
-                ordem=ordem_vis,
-                familia=familia_vis
-            )
-            
-            # Preparar persistência EXIF (Futuro v0.3.22+)
+            # Preparar persist├¬ncia EXIF (Futuro v0.3.22+)
             # from modules.step6_persistence.exif_manager import EXIFManager
             # exif_manager = EXIFManager()
             # Se a imagem tiver um caminho salvo no widget card principal, passarremos.
             # exif_manager.escrever_metadados_completos(self.card_user.image_path, self.session_logger.obter_ultimo_registro())
-    def _atualizar_card_taxonomia(self, classe="Aves", ordem=None, familia=None):
-        """Helper para centralizar a atualização visual do card de taxonomia."""
-        if not hasattr(self, 'lbl_taxonomia_texto'): return
-        
-        # Recuperar gênero do nome científico atual
-        nome_ci = self.dados_identificacao_atual.get("nome_cientifico", "")
-        genero = nome_ci.split(" ")[0] if nome_ci and " " in nome_ci else "-"
-        
-        # Se os parâmetros forem None, tentar recuperar da caderneta de campo (v1.6.2)
-        if not ordem or ordem == "Desconhecida":
-             # Aqui poderíamos ler do logger, mas o callback já passa os dados.
-             # Manteremos Desconhecida se não vier nada.
-             pass
+            print("[EXIF] M├│dulo placeholder preparado para receber dados (Etapa Final).")
 
-        texto_tax = f"""
-        <div style="line-height: 150%;">
-        <b>Classe:</b> {classe}<br>
-        <b>Ordem:</b> {ordem or '-'}<br>
-        <b>Família:</b> {familia or '-'}<br>
-        <b>Gênero:</b> {genero}
-        </div>
-        """
-        self.lbl_taxonomia_texto.setText(texto_tax)
-        self._set_placeholder_style(self.lbl_taxonomia_texto, active=False)
-        self.lbl_taxonomia_texto.setVisible(True)
-        self.lbl_taxonomia_texto.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
     def _registrar_dados_geo_iucn(self):
         geo = getattr(self, 'last_geo_data', {})
@@ -1688,7 +1568,7 @@ class JanelaPrincipal(QMainWindow):
             "estado": geo.get("estado", "-"),
             "municipio": geo.get("municipio", "-"),
             "bioma": geo.get("bioma", "-"),
-            "iucn_status": iucn.get("iucn_status", "Não Avaliado"),
+            "iucn_status": iucn.get("iucn_status", "N├úo Avaliado"),
             "link_gbif": link_gbif,
             "link_iucn": iucn.get("link_iucn", ""),
             "caminho_geojson": iucn.get("geojson_path", "")
@@ -1705,13 +1585,13 @@ class JanelaPrincipal(QMainWindow):
         last_folder = settings.value("last_folder", "")
         
         path, _ = QFileDialog.getOpenFileName(
-            self, "Nova Identificação", last_folder, "Imagens (*.png *.jpg *.jpeg)"
+            self, "Nova Identifica├º├úo", last_folder, "Imagens (*.png *.jpg *.jpeg)"
         )
         if path:
             self._carregar_imagem(path)
 
     def _limpar_painel_audio(self):
-        """Para e remove todos os players de áudio da interface (v0.5.1)."""
+        """Para e remove todos os players de ├íudio da interface (v0.5.1)."""
         if hasattr(self, 'active_audio_players'):
             for player in self.active_audio_players:
                 try:
@@ -1722,20 +1602,18 @@ class JanelaPrincipal(QMainWindow):
                 except: pass
             self.active_audio_players = []
         
-        # Limpeza agressiva do layout para evitar ghosting (v0.5.1)
+        # Limpeza agressiva do frame interno (v1.7.0)
+        if hasattr(self, 'layout_interno_audio') and self.layout_interno_audio:
+            # Remove qualquer widget que n├úo seja a label placeholder
+            for i in reversed(range(self.layout_interno_audio.count())):
+                item = self.layout_interno_audio.itemAt(i)
+                widget = item.widget()
+                if widget and widget != self.lbl_audio_placeholder:
+                    widget.setParent(None)
+                    widget.deleteLater()
+        
         if hasattr(self, 'lbl_audio_placeholder'):
-            layout = self.lbl_audio_placeholder.parentWidget().layout()
-            if layout:
-                # Remove qualquer widget que não seja a label placeholder
-                for i in reversed(range(layout.count())):
-                    item = layout.itemAt(i)
-                    widget = item.widget()
-                    if widget and widget not in [self.lbl_audio_placeholder, self.lbl_vocal_title]:
-                        widget.setParent(None)
-                        widget.deleteLater()
-
-            self.lbl_audio_placeholder.setText("Aguardando identificação....")
-            self.lbl_audio_placeholder.setProperty("class", "container-borda-tracejada lbl-placeholder")
+            self.lbl_audio_placeholder.setText("<i>Aguardando localiza├º├úo geogr├ífica da fotografia...</i>")
             self.lbl_audio_placeholder.setVisible(True)
 
     def _resetar_interface(self, manter_imagem=False):
@@ -1761,10 +1639,10 @@ class JanelaPrincipal(QMainWindow):
         self.dados_identificacao_atual = {}
         
         self.card_ref.set_image_path(None)
-        self.card_ref.set_placeholder("Aguardando identificação....")
+        self.card_ref.set_placeholder("Aguardando a identifica├º├úo da ave.")
         self.card_ref.set_overlay_text(None)
         
-        # 3. Reset de Botões e Inputs
+        # 3. Reset de Bot├Áes e Inputs
         self.btn_fonte.setEnabled(False)
         self.btn_google_lens.setEnabled(False)
         self.btn_wiki.setVisible(False)
@@ -1777,8 +1655,10 @@ class JanelaPrincipal(QMainWindow):
         self.input_especie.style().polish(self.input_especie)
         
         # 4. Reset de Labels de Dados
-        self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", "Aguardando identificação....", is_placeholder=True))
-        self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", "Aguardando identificação....", is_placeholder=True))
+        self.lbl_nome_comum.setText("")
+        self.lbl_nome_comum.setVisible(False)
+        self.lbl_descricao.setText("")
+        self.lbl_descricao.setVisible(False)
         
         self.lbl_confianca.setText("")
         self.lbl_confianca.setVisible(False)
@@ -1786,51 +1666,29 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_confianca.style().unpolish(self.lbl_confianca)
         self.lbl_confianca.style().polish(self.lbl_confianca)
         
-        self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", self.PLACEHOLDER_TEXT, is_placeholder=True))
-        self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", self.PLACEHOLDER_TEXT, is_placeholder=True))
+        self.lbl_geo_details.setText("Aguardando localiza├º├úo...")
+        self.lbl_geo_details.setVisible(False)
+        pass
         
-        self.txt_etimologia.clear()
-        self.txt_etimologia.setPlaceholderText(self.PLACEHOLDER_TEXT)
-        self.lbl_titulo_etimologia.setVisible(True)
-        self.txt_etimologia.setVisible(True)
-        
-        if hasattr(self, 'lbl_taxonomia_texto'):
-            self.lbl_taxonomia_texto.setText(self.PLACEHOLDER_TEXT)
-            self._set_placeholder_style(self.lbl_taxonomia_texto, active=True)
-            self.lbl_taxonomia_texto.setVisible(True)
-        
-        self.input_especie.clear() 
-        self.input_especie.setProperty("class", "sci-name-input")
-        self.input_especie.style().unpolish(self.input_especie)
-        self.input_especie.style().polish(self.input_especie)
-        
-        self.lbl_geo_details.setText(self.PLACEHOLDER_TEXT)
-        self._set_placeholder_style(self.lbl_geo_details, active=True)
-        self.lbl_geo_details.setVisible(True)
-        
-        if hasattr(self, 'lbl_conservacao_texto'):
-            self.lbl_conservacao_texto.setText(self.PLACEHOLDER_TEXT)
-            self._set_placeholder_style(self.lbl_conservacao_texto, active=True)
-            self.lbl_conservacao_texto.setVisible(True)
-            
+        # 5. Reset de Campos de Texto
         self.txt_descricao.clear()
-        self.txt_descricao.setPlaceholderText(self.PLACEHOLDER_TEXT)
+        self.txt_etimologia.clear()
+        self.txt_etimologia.setPlaceholderText("Aguardando identifica├º├úo...")
         
-        self.lbl_audio_placeholder.setText(self.PLACEHOLDER_TEXT)
-        self._set_placeholder_style(self.lbl_audio_placeholder, active=True)
+        self.lbl_audio_placeholder.setText("<i>Aguardando localiza├º├úo geogr├ífica da fotografia...</i>")
         self.lbl_audio_placeholder.setVisible(True)
         
-        # 6. Reset de Painéis e Mapas
+        # 6. Reset de Pain├®is e Mapas
         self.frame_etimologia.setVisible(False) 
         
         if self.map_principal:
-             self.map_principal.show_placeholder_message(self.PLACEHOLDER_TEXT)
+             self.map_principal.show_placeholder_message("Aguardando dados de Localiza├º├úo")
              self.map_principal.alert_frame.hide() # Esconde alerta se estiver visivel
              
-        self.status_bar.showMessage("Pronto para nova identificação")
+        self.status_bar.showMessage("Pronto para nova identifica├º├úo")
 
     def closeEvent(self, event):
-        """Sobrescreve o fechamento para limpar a caderneta de campo temporária."""
+        """Sobrescreve o fechamento para limpar a caderneta de campo tempor├íria."""
         if hasattr(self, 'session_logger'):
             # Flush final antes de fechar (Safety v0.4.4)
             self.session_logger.flush()

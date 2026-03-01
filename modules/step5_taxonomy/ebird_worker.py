@@ -24,7 +24,6 @@ class EBirdWorker(QThread):
         # Transição API-Free (v0.8.0): eBird API desativada para autonomia total do usuário.
         is_fallback = True
         resultados = {
-            "nome_ingles": "Desconhecido",
             "classe": "Aves",
             "ordem": "Desconhecida",
             "familia": "Desconhecida",
@@ -44,7 +43,7 @@ class EBirdWorker(QThread):
                     data = resp_inat.json()
                     if data.get("results") and len(data["results"]) > 0:
                         taxon = data["results"][0]
-                        resultados["nome_ingles"] = taxon.get("english_common_name", "Desconhecido")
+                        # resultados["nome_ingles"] = taxon.get("english_common_name", "Desconhecido")
                         
                         # Procurar Ordem e Família nos ancestrais
                         ancestors = taxon.get("ancestors", [])
