@@ -4,6 +4,7 @@ import os
 import json
 import logging
 import traceback
+import urllib.parse
 from pathlib import Path
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QPushButton, QLabel, QFileDialog,
@@ -59,6 +60,7 @@ class JanelaPrincipal(QMainWindow):
         self.orchestrator.step2_wiki_concluida.connect(self._ao_receber_info_especie)
         self.orchestrator.step3_iucn_concluida.connect(self._ao_concluir_iucn)
         self.orchestrator.step3_geo_concluida.connect(self._ao_concluir_geo_analise)
+        self.orchestrator.step3_conservacao_concluida.connect(self._ao_concluir_conservacao_nacional)
         self.orchestrator.step4_audio_concluido.connect(self._ao_encontrar_audio)
         self.orchestrator.step4_audio_erro.connect(self._ao_erro_audio)
         self.orchestrator.audio_processed.connect(self._plotar_pins_audio)
@@ -77,6 +79,10 @@ class JanelaPrincipal(QMainWindow):
         # Flag de Persistência Atômica (v0.6.8)
         # Mantém o nome científico mesmo durante resets de interface
         self.especie_em_processamento = None 
+        
+        # Dados de Conservação (v1.6.5)
+        self.last_iucn_data = {}
+        self.last_conservation_data = {}
         
         # Trava de Estilo (v0.6.9): Impede recursão infinita no changeEvent
         self._bloqueio_palette = False
@@ -225,13 +231,15 @@ class JanelaPrincipal(QMainWindow):
 
     def _ao_receber_info_especie(self, dados):
         print(f"[UI] SINAL: Dados biológicos recebidos via Orchestrator (WikiAves). Especial: {dados.get('nome_comum')}")
+        
         # Mapeamento do BuscadorBlindado (Agora com chaves nativas corretas - v0.3.17)
         etimologia_texto = dados.get("etimologia", "")
         caracteristicas = dados.get("caracteristicas", "")
         
-        # LOGGING DE SESSÃO: ETAPA 2 (v1.6.3)
+        # LOGGING DE SESSÃO: ETAPA 2 (v1.6.3 / v1.6.10)
         dados_etapa_2 = {
             "link_origem": dados.get("link_origem", ""),
+            "link_ebird": dados.get("link_ebird", ""), # Salvamento robusto v1.6.10
             "descricao": caracteristicas,
             "nome_comum": dados.get("nome_comum", ""),
             "etimologia": etimologia_texto,
@@ -916,18 +924,29 @@ class JanelaPrincipal(QMainWindow):
         return self.dados_identificacao_atual.get("nome_cientifico", "")
 
     def _buscar_wikiaves(self):
+        """Abre WikiAves priorizando o link direto da espécie (v1.6.7)."""
+        link_direto = self.dados_identificacao_atual.get("link_origem")
+        if link_direto and "wikiaves.com.br" in link_direto:
+            QDesktopServices.openUrl(QUrl(link_direto))
+            return
+
         sciname = self._obter_sciname_atual()
         if sciname and "Inconclusiva" not in sciname:
-            url = f"https://www.wikiaves.com.br/index.php?t=s&s={sciname}"
-            QDesktopServices.openUrl(url)
+            url = f"https://www.wikiaves.com.br/index.php?t=s&s={urllib.parse.quote(sciname)}"
+            QDesktopServices.openUrl(QUrl(url))
 
     def _buscar_ebird(self):
+        """Abre eBird priorizando o link direto da espécie (v1.6.7)."""
+        link_direto = self.dados_identificacao_atual.get("link_ebird")
+        if link_direto and "ebird.org" in link_direto:
+            QDesktopServices.openUrl(QUrl(link_direto))
+            return
+
         sciname = self._obter_sciname_atual()
         if sciname and "Inconclusiva" not in sciname:
-            url = f"https://ebird.org/species/{sciname.replace(' ', '%20')}" 
-            # Tentativa de link direto melhorado, ou busca google falback
-            url = f"https://www.google.com/search?q={sciname}+site:ebird.org"
-            QDesktopServices.openUrl(url)
+            # Fallback limpo para a página de espécie no eBird (v1.6.7)
+            url = f"https://ebird.org/species/{urllib.parse.quote(sciname).replace('%20', '')}"
+            QDesktopServices.openUrl(QUrl(url))
 
     def _atualizar_mapa_com_gbif(self, sciname):
         """Atualiza o mapa com a camada GBIF se houver coordenadas definidas."""
@@ -979,8 +998,8 @@ class JanelaPrincipal(QMainWindow):
         self.especie_em_processamento = sci_formatted # Persistência Atômica v0.6.8
         self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", ""))
         self.lbl_nome_comum.setVisible(True)
-        self.lbl_descricao.setText("<i>Identificado pelo usuário.</i>")
-        self.lbl_descricao.setVisible(True)
+        self.txt_descricao.setHtml("<i>Identificado pelo usuário.</i>")
+        self.txt_descricao.setVisible(True)
         
         self.input_especie.setText(sci_formatted) # Garante o texto no widget
         
@@ -1357,8 +1376,8 @@ class JanelaPrincipal(QMainWindow):
             self.card_ref.set_pixmap(None)
             self.card_ref.set_overlay_text(None)
             
-            self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", "Não foi possível identificar com segurança.<br>Use o Google Lens para identificação manual."))
-            self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", "Não foi possível identificar com segurança.<br>Use o Google Lens para identificação manual."))
+            self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", "Aguardando identificação;..."))
+            self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", "Aguardando identificação;..."))
             self.btn_google_lens.setEnabled(True)
 
         else:
@@ -1596,12 +1615,40 @@ class JanelaPrincipal(QMainWindow):
         self.last_iucn_data = results
         self._registrar_dados_geo_iucn()
         
-        # Atualização visual do Status (v1.6.2 - Restaurado)
-        status = results.get("iucn_status", "Não Avaliado")
-        if hasattr(self, 'lbl_conservacao_texto'):
-            self.lbl_conservacao_texto.setText(f'<div style="line-height: 150%;"><b>Status:</b> {status}</div>')
-            self._set_placeholder_style(self.lbl_conservacao_texto, active=False)
-            self.lbl_conservacao_texto.setVisible(True)
+        # Atualização visual inicial do Status (v1.6.5)
+        self._atualizar_card_conservacao()
+
+    def _ao_concluir_conservacao_nacional(self, results):
+        self.last_conservation_data = results
+        print(f"[UI] Dados de conservação nacional recebidos: {results}")
+        self._atualizar_card_conservacao()
+
+    def _atualizar_card_conservacao(self):
+        """Formata o lbl_conservacao_texto com IUCN, ICMBio e CITES (v1.6.5)."""
+        if not hasattr(self, 'lbl_conservacao_texto'): return
+
+        from modules.step3_geography.conservation_worker import NationalConservationWorker
+
+        # Uso seguro de getattr com dicionários vazios (v1.6.5)
+        iucn_data = getattr(self, 'last_iucn_data', {})
+        cons_data = getattr(self, 'last_conservation_data', {})
+
+        iucn_raw = iucn_data.get("iucn_status", "Não Avaliado")
+        iucn_ext = NationalConservationWorker.traduzir_iucn(iucn_raw)
+        
+        icmbio = cons_data.get("status_icmbio", "Não Avaliado")
+        cites = cons_data.get("status_cites", "Não Listado")
+
+        texto_html = f"""
+        <div style="line-height: 140%;">
+        <b>IUCN (Global):</b> {iucn_ext}<br>
+        <b>ICMBio (Nacional):</b> {icmbio}<br>
+        <b>CITES:</b> {cites}
+        </div>
+        """
+        self.lbl_conservacao_texto.setText(texto_html)
+        self._set_placeholder_style(self.lbl_conservacao_texto, active=False)
+        self.lbl_conservacao_texto.setVisible(True)
 
     # A busca do ebird foi movida para o Orchestrator
         
@@ -1614,6 +1661,11 @@ class JanelaPrincipal(QMainWindow):
             ordem_final = results.get("ordem") if (results.get("ordem") and results.get("ordem") != "Desconhecida") else ordem_atual
             familia_final = results.get("familia") if (results.get("familia") and results.get("familia") != "Desconhecida") else familia_atual
 
+            # Preservar o link_ebird robusto (Google v0.8.0) se o EBirdWorker (iNat) falhar (v1.6.10)
+            link_ebird_final = results.get("link_ebird")
+            if not link_ebird_final or "ebird.org" not in link_ebird_final:
+                 link_ebird_final = self.dados_identificacao_atual.get("link_ebird", "")
+
             self.session_logger.atualizar_ultimo_registro({
                 "nome_ingles": results.get("nome_ingles", ""),
                 "classe": results.get("classe", "Aves"),
@@ -1621,10 +1673,15 @@ class JanelaPrincipal(QMainWindow):
                 "familia": familia_final or "Desconhecida",
                 "ebird_code": results.get("ebird_code", ""),
                 "raridade_regional": results.get("raridade_regional", ""),
-                "link_ebird": results.get("link_ebird", "")
+                "link_ebird": link_ebird_final
             })
             print("[UI] Etapa 5 (eBird/Clements) integrada ao SessionLogger.")
             
+            # Preservar link_ebird no estado da aplicação (v1.6.11)
+            if not self.dados_identificacao_atual:
+                self.dados_identificacao_atual = {}
+            self.dados_identificacao_atual["link_ebird"] = link_ebird_final
+
         # Injetar Nome Inglês na Tela (Removido v0.8.5 - Agora extraído via WikiAves)
         pass
             
@@ -1759,6 +1816,8 @@ class JanelaPrincipal(QMainWindow):
             self.card_user.set_placeholder("Arraste e solte uma foto aqui\n\nou clique para selecionar")
 
         self.dados_identificacao_atual = {}
+        self.last_iucn_data = {}
+        self.last_conservation_data = {}
         
         self.card_ref.set_image_path(None)
         self.card_ref.set_placeholder("Aguardando identificação....")

@@ -24,8 +24,15 @@ class BuscadorWorker(QThread):
             
             if link:
                 dados = bot.extrair_dados_especie(link)
-                # Injetar o nome original usado na busca para uso no GBIF
-                # O WikiAves retorna a ETIMOLOGIA no campo 'nome_cientifico', o que quebra o GBIF.
+                dados['link_origem'] = link
+                
+                # Sincronização eBird v0.8.0 Heritage (v1.6.10)
+                # O robô busca o eBird via Google logo após o WikiAves para garantir 100% de precisão.
+                link_ebird = bot.buscar_link_ebird(self.scientific_name)
+                if link_ebird:
+                    dados['link_ebird'] = link_ebird
+                    print(f"[WIKI] Link eBird robusto encontrado: {link_ebird}")
+                
                 dados['original_scientific_name'] = self.scientific_name
                 self.info_found.emit(dados)
             else:

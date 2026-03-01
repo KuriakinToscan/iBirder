@@ -75,6 +75,40 @@ class BuscadorBlindado:
             self.driver.save_screenshot("erro_tela.png")
             return None
 
+    def buscar_link_ebird(self, scientific_name):
+        print(f"\n🦅 Buscando eBird: {scientific_name}")
+        try:
+            query = f'site:ebird.org "{scientific_name}"'
+            url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
+
+            print(f"🔎 Google (eBird): {url}")
+            self.driver.get(url)
+
+            self._espera_humana()
+            self._aceitar_consentimento_google()
+
+            self.wait.until(
+                EC.presence_of_element_located(
+                    (By.XPATH, "//a[contains(@href,'ebird.org/species/')]")
+                )
+            )
+
+            links = self.driver.find_elements(
+                By.XPATH, "//a[contains(@href,'ebird.org/species/')]"
+            )
+
+            for l in links:
+                href = l.get_attribute("href")
+                if href and "ebird.org/species/" in href:
+                    # Limpa parâmetros de busca se houver
+                    clean_href = href.split("?")[0].split("#")[0]
+                    return clean_href
+
+            return None
+        except Exception as e:
+            print(f"Erro ao buscar eBird: {e}")
+            return None
+
     # ==================================================
     # GOOGLE
     # ==================================================
