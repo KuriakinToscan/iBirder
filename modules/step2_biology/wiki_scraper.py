@@ -173,13 +173,27 @@ class BuscadorBlindado:
 
         dados = {}
 
-        # 🔹 Nome Comum (Título Principal h1)
-        # O .strip() no get_text previne espaços e quebras indesejadas
-        tag_h1 = soup.find("h1", id="titulo")
+        # 🔹 Nome Comum (Título Principal h1 - v0.8.5)
+        # O seletor foi atualizado para class sectionedit1 conforme estrutura real do WikiAves
+        tag_h1 = soup.find("h1", class_="sectionedit1")
         if tag_h1:
              dados["nome_comum"] = tag_h1.get_text(separator=" ", strip=True)
         else:
-             dados["nome_comum"] = "Não encontrado"
+             # Fallback para o id antigo ou seletor genérico
+             tag_h1 = soup.find("h1", id="titulo") or soup.find("h1")
+             dados["nome_comum"] = tag_h1.get_text(separator=" ", strip=True) if tag_h1 else "Não encontrado"
+
+        # 🔹 Nome em Inglês (v0.8.5 - Novo campo capturado do WikiAves)
+        h2_ingles = soup.find("h2", string=lambda t: t and "Nome em Inglês" in t)
+        if h2_ingles:
+            # Pega o conteúdo de texto imediatamente após o H2
+            texto_prox = h2_ingles.next_sibling
+            if texto_prox:
+                dados["nome_ingles"] = str(texto_prox).strip()
+            else:
+                dados["nome_ingles"] = "Desconhecido"
+        else:
+            dados["nome_ingles"] = "Desconhecido"
 
         # 🔹 Etimologia (Que o WikiAves chama de nome_cientifico)
         sec_nome = soup.find("h2", id="nome_cientifico")
@@ -222,6 +236,22 @@ class BuscadorBlindado:
             if texto and "IUCN" not in texto.upper():
                 dados["status_conservacao"] = texto
                 break
+
+        # 🔹 Taxonomia: Ordem e Família (v1.6.3 - Refinado via Auditoria Browser)
+        # O WikiAves atual organiza a taxonomia em uma tabela dentro de containers m-portlet
+        dados["ordem"] = "Desconhecida"
+        dados["familia"] = "Desconhecida"
+        
+        # Estratégia Robusta: Localizar o TD que contém o texto e pegar o próximo TD (que contém o link)
+        todas_as_celulas = soup.find_all("td")
+        for i, td in enumerate(todas_as_celulas):
+            texto_celula = td.get_text(strip=True)
+            if "Ordem:" in texto_celula and i + 1 < len(todas_as_celulas):
+                valor_celula = todas_as_celulas[i+1].get_text(strip=True)
+                dados["ordem"] = valor_celula
+            elif "Família:" in texto_celula and i + 1 < len(todas_as_celulas):
+                valor_celula = todas_as_celulas[i+1].get_text(strip=True)
+                dados["familia"] = valor_celula
 
         return dados
 
