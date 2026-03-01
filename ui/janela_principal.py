@@ -677,17 +677,25 @@ class JanelaPrincipal(QMainWindow):
         self.btn_gravar_exif = QPushButton("Gravar Dados na Fotografia")
         self.btn_gravar_exif.setCursor(Qt.PointingHandCursor)
 
-        # 4. Blocos Geo e Audio
+        # 4. Blocos Geo e Audio (v1.6.25: Mapa em Card Padronizado)
+        self.grupo_mapa_card = QFrame()
+        self.grupo_mapa_card.setProperty("class", "painel")
+        StyleManager.apply_shadow(self.grupo_mapa_card)
+        layout_mapa_card = QVBoxLayout(self.grupo_mapa_card)
+        layout_mapa_card.setContentsMargins(12, 18, 12, 12)
+
         lbl_titulo_geo = QLabel("Localização Geográfica")
         lbl_titulo_geo.setProperty("class", "lbl-titulo-sessao")
+        layout_mapa_card.addWidget(lbl_titulo_geo)
         
         self.map_principal = MapWidget()
         self.map_principal.setMinimumHeight(400) 
-        # Mapa inicia centralizado no Brasil (v1.6.23)
-        self.map_principal.update_map(-14.2350, -51.9253, zoom=4)
+        # Mapa inicia centralizado no Brasil, sem exibir alerta (v1.6.26)
+        self.map_principal.update_map(-14.2350, -51.9253, zoom=4, force_hide_alert=True)
         self.map_principal.marker_dragged.connect(self._ao_arrastar_pino)
         self.map_principal.audio_clicked.connect(self._ao_clicar_pin_audio)
         self.map_principal.alert_clicked.connect(self._abrir_dialogo_localizacao)
+        layout_mapa_card.addWidget(self.map_principal)
 
         grupo_geo = QFrame(); grupo_geo.setProperty("class", "painel"); StyleManager.apply_shadow(grupo_geo)
         layout_geo_det = QVBoxLayout(grupo_geo); layout_geo_det.setContentsMargins(12, 18, 12, 12)
@@ -751,10 +759,7 @@ class JanelaPrincipal(QMainWindow):
         layout_cards_superiores.addWidget(self.btn_gravar_exif, 4, 2)
         
         # LINHA 5: MAPA E DETALHES FINAIS
-        painel_mapa_box = QWidget()
-        layout_map_v = QVBoxLayout(painel_mapa_box); layout_map_v.setContentsMargins(0,0,0,0)
-        layout_map_v.addWidget(lbl_titulo_geo); layout_map_v.addWidget(self.map_principal)
-        layout_cards_superiores.addWidget(painel_mapa_box, 5, 0, 2, 2) # Span map across 2 rows
+        layout_cards_superiores.addWidget(self.grupo_mapa_card, 5, 0, 2, 2) # Span map card across 2 rows
         
         painel_direito_inf = QWidget()
         layout_dir_v2 = QVBoxLayout(painel_direito_inf); layout_dir_v2.setContentsMargins(0,0,0,0); layout_dir_v2.setSpacing(StyleManager.SPACING_MD)
@@ -1068,11 +1073,8 @@ class JanelaPrincipal(QMainWindow):
             msg_erro = "Dados de localização não disponíveis na imagem"
             
             if self.map_principal:
-                 # Se já tivermos uma localização manual definida anteriormente, não mostramos erro, mantemos o mapa.
-                 # Mas como é uma NOVA imagem carregada, o ideal é resetar ou mostrar o erro.
-                 # Vamos mostrar o erro para incentivar o uso do botão manual se necessário.
-                 self.map_principal.show_placeholder_message(msg_erro)
-                 self.map_principal.show_placeholder_message(msg_erro)
+                 # Se for uma NOVA imagem carregada sem GPS, mantemos o mapa no Brasil e ativamos o alerta (v1.6.26)
+                 self.map_principal.update_map(-14.2350, -51.9253, zoom=4, force_hide_alert=False)
                  self.lbl_geo_details.setVisible(True)
                  self.lbl_geo_details.setText("Localização não detectada na imagem.")
                  self.lbl_geo_details.setProperty("class", "container-borda-cinza-fill")
@@ -1176,8 +1178,8 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_audio_placeholder.setProperty("class", "container-borda-tracejada lbl-placeholder")
         self.lbl_audio_placeholder.setVisible(True)
         
-        if self.map_principal:
-             self.map_principal.show_placeholder_message(self.PLACEHOLDER_TEXT)
+        # O mapa já foi posicionado logicamente no _carregar_imagem (com ou sem GPS).
+        # Não sobrescrevê-log com placeholder aqui (v1.6.27).
         self.card_ref.set_placeholder(self.PLACEHOLDER_TEXT)
         self.status_bar.showMessage("Iniciando IA Local...")
         
@@ -1806,8 +1808,8 @@ class JanelaPrincipal(QMainWindow):
         self.frame_etimologia.setVisible(False) 
         
         if self.map_principal:
-             self.map_principal.show_placeholder_message(self.PLACEHOLDER_TEXT)
-             self.map_principal.alert_frame.hide() # Esconde alerta se estiver visivel
+             # Retorna silenciosamente para o Brasil em vez de jogar um fundo cinza (v1.6.26)
+             self.map_principal.update_map(-14.2350, -51.9253, zoom=4, force_hide_alert=True)
              
         self.status_bar.showMessage("Pronto para nova identificação")
 
