@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QPushButton, QLabel, QFileDialog,
                              QScrollArea, QFrame, QGraphicsDropShadowEffect,
                              QMessageBox, QTextEdit, QLineEdit, QGroupBox, QGridLayout,
-                             QStatusBar, QSizePolicy, QCheckBox)
+                             QStatusBar, QSizePolicy, QCheckBox, QDialog)
 from PySide6.QtCore import Qt, QSize, QTimer, Slot, Signal, QThread, QSettings, QUrl, QMimeData
 from PySide6.QtGui import (QIcon, QPixmap, QColor, QFont, QDesktopServices, QPalette, QFontDatabase,
     QPainter, QDrag, QResizeEvent, QDragEnterEvent, QDropEvent
@@ -29,6 +29,7 @@ from modules.step2_biology.wiki_worker import BuscadorWorker
 from modules.step4_vocalization.audio_worker import AudioWorker
 from core.logger import save_crash_log
 from core.style_manager import StyleManager
+from ui.dialogs.exif_config_dialog import ExifConfigDialog
 from ui.widgets.map_widget import MapWidget
 from ui.custom_widgets import ImageCardWidget, AudioPlayerWidget, VocalAuditCard
 from ui.dialogs.location_dialog import LocationDialog
@@ -242,6 +243,7 @@ class JanelaPrincipal(QMainWindow):
             "link_ebird": dados.get("link_ebird", ""), # Salvamento robusto v1.6.10
             "descricao": caracteristicas,
             "nome_comum": dados.get("nome_comum", ""),
+            "nome_ingles": dados.get("nome_ingles", ""),
             "etimologia": etimologia_texto,
             "ordem": dados.get("ordem", "Desconhecida"),
             "familia": dados.get("familia", "Desconhecida")
@@ -673,9 +675,10 @@ class JanelaPrincipal(QMainWindow):
         self.btn_nova = QPushButton("Nova Identificação")
         self.btn_nova.setCursor(Qt.PointingHandCursor)
         self.btn_nova.clicked.connect(self._abrir_seletor_arquivo)
-        
         self.btn_gravar_exif = QPushButton("Gravar Dados na Fotografia")
         self.btn_gravar_exif.setCursor(Qt.PointingHandCursor)
+        self.btn_gravar_exif.setEnabled(False)
+        self.btn_gravar_exif.clicked.connect(self._gravar_metadados_exif)
 
         # 4. Blocos Geo e Audio (v1.6.25: Mapa em Card Padronizado)
         self.grupo_mapa_card = QFrame()
@@ -1276,8 +1279,8 @@ class JanelaPrincipal(QMainWindow):
             self.status_bar.showMessage("Identificação concluída.")
             
             self.btn_wiki.setEnabled(True)
-            self.btn_google.setEnabled(True)
             self.btn_ebird.setEnabled(True)
+            self.btn_gravar_exif.setEnabled(True)
             self.btn_wiki.setVisible(True)
             self.btn_google.setVisible(True)
             self.btn_ebird.setVisible(True)
@@ -1584,8 +1587,12 @@ class JanelaPrincipal(QMainWindow):
             if not link_ebird_final or "ebird.org" not in link_ebird_final:
                  link_ebird_final = self.dados_identificacao_atual.get("link_ebird", "")
 
+            # Preservar o Nome em Inglês extraído de outras fontes (ex: WikiAves) na falta de dado do eBird
+            nome_en_atual = self.dados_identificacao_atual.get("nome_ingles", "")
+            nome_en_final = results.get("nome_ingles") if results.get("nome_ingles") else nome_en_atual
+
             self.session_logger.atualizar_ultimo_registro({
-                "nome_ingles": results.get("nome_ingles", ""),
+                "nome_ingles": nome_en_final,
                 "classe": results.get("classe", "Aves"),
                 "ordem": ordem_final or "Desconhecida",
                 "familia": familia_final or "Desconhecida",
@@ -1747,10 +1754,10 @@ class JanelaPrincipal(QMainWindow):
         
         # 3. Reset de Botões e Inputs
         self.btn_fonte.setEnabled(False)
-        self.btn_google_lens.setEnabled(False)
         self.btn_wiki.setEnabled(False)
         self.btn_google.setEnabled(False)
         self.btn_ebird.setEnabled(False)
+        self.btn_gravar_exif.setEnabled(False)
         self.btn_wiki.setVisible(True)
         self.btn_google.setVisible(True)
         self.btn_ebird.setVisible(True)
@@ -1812,6 +1819,130 @@ class JanelaPrincipal(QMainWindow):
              self.map_principal.update_map(-14.2350, -51.9253, zoom=4, force_hide_alert=True)
              
         self.status_bar.showMessage("Pronto para nova identificação")
+
+    def _gravar_metadados_exif(self):
+        """Grava os dados consolidados da identificação atual na imagem carregada (v1.7.0/v1.7.1)."""
+        if not hasattr(self, 'caminho_imagem_atual') or not self.caminho_imagem_atual:
+            return
+            
+        if not hasattr(self, 'session_logger') or not self.session_logger.buffer:
+            QMessageBox.warning(self, "Sem Dados", "Nenhum dado consolidado disponível para gravação.")
+            return
+
+        import piexif
+        from pathlib import Path
+        
+        # 1. Obter dados mais recentes consolidados no buffer da RAM
+        dados = self.session_logger.buffer[-1]
+        
+        try:
+            exif_dict = piexif.load(self.caminho_imagem_atual)
+        except Exception:
+            exif_dict = {"0th": {}, "Exif": {}, "GPS": {}, "1st": {}, "Interop": {}}
+            
+        # 2. Verificar se imagem já tem GPS nativo
+        tem_gps_nativo = bool(exif_dict.get("GPS"))
+        
+        # 3. Exibir o Diálogo de Configuração Seletiva (v1.7.1)
+        dialog = ExifConfigDialog(self, dados=dados, tem_gps_nativo=tem_gps_nativo)
+        if dialog.exec() != QDialog.Accepted:
+            return # Usuário cancelou
+            
+        opcoes = dialog.opcoes_selecionadas
+        
+        # 4. Formatação Dinâmica Baseada nas Escolhas do Usuário
+        partes_nome = []
+        if opcoes.get("nome_comum"): partes_nome.append(dados.get("nome_comum", "Ave"))
+        if opcoes.get("nome_cientifico"): partes_nome.append(f"({dados.get('nome_cientifico', 'Aves')})")
+        titulo_exif = " ".join(partes_nome).strip()
+        assunto_exif = dados.get("nome_comum", "Ave") if opcoes.get("nome_comum") else titulo_exif
+        
+        keywords = []
+        if opcoes.get("nome_comum"): keywords.append(dados.get("nome_comum", ""))
+        if opcoes.get("nome_cientifico"): keywords.append(dados.get("nome_cientifico", ""))
+        if opcoes.get("familia"): keywords.append(dados.get("familia", ""))
+        if opcoes.get("ordem"): keywords.append(dados.get("ordem", ""))
+        if opcoes.get("classe"): keywords.append(dados.get("classe", ""))
+        if opcoes.get("endemismo"): keywords.append(dados.get("endemismo", ""))
+        keywords.append("iBirder")
+        keywords_exif = "; ".join([k for k in keywords if k])
+        
+        comentarios = []
+        if opcoes.get("iucn_status"): comentarios.append(f"IUCN: {dados.get('iucn_status','')}")
+        if opcoes.get("status_icmbio"): comentarios.append(f"Nacional: {dados.get('status_icmbio','')}")
+        if opcoes.get("status_cites"): comentarios.append(f"CITES: {dados.get('status_cites','')}")
+        
+        locais = []
+        if opcoes.get("pais"): locais.append(dados.get("pais", ""))
+        if opcoes.get("estado"): locais.append(dados.get("estado", ""))
+        if opcoes.get("municipio"): locais.append(dados.get("municipio", ""))
+        if opcoes.get("bioma"): locais.append(dados.get("bioma", ""))
+        
+        if locais:
+            comentarios.append("Local: " + " / ".join([l for l in locais if l]))
+            
+        comentarios_exif = ". ".join(comentarios) + ". Registrado via iBirder." if comentarios else "Registrado via iBirder."
+        
+        # Helpers para formatação de bytes UTF-16LE e ASCII
+        def utf16_bytes(text):
+            return tuple(text.encode("utf-16le") + b'\x00\x00')
+        def ascii_bytes(text):
+            return text.encode("utf-8")
+            
+        # 5. Gravação de XP Tags (Windows Explorer)
+        if titulo_exif:
+            exif_dict["0th"][40091] = utf16_bytes(titulo_exif)     # XPTitle
+        if assunto_exif:
+            exif_dict["0th"][40095] = utf16_bytes(assunto_exif)    # XPSubject
+        exif_dict["0th"][18246] = 5                                # Rating
+        if keywords_exif:
+            exif_dict["0th"][40094] = utf16_bytes(keywords_exif)   # XPKeywords
+        exif_dict["0th"][40092] = utf16_bytes(comentarios_exif)    # XPComment
+        
+        # 6. Gravação Convencional (Lightroom, Apple Photos)
+        if titulo_exif:
+            exif_dict["0th"][piexif.ImageIFD.ImageDescription] = ascii_bytes(f"{titulo_exif} - Identificado com iBirder")
+        exif_dict["0th"][piexif.ImageIFD.Software] = ascii_bytes("iBirder")
+        
+        # 7. Gravação Condicional de Coordenadas Geográficas
+        if opcoes.get("coord_gps") and not tem_gps_nativo:
+            lat = dados.get("latitude")
+            lon = dados.get("longitude")
+            if lat is not None and lon is not None:
+                def to_deg(value, loc):
+                    if value < 0:
+                        loc_value = loc[0]
+                    elif value > 0:
+                        loc_value = loc[1]
+                    else:
+                        loc_value = ""
+                    abs_value = abs(value)
+                    deg = int(abs_value)
+                    t1 = (abs_value - deg) * 60
+                    min = int(t1)
+                    sec = round((t1 - min) * 600000)
+                    return ((deg, 1), (min, 1), (sec, 10000)), ascii_bytes(loc_value)
+                    
+                lat_tuple, lat_ref = to_deg(lat, ["S", "N"])
+                lon_tuple, lon_ref = to_deg(lon, ["W", "E"])
+                
+                exif_dict["GPS"][piexif.GPSIFD.GPSLatitudeRef] = lat_ref
+                exif_dict["GPS"][piexif.GPSIFD.GPSLatitude] = lat_tuple
+                exif_dict["GPS"][piexif.GPSIFD.GPSLongitudeRef] = lon_ref
+                exif_dict["GPS"][piexif.GPSIFD.GPSLongitude] = lon_tuple
+        
+        try:
+            exif_bytes = piexif.dump(exif_dict)
+            piexif.insert(exif_bytes, self.caminho_imagem_atual)
+            
+            nome_arquivo = Path(self.caminho_imagem_atual).name
+            QMessageBox.information(
+                self, 
+                "Sucesso", 
+                f"Os dados selecionados foram permanentemente gravados em: \n<b>{nome_arquivo}</b>\n\nIsso inclui tags para o Windows (Propriedades > Detalhes) e softwares universais."
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Erro de Gravação", f"Não foi possível gravar os dados EXIF na foto.\nErro: {e}")
 
     def closeEvent(self, event):
         """Sobrescreve o fechamento para limpar a caderneta de campo temporária."""
