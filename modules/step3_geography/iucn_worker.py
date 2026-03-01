@@ -70,9 +70,9 @@ class IUCNWorker(QThread):
                                         "NE": "Não Avaliada (NE)"
                                     }
                                     status_traduzido = mapeamento.get(raw_status, raw_status)
-                                    iucn_status = f"{status_traduzido} (via iNaturalist)"
+                                    iucn_status = status_traduzido
                                 else:
-                                    iucn_status = "Não Avaliado / Seguro (via iNaturalist)"
+                                    iucn_status = "Não Avaliado / Seguro"
                             else:
                                 iucn_status = "Erro nos detalhes (iNaturalist)"
                         else:

@@ -12,6 +12,17 @@ class StyleManager:
     SPACING_MD = 12
     SPACING_LG = 20
     
+    @staticmethod
+    def apply_shadow(widget, blur=20, offset=(0, 5), color=(0, 0, 0, 20)):
+        """Aplica um efeito de sombra suave a um widget (v1.6.15)."""
+        from PySide6.QtWidgets import QGraphicsDropShadowEffect
+        from PySide6.QtGui import QColor
+        sombra = QGraphicsDropShadowEffect()
+        sombra.setBlurRadius(blur)
+        sombra.setOffset(*offset)
+        sombra.setColor(QColor(*color))
+        widget.setGraphicsEffect(sombra)
+
     _last_mode = None # Cache do último tema aplicado
 
     @staticmethod

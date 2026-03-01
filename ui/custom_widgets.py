@@ -459,8 +459,8 @@ class VocalAuditCard(QWidget):
         self.on_click_callback = on_click
         
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 4, 8, 4)
-        layout.setSpacing(8)
+        layout.setContentsMargins(12, 10, 12, 10) # v1.6.21: Espaçamento vertical aumentado (4->10)
+        layout.setSpacing(12) # Espaçamento lateral aumentado (8->12)
         
         # 0. Número de Ordem (v0.7.3)
         if self.ranking_index:
@@ -471,13 +471,13 @@ class VocalAuditCard(QWidget):
         # 1. Ícone Responsivo (Botão Flat v0.7.3)
         self.btn_icon = QPushButton()
         self.btn_icon.setCursor(Qt.PointingHandCursor)
-        self.btn_icon.setFixedSize(72, 72) # v0.7.5: Tamanho dobrado
+        self.btn_icon.setFixedSize(56, 56) # v1.6.21: Reduzido (72->56) p/ evitar cortes
         
         # Buscar ícone nos assets
         icon_path = self._get_asset_path("logo_ave_vocal.svg")
         if icon_path and os.path.exists(icon_path):
             self.btn_icon.setIcon(QIcon(icon_path))
-            self.btn_icon.setIconSize(self.btn_icon.size() * 0.9)
+            self.btn_icon.setIconSize(QSize(44, 44)) # v1.6.21: Tamanho fixo seguro
         else:
             self.btn_icon.setText("📻")
             
@@ -488,8 +488,8 @@ class VocalAuditCard(QWidget):
                 padding: 0px;
             }
             QPushButton:hover {
-                background-color: #F3F4F6;
-                border-radius: 4px;
+                background-color: rgba(0, 0, 0, 0.05);
+                border-radius: 8px;
             }
         """)
         
@@ -517,12 +517,12 @@ class VocalAuditCard(QWidget):
         
         layout.addWidget(self.lbl_distancia, stretch=1)
         
-        # Estilo do Card
+        # Estilo do Card (v1.6.21: Transparência e Simetria)
         self.setObjectName("vocal_audit_card")
         self.setStyleSheet("""
             QWidget#vocal_audit_card {
-                background-color: #FFFFFF;
-                border-bottom: 1px solid #F3F4F6;
+                background-color: transparent; 
+                border-bottom: 1px solid #E5E7EB;
             }
         """)
 
