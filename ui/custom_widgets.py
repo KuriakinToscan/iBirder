@@ -68,13 +68,13 @@ class ImageCardWidget(QWidget):
             
         self.btn_expand.setStyleSheet("""
             QPushButton {
-                background-color: rgba(255, 255, 255, 0.8);
+                background-color: rgba(255, 255, 255, 0.7);
+                border: none;
                 border-radius: 6px;
-                border: 1px solid #D1D5DB;
+                padding: 4px;
             }
             QPushButton:hover {
-                background-color: #FFFFFF;
-                border-color: #9CA3AF;
+                background-color: rgba(255, 255, 255, 0.9);
             }
         """)
         self.btn_expand.clicked.connect(self._open_expanded_view)
