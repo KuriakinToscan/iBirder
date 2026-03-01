@@ -96,7 +96,7 @@ class MapWidget(QWebEngineView):
         """
         self.setHtml(html)
 
-    def update_map(self, lat, lon, zoom=5, add_marker=False, scientific_name=None, audio_markers=None):
+    def update_map(self, lat, lon, zoom=5, add_marker=False, scientific_name=None, audio_markers=None, force_hide_alert=False):
         try:
             from modules.step3_geography.gbif_client import get_gbif_taxon_key
             import folium
@@ -273,7 +273,7 @@ class MapWidget(QWebEngineView):
             self.setHtml(data.getvalue().decode())
             
             if hasattr(self, 'alert_frame'):
-                if not add_marker:
+                if not add_marker and not force_hide_alert:
                     self.alert_frame.show()
                     self.alert_frame.raise_()
                 else:
