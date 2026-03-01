@@ -491,19 +491,12 @@ class JanelaPrincipal(QMainWindow):
         layout_cards_superiores.addLayout(layout_imagem_btn_ref, 1, 1, alignment=Qt.AlignTop)
         
         # Célula (1, 2) - Painel de Resultados (Antigo Lado Direito)
-        self.painel_direito = QFrame()
-        self.painel_direito.setProperty("class", "painel")
+        # Célula (1, 2) - Container Vertical (Coluna Direita)
+        self.painel_direito = QWidget()
         
-        sombra = QGraphicsDropShadowEffect()
-        sombra.setBlurRadius(20)
-        sombra.setColor(QColor(0, 0, 0, 20))
-        sombra.setOffset(0, 5)
-        self.painel_direito.setGraphicsEffect(sombra)
-
-        layout_direito = QVBoxLayout()
-        self.painel_direito.setLayout(layout_direito)
+        layout_direito = QVBoxLayout(self.painel_direito)
         layout_direito.setSpacing(StyleManager.SPACING_MD)
-        layout_direito.setContentsMargins(12, 18, 12, 12)
+        layout_direito.setContentsMargins(0, 0, 0, 0)
         
         layout_cards_superiores.addWidget(self.painel_direito, 1, 2, 3, 1) # RowSpan=3, ColSpan=1
         
@@ -554,14 +547,21 @@ class JanelaPrincipal(QMainWindow):
         # Adiciona o bloco inferior restrito às colunas 0 e 1 do Grid (Logo abaixo das imagens)
         layout_cards_superiores.addLayout(layout_inferior, 2, 0, 2, 2) # Row=2, Col=0, RowSpan=2, ColSpan=2
         
-        # Painel Branco Interno Layouts
-        # (O layout_direito já foi inicializado e setado acima no `self.painel_direito.setLayout(layout_direito)`)
-        # Layouts de grupo_resultados continuarão a ser inseridos nele mais tarde no código.
+        # --- CARDS MENORES DA COLUNA DIREITA ---
         
-        # Grupo Resultados
-        grupo_resultados = QGroupBox("") 
-        layout_res = QVBoxLayout()
-        layout_res.setSpacing(StyleManager.SPACING_XS) # Espaçamento extra-compacto (v1.5.2)
+        # 1. Card Identificação
+        grupo_resultados = QFrame()
+        grupo_resultados.setProperty("class", "painel")
+        
+        sombra1 = QGraphicsDropShadowEffect()
+        sombra1.setBlurRadius(20)
+        sombra1.setColor(QColor(0, 0, 0, 20))
+        sombra1.setOffset(0, 5)
+        grupo_resultados.setGraphicsEffect(sombra1)
+
+        layout_res = QVBoxLayout(grupo_resultados)
+        layout_res.setSpacing(StyleManager.SPACING_XS)
+        layout_res.setContentsMargins(12, 18, 12, 12)
         
         self.lbl_nome_comum = QLabel("")
         self.lbl_nome_comum.setObjectName("lbl_nome_comum")
@@ -578,8 +578,6 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_descricao.setObjectName("lbl_descricao")
         self.lbl_descricao.setWordWrap(True)
         self.lbl_descricao.setTextInteractionFlags(Qt.TextSelectableByMouse)
-
-        self.lbl_descricao.setWordWrap(True)
         
         # Label Nome Científico Padronizado
         lbl_titulo_nc = QLabel("Nome Científico")
@@ -618,7 +616,6 @@ class JanelaPrincipal(QMainWindow):
         
         layout_res.addLayout(container_busca)
 
-        # --- SEÇÃO 3: IDENTIFICAÇÃO (Item 3 reconfigurado) ---
         lbl_titulo_id = QLabel("Identificação")
         lbl_titulo_id.setProperty("class", "lbl-titulo-sessao")
         # margin-top removido para colagem cirúrgica (v1.5.1)
@@ -629,14 +626,50 @@ class JanelaPrincipal(QMainWindow):
         
         self.lbl_nome_comum.setVisible(False)
         self.lbl_descricao.setVisible(False)
-        # self.lbl_confianca agora oculto, integrado na string de lbl_descricao (v1.5.0)
         self.lbl_confianca.setVisible(False) 
         
-        # --- NOVOS CAMPOS: ETIMOLOGIA (Abaixo do Nome Científico) ---
+        layout_direito.addWidget(grupo_resultados)
+
+        # -------------------------------------------------------------
+        # Botões de Busca Externa (Realocados FORA dos cards)
+        layout_botoes = QHBoxLayout()
+        layout_botoes.setSpacing(10)
+        
+        self.btn_wiki = QPushButton("WikiAves")
+        self.btn_wiki.setCursor(Qt.PointingHandCursor)
+        self.btn_wiki.clicked.connect(self._buscar_wikiaves)
+        layout_botoes.addWidget(self.btn_wiki)
+        
+        self.btn_ebird = QPushButton("eBird")
+        self.btn_ebird.setCursor(Qt.PointingHandCursor)
+        self.btn_ebird.clicked.connect(self._buscar_ebird)
+        layout_botoes.addWidget(self.btn_ebird)
+
+        self.btn_google = QPushButton("Google")
+        self.btn_google.setCursor(Qt.PointingHandCursor)
+        self.btn_google.clicked.connect(self._buscar_google)
+        layout_botoes.addWidget(self.btn_google)
+        
+        layout_direito.addLayout(layout_botoes)
+        
+        # --- CARDS MENORES NO PAINEL DE RESULTADOS ---
+        # 2. Card Etimologia
+        grupo_etimologia = QFrame()
+        grupo_etimologia.setProperty("class", "painel")
+        
+        sombra_eti = QGraphicsDropShadowEffect()
+        sombra_eti.setBlurRadius(20)
+        sombra_eti.setColor(QColor(0, 0, 0, 20))
+        sombra_eti.setOffset(0, 5)
+        grupo_etimologia.setGraphicsEffect(sombra_eti)
+
+        layout_eti = QVBoxLayout(grupo_etimologia)
+        layout_eti.setContentsMargins(12, 18, 12, 12)
+        
         self.lbl_titulo_etimologia = QLabel('Etimologia <i>(WikiAves)</i>')
         self.lbl_titulo_etimologia.setProperty("class", "lbl-titulo-sessao")
-        # margin-top md mantido apenas se houver info acima, layout gerencia
-        layout_res.addWidget(self.lbl_titulo_etimologia)
+        self.lbl_titulo_etimologia.setProperty("margin-bottom", "md")
+        layout_eti.addWidget(self.lbl_titulo_etimologia)
 
         self.txt_etimologia = QTextEdit()
         self.txt_etimologia.setReadOnly(True)
@@ -646,38 +679,9 @@ class JanelaPrincipal(QMainWindow):
         self.txt_etimologia.textChanged.connect(self._ajustar_altura_etimologia)
         self.txt_etimologia.setProperty("class", "container-borda-cinza")
         self.txt_etimologia.setVisible(True)
-        layout_res.addWidget(self.txt_etimologia)
-        # -------------------------------------------------------------
-
-        # layout_res.addWidget(QLabel("Info:")) # Removido conforme nova hierarquia
-        # layout_res.addWidget(self.lbl_descricao) # Já adicionado acima na nova ordem
-        # layout_res.addWidget(self.lbl_confianca) # Já removido/ocultado acima
+        layout_eti.addWidget(self.txt_etimologia)
         
-        # Botões de Busca Externa
-        layout_botoes = QHBoxLayout()
-        layout_botoes.setSpacing(10)
-        
-        self.btn_wiki = QPushButton("WikiAves")
-        self.btn_wiki.setCursor(Qt.PointingHandCursor)
-        # Estilo Global
-        self.btn_wiki.clicked.connect(self._buscar_wikiaves)
-        layout_botoes.addWidget(self.btn_wiki)
-        
-        self.btn_ebird = QPushButton("eBird")
-        self.btn_ebird.setCursor(Qt.PointingHandCursor)
-        # Estilo Global
-        self.btn_ebird.clicked.connect(self._buscar_ebird)
-        layout_botoes.addWidget(self.btn_ebird)
-
-        self.btn_google = QPushButton("Google")
-        self.btn_google.setCursor(Qt.PointingHandCursor)
-        # Estilo Global
-        self.btn_google.clicked.connect(self._buscar_google)
-        layout_botoes.addWidget(self.btn_google)
-        
-        layout_res.addLayout(layout_botoes)
-        
-        # --- Card Etimologia ---
+        # Card Interno: Etimologia Detalhes
         self.frame_etimologia = QFrame()
         self.frame_etimologia.setObjectName("frame_etimologia")
         self.frame_etimologia.setStyleSheet("""
@@ -703,17 +707,27 @@ class JanelaPrincipal(QMainWindow):
         layout_etimologia.addWidget(self.lbl_etimologia_texto)
         
         self.frame_etimologia.setVisible(False)
-        layout_res.addWidget(self.frame_etimologia)
+        layout_eti.addWidget(self.frame_etimologia)
+
+        layout_direito.addWidget(grupo_etimologia)
 
         self.btn_gravar_exif = QPushButton("Confirmar a identificação e gravar dados na fotografia.")
         self.btn_gravar_exif.setCursor(Qt.PointingHandCursor)
         # O user disse que definiremos a função do botão depois, então deixamos sem connect por enquanto.
-        layout_res.addWidget(self.btn_gravar_exif)
+        layout_direito.addWidget(self.btn_gravar_exif)
         
-        # --- NOVO: Card Dados Geográficos (v0.3.19 - Realocado) ---
-        grupo_geo = QGroupBox("")
-        grupo_geo.setProperty("class", "grupo-sessao-inferior")
-        layout_geo = QVBoxLayout()
+        # 3. Card Dados Geográficos (v0.3.19 - Realocado)
+        grupo_geo = QFrame()
+        grupo_geo.setProperty("class", "painel")
+        
+        sombra2 = QGraphicsDropShadowEffect()
+        sombra2.setBlurRadius(20)
+        sombra2.setColor(QColor(0, 0, 0, 20))
+        sombra2.setOffset(0, 5)
+        grupo_geo.setGraphicsEffect(sombra2)
+        
+        layout_geo = QVBoxLayout(grupo_geo)
+        layout_geo.setContentsMargins(12, 18, 12, 12)
         
         lbl_titulo_geo_card = QLabel("Dados Geográficos")
         lbl_titulo_geo_card.setProperty("class", "lbl-titulo-sessao")
@@ -728,14 +742,20 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_geo_details.setVisible(False) 
         
         layout_geo.addWidget(self.lbl_geo_details)
-        
-        grupo_geo.setLayout(layout_geo)
-        layout_res.addWidget(grupo_geo)
+        layout_direito.addWidget(grupo_geo)
 
-        # --- NOVO: Card Vocalizações (v0.3.3) ---
-        grupo_audio = QGroupBox("")
-        grupo_audio.setProperty("class", "grupo-sessao-inferior")
-        layout_audio = QVBoxLayout()
+        # 4. Card Vocalizações (v0.3.3)
+        grupo_audio = QFrame()
+        grupo_audio.setProperty("class", "painel")
+        
+        sombra3 = QGraphicsDropShadowEffect()
+        sombra3.setBlurRadius(20)
+        sombra3.setColor(QColor(0, 0, 0, 20))
+        sombra3.setOffset(0, 5)
+        grupo_audio.setGraphicsEffect(sombra3)
+        
+        layout_audio = QVBoxLayout(grupo_audio)
+        layout_audio.setContentsMargins(12, 18, 12, 12)
         
         self.lbl_vocal_title = QLabel("Vocalizações")
         self.lbl_vocal_title.setProperty("class", "lbl-titulo-sessao")
@@ -747,12 +767,7 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_audio_placeholder.setProperty("class", "container-borda-tracejada")
         layout_audio.addWidget(self.lbl_audio_placeholder)
         
-        grupo_audio.setLayout(layout_audio)
-        layout_res.addWidget(grupo_audio)
-        # ---------------------------------------------------
-        
-        grupo_resultados.setLayout(layout_res)
-        layout_direito.addWidget(grupo_resultados)
+        layout_direito.addWidget(grupo_audio)
         layout_direito.addStretch()
 
         self.status_bar = QStatusBar()
