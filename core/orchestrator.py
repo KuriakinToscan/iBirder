@@ -8,6 +8,7 @@ from modules.step3_geography.iucn_worker import IUCNWorker
 from modules.step4_vocalization.audio_worker import AudioWorker
 from modules.step5_taxonomy.ebird_worker import EBirdWorker
 from modules.step3_geography.geo_analyst import GeoAnalyst
+from modules.step3_geography.conservation_worker import NationalConservationWorker
 from PySide6.QtCore import QObject, Signal, QThread
 import requests
 from core.config import carregar_config
@@ -48,6 +49,7 @@ class Orchestrator(QObject):
     
     step3_iucn_concluida = Signal(dict)
     step3_geo_concluida = Signal(dict)
+    step3_conservacao_concluida = Signal(dict)
     
     step4_audio_concluido = Signal(list)
     step4_audio_erro = Signal()
@@ -69,6 +71,7 @@ class Orchestrator(QObject):
         self.geo_worker = None
         self.audio_worker = None
         self.ebird_worker = None
+        self.conservation_worker = None
         
         self.species_cache = {} # Cache de taxonomia e geografia RAM
         
@@ -127,7 +130,8 @@ class Orchestrator(QObject):
         
         workers = [
             self.id_worker, self.wiki_worker, self.iucn_worker, 
-            self.geo_worker, self.audio_worker, self.ebird_worker
+            self.geo_worker, self.audio_worker, self.ebird_worker,
+            self.conservation_worker
         ]
         
         for w in workers:
@@ -373,6 +377,27 @@ class Orchestrator(QObject):
         if self.session_logger:
             self.session_logger.atualizar_ultimo_registro({"iucn_status": iucn})
         self.step3_iucn_concluida.emit(results)
+        
+        # CASCATA LINEAR CONTINUA: 3A (IUCN) -> 3C (Conservação Nacional) (v1.6.5)
+        # Identificamos o país a partir do último registro seguro
+        pais = "Brazil"
+        if self.session_logger and self.session_logger.buffer:
+            pais = self.session_logger.buffer[-1].get("pais", "Brazil")
+            
+        self.start_step3_conservation(self._last_sci_name, pais=pais)
+
+    # --- Etapa 3C (v1.6.5) ---
+    def start_step3_conservation(self, sci_name, pais="Brazil"):
+        if self.conservation_worker: self.conservation_worker.deleteLater()
+        self.conservation_worker = NationalConservationWorker(sci_name, country=pais, parent=self)
+        self.conservation_worker.finished.connect(self._on_step3_conservation_finished)
+        self.conservation_worker.start()
+        
+    def _on_step3_conservation_finished(self, results):
+        print(f"[Orchestrator] Etapa 3C (Conservação Nacional) Concluída.")
+        if self.session_logger:
+            self.session_logger.atualizar_ultimo_registro(results)
+        self.step3_conservacao_concluida.emit(results)
         
     # --- Etapa 4 ---
     def start_step4_vocalization(self, sci_name):
