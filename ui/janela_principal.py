@@ -891,8 +891,8 @@ class JanelaPrincipal(QMainWindow):
     def _buscar_google(self):
         sciname = self._obter_sciname_atual()
         if sciname and "Inconclusiva" not in sciname:
-            url = f"https://www.google.com/search?q={sciname}"
-            QDesktopServices.openUrl(url)
+            url = f"https://www.google.com/search?q={urllib.parse.quote(sciname)}"
+            QDesktopServices.openUrl(QUrl(url))
 
     def _realizar_busca_manual(self):
         texto = self.input_especie.text().strip()
