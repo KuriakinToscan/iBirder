@@ -1,4 +1,5 @@
 from PySide6.QtCore import QThread, Signal
+import os
 try:
     import requests
 except ImportError:
