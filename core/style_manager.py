@@ -1,7 +1,5 @@
-import sys
-import platform
-import ctypes
 from pathlib import Path
+import logging
 
 class StyleManager:
     """Centralizador de Estilos e Temas do iBirder (v0.6.6)"""
@@ -425,4 +423,4 @@ class StyleManager:
             ctypes.windll.user32.SetWindowPos(handle, 0, 0, 0, 0, 0, 0x0020 | 0x0002 | 0x0001 | 0x0004 | 0x0010)
             
         except Exception as e:
-            print(f"[STYLE] Erro ao ajustar Title Bar: {e}")
+            logging.error(f"Erro ao ajustar Title Bar: {e}")

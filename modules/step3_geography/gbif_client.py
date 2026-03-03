@@ -1,7 +1,8 @@
 import requests
+import logging
 
 def get_gbif_taxon_key(scientific_name):
-    print(f"[GBIF] Buscando ID para: {scientific_name}")
+    logging.debug(f"Buscando GBIF Taxon Key para: {scientific_name}")
     url = "https://api.gbif.org/v1/species/match"
     # Strict matching helps avoid bad fuzzy matches.
     # Verbose=true provides more context if needed, but standard match response usually suffices.
@@ -24,15 +25,12 @@ def get_gbif_taxon_key(scientific_name):
             key = data.get("acceptedUsageKey") or data.get("usageKey")
             
             if key:
-                print(f"[GBIF] ID Encontrado: {key} (Match: {data.get('matchType', '?')})")
+                logging.debug(f"ID GBIF Encontrado: {key}")
                 return key
             else:
-                # If strict failed, maybe try non-strict as fallback?
-                # User reported wrong ID before, so maybe non-strict was the issue.
-                # Let's log warning and return None for now to be safe.
-                print(f"[GBIF] Nenhum ID válido encontrado com strict=true para {scientific_name}")
+                logging.debug(f"Nenhum ID GBIF encontrado para {scientific_name}")
                 
     except Exception as e:
-        print(f"Error fetching GBIF key: {e}")
+        logging.error(f"Erro ao buscar chave GBIF: {e}")
         
     return None

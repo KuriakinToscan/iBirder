@@ -1,4 +1,5 @@
 import requests
+import logging
 from urllib.parse import quote
 import re
 
@@ -38,7 +39,7 @@ class INaturalistClient:
             response = self.session.get(self.API_URL, params=params, timeout=10)
             
             if response.status_code != 200:
-                print(f"[INATURALIST] Erro API: {response.status_code}")
+                logging.error(f"[INATURALIST] Erro API: {response.status_code}")
                 return "Serviço indisponível no momento.", None, None
 
             data = response.json()
@@ -63,10 +64,9 @@ class INaturalistClient:
 
             return description, common_name, source_url
 
-        except requests.RequestException as e:
-            print(f"[INATURALIST] Erro de conexão: {e}")
-            return "Erro de conexão com o iNaturalist.", None, None
+        except requests.exceptions.RequestException as e:
+            logging.error(f"[INATURALIST] Erro de conexão: {e}")
+            return None, None, None
         except Exception as e:
-            print(f"[INATURALIST] Erro inesperado: {e}")
+            logging.error(f"[INATURALIST] Erro inesperado: {e}")
             return "Ocorreu um erro ao processar os dados.", None, None
-

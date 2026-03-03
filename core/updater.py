@@ -1,6 +1,5 @@
-import os
-from pathlib import Path
 from PySide6.QtCore import QObject, Signal, QThread
+import logging
 
 class ModelUpdater(QObject):
     update_available = Signal(dict) # Emite info sobre a nova versão
@@ -25,7 +24,7 @@ class ModelUpdater(QObject):
                     data = json.load(f)
                     self.current_version = data.get("version", "0.0.0")
             except Exception as e:
-                print(f"[UPDATER] Erro ao ler meta local: {e}")
+                logging.debug(f"Erro ao ler meta local: {e}")
                 
     def check_for_updates(self):
         """Inicia thread descartável para checar manifesto remoto."""
@@ -35,10 +34,10 @@ class ModelUpdater(QObject):
         
     def _on_manifest_ready(self, manifest_data):
         if manifest_data:
-            print(f"[UPDATER] Nova versão do Cérebro encontrada: {manifest_data['version']}")
+            logging.info(f"Nova versão do Cérebro encontrada: {manifest_data['version']}")
             self.update_available.emit(manifest_data)
         else:
-            print("[UPDATER] Cérebro da Inteligência Artificial já está na última versão.")
+            logging.info("Cérebro da Inteligência Artificial já está na última versão.")
 
             
 class ManifestCheckWorker(QThread):
@@ -65,7 +64,7 @@ class ManifestCheckWorker(QThread):
                     self.manifest_ready.emit(remote_data)
                     return
         except Exception as e:
-            print(f"[UPDATER] Check falhou silenciosamente: {e}")
+            logging.debug(f"Check de update falhou silenciosamente: {e}")
         
         # Emite None se não houver update ou se falhar (Ignora timeout silenciosamente)
         self.manifest_ready.emit({})

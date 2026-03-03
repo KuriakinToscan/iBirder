@@ -1,7 +1,5 @@
-import os
-import requests
 import json
-import traceback
+import logging
 from PySide6.QtCore import QThread, Signal, QSettings
 
 class IUCNWorker(QThread):
@@ -15,7 +13,7 @@ class IUCNWorker(QThread):
         self.export_dir = export_dir
 
     def run(self):
-        print(f"[IUCN Worker] Iniciando processamento para {self.scientific_name}")
+        logging.info(f"Iniciando Etapa 3-IUCN para {self.scientific_name}")
         # 1. Obter Status da IUCN
         # Transição API-Free (v0.8.0): IUCN API desativada.
         iucn_status = "Não Avaliado"
@@ -32,7 +30,7 @@ class IUCNWorker(QThread):
         # -------------------
         if is_fallback:
             try:
-                print(f"[IUCN Worker] Passo 1: Buscando ID no iNaturalist para {self.scientific_name}...")
+                logging.debug(f"Buscando ID no iNaturalist para {self.scientific_name}...")
                 search_url = f"https://api.inaturalist.org/v1/taxa?q={self.scientific_name}&is_active=true&rank=species"
                 resp_search = requests.get(search_url, timeout=10)
                 
@@ -41,7 +39,7 @@ class IUCNWorker(QThread):
                     if search_data.get("results") and len(search_data["results"]) > 0:
                         taxon_id = search_data["results"][0]["id"]
                         
-                        print(f"[IUCN Worker] Passo 2: Buscando detalhes para Taxon ID {taxon_id}...")
+                        logging.debug(f"Buscando detalhes para Taxon ID {taxon_id}...")
                         detail_url = f"https://api.inaturalist.org/v1/taxa/{taxon_id}"
                         resp_detail = requests.get(detail_url, timeout=10)
                         
@@ -82,9 +80,9 @@ class IUCNWorker(QThread):
                 else:
                     iucn_status = "Erro na API de Busca (iNaturalist)"
                 
-                print(f"[IUCN Worker] Status IUCN Final: {iucn_status}")
+                logging.debug(f"Status IUCN Final: {iucn_status}")
             except Exception as e:
-                print(f"[IUCN Worker] Erro GERAL no Fallback iNaturalist: {e}")
+                logging.error(f"Erro no Fallback IUCN iNaturalist: {e}")
                 iucn_status = "Erro de Conexão (Fallback)"
         
         # 2. Processamento Espacial
@@ -101,7 +99,7 @@ class IUCNWorker(QThread):
 
                 if os.path.exists(self.shape_path):
                     import geopandas as gpd
-                    print(f"[IUCN Worker] Carregando Shapefile Base: {self.shape_path}")
+                    logging.debug(f"Carregando Shapefile Base: {self.shape_path}")
                     gdf = gpd.read_file(self.shape_path)
                     
                     # Identifica a coluna correta do nome cientifico (ajuste flexível)
@@ -123,24 +121,23 @@ class IUCNWorker(QThread):
                             filtered_gdf['iucn_status'] = iucn_status
                             
                             # Exporta o GeoJSON convertendo para JSON puro e salvando com ensure_ascii=False explícito
-                            print(f"[IUCN Worker] Exportando polígonos filtrados: {export_path}")
+                            logging.info(f"Exportando polígonos filtrados: {export_path}")
                             geojson_str = filtered_gdf.to_json()
                             geojson_data = json.loads(geojson_str)
                             
                             with open(export_path, "w", encoding="utf-8") as f:
                                 json.dump(geojson_data, f, ensure_ascii=False, indent=2)
-                            print("[IUCN Worker] GeoJSON salvo com sucesso! (Caracteres especiais mantidos)")
+                            logging.debug("GeoJSON de ocorrência salvo com sucesso.")
                         else:
-                            print(f"[IUCN Worker] Aviso: Espécie '{raw_name}' não teve polígonos no shapefile.")
+                            logging.warning(f"Espécie '{raw_name}' não teve polígonos no shapefile.")
                     else:
-                        print(f"[IUCN Worker] Aviso: Coluna '{col_name}' ou similar não encontrada no shapefile.")
+                        logging.warning(f"Coluna científica não encontrada no shapefile.")
                 else:
-                    print(f"[IUCN Worker] Shapefile mestre não encontrado localmente em {self.shape_path}.")
+                    logging.warning(f"Shapefile mestre não encontrado localmente em {self.shape_path}.")
             except Exception as e:
-                print(f"[IUCN Worker] Erro no processamento espacial: {e}")
-                traceback.print_exc()
+                logging.error(f"Erro no processamento espacial: {e}", exc_info=True)
         else:
-             print("[IUCN Worker] Ignorando geração do GeoJSON devido ao Fallback.")
+             logging.debug("Ignorando geração do GeoJSON devido ao Fallback.")
 
         # 3. Empacota e Sinaliza pra UI
         results = {

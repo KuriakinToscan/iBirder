@@ -1,6 +1,9 @@
 from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QListWidget, QFrame
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QIcon, QDesktopServices
+import os
+import requests
+import logging
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from ui.base.base_dialog import BaseDialog
 from core.style_manager import StyleManager
@@ -11,9 +14,9 @@ class VocalDetailDialog(BaseDialog):
     Interface simplificada com player no topo e foco na identificação.
     """
     def __init__(self, audio_data, parent=None):
-        super().__init__(title="Vocalização", parent=parent)
+        super().__init__(parent)
         self.audio_data = audio_data
-        print(f"[VocalDetailDialog] Inicializando para ID: {self.audio_data.get('id')}")
+        logging.debug(f"Inicializando VocalDetailDialog para ID: {self.audio_data.get('id')}")
         self.setFixedWidth(500)
         self.setMinimumHeight(280) # Altura reduzida para refletir a simplificação
         
@@ -22,7 +25,7 @@ class VocalDetailDialog(BaseDialog):
         
         # Blindagem da Title Bar: Manter cor cinza escuro oficial do iBirder
         StyleManager.setup_window_theme(self)
-        print(f"[VocalDetailDialog] UI Montada com sucesso.")
+        logging.debug("VocalDetailDialog UI montada.")
 
     def setup_ui(self):
         # 0. Player de Áudio (Topo)
@@ -118,7 +121,7 @@ class VocalDetailDialog(BaseDialog):
                 url_audio = url_audio.replace('http://', 'https://', 1)
             
         if url_audio:
-            print(f"[VocalDetailDialog] Carregando Player com URL: {url_audio}")
+            logging.debug(f"Carregando player de áudio: {url_audio}")
             html = f"""
             <!DOCTYPE html>
             <html><head><style>
@@ -145,7 +148,7 @@ class VocalDetailDialog(BaseDialog):
             """
             self.webview_player.setHtml(html)
         else:
-            print("[VocalDetailDialog] Nenhuma URL de áudio encontrada para carregamento.")
+            logging.warning("Nenhuma URL de áudio disponível para o diálogo de detalhes.")
             self.webview_player.setHtml("<html><body style='color:#6B7280; font-family:sans-serif; display:flex; align-items:center; justify-content:center; height:100vh;'>Áudio não disponível na sessão</body></html>")
 
         # 1. Carregar ID e Fonte

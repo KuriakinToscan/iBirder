@@ -1,6 +1,6 @@
-import os
 import requests
 from pathlib import Path
+import logging
 
 class ModelManager:
     # Google's "Birds V1" TFLite model (trained on iNaturalist)
@@ -25,31 +25,30 @@ class ModelManager:
         callback(str): Função para receber mensagens de progresso/porcentagem.
         """
         try:
-            print(f'[MODELO] Iniciando download de recursos...')
-            print(f'[IA] Baixando EfficientNet V1.3 oficial do TensorFlow Hub...')
-            print(f'[MODELO] Pasta de destino: {self.assets_dir}')
+            logging.info('Iniciando download de recursos do modelo...')
+            logging.debug('Baixando EfficientNet V1.3 oficial do TensorFlow Hub...')
+            logging.debug(f'Pasta de destino: {self.assets_dir}')
             
             self._download_file(self.URL_MODEL, self.model_path, "Modelo IA", callback)
             self._download_file(self.URL_LABELS, self.labels_path, "Labels", callback)
             return True
         except Exception as e:
-            print(f'[MODELO] Erro crítico no download: {e}')
+            logging.error(f'Erro crítico no download: {e}')
             if callback:
                 callback(f"Erro no download: {e}")
             return False
 
     def _download_file(self, url, dest_path, description, callback):
         if dest_path.exists():
-            print(f'[MODELO] Arquivo já existe: {dest_path}')
+            logging.debug(f'Arquivo já existe: {dest_path}')
             return
 
-        print(f'[MODELO] Baixando: {url}')
-        print(f'[MODELO] Fonte atualizada: {url}')
+        logging.info(f'Baixando: {description} de {url}')
         try:
             headers = {'User-Agent': 'Mozilla/5.0'}
             # allow_redirects=True is default, but explicit for clarity/requirement matching
             response = requests.get(url, stream=True, headers=headers, allow_redirects=True)
-            print(f'[MODELO] Status Code: {response.status_code}')
+            logging.debug(f'Status Code: {response.status_code}')
             response.raise_for_status()
             
             total_size = int(response.headers.get('content-length', 0))
@@ -72,8 +71,8 @@ class ModelManager:
                                 
             if callback:
                 callback(f"{description} pronto.")
-            print(f'[MODELO] Download concluído: {dest_path}')
+            logging.info(f'Download concluído: {dest_path}')
             
         except Exception as e:
-            print(f'[MODELO] Falha ao baixar {url}: {e}')
+            logging.error(f'Falha ao baixar {url}: {e}')
             raise e

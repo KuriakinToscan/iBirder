@@ -1,22 +1,21 @@
 from pathlib import Path
 from PIL import Image
 import os
+import logging
 
 def otimizar_imagem(caminho_entrada: str, caminho_saida: str, max_tamanho: int = 800, qualidade: int = 65):
     """
-    Otimização agressiva para evitar erro 429 (API Quota):
-    - Converte RGB.
-    - Remove metadata (EXIF) criando nova imagem.
-    - Resize max 800px.
-    - Save JPEG q=65, subsampling=0.
+    Otimização agressiva para evitar erro 429 (API Quota) e excesso de telemetria:
+    - Converte para RGB.
+    - Remove metadados (Strip EXIF) para reduzir o peso da requisição.
+    - Redimensiona para no máximo 800px preservando a proporção.
     """
     try:
         with Image.open(caminho_entrada) as img:
-            # 1. Converter para RGB (sem exceção)
+            # 1. Converter para RGB (Garante compatibilidade com JPEG)
             img = img.convert("RGB")
             
-            # 2. Sanitizar (Strip EXIF) - Metadados ocultos pesam muito
-            # Cria nova imagem limpa e copia pixels
+            # 2. Sanitizar (Strip EXIF) - Metadados ocultos podem ser pesados
             clean_img = Image.new(img.mode, img.size)
             clean_img.putdata(list(img.getdata()))
             
@@ -35,25 +34,41 @@ def otimizar_imagem(caminho_entrada: str, caminho_saida: str, max_tamanho: int =
             return caminho_saida
             
     except Exception as e:
-        print(f"[ERRO] Falha ao otimizar imagem: {e}")
+        logging.error(f"Falha ao otimizar imagem: {e}")
+        raise e
+
+def otimizar_imagem_para_exif(caminho_entrada, qualidade=90):
+    """
+    Cria uma cópia de alta qualidade para gravação de metadados.
+    Evita manipular o arquivo original de 20MB+ diretamente no ExifTool
+    para garantir maior estabilidade no Windows.
+    """
+    try:
+        temp_output_path = Path(caminho_entrada).parent / f"temp_{Path(caminho_entrada).name}"
+        with Image.open(caminho_entrada) as img:
+            img = img.convert("RGB")
+            img.save(temp_output_path, "JPEG", quality=qualidade, optimize=True)
+        return temp_output_path
+    except Exception as e:
+        logging.error(f"Falha ao preparar imagem para EXIF: {e}")
         raise e
 
 def limpar_temp_inteligente():
-    """Remove arquivos temporários e logs de sessão segura ao fechar."""
-    folder = 'temp'
-    if not os.path.exists(folder):
+    """
+    Realiza a faxina de arquivos temporários e logs antigos.
+    - Remove rascunhos de fotos otimizadas.
+    - Chamado automaticamente no encerramento (atexit) via main.py.
+    """
+    temp_dir = Path(__file__).parent.parent / "temp"
+    if not temp_dir.exists():
         return
         
-    # Lista tudo na pasta temp
-    for filename in os.listdir(folder):
-        file_path = os.path.join(folder, filename)
-        # Preserva session.log se necessário (lógica já tratada no logger/main, 
-        # mas aqui limpamos o resto ou se o logger já liberou)
-        # Nota: O main.py vai chamar esta função via atexit.
-        # Se main.py definir lógica condicional, ele deve chamar logger.cleanup antes ou depois.
-        # Aqui vamos fazer uma limpeza geral "safe".
+    for filename in os.listdir(temp_dir):
+        file_path = os.path.join(temp_dir, filename)
+        
+        # O session.log é gerido pelo cleanup_session_log do logger.py
         if filename == "session.log":
-            continue # Deixa o logger cuidar do session.log (cleanup_session_log)
+            continue
 
         try:
             if os.path.isfile(file_path):
@@ -62,4 +77,4 @@ def limpar_temp_inteligente():
                 import shutil
                 shutil.rmtree(file_path)
         except Exception as e:
-            print(f"Erro ao limpar {file_path}: {e}")
+            logging.error(f"Erro ao limpar {file_path}: {e}")

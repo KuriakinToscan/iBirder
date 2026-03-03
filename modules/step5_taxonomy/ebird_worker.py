@@ -1,6 +1,5 @@
-import os
 import requests
-import traceback
+import logging
 import urllib.parse
 from PySide6.QtCore import QThread, Signal, QSettings
 
@@ -14,12 +13,12 @@ class EBirdWorker(QThread):
         self.lon = lon
 
     def run(self):
-        # Validação de segurança v0.6.1
+        # Validação de segurança
         if not self.scientific_name or "Inconclusiva" in self.scientific_name:
-            print(f"[eBird Worker] Busca abortada: Nome '{self.scientific_name}' inválido.")
+            logging.warning(f"Busca eBird/Taxonomia abortada: Nome '{self.scientific_name}' inválido.")
             return
 
-        print(f"[eBird Worker] Iniciando processamento para {self.scientific_name}")
+        logging.info(f"Iniciando Etapa 5-Taxonomia para {self.scientific_name}")
         
         # Transição API-Free (v0.8.0): eBird API desativada para autonomia total do usuário.
         is_fallback = True
@@ -35,7 +34,7 @@ class EBirdWorker(QThread):
         # Fallback iNaturalist
         if is_fallback:
             try:
-                print(f"[eBird Worker] Buscando taxonomia no iNaturalist para {self.scientific_name}...")
+                logging.debug(f"Buscando taxonomia no iNaturalist para {self.scientific_name}...")
                 inat_url = f"https://api.inaturalist.org/v1/taxa?q={self.scientific_name}&is_active=true&rank=species"
                 resp_inat = requests.get(inat_url, timeout=10)
                 
@@ -60,7 +59,7 @@ class EBirdWorker(QThread):
                 else:
                     resultados["raridade_regional"] = "Inconclusivo (Falha no Fallback)"
             except Exception as e:
-                print(f"[eBird Worker] Erro no Fallback iNaturalist: {e}")
+                logging.error(f"Erro no Fallback Taxonomia iNaturalist: {e}")
                 resultados["raridade_regional"] = "Erro de Conexão (Fallback)"
 
         # Emite os metadados finais

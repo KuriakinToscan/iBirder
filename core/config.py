@@ -38,4 +38,4 @@ def salvar_config(config):
         with open(config_path, "w") as f:
             json.dump(config, f, indent=4)
     except Exception as e:
-        print(f"Erro ao salvar config: {e}")
+        logging.error(f"Erro ao salvar config: {e}")

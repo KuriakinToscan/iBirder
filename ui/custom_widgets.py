@@ -15,13 +15,13 @@ from ui.dialogs.expanded_image_dialog import ExpandedImageDialog
 
 class ImageCardWidget(QWidget):
     """
-    Widget definitivo para exibição de imagens no iBirder.
-    Suporta:
-    - Rendering centralizado com KeepAspectRatio.
-    - Overlay de texto (créditos) com fundo semitransparente.
-    - Drag & Drop (Arrastar para fora e Soltar arquivo dentro).
-    - Simetria rígida via SizePolicy(Expanding, Expanding) e sizeHint(1,1).
-    - Clique para ação (ex: abrir seletor) quando vazio.
+    Widget de Alta Performance para Exibição de Aves.
+    
+    Características:
+    - Proporção 1:1 rigorosa: Ajusta-se dinamicamente ao layout.
+    - Motor de Drag-and-Drop: Permite exportar a imagem carregada para pastas locais.
+    - Luz de fundo dinâmica: Adapta-se ao tema (Dark/Light) do iBirder.
+    - Lightbox Integrado: Clique no ícone de expansão para ver detalhes da plumagem.
     """
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -205,7 +205,6 @@ class ImageCardWidget(QWidget):
         try:
             tamanho_mb = os.path.getsize(self.image_path) / (1024 * 1024)
             if tamanho_mb > 15:
-                # print(f"[Drag] Imagem grande ({tamanho_mb:.1f}MB). Comprimindo para temp...")
                 temp_dir = tempfile.gettempdir()
                 nome_temp = f"ibirder_lens_optimized_{os.path.basename(self.image_path)}"
                 caminho_temp = os.path.join(temp_dir, nome_temp)
@@ -213,7 +212,6 @@ class ImageCardWidget(QWidget):
                 if self.pixmap and not self.pixmap.isNull():
                     self.pixmap.save(caminho_temp, "JPG", 85)
                     caminho_final = caminho_temp
-                    # print(f"[Drag] Imagem comprimida salva em: {caminho_final}")
         except Exception:
             pass
             

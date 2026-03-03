@@ -43,6 +43,16 @@ from modules.step5_taxonomy.ebird_worker import EBirdWorker
 # GeoWorker migrado para o Orchestrator v0.4.2
 
 class JanelaPrincipal(QMainWindow):
+    """
+    Controlador Principal da Interface Gráfica (View).
+    
+    Arquitetura:
+    - Segue o padrão Feature-Based: a UI não processa dados, apenas emite sinais
+      para o Orchestrator e reage aos resultados retornados.
+    - Soberania de Estilo: Utiliza o StyleManager para garantir que componentes
+      Chromium (Mapas/Players) não quebrem o tema visual do Windows.
+    - Persistência de Sessão: Integrada ao SessionLogger para auditoria em tempo real.
+    """
     PLACEHOLDER_TEXT = "Aguardando identificação...."
 
     def __init__(self, nome_icone_janela="logo_ave.svg", modo_inicial="online", ai_status="READY"):
@@ -54,8 +64,11 @@ class JanelaPrincipal(QMainWindow):
         self.session_logger = SessionLogger()
         
         # O Cérebro do Aplicativo (Orchestrator via Feature-Based Architecture)
+        # O Orchestrator gerencia a execução assíncrona para não travar a interface.
         from core.orchestrator import Orchestrator
         self.orchestrator = Orchestrator(self.session_logger, parent=self)
+        
+        # Conexões de Sinais (Pipeline em Cascata)
         self.orchestrator.step1_identificacao_concluida.connect(self._ao_concluir_identificacao)
         self.orchestrator.step1_identificacao_erro.connect(self._ao_erro_identificacao)
         self.orchestrator.step1_progress_updated.connect(self._ao_progresso_identificacao)
@@ -232,7 +245,7 @@ class JanelaPrincipal(QMainWindow):
 
 
     def _ao_receber_info_especie(self, dados):
-        print(f"[UI] SINAL: Dados biológicos recebidos via Orchestrator (WikiAves). Especial: {dados.get('nome_comum')}")
+        logging.info(f"Dados biológicos recebidos via Orchestrator (WikiAves). Especial: {dados.get('nome_comum')}")
         
         # Mapeamento do BuscadorBlindado (Agora com chaves nativas corretas - v0.3.17)
         etimologia_texto = dados.get("etimologia", "")
@@ -256,8 +269,9 @@ class JanelaPrincipal(QMainWindow):
         if hasattr(self, 'session_logger'):
             self.session_logger.atualizar_ultimo_registro(dados_etapa_2)
 
-        # Persistência de Estado (v0.6.7): Garante que dados retornados populem o dicionário de identificação atual
-        # Usamos o nome original da busca (taxonômico) para não poluir o estado com etimologia
+        # Persistência de Estado (v0.6.7)
+        # Garante que dados retornados populem o dicionário de identificação atual
+        # para que o gravador de EXIF encontre todas as informações no final do ciclo.
         sci_persist = dados.get("original_scientific_name", self.dados_identificacao_atual.get("nome_cientifico", ""))
         
         if not self.dados_identificacao_atual:
@@ -303,7 +317,7 @@ class JanelaPrincipal(QMainWindow):
         ordem = dados.get("ordem")
         familia = dados.get("familia")
         if (ordem and ordem != "Desconhecida") or (familia and familia != "Desconhecida"):
-            print(f"[UI] Taxonomia recebida do WikiAves: {ordem} / {familia}")
+            logging.debug(f"Taxonomia recebida do WikiAves: {ordem} / {familia}")
             self._atualizar_card_taxonomia(ordem=ordem, familia=familia)
             
         # Ativa o botão de gravação (v0.8.9)
@@ -333,36 +347,36 @@ class JanelaPrincipal(QMainWindow):
             add_marker = True
             zoom_level = 6
 
-            # Fallback: Se não tem coords, usa Centro do Brasil apenas para mostrar a distribuição
+            # Fallback: Se não tem coords, usa Centro do Brasil apenas para mostrar a distribution
             if lat is None or lon is None:
                 lat = -15.7801
                 lon = -47.9292
                 add_marker = False
                 zoom_level = 4
-                print("[UI] Sem GPS: Usando fallback (Centro BR) para exibir mapa de distribuição.")
+                logging.debug("Sem GPS: Usando fallback (Centro BR) para exibir mapa de distribuição.")
 
-            print(f"[UI] Atualizando Widget de Mapa... (GBIF: {sciname}) [Lat: {lat}, Lon: {lon}]")
+            logging.debug(f"Atualizando Widget de Mapa... (GBIF: {sciname}) [Lat: {lat}, Lon: {lon}]")
             try:
                 self.map_principal.update_map(lat, lon, zoom=zoom_level, add_marker=add_marker, scientific_name=sciname)
-                
+                logging.debug("Mapa renderizado com sucesso.")
                 # GeoAnalyst: Removido disparo manual v0.8.9. 
                 # A cascata 2 -> 3 agora é gerida exclusivamente pelo Orchestrator para evitar crash de threads.
                 if add_marker:
                     # Apenas atualizamos a label visual na UI, se necessário
                     pass
                 
-                print("[UI] Mapa renderizado com sucesso.")
+                logging.debug("Mapa renderizado com sucesso.")
             except Exception as e:
-                print(f"[UI] ERRO CRÍTICO ao atualizar mapa: {e}")
+                logging.error(f"ERRO CRÍTICO ao atualizar mapa: {e}")
            
             # REFORÇO V0.7.7: Reafirmar soberania após carga de componentes Chromium
             StyleManager.setup_window_theme(self)
             
-            print("[UI] --- PROCESSO DE IDENTIFICAÇÃO FINALIZADO ---\n")
+            logging.info("--- PROCESSO DE IDENTIFICAÇÃO FINALIZADO ---")
 
         
     def _ao_erro_api(self, erro_msg):
-        print(f"[UI] Erro na API (Info Espécie): {erro_msg}")
+        logging.error(f"Erro na API (Info Espécie): {erro_msg}")
         self.lbl_etimologia_texto.setText(f"Erro ao buscar informações: {erro_msg}")
         self.frame_etimologia.setVisible(True)
 
@@ -818,7 +832,8 @@ class JanelaPrincipal(QMainWindow):
                 # O corpo da janela ignora a mudança de paleta para evitar o bug de inversão.
                 dark_mode = StyleManager.detect_dark_mode()
                 
-                print(f"[STYLE] Watchdog v0.6.6: Forçando Soberania Off-White. DarkMode: {dark_mode}")
+                app = QApplication.instance()
+                logging.debug(f"Watchdog v0.6.6: Forçando Soberania Off-White. DarkMode: {dark_mode}")
 
                 app = QApplication.instance()
                 if app:
@@ -1063,7 +1078,7 @@ class JanelaPrincipal(QMainWindow):
             lat, lon = coords
             self.lat_atual = lat
             self.lon_atual = lon
-            print(f"[MAPA] Coordenadas encontradas: {lat}, {lon}")
+            logging.debug(f"Coordenadas encontradas na imagem: {lat}, {lon}")
             
             if self.map_principal:
                 # Mapa atualiza apenas com coordenadas por enquanto. 
@@ -1084,7 +1099,7 @@ class JanelaPrincipal(QMainWindow):
             if getattr(self, "ultima_localizacao_manual", None):
                  self.lat_atual, self.lon_atual = self.ultima_localizacao_manual
             
-            print("[MAPA] Sem dados GPS. Exibindo mensagem de aviso.")
+            logging.debug("Sem dados GPS na imagem.")
             
             if self.map_principal:
                  # Se for uma NOVA imagem carregada sem GPS, mantemos o mapa no Brasil e ativamos o alerta (v1.6.26)
@@ -1098,7 +1113,7 @@ class JanelaPrincipal(QMainWindow):
         self._identificar_ave()
 
     def _ao_arrastar_pino(self, lat, lon):
-        print(f"[UI] Pino do mapa arrastado para: Lat {lat}, Lon {lon}")
+        logging.info(f"Pino do mapa arrastado para: Lat {lat}, Lon {lon}")
         lat = round(lat, 6)
         lon = round(lon, 6)
         self.lat_atual = lat
@@ -1326,7 +1341,7 @@ class JanelaPrincipal(QMainWindow):
             
     def _abrir_detalhes_vocal(self, audio_data):
         """Abre a janela de auditoria detalhada ao clicar no ícone vocal (v1.3.1)."""
-        print(f"[UI] Abrindo Detalhes Vocal: ID {audio_data.get('id')} | URL: {audio_data.get('url')}")
+        logging.debug(f"Abrindo Detalhes Vocal: ID {audio_data.get('id')}")
         dialog = VocalDetailDialog(audio_data, self)
         dialog.exec()
             
