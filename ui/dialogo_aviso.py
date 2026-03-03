@@ -2,10 +2,11 @@ from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushBu
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
-class DialogoAviso(QDialog):
+from ui.base.base_dialog import BaseDialog
+
+class DialogoAviso(BaseDialog):
     def __init__(self, titulo, mensagem, parent=None, tipo="info", botoes=None):
-        super().__init__(parent)
-        self.setWindowTitle(f"iBirder - {titulo}")
+        super().__init__(titulo, parent)
         self.setFixedSize(450, 220)
         
         self.titulo = titulo
@@ -17,7 +18,7 @@ class DialogoAviso(QDialog):
         self._aplicar_estilo()
 
     def _configurar_ui(self):
-        layout = QVBoxLayout(self)
+        layout = self.main_layout
         layout.setSpacing(20)
         layout.setContentsMargins(40, 40, 40, 30)
         
@@ -87,33 +88,34 @@ class DialogoAviso(QDialog):
         layout.addLayout(layout_botoes)
 
     def _aplicar_estilo(self):
-        # Estilo Estrito v0.5.3 (Dark Text, White BG)
+        # Estilo Estrito conforme REGRA 2 (#F8F9FA / #2C3E50)
         self.setStyleSheet("""
             QDialog {
-                background-color: #FFFFFF;
+                background-color: #F8F9FA;
             }
             QLabel {
-                color: #2c3e50; /* Cinza Escuro/Preto */
+                color: #2C3E50;
                 font-family: "Segoe UI";
             }
             QPushButton {
                 background-color: #FFFFFF;
-                border: 1px solid #BDC3C7;
+                border: 1px solid #D1D5DB;
                 border-radius: 6px;
-                color: #2c3e50;
+                color: #2C3E50;
                 font-weight: 600;
                 font-size: 13px;
+                min-height: 40px;
             }
             QPushButton:hover {
-                background-color: #ECF0F1;
-                border-color: #95A5A6;
+                background-color: #F3F4F6;
+                border-color: #9CA3AF;
             }
             QPushButton[class="acao"] {
-                background-color: #2c3e50;
+                background-color: #374151; /* Dark Gray do App */
                 color: #FFFFFF;
                 border: none;
             }
             QPushButton[class="acao"]:hover {
-                background-color: #34495E;
+                background-color: #1F2937;
             }
         """)
