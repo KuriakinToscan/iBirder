@@ -103,29 +103,50 @@ class VocalDetailDialog(BaseDialog):
         self.main_layout.addLayout(layout_botoes)
 
     def preencher_dados(self):
-        # 0. Carregar Player (Robusto v0.8.2)
+        # 0. Carregar Player (Robusto v0.8.9)
         url_audio = (
             self.audio_data.get('url') or 
             self.audio_data.get('link_audio') or 
             self.audio_data.get('file_url')
         )
         
-        # Sanitização failsafe de URL
-        if url_audio and url_audio.startswith('//'):
-            url_audio = 'https:' + url_audio
+        # Sanitização agressiva de URL (v0.8.9 - Forçar HTTPS p/ Chromium)
+        if url_audio:
+            if url_audio.startswith('//'):
+                url_audio = 'https:' + url_audio
+            elif url_audio.startswith('http://'):
+                url_audio = url_audio.replace('http://', 'https://', 1)
             
         if url_audio:
+            print(f"[VocalDetailDialog] Carregando Player com URL: {url_audio}")
             html = f"""
+            <!DOCTYPE html>
             <html><head><style>
-                body {{ margin: 0; padding: 0; background: transparent; display: flex; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }}
-                audio {{ width: 100%; outline: none; }}
+                body {{ 
+                    margin: 0; padding: 0; background: transparent; 
+                    display: flex; align-items: center; justify-content: center; 
+                    height: 100vh; overflow: hidden; 
+                }}
+                audio {{ width: 95%; outline: none; }}
             </style></head><body>
-                <audio controls controlsList="nodownload"><source src="{url_audio}"></audio>
+                <audio id="player" controls controlsList="nodownload" preload="auto">
+                    <source src="{url_audio}" type="audio/mpeg">
+                    <source src="{url_audio}" type="audio/wav">
+                    <source src="{url_audio}">
+                    Seu navegador não suporta áudio.
+                </audio>
+                <script>
+                    var audio = document.getElementById('player');
+                    audio.onerror = function() {{
+                        document.body.innerHTML = "<div style='color:#6B7280; font-family:sans-serif; text-align:center;'>Falha ao carregar áudio (Erro de Rede/Formato)</div>";
+                    }};
+                </script>
             </body></html>
             """
             self.webview_player.setHtml(html)
         else:
-            self.webview_player.setHtml("<html><body style='color:#6B7280; font-family:sans-serif; display:flex; align-items:center; justify-content:center; height:100vh;'>Áudio não disponível</body></html>")
+            print("[VocalDetailDialog] Nenhuma URL de áudio encontrada para carregamento.")
+            self.webview_player.setHtml("<html><body style='color:#6B7280; font-family:sans-serif; display:flex; align-items:center; justify-content:center; height:100vh;'>Áudio não disponível na sessão</body></html>")
 
         # 1. Carregar ID e Fonte
         id_reg = self.audio_data.get('id_original') or self.audio_data.get('id', '-')

@@ -1326,6 +1326,7 @@ class JanelaPrincipal(QMainWindow):
             
     def _abrir_detalhes_vocal(self, audio_data):
         """Abre a janela de auditoria detalhada ao clicar no ícone vocal (v1.3.1)."""
+        print(f"[UI] Abrindo Detalhes Vocal: ID {audio_data.get('id')} | URL: {audio_data.get('url')}")
         dialog = VocalDetailDialog(audio_data, self)
         dialog.exec()
             
