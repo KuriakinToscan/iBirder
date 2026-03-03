@@ -62,11 +62,21 @@ class SessionLogger:
         self.buffer = []
 
     def atualizar_ultimo_registro(self, novos_dados: dict):
-        """Atualiza o último registro no RAM Logger, ou cria um novo se estiver vazio (v0.8.7)."""
+        """Atualiza o último registro no RAM Logger, ou cria um novo se estiver vazio (v0.8.7).
+        Garante que valores nulos/vazios não sobrescrevam dados já existentes (v0.9.5)."""
         try:
             if self.buffer and isinstance(self.buffer, list):
-                # Recupera a última entrada (Etapa 1) e injeta/sobrescreve os dados agregados na Memória VRAM
-                self.buffer[-1].update(novos_dados)
+                ultimo = self.buffer[-1]
+                # Injetamos apenas dados novos ou que não sejam vazios onde já existe valor
+                for k, v in novos_dados.items():
+                    pode_atualizar = True
+                    # Se ja temos um valor bom e o novo é ruim, ignoramos
+                    if k in ultimo and v in [None, "", "Desconhecida", "Desconhecido", "N/D"]:
+                         if ultimo[k] not in [None, "", "Desconhecida", "Desconhecido", "N/D"]:
+                              pode_atualizar = False
+                    
+                    if pode_atualizar:
+                        ultimo[k] = v
             else:
                 # Se o buffer estiver vazio (ex: após busca manual/reset), criamos a entrada agora
                 self.registrar_identificacao(novos_dados)

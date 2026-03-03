@@ -36,8 +36,13 @@ class EBirdWorker(QThread):
         if is_fallback:
             try:
                 logging.debug(f"Buscando taxonomia no iNaturalist para {self.scientific_name}...")
-                inat_url = f"https://api.inaturalist.org/v1/taxa?q={self.scientific_name}&is_active=true&rank=species"
-                resp_inat = requests.get(inat_url, timeout=10)
+                inat_url = "https://api.inaturalist.org/v1/taxa"
+                params = {
+                    "q": self.scientific_name,
+                    "is_active": "true",
+                    "rank": "species"
+                }
+                resp_inat = requests.get(inat_url, params=params, timeout=10)
                 
                 if resp_inat.status_code == 200:
                     data = resp_inat.json()

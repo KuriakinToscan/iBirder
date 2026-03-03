@@ -33,8 +33,13 @@ class IUCNWorker(QThread):
         if is_fallback:
             try:
                 logging.debug(f"Buscando ID no iNaturalist para {self.scientific_name}...")
-                search_url = f"https://api.inaturalist.org/v1/taxa?q={self.scientific_name}&is_active=true&rank=species"
-                resp_search = requests.get(search_url, timeout=10)
+                search_url = "https://api.inaturalist.org/v1/taxa"
+                params = {
+                    "q": self.scientific_name,
+                    "is_active": "true",
+                    "rank": "species"
+                }
+                resp_search = requests.get(search_url, params=params, timeout=10)
                 
                 if resp_search.status_code == 200:
                     search_data = resp_search.json()
