@@ -3,7 +3,7 @@ try:
     import requests
 except ImportError:
     requests = None
-import traceback
+import logging
 import math
 import re
 
@@ -68,9 +68,9 @@ class AudioWorker(QThread):
         self.pais = pais or 'Brazil'
 
     def run(self):
-        print(f"[AUDIO] AudioWorker v0.8.2 iniciado para {self.scientific_name}")
+        logging.info(f"Iniciando busca de vocalizações para {self.scientific_name}")
         if not self.scientific_name or "Inconclusiva" in self.scientific_name:
-            print(f"[AudioWorker] Busca abortada: Nome '{self.scientific_name}' inválido.")
+            logging.warning(f"Busca de áudio abortada: Nome '{self.scientific_name}' inválido.")
             self.search_failed.emit()
             return
 
@@ -108,14 +108,13 @@ class AudioWorker(QThread):
                 final_results.append(audio)
             
             if final_results:
-                print(f"[AUDIO] iNaturalist concêntrico concluído. {len(final_results)} selecionados.")
+                logging.debug(f"Busca iNaturalist concluída. {len(final_results)} sons selecionados.")
                 self.audio_found.emit(final_results)
             else:
                 self.search_failed.emit()
 
         except Exception as e:
-            print(f"[AUDIO] Erro fatal no worker: {e}")
-            traceback.print_exc()
+            logging.error(f"Erro no AudioWorker: {e}", exc_info=True)
             self.search_failed.emit()
 
     def _calcular_camada_geografica(self, audio):

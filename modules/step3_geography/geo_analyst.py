@@ -1,5 +1,5 @@
-import json
 import os
+import logging
 from geopy.geocoders import Nominatim
 from shapely.geometry import shape, Point
 
@@ -23,18 +23,18 @@ class GeoAnalyst:
         self._initialized = True
 
     def _load_biomes(self):
-        print("[GEO] Carregando arquivo de biomas (GeoJSON)...")
+        logging.debug("Carregando arquivo de biomas (GeoJSON)...")
         try:
             # Ajuste o caminho conforme a estrutura do usuário
             path = os.path.join("Geo", "biomas.geojson")
             if os.path.exists(path):
                 with open(path, 'r', encoding='utf-8') as f:
                     self.biomes_data = json.load(f)
-                print(f"[GEO] Sucesso! {len(self.biomes_data['features'])} polígonos carregados.")
+                logging.debug(f"Sucesso! {len(self.biomes_data['features'])} polígonos de bioma carregados.")
             else:
-                print(f"[GEO] ERRO: Arquivo não encontrado em {path}")
+                logging.warning(f"Arquivo de biomas não encontrado em {path}")
         except Exception as e:
-            print(f"[GEO] ERRO CRÍTICO ao carregar JSON: {e}")
+            logging.error(f"Erro crítico ao carregar JSON de biomas: {e}")
 
     def get_biome(self, lat, lon):
         """Verifica em qual polígono do GeoJSON o ponto cai (com Cache Otimizado)."""
@@ -44,7 +44,7 @@ class GeoAnalyst:
         # Arredonda para 4 casas decimais (~11m, alta precisão local mas funde pixels vizinhos)
         cache_key = (round(lat, 4), round(lon, 4))
         if cache_key in self._biome_cache:
-            print("[GEO] Cache hit! Bioma recuperado instantaneamente.")
+            logging.debug("Cache hit! Bioma recuperado instantaneamente.")
             return self._biome_cache[cache_key]
 
         # Importante: GeoJSON usa (Longitude, Latitude)
@@ -64,7 +64,7 @@ class GeoAnalyst:
 
     def get_full_details(self, lat, lon):
         """Retorna dicionário completo: Endereço Estruturado + Bioma"""
-        print(f"[GEO] Iniciando análise para Lat: {lat}, Lon: {lon}")
+        logging.info(f"Iniciando análise geográfica para Lat: {lat}, Lon: {lon}")
         
         # Inicializa com valores padrão
         details = {
@@ -79,7 +79,7 @@ class GeoAnalyst:
 
         # 1. Busca Administrativa (Online)
         try:
-            print("[GEO] Consultando API Nominatim (Endereço)...")
+            logging.debug("Consultando API Nominatim (Endereço)...")
             location = self.geolocator.reverse((lat, lon), exactly_one=True, language='pt-br')
             if location:
                 address = location.raw.get('address', {})
@@ -109,17 +109,17 @@ class GeoAnalyst:
                     "Não identificada"
                 )
                 
-                print(f"[GEO] Endereço estruturado obtido.")
+                logging.debug(f"Endereço estruturado obtido.")
         except Exception as e:
-            print(f"[GEO] Erro na API Nominatim: {e}")
+            logging.error(f"Erro na API Nominatim: {e}")
 
         # 2. Busca Ecológica (Offline)
         try:
-            print("[GEO] Calculando Bioma (Geometria)...")
+            logging.debug("Calculando Bioma (Geometria)...")
             details["bioma"] = self.get_biome(lat, lon)
-            print(f"[GEO] Bioma detectado: {details['bioma']}")
+            logging.info(f"Bioma detectado: {details['bioma']}")
         except Exception as e:
-             print(f"[GEO] Erro ao processar bioma: {e}")
+             logging.error(f"Erro ao processar bioma: {e}")
              details["bioma"] = "Erro no processamento"
 
         return details

@@ -2,6 +2,7 @@ import time
 import random
 import urllib.parse
 import re
+import logging
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -59,29 +60,29 @@ class BuscadorBlindado:
 
     def buscar_link_wikiaves(self, scientific_name):
 
-        print(f"\n🚀 Buscando: {scientific_name}")
+        logging.info(f"Buscando no WikiAves: {scientific_name}")
 
         link = self._tentar_google(scientific_name)
 
         if not link:
-            print("⚠ Google falhou. Tentando Bing...")
+            logging.debug("Google falhou. Tentando Bing...")
             link = self._tentar_bing(scientific_name)
 
         if link:
-            print(f"✅ Link encontrado: {link}")
+            logging.info(f"Link WikiAves encontrado: {link}")
             return link
         else:
-            print("❌ Nenhum link encontrado.")
-            self.driver.save_screenshot("erro_tela.png")
+            logging.warning("Nenhum link WikiAves encontrado.")
+            # self.driver.save_screenshot("erro_tela.png") # Removido para limpeza de lixo
             return None
 
     def buscar_link_ebird(self, scientific_name):
-        print(f"\n🦅 Buscando eBird: {scientific_name}")
+        logging.info(f"Buscando eBird: {scientific_name}")
         try:
             query = f'site:ebird.org "{scientific_name}"'
             url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
 
-            print(f"🔎 Google (eBird): {url}")
+            logging.debug(f"Google (eBird): {url}")
             self.driver.get(url)
 
             self._espera_humana()
@@ -106,7 +107,7 @@ class BuscadorBlindado:
 
             return None
         except Exception as e:
-            print(f"Erro ao buscar eBird: {e}")
+            logging.error(f"Erro ao buscar eBird: {e}")
             return None
 
     # ==================================================
@@ -119,7 +120,7 @@ class BuscadorBlindado:
             query = f'site:wikiaves.com.br "{term}"'
             url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
 
-            print(f"🔎 Google: {url}")
+            logging.debug(f"Pesquisa Google: {url}")
             self.driver.get(url)
 
             self._espera_humana()
@@ -143,10 +144,10 @@ class BuscadorBlindado:
             return None
 
         except TimeoutException:
-            print("⏳ Google não retornou resultados válidos.")
+            logging.debug("Google não retornou resultados válidos (Timeout).")
             return None
         except Exception as e:
-            print(f"Erro Google: {e}")
+            logging.error(f"Erro no Scraper (Google): {e}")
             return None
 
     # ==================================================
@@ -159,7 +160,7 @@ class BuscadorBlindado:
             query = f'site:wikiaves.com.br "{term}"'
             url = f"https://www.bing.com/search?q={urllib.parse.quote(query)}"
 
-            print(f"🔎 Bing: {url}")
+            logging.debug(f"Pesquisa Bing: {url}")
             self.driver.get(url)
 
             self._espera_humana()
@@ -182,10 +183,10 @@ class BuscadorBlindado:
             return None
 
         except TimeoutException:
-            print("⏳ Bing não retornou resultados válidos.")
+            logging.debug("Bing não retornou resultados válidos (Timeout).")
             return None
         except Exception as e:
-            print(f"Erro Bing: {e}")
+            logging.error(f"Erro no Scraper (Bing): {e}")
             return None
 
     # ==================================================
@@ -194,7 +195,7 @@ class BuscadorBlindado:
 
     def extrair_dados_especie(self, url):
 
-        print(f"📖 Extraindo dados de: {url}")
+        logging.debug(f"Extraindo dados de: {url}")
 
         self.driver.get(url)
 

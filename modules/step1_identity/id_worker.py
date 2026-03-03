@@ -1,6 +1,5 @@
-import sys
-import numpy as np
 import time
+import logging
 from PySide6.QtCore import QThread, Signal
 from PIL import Image
 
@@ -26,9 +25,18 @@ def free_interpreter_cache():
     """Gatilho dinâmico invocado pelo Orchestrator pós Hot-Swap para resetar o Cérebro."""
     global _interpreter_cache
     _interpreter_cache = None
-    print("[IA] Cache do Interpretador limpo para recarga OTA.")
+    logging.debug("Cache do Interpretador limpo para recarga OTA.")
 
 class LocalIdentificationWorker(QThread):
+    """
+    Motor de Identificação Local (Etapa 1).
+    Realiza a inferência de IA usando modelos TFLite treinados na base do iNaturalist.
+    Gerencia:
+    1. Download e cache automático de modelos (ModelManager).
+    2. Pré-processamento de imagem (Resize, Normalização).
+    3. Inferência local sem necessidade de internet pós-download.
+    4. Rollback automático em caso de corrupção do modelo recebido via OTA.
+    """
     progress_updated = Signal(str)
     finished = Signal(dict)
     error = Signal(str)
@@ -60,7 +68,9 @@ class LocalIdentificationWorker(QThread):
             if self._stopped:
                 return
 
-            # 2. Carregar Modelo (Cache Global)
+            # 2. Carregar Modelo (Instanciação do Interpretador com Cache Global)
+            # O interpretador é mantido em memória (cache) para evitar o custo de carregamento 
+            # de 4-6 segundos em cada nova identificação.
             start_time = time.time()
             if _interpreter_cache is None:
                 self.progress_updated.emit("Carregando cérebro digital...")
@@ -100,22 +110,22 @@ class LocalIdentificationWorker(QThread):
                  # Normalização padrão se for float (-1 a 1)
                  img_array = (np.float32(img_array) - 127.5) / 127.5
 
-            # Add batch dimension
+            # Adiciona dimensão de batch (Exemplo: [1, 224, 224, 3])
             input_data = np.expand_dims(img_array, axis=0)
 
-            # Inferência com Rollback OTA (Fase C)
+            # 4. Inferência Assistida (Fase C: Robusta contra falhas de atualização)
             try:
                 start_infer_time = time.time()
                 interpreter.set_tensor(input_details[0]['index'], input_data)
                 interpreter.invoke()
                 infer_ms = (time.time() - start_infer_time) * 1000
-                print(f"[IA TELEMETRY] Inferência local (iNaturalist Vision) bem-sucedida em {infer_ms:.2f}ms.")
+                logging.debug(f"Inferência local (iNaturalist Vision) bem-sucedida em {infer_ms:.2f}ms.")
             except Exception as invoke_err:
-                print(f"[OTA ROLLBACK] Falha crítica de inferência: {invoke_err}.")
+                logging.critical(f"Falha crítica de inferência: {invoke_err}.")
                 import shutil, os
                 backup_dir = manager.assets_dir.parent / "models_back"
                 if backup_dir.exists():
-                    print("[OTA ROLLBACK] Modelo incompatível/corrompido. Revertendo para cópia de segurança...")
+                    logging.warning("Modelo incompatível ou corrompido detectado. Revertendo para cópia de segurança...")
                     shutil.rmtree(manager.assets_dir)
                     os.rename(backup_dir, manager.assets_dir)
                     free_interpreter_cache()
@@ -150,7 +160,7 @@ class LocalIdentificationWorker(QThread):
 
             # Carregar Labels
             labels = self._load_labels(manager.labels_path)
-            print(f'[IA] Labels carregados: {len(labels)}')
+            logging.debug(f'Labels carregados: {len(labels)}')
             
             try:
                 # Top-3 Format
@@ -179,11 +189,7 @@ class LocalIdentificationWorker(QThread):
                 self.error.emit(f"Erro: Índice {idx} fora dos limites ({len(labels)}).")
 
         except Exception as e:
-            print("-" * 50)
-            print("[ERRO FATAL] Detalhes da falha no download/inferência:")
-            import traceback
-            traceback.print_exc()
-            print("-" * 50)
+            logging.error("Erro fatal na análise de imagem:", exc_info=True)
             self.error.emit(f"Erro na análise: {str(e)}")
 
     def _emit_download_progress(self, msg):
@@ -206,7 +212,7 @@ class LocalIdentificationWorker(QThread):
                         name = line.split(',', 1)[1].strip() if ',' in line else line
                         labels.append(name)
         except Exception as e:
-            print(f"[IA] Erro ao ler labels: {e}")
+            logging.error(f"Erro ao ler labels: {e}")
             
         return labels
 

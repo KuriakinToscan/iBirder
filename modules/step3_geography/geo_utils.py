@@ -1,5 +1,6 @@
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
+import logging
 
 def get_decimal_from_dms(dms, ref):
     degrees = dms[0]
@@ -31,7 +32,7 @@ def extract_lat_lon(image_path):
 
         return lat, lon
     except Exception as e:
-        print(f"Erro ao ler EXIF: {e}")
+        logging.debug(f"Erro ao ler EXIF de {image_path}: {e}")
         return None
 
 try:
@@ -45,7 +46,7 @@ def search_location(query, user_agent="ibirder_app_v0.3.7"):
     Retorna uma lista de dicionários: [{'address': str, 'lat': float, 'lon': float}, ...]
     """
     if Nominatim is None:
-        print("Geopy não instalado. Instale com 'pip install geopy'.")
+        logging.warning("Geopy não instalado. Instale com 'pip install geopy'.")
         return []
 
     try:
@@ -62,5 +63,5 @@ def search_location(query, user_agent="ibirder_app_v0.3.7"):
                 })
         return results
     except Exception as e:
-        print(f"Erro na busca de localização: {e}")
+        logging.error(f"Erro na busca de localização: {e}")
         return []

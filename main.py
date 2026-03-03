@@ -44,7 +44,7 @@ def limpar_temp():
         try:
             shutil.rmtree(temp_dir)
         except Exception as e:
-            print(f"Erro ao limpar temp: {e}") 
+            logging.error(f"Erro ao limpar temp: {e}") 
 
 def verificar_ambiente_virtual():
     """Verifica se a pasta .venv existe no diretório do projeto."""
@@ -96,7 +96,7 @@ def verificar_e_criar_atalho():
             criar_atalho_windows(atalho_path)
 
     except Exception as e:
-        print(f"Erro ao verificar atalho: {e}")
+        logging.warning(f"Erro ao verificar atalho: {e}")
 
 def criar_atalho_windows(atalho_path):
     """Cria atalho usando PowerShell."""
@@ -156,7 +156,7 @@ def garantir_dependencias():
         try:
             __import__(import_name)
         except ImportError:
-            # print(f"[AUTO-REPARO] Import {import_name} falhou. Instalando {package_name}...")
+            logging.warning(f"[AUTO-REPARO] Import {import_name} falhou. Instalando {package_name}...")
             try:
                 subprocess.check_call([sys.executable, "-m", "pip", "install", package_name], 
                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -166,15 +166,16 @@ def garantir_dependencias():
 import traceback
 
 def exception_hook(exctype, value, tb):
-    print("[CRASH] Exceção não tratada:")
-    traceback.print_exception(exctype, value, tb)
+    logging.critical("Exceção não tratada detectada:", exc_info=(exctype, value, tb))
     sys.exit(1)
 
 sys.excepthook = exception_hook
 
 if __name__ == "__main__":
-    print("[BOOT] Iniciando aplicação...")
-    
+    # 1. Init Logger
+    logger = setup_logger()
+    logging.info("Iniciando iBirder...")
+
     # 0. Self-Healing
     garantir_dependencias()
 
@@ -185,12 +186,9 @@ if __name__ == "__main__":
         from PIL import Image
     except ImportError:
         AI_ENGINE_STATUS = 'RESTART_REQUIRED'
-        # Não impedimos o app de abrir, apenas sinalizamos
+        logging.warning("Pillow não encontrado. IA pode exigir reinicialização.")
 
-    # 1. Init Logger
-    logger = setup_logger()
-
-    print("[BOOT] Criando QApplication...")
+    logging.info("Criando QApplication...")
     app = QApplication(sys.argv)
     
     # 1. Verificação de Ambiente (.venv)
@@ -214,11 +212,11 @@ if __name__ == "__main__":
     StyleManager.apply_theme(app, dark_mode=dark_mode)
 
     # 5. Inicia Janela Principal (Modo Local)
-    print("[BOOT] Criando JanelaPrincipal...")
+    logging.info("Criando JanelaPrincipal...")
     janela = JanelaPrincipal(ai_status=AI_ENGINE_STATUS)
     
-    print("[BOOT] Exibindo janela...")
+    logging.info("Exibindo janela...")
     janela.show()
 
-    print("[BOOT] Entrando no loop de eventos.")
+    logging.info("Entrando no loop de eventos.")
     sys.exit(app.exec())

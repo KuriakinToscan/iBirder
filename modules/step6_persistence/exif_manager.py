@@ -22,9 +22,13 @@ class EXIFManager:
         
     def escrever_metadados_completos(self, caminho_imagem, dados, opcoes):
         """
-        Executa a gravação em lote utilizando o ExifTool e um arquivo de argumentos.
-        Utiliza o padrão Darwin Core (DWC) para taxonomia e Hierarchical Keywords
-        para criar as seções estruturadas do iBirder.
+        Gatilho Mestre de Escrita.
+        - caminho_imagem: Path absoluto do arquivo JPG.
+        - dados: Dicionário vindo da caderneta de campo (Orchestrator).
+        - opcoes: Preferências do usuário (Gravar GPS, Gravar Tags, etc).
+        
+        Utiliza o padrão Darwin Core (DWC) para taxonomia científica e 
+        Hierarchical Keywords (XMP-lr) para árvore de filtros em softwares de gestão.
         """
         if not os.path.exists(self.exiftool_path):
             raise FileNotFoundError(f"Binário ExifTool não encontrado em: {self.exiftool_path}")
@@ -43,6 +47,9 @@ class EXIFManager:
                     f.write(f"{cmd}\n")
                 argfile_path = f.name
 
+            # Chamada industrial ao ExifTool via Subprocess
+            # O uso de '-@' com argfile previne quebras de string em nomes científicos complexos
+            # ou biomas com caracteres UTF-8 no Windows Shell.
             resultado = subprocess.run(
                 [self.exiftool_path, "-charset", "filename=utf8", "-@", argfile_path, caminho_imagem],
                 capture_output=True,
@@ -53,14 +60,14 @@ class EXIFManager:
             if argfile_path and os.path.exists(argfile_path): os.remove(argfile_path)
 
             if resultado.returncode != 0:
-                print(f"[EXIFManager] Erro ExifTool: {resultado.stderr}")
+                logging.error(f"Erro ExifTool: {resultado.stderr}")
                 return False
                 
-            print(f"[EXIFManager] Metadados iBirder gravados com sucesso em {Path(caminho_imagem).name}")
+            logging.info(f"Metadados iBirder gravados com sucesso em {Path(caminho_imagem).name}")
             return True
 
         except Exception as e:
-            print(f"[EXIFManager] Falha crítica na gravação: {e}")
+            logging.error(f"Falha crítica na gravação EXIF: {e}")
             if argfile_path and os.path.exists(argfile_path): os.remove(argfile_path)
             return False
 
@@ -109,6 +116,10 @@ class EXIFManager:
         # 2. SEÇÃO iBirder: Tags Hierárquicas (Visível como Árvore no digiKam/Lightroom)
         # Formato: iBirder|Subseção|Chave|Valor
         def add_hier(subs, chave, valor):
+            """
+            Auxiliar para criar tags hierárquicas compatíveis com Lightroom e digiKam.
+            Cria uma estrutura: iBirder -> Seção -> Atributo -> Valor
+            """
             if valor and valor != "N/A":
                 cmds.append(f"-XMP-lr:HierarchicalSubject+=iBirder|{subs}|{chave}|{valor}")
                 cmds.append(f"-XMP-mwg-rs:HierarchicalSubject+=iBirder|{subs}|{chave}|{valor}")
@@ -168,7 +179,7 @@ class EXIFManager:
                 cmds.append("-GPSLatitudeRef#")
                 cmds.append("-GPSLongitudeRef#")
         elif gps_existente:
-            print("[EXIFManager] GPS original detectado. Preservando coordenadas existentes.")
+            logging.debug("GPS original detectado na imagem. Preservando coordenadas existentes.")
 
         # 7. Finalização
         cmds.append("-Software=iBirder")
@@ -176,7 +187,3 @@ class EXIFManager:
         cmds.append("-overwrite_original")
         
         return cmds
-
-
-
-

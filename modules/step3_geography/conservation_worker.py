@@ -1,4 +1,5 @@
 ﻿import requests
+import logging
 from PySide6.QtCore import QThread, Signal
 
 class NationalConservationWorker(QThread):
@@ -30,7 +31,7 @@ class NationalConservationWorker(QThread):
         self.country = country or "Brazil"
 
     def run(self):
-        print(f"[ConservationWorker] Iniciando análise para: {self.scientific_name} (País: {self.country})")
+        logging.info(f"Iniciando análise de conservação nacional para: {self.scientific_name}")
         
         results = {
             "status_icmbio": "Não Avaliado",
@@ -52,7 +53,7 @@ class NationalConservationWorker(QThread):
             
             self.finished.emit(results)
         except Exception as e:
-            print(f"[ConservationWorker] Erro: {e}")
+            logging.error(f"Erro no ConservationWorker: {e}")
             self.error_occurred.emit(str(e))
 
     def _fetch_cites_status(self, results):

@@ -1,5 +1,5 @@
-
 from PySide6.QtCore import QThread, Signal
+import logging
 from modules.step2_biology.wiki_scraper import BuscadorBlindado
 
 class BuscadorWorker(QThread):
@@ -11,9 +11,9 @@ class BuscadorWorker(QThread):
         self.scientific_name = scientific_name
 
     def run(self):
-        # Validação de segurança v0.6.1
+        # Validação de segurança
         if not self.scientific_name or "Inconclusiva" in self.scientific_name:
-            print(f"[WIKI] Busca abortada: Nome '{self.scientific_name}' é considerado inválido/inconclusivo.")
+            logging.warning(f"Busca Wiki abortada: Nome '{self.scientific_name}' inválido.")
             self.error_occurred.emit("Identificação inconclusiva. Aguardando entrada manual.")
             return
 
@@ -31,7 +31,7 @@ class BuscadorWorker(QThread):
                 link_ebird = bot.buscar_link_ebird(self.scientific_name)
                 if link_ebird:
                     dados['link_ebird'] = link_ebird
-                    print(f"[WIKI] Link eBird robusto encontrado: {link_ebird}")
+                    logging.debug(f"Link eBird encontrado: {link_ebird}")
                 
                 dados['original_scientific_name'] = self.scientific_name
                 self.info_found.emit(dados)
