@@ -63,14 +63,14 @@ class SessionLogger:
         self.buffer = []
 
     def atualizar_ultimo_registro(self, novos_dados: dict):
-        """Atualiza o último registro no RAM Logger, sem bater no disco."""
+        """Atualiza o último registro no RAM Logger, ou cria um novo se estiver vazio (v0.8.7)."""
         try:
             if self.buffer and isinstance(self.buffer, list):
                 # Recupera a última entrada (Etapa 1) e injeta/sobrescreve os dados agregados na Memória VRAM
                 self.buffer[-1].update(novos_dados)
-                
-                # Flush automático removido em v0.4.4 para consolidar no final do pipeline
-                pass
+            else:
+                # Se o buffer estiver vazio (ex: após busca manual/reset), criamos a entrada agora
+                self.registrar_identificacao(novos_dados)
                     
         except Exception as e:
             print(f"[SessionLogger] Erro ao atualizar_ultimo_registro na Memória: {e}")
