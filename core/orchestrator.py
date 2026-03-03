@@ -309,7 +309,13 @@ class Orchestrator(QObject):
             "link_iucn": f"https://www.iucnredlist.org/search?query={sci_name.replace(' ', '+')}&searchType=species"
         }
         try:
-            resp = requests.get(f"https://api.inaturalist.org/v1/taxa?q={sci_name}&is_active=true&rank=species", timeout=3)
+            url = "https://api.inaturalist.org/v1/taxa"
+            params = {
+                "q": sci_name,
+                "is_active": "true",
+                "rank": "species"
+            }
+            resp = requests.get(url, params=params, timeout=3)
             if resp.status_code == 200 and resp.json().get("results"):
                 cs = resp.json()["results"][0].get("conservation_status")
                 fallback_res["iucn_status"] = f"{cs.get('status', 'Não Avaliado').upper()} (via iNaturalist)" if cs else "Não Avaliado / Seguro (via iNaturalist)"
@@ -526,15 +532,17 @@ class Orchestrator(QObject):
             self.species_cache[sci_name] = results
             
         if self.session_logger:
-            self.session_logger.atualizar_ultimo_registro({
-                "nome_ingles": results.get("nome_ingles", ""),
-                "classe": results.get("classe", "Aves"),
-                "ordem": results.get("ordem", ""),
-                "familia": results.get("familia", ""),
-                "ebird_code": results.get("ebird_code", ""),
-                "raridade_regional": results.get("raridade_regional", ""),
-                "link_ebird": results.get("link_ebird", "")
-            })
+            # Lógica de Proteção de Dados (v0.9.5):
+            # Só atualizamos se o eBird trouxer algo válido, evitando sobrescrever dados bons do WikiAves.
+            tax_patch = {}
+            for chave in ["nome_ingles", "classe", "ordem", "familia", "ebird_code", "raridade_regional", "link_ebird"]:
+                valor = results.get(chave)
+                if valor and str(valor) not in ["", "Desconhecida", "Desconhecido", "N/A", "N/D"]:
+                    tax_patch[chave] = valor
+            
+            if tax_patch:
+                self.session_logger.atualizar_ultimo_registro(tax_patch)
+                
         self.step5_ebird_concluido.emit(results)
         
         # Batch Flush Finalizado (v0.4.4)

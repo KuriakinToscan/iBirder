@@ -29,9 +29,10 @@ class ReferenceImageWorker(QThread):
             
             # 1. API iNaturalist (v1/taxa)
             # Docs: https://api.inaturalist.org/v1/docs/#!/Taxa/get_taxa
-            url = f"https://api.inaturalist.org/v1/taxa?q={urllib.parse.quote(self.species_name)}&is_active=true&rank=species"
+            url = "https://api.inaturalist.org/v1/taxa"
             params = {
-                'q': self.species_name, # Este 'q' será sobrescrito pelo 'q' na URL, mas mantido para clareza
+                'q': self.species_name,
+                'is_active': 'true',
                 'rank': 'species',
                 'per_page': 1
             }

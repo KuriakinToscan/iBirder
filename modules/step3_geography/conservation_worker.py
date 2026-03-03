@@ -61,8 +61,9 @@ class NationalConservationWorker(QThread):
         """Busca status na API do Species+/CITES (Simulação/Fallback iNaturalist)."""
         # Em v1.0.0 usamos o iNaturalist como proxy para CITES quando disponível
         try:
-            url = f"https://api.inaturalist.org/v1/taxa?q={self.scientific_name}"
-            resp = requests.get(url, timeout=5)
+            url = "https://api.inaturalist.org/v1/taxa"
+            params = {"q": self.scientific_name}
+            resp = requests.get(url, params=params, timeout=5)
             if resp.status_code == 200:
                 data = resp.json()
                 if data.get("results"):
@@ -79,8 +80,12 @@ class NationalConservationWorker(QThread):
         try:
             # Consulta ao Catálogo Taxonômico (JBRJ) - Simulado via API iNaturalist / Proxy
             # No futuro, aqui consultaria o dataset oficial do Zenodo/JBRJ
-            url = f"https://api.inaturalist.org/v1/taxa?q={self.scientific_name}&place_id=6857" # ID 6857 = Brasil
-            resp = requests.get(url, timeout=5)
+            url = "https://api.inaturalist.org/v1/taxa"
+            params = {
+                "q": self.scientific_name,
+                "place_id": 6857  # ID 6857 = Brasil
+            }
+            resp = requests.get(url, params=params, timeout=5)
             if resp.status_code == 200:
                 data = resp.json()
                 if data.get("results"):
