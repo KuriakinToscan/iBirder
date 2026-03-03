@@ -1,3 +1,5 @@
+import os
+import requests
 import json
 import logging
 from PySide6.QtCore import QThread, Signal, QSettings

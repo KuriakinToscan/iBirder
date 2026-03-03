@@ -1,5 +1,6 @@
 ﻿import requests
 import logging
+import requests
 from PySide6.QtCore import QThread, Signal
 
 class NationalConservationWorker(QThread):
