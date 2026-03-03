@@ -1670,6 +1670,7 @@ class JanelaPrincipal(QMainWindow):
         self.dados_identificacao_atual = {}
         self.last_iucn_data = {}
         self.last_conservation_data = {}
+        self.especie_em_processamento = None # Adicionado v0.9.6 - Blindagem de Reset
         
         self.card_ref.set_image_path(None)
         self.card_ref.set_placeholder("Aguardando identificação....")
@@ -1703,6 +1704,10 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_titulo_etimologia.setVisible(True)
         self.txt_etimologia.setVisible(True)
         
+        if hasattr(self, 'frame_etimologia'):
+            self.frame_etimologia.setVisible(False)
+            self.lbl_etimologia_texto.setText("Carregando...")
+
         if hasattr(self, 'lbl_taxonomia_texto'):
             self.lbl_taxonomia_texto.setText(self.PLACEHOLDER_TEXT)
             self._set_placeholder_style(self.lbl_taxonomia_texto, active=True)
