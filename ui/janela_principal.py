@@ -238,16 +238,19 @@ class JanelaPrincipal(QMainWindow):
         etimologia_texto = dados.get("etimologia", "")
         caracteristicas = dados.get("caracteristicas", "")
         
-        # LOGGING DE SESSÃO: ETAPA 2 (v1.6.3 / v1.6.10)
+        # LOGGING DE SESSÃO: ETAPA 2 (v1.6.3 / v0.8.8)
         dados_etapa_2 = {
+            "nome_cientifico": dados.get("original_scientific_name", self.dados_identificacao_atual.get("nome_cientifico", "")),
             "link_origem": dados.get("link_origem", ""),
-            "link_ebird": dados.get("link_ebird", ""), # Salvamento robusto v1.6.10
+            "link_ebird": dados.get("link_ebird", ""), 
             "descricao": caracteristicas,
             "nome_comum": dados.get("nome_comum", ""),
             "nome_ingles": dados.get("nome_ingles", ""),
             "etimologia": etimologia_texto,
             "ordem": dados.get("ordem", "Desconhecida"),
-            "familia": dados.get("familia", "Desconhecida")
+            "familia": dados.get("familia", "Desconhecida"),
+            "latitude": self.lat_atual,
+            "longitude": self.lon_atual
         }
         
         if hasattr(self, 'session_logger'):
@@ -302,7 +305,14 @@ class JanelaPrincipal(QMainWindow):
         if (ordem and ordem != "Desconhecida") or (familia and familia != "Desconhecida"):
             print(f"[UI] Taxonomia recebida do WikiAves: {ordem} / {familia}")
             self._atualizar_card_taxonomia(ordem=ordem, familia=familia)
-        self.frame_etimologia.setVisible(False) # Esconde o antigo frame do iNaturalist se ainda visível
+            
+        # Ativa o botão de gravação (v0.8.9)
+        # Se chegamos aqui, temos dados biológicos mínimos para persistir.
+        if hasattr(self, 'btn_gravar_exif'):
+            self.btn_gravar_exif.setEnabled(True)
+            self.btn_gravar_exif.setVisible(True)
+            
+        self.frame_etimologia.setVisible(False)
 
         # --- ATUALIZAR MAPA COM GBIF (v0.3.8) ---
         # Se temos nome científico e o mapa está ativo, atualizamos a camada
@@ -573,9 +583,9 @@ class JanelaPrincipal(QMainWindow):
         container_busca.addWidget(self.input_especie)
         container_busca.addWidget(self.btn_search)
         layout_res.addLayout(container_busca)
-        layout_res.addWidget(self.lbl_nome_comum)
         layout_res.addWidget(self.lbl_certeza)
         layout_res.addWidget(self.lbl_candidatos)
+        layout_res.addWidget(self.lbl_nome_comum)
         layout_res.addWidget(self.lbl_nome_ingles)
 
         # [B] CARD ETIMOLOGIA
@@ -1430,8 +1440,9 @@ class JanelaPrincipal(QMainWindow):
 
     def _ao_concluir_conservacao_nacional(self, results):
         self.last_conservation_data = results
+        self._registrar_dados_geo_iucn()
         self._atualizar_card_conservacao()
-        self._atualizar_card_geografico() 
+        self._atualizar_card_geografico()
 
     def _atualizar_card_geografico(self):
         """Formata o lbl_geo_details com endereço, bioma e endemismo (v1.6.19)."""
@@ -1553,28 +1564,28 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_taxonomia_texto.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
     def _registrar_dados_geo_iucn(self):
+        """Consolida e registra metadados de geografia e conservação na sessão atual (v0.8.8)."""
         geo = getattr(self, 'last_geo_data', {})
         iucn = getattr(self, 'last_iucn_data', {})
+        cons = getattr(self, 'last_conservation_data', {})
         
-        if not geo and not iucn: return
-        
-        link_gbif = ""
-
-        dados = {
-            "lat": self.lat_atual,
-            "lon": self.lon_atual,
-            "pais": geo.get("pais", "-"),
+        # Mapeamento robusto para garantir que o diálogo EXIF e o EXIFManager encontrem os dados
+        dados_consolidados = {
+            "latitude": self.lat_atual,
+            "longitude": self.lon_atual,
+            "pais": geo.get("pais", "Brasil"),
             "estado": geo.get("estado", "-"),
             "municipio": geo.get("municipio", "-"),
             "bioma": geo.get("bioma", "-"),
+            "endemismo": geo.get("endemico", "Não"),
             "iucn_status": iucn.get("iucn_status", "Não Avaliado"),
-            "link_gbif": link_gbif,
-            "link_iucn": iucn.get("link_iucn", ""),
-            "caminho_geojson": iucn.get("geojson_path", "")
+            "status_icmbio": cons.get("status_icmbio", "Não Avaliado"),
+            "status_cites": cons.get("status_cites", "Não Listado"),
+            "classe": "Aves"
         }
         
         if hasattr(self, 'session_logger'):
-             self.session_logger.atualizar_ultimo_registro(dados)
+             self.session_logger.atualizar_ultimo_registro(dados_consolidados)
 
     def _abrir_seletor_arquivo(self):
         self.activateWindow()
