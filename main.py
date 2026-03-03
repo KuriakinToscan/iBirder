@@ -5,6 +5,7 @@ import os
 import subprocess
 import shutil
 import atexit
+import logging
 from pathlib import Path
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon
