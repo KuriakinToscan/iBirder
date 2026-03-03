@@ -1,5 +1,6 @@
 from pathlib import Path
 import logging
+import platform
 
 class StyleManager:
     """Centralizador de Estilos e Temas do iBirder (v0.6.6)"""
