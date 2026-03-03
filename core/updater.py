@@ -1,5 +1,6 @@
-from PySide6.QtCore import QObject, Signal, QThread
+from pathlib import Path
 import logging
+from PySide6.QtCore import QObject, Signal, QThread
 
 class ModelUpdater(QObject):
     update_available = Signal(dict) # Emite info sobre a nova versão
