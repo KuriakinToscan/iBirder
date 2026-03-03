@@ -35,6 +35,7 @@ from ui.widgets.map_widget import MapWidget
 from ui.custom_widgets import ImageCardWidget, AudioPlayerWidget, VocalAuditCard
 from ui.dialogs.location_dialog import LocationDialog
 from ui.dialogs.vocal_detail_dialog import VocalDetailDialog
+from ui.dialogs.manual_dialog import ManualUsuarioDialog
 from modules.step3_geography.geo_analyst import GeoAnalyst
 from core.session_logger import SessionLogger
 from modules.step3_geography.iucn_worker import IUCNWorker
@@ -849,8 +850,9 @@ class JanelaPrincipal(QMainWindow):
         super().changeEvent(event)
 
     def _abrir_manual(self):
-        # Aqui podemos abrir uma janela de ajuda ou manual
-        pass
+        """Abre o Guia do Usuário detalhado."""
+        dialog = ManualUsuarioDialog(self)
+        dialog.exec()
 
     def _obter_sciname_atual(self):
         return self.dados_identificacao_atual.get("nome_cientifico", "")
