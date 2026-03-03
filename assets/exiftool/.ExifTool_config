@@ -1,0 +1,27 @@
+%Image::ExifTool::UserDefined = (
+    'Image::ExifTool::XMP::Main' => {
+        ibirder => {
+            SubDirectory => {
+                TagTable => 'Image::ExifTool::UserDefined::ibirder',
+            },
+        },
+    },
+);
+%Image::ExifTool::UserDefined::ibirder = (
+    GROUPS    => { 0 => 'XMP', 1 => 'XMP-ibirder', 2 => 'Author' },
+    NAMESPACE => { 'ibirder' => 'http://ns.ibirder.com/ibirder/1.0/' },
+    WRITABLE  => 'string',
+    TaxonScientificName => { },
+    TaxonCommonName     => { },
+    TaxonEnglishName    => { },
+    TaxonGenus          => { },
+    TaxonFamily         => { },
+    TaxonOrder          => { },
+    TaxonClass          => { },
+    GeoCountry          => { },
+    GeoState            => { },
+    GeoCity             => { },
+    GeoBiome            => { },
+    GeoEndemism         => { },
+);
+1;

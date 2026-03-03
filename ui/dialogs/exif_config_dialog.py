@@ -175,3 +175,7 @@ class ExifConfigDialog(QDialog):
         for chave, cb in self.checkboxes.items():
             self.opcoes_selecionadas[chave] = cb.isChecked()
         self.accept()
+
+    def get_selected_fields(self):
+        """Retorna o dicionário de campos selecionados pelo usuário (v0.8.8)."""
+        return self.opcoes_selecionadas
