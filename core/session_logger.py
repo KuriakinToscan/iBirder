@@ -1,6 +1,7 @@
 import tempfile
 import traceback
 import logging
+import json
 
 class SessionLogger:
     """
