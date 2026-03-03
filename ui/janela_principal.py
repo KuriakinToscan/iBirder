@@ -696,7 +696,7 @@ class JanelaPrincipal(QMainWindow):
         # [FILA 2] Ações Finais
         self.btn_nova = QPushButton("Nova Identificação")
         self.btn_nova.setCursor(Qt.PointingHandCursor)
-        self.btn_nova.clicked.connect(self._abrir_seletor_arquivo)
+        self.btn_nova.clicked.connect(self._ao_clicar_nova_identificacao)
         self.btn_gravar_exif = QPushButton("Gravar Dados na Fotografia")
         self.btn_gravar_exif.setCursor(Qt.PointingHandCursor)
         self.btn_gravar_exif.setEnabled(False)
@@ -1587,6 +1587,11 @@ class JanelaPrincipal(QMainWindow):
         
         if hasattr(self, 'session_logger'):
              self.session_logger.atualizar_ultimo_registro(dados_consolidados)
+
+    def _ao_clicar_nova_identificacao(self):
+        """Dispara um reset completo antes de abrir o seletor (v0.8.10)."""
+        self._resetar_interface(manter_imagem=False)
+        self._abrir_seletor_arquivo()
 
     def _abrir_seletor_arquivo(self):
         self.activateWindow()
