@@ -1,5 +1,6 @@
 import os
-from PySide6.QtCore import QObject, Signal
+import time
+from PySide6.QtCore import QObject, Signal, QThread
 
 # Importações dos Workers das Etapas
 from modules.step1_identity.id_worker import LocalIdentificationWorker
