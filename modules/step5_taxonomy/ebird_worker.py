@@ -1,5 +1,6 @@
 import requests
 import logging
+import json
 import urllib.parse
 from PySide6.QtCore import QThread, Signal, QSettings
 
