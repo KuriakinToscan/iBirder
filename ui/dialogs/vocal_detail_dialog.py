@@ -14,7 +14,7 @@ class VocalDetailDialog(BaseDialog):
     Interface simplificada com player no topo e foco na identificação.
     """
     def __init__(self, audio_data, parent=None):
-        super().__init__(parent)
+        super().__init__(title="Detalhes da Vocalização", parent=parent)
         self.audio_data = audio_data
         logging.debug(f"Inicializando VocalDetailDialog para ID: {self.audio_data.get('id')}")
         self.setFixedWidth(500)
