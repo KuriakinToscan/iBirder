@@ -47,18 +47,27 @@ class EBirdWorker(QThread):
                 if resp_inat.status_code == 200:
                     data = resp_inat.json()
                     if data.get("results") and len(data["results"]) > 0:
-                        taxon = data["results"][0]
-                        # resultados["nome_ingles"] = taxon.get("english_common_name", "Desconhecido")
+                        taxon_res = data["results"][0]
+                        tax_id = taxon_res.get("id")
                         
-                        # Procurar Ordem e Família nos ancestrais
-                        ancestors = taxon.get("ancestors", [])
-                        for anc in ancestors:
-                             rank = anc.get("rank", "")
-                             if rank == "order":
-                                  resultados["ordem"] = anc.get("name", "Desconhecida").capitalize()
-                             elif rank == "family":
-                                  resultados["familia"] = anc.get("name", "Desconhecida").capitalize()
+                        # Segunda Chamada (v0.9.9): Busca por ID para obter Ancestors detalhados
+                        if tax_id:
+                             resp_detail = requests.get(f"https://api.inaturalist.org/v1/taxa/{tax_id}", timeout=5)
+                             if resp_detail.status_code == 200 and resp_detail.json().get("results"):
+                                  taxon = resp_detail.json()["results"][0]
+                                  resultados["nome_ingles"] = taxon.get("english_common_name", "Desconhecido")
                                   
+                                  # Procurar Ordem e Família nos ancestrais
+                                  ancestors = taxon.get("ancestors", [])
+                                  for anc in ancestors:
+                                       rank = anc.get("rank", "")
+                                       if rank == "order":
+                                            resultados["ordem"] = anc.get("name", "Desconhecida").capitalize()
+                                       elif rank == "family":
+                                            resultados["familia"] = anc.get("name", "Desconhecida").capitalize()
+                                  
+                                  resultados["link_ebird"] = f"https://www.inaturalist.org/taxa/{tax_id}"
+                        
                         resultados["raridade_regional"] = "Não Avaliado (Fallback iNaturalist)"
                     else:
                         resultados["raridade_regional"] = "Espécie não encontrada (iNaturalist)"
