@@ -940,9 +940,10 @@ class JanelaPrincipal(QMainWindow):
         # O Orchestrator assume a cascata linear 1->2->3->4->5 a partir daqui (v0.4.6)
         self.orchestrator.start_cascade_from_step2(sci_formatted)
         
-        self.btn_wiki.setVisible(True)
-        self.btn_google.setVisible(True)
-        self.btn_ebird.setVisible(True)
+        self.btn_wiki.setVisible(True); self.btn_wiki.setEnabled(True)
+        self.btn_google.setVisible(True); self.btn_google.setEnabled(True)
+        self.btn_ebird.setVisible(True); self.btn_ebird.setEnabled(True)
+
 
     def _abrir_google_lens(self):
         if not self.caminho_imagem_atual:
@@ -1298,6 +1299,7 @@ class JanelaPrincipal(QMainWindow):
             self.status_bar.showMessage("Identificação concluída.")
             
             self.btn_wiki.setEnabled(True)
+            self.btn_google.setEnabled(True)
             self.btn_ebird.setEnabled(True)
             self.btn_gravar_exif.setEnabled(True)
             self.btn_wiki.setVisible(True)
