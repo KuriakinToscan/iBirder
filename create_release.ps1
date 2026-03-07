@@ -1,16 +1,17 @@
+# Versao selecionada pelo usuario: v0.9.6
+# Este script automatiza o git add, commit, tag e push.
 param (
-    [Parameter(Mandatory = $true)]
-    [string]$Versao,
-    [string]$Mensagem = "Versao oficial $Versao"
+    [Parameter(Mandatory = $false)]
+    [string]$Versao = "v0.9.6",
+    [string]$Mensagem = "Sincronização v0.9.6 - Inclusão de detalhes EXIF na documentação"
 )
 
 Write-Host "Preparando para lancar a versao $Versao..." -ForegroundColor Cyan
 git add .
-git commit -m "Pre-release: salvando tudo antes da tag $Versao"
+git commit -m "Sincronização $Versao - Documentação EXIF e ajustes"
 
 git tag -a "$Versao" -m "$Mensagem"
 Write-Host "Tag $Versao criada localmente." -ForegroundColor Green
 
 git push origin "$Versao"
-# git push origin --tags # Explicitly push tags if needed, but push origin $Versao usually works for the tag ref
 Write-Host "Versao $Versao enviada para o GitHub!" -ForegroundColor Yellow
