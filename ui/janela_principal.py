@@ -116,7 +116,8 @@ class JanelaPrincipal(QMainWindow):
 
     def _obter_caminho_asset(self, nome_arquivo):
         if getattr(sys, 'frozen', False):
-            base_path = Path(sys._MEIPASS)
+            # No executável, os assets estão na subpasta 'assets' dentro de _MEIPASS
+            base_path = Path(sys._MEIPASS) / 'assets'
         else:
             base_path = Path(__file__).parent.parent / 'assets'
         return str(base_path / nome_arquivo)

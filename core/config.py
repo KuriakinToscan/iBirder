@@ -1,13 +1,18 @@
 import json
 import logging
+import sys
 from pathlib import Path
 
 CONFIG_FILE = "config.json"
 
 def obter_caminho_config():
     """Retorna o caminho absoluto para o arquivo de configuração."""
-    # Salva na raiz do projeto/executável para portabilidade simples
-    base_path = Path(__file__).parent.parent.absolute()
+    # Se estiver congelado pelo PyInstaller, usa a pasta do executável
+    if getattr(sys, 'frozen', False):
+        base_path = Path(sys.executable).parent
+    else:
+        # Modo desenvolvimento: raiz do projeto
+        base_path = Path(__file__).parent.parent.absolute()
     return base_path / CONFIG_FILE
 
 def carregar_config():

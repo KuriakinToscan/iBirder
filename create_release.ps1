@@ -1,9 +1,9 @@
-# Versao selecionada pelo usuario: v0.7
+# Versao selecionada pelo usuario: v1.0
 # Este script automatiza o git add, commit, tag e push.
 param (
     [Parameter(Mandatory = $false)]
-    [string]$Versao = "v0.7",
-    [string]$Mensagem = "Sincronização v0.7 - Atualização conceitual e técnica da documentação"
+    [string]$Versao = "v1.0",
+    [string]$Mensagem = "Lançamento Oficial iBirder v1.0 - Executável, Instalador e Menu de Contexto"
 )
 
 Write-Host "Preparando para lancar a versao $Versao..." -ForegroundColor Cyan
