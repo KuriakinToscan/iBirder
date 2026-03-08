@@ -9,7 +9,7 @@ O **iBirder** é uma ferramenta de código aberto projetada para automatizar o f
 ## ✨ Principais Diferenciais
 
 * **Edge AI (Privacidade Total):** Todo o processamento de imagem é realizado localmente no seu computador. Suas fotos nunca são enviadas para a nuvem para fins de identificação.
-* **Otimizado para o Brasil:** Integração profunda com o **WikiAves** para fornecer contexto biológico e etimológico específico da biodiversidade brasileira.
+* **Otimizado para o Brasil:** Integração com o **WikiAves** para fornecer contexto biológico e etimológico específico da biodiversidade brasileira.
 * **Inteligência Global:** Modelo treinado sobre a base do **iNaturalist Vision**, reconhecendo milhões de padrões validados mundialmente.
 * **Persistência Científica:** Gravação automática de dados nos padrões **EXIF/XMP** e **Darwin Core (DWC)**, garantindo compatibilidade com softwares como digiKam, Adobe Lightroom e Darktable.
 
