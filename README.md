@@ -10,8 +10,8 @@ O **iBirder** é uma ferramenta de código aberto projetada para automatizar o f
 
 * **Edge AI (Privacidade Total):** Todo o processamento de imagem é realizado localmente no seu computador. Suas fotos nunca são enviadas para a nuvem para fins de identificação.
 * **Otimizado para o Brasil:** Integração com o **WikiAves** para fornecer contexto biológico e etimológico específico da biodiversidade brasileira.
-* **Inteligência Global:** Modelo treinado sobre a base do **iNaturalist Vision**, reconhecendo milhões de padrões validados mundialmente.
-* **Persistência Científica:** Gravação automática de dados nos padrões **EXIF/XMP** e **Darwin Core (DWC)**, garantindo compatibilidade com softwares como digiKam, Adobe Lightroom e Darktable.
+* **Inteligência Global:** Modelo treinado sobre a base do **iNaturalist Vision**, reconhecendo milhões de padrões de espécies de aves validados mundialmente.
+* **Persistência Científica:** Gravação automática de dados nos padrões **EXIF/XMP** e **Darwin Core (DWC)**, garantindo compatibilidade com softwares de edição e gerenciamento de fotografias.
 
 ---
 
@@ -21,7 +21,7 @@ O iBirder simplifica o complexo processo de catalogação em um fluxo fluido:
 
 1.  **Diagnóstico:** Ao carregar uma foto, o sistema extrai dados de GPS e data. Caso não existam, você pode definir a localização em um mapa interativo.
 2.  **Identificação:** A rede neural **EfficientNet-V1.3** analisa a imagem localmente e sugere a espécie com base na confiança estatística.
-3.  **Enriquecimento:** O software consulta bases como **GBIF, IUCN e WikiAves** para buscar status de conservação (ICMBio/CITES), biomas e até vocalizações (Xeno-Canto) para validação.
+3.  **Enriquecimento:** O software consulta bases como **GBIF, IUCN e WikiAves** para buscar status de conservação (ICMBio/CITES), biomas e até vocalizações (Xeno-Canto).
 4.  **Gravação:** Com um clique, todas as informações são injetadas no arquivo original, organizadas em árvores hierárquicas de palavras-chave.
 
 ---
