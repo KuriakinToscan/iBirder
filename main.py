@@ -214,8 +214,11 @@ if __name__ == "__main__":
     StyleManager.apply_theme(app, dark_mode=dark_mode)
 
     # 5. Inicia Janela Principal (Modo Local)
-    logging.info("Criando JanelaPrincipal...")
-    janela = JanelaPrincipal(ai_status=AI_ENGINE_STATUS)
+    # Suporte a Menu de Contexto (v1.0): Abre imagem se passada como argumento
+    caminho_inicial = sys.argv[1] if len(sys.argv) > 1 else None
+    
+    logging.info(f"Criando JanelaPrincipal (Versão 1.0) - Argumento: {caminho_inicial}...")
+    janela = JanelaPrincipal(ai_status=AI_ENGINE_STATUS, imagem_inicial=caminho_inicial)
     
     logging.info("Exibindo janela...")
     janela.show()

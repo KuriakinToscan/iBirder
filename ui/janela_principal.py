@@ -56,7 +56,7 @@ class JanelaPrincipal(QMainWindow):
     """
     PLACEHOLDER_TEXT = "Aguardando identificação...."
 
-    def __init__(self, nome_icone_janela="logo_ave.svg", modo_inicial="online", ai_status="READY"):
+    def __init__(self, nome_icone_janela="logo_ave.svg", modo_inicial="online", ai_status="READY", imagem_inicial=None):
         super().__init__()
         self.nome_icone_janela = nome_icone_janela
         self.ai_status = ai_status
@@ -109,9 +109,10 @@ class JanelaPrincipal(QMainWindow):
         # Reforço de Title Bar Dark (v0.7.2)
         StyleManager.setup_window_theme(self)
         
-        # Ajuste inicial de alturas
-        # QTimer.singleShot(100, lambda: self._ajustar_altura_etimologia())
-        # QTimer.singleShot(100, lambda: self._ajustar_altura_descricao())
+        # Suporte a Menu de Contexto (v1.0): Carrega imagem inicial se houver
+        if imagem_inicial and os.path.exists(imagem_inicial):
+            # Usamos timer para garantir que a UI está pronta antes do processamento pesado
+            QTimer.singleShot(500, lambda: self._carregar_imagem(imagem_inicial))
 
     def _obter_caminho_asset(self, nome_arquivo):
         if getattr(sys, 'frozen', False):

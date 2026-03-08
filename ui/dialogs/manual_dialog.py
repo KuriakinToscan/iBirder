@@ -341,7 +341,8 @@ class ManualUsuarioDialog(QDialog):
                 <a href="https://github.com/KuriakinToscan/iBirder" class="github-link">github.com/KuriakinToscan/iBirder</a>
                 <div class="credits">
                     Desenvolvido por Kuriakin Toscan<br>
-                    Versão 1.0 | © 2024-2026 iBirder Project
+                    kuriakin.toscan@gmail.com<br>
+                    Versão 1.0 | © 2026 iBirder Project
                 </div>
             </div>
         """)

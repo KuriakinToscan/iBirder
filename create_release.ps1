@@ -1,9 +1,9 @@
-# Versao selecionada pelo usuario: v0.9.6
+# Versao selecionada pelo usuario: v0.7
 # Este script automatiza o git add, commit, tag e push.
 param (
     [Parameter(Mandatory = $false)]
-    [string]$Versao = "v0.9.6",
-    [string]$Mensagem = "Sincronização v0.9.6 - Inclusão de detalhes EXIF na documentação"
+    [string]$Versao = "v0.7",
+    [string]$Mensagem = "Sincronização v0.7 - Atualização conceitual e técnica da documentação"
 )
 
 Write-Host "Preparando para lancar a versao $Versao..." -ForegroundColor Cyan
