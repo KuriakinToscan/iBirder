@@ -9,6 +9,11 @@ __pycache__/
 temp/
 *.log
 
+# Build and Distribution
+build/
+dist/
+*.spec
+
 # Project specific
 assets/proposals/
 assets/Gemini_Generated_Image_*.jpg

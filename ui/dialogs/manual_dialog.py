@@ -1,3 +1,19 @@
+#  iBirder -  IA para Birdwatching
+#  Copyright (C) 2026  Kuriakin Humberto Toscan
+#
+#  Este programa é um software livre: você pode redistribuí-lo e/ou 
+#  modificá-lo sob os termos da Licença Pública Geral GNU conforme 
+#  publicada pela Free Software Foundation, tanto a versão 3 da 
+#  Licença, como (a seu critério) qualquer versão posterior.
+#
+#  Este programa é distribuído na esperança de que possa ser útil, 
+#  mas SEM NENHUMA GARANTIA; sem uma garantia implícita de 
+#  ADEQUAÇÃO A QUALQUER MERCADO OU APLICAÇÃO EM PARTICULAR. 
+#  Veja a Licença Pública Geral GNU para mais detalhes.
+#
+#  Você deve ter recebido uma cópia da Licença Pública Geral GNU 
+#  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
+
 import sys
 import os
 from pathlib import Path
@@ -85,13 +101,17 @@ class ManualUsuarioDialog(QDialog):
         StyleManager.setup_window_theme(self)
 
     def _gerar_conteudo(self):
-        # Caminho do arquivo de guia
+        # Caminhos base
         if getattr(sys, 'frozen', False):
             base_dir = Path(sys._MEIPASS)
         else:
             base_dir = Path(__file__).parent.parent.parent
             
         guia_path = base_dir / "guia_do_usuario.md"
+        logo_path = base_dir / "assets" / "logo_ave_escuro.svg"
+        
+        # Converte Path para URL de arquivo local para o Qt
+        logo_url = logo_path.as_uri() if logo_path.exists() else ""
         
         if not guia_path.exists():
             return "<html><body><h1>Erro</h1><p>Arquivo guia_do_usuario.md não encontrado.</p></body></html>"
@@ -99,11 +119,11 @@ class ManualUsuarioDialog(QDialog):
         try:
             with open(guia_path, "r", encoding="utf-8") as f:
                 md_content = f.read()
-            return self._parse_markdown(md_content)
+            return self._parse_markdown(md_content, logo_url)
         except Exception as e:
             return f"<html><body><h1>Erro ao ler guia</h1><p>{str(e)}</p></body></html>"
 
-    def _parse_markdown(self, md):
+    def _parse_markdown(self, md, logo_url=""):
         import re
         
         # Estilos CSS Premium (Charcoal #374151)
@@ -119,61 +139,94 @@ class ManualUsuarioDialog(QDialog):
                 padding: 10px;
             }
             .container { max-width: 800px; margin: 0 auto; }
-            h1 { color: #111827; font-size: 26px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.5px; }
-            h2 { color: #111827; font-size: 20px; font-weight: 700; margin-top: 35px; margin-bottom: 20px; border-bottom: 1px solid #F3F4F6; padding-bottom: 8px; }
-            h3 { color: #374151; font-size: 17px; font-weight: 700; margin-top: 25px; margin-bottom: 15px; }
             
-            p { margin-bottom: 16px; text-align: justify; color: #4B5563; }
+            /* Cabeçalho de Marca Sincronizado */
+            .header-table { 
+                width: 100%; 
+                background-color: #FFFFFF; 
+                border-bottom: 2px solid #F3F4F6; 
+                margin-bottom: 40px; 
+                padding: 15px 0;
+            }
+            .brand-title { 
+                font-size: 52px; 
+                font-weight: 300; 
+                font-style: italic;
+                color: #4B5563; 
+                margin: 0;
+                letter-spacing: -2px;
+            }
+            
+            h2 { 
+                color: #111827; 
+                font-size: 19px; 
+                font-weight: 700; 
+                margin-top: 40px; 
+                margin-bottom: 20px; 
+                border-left: 4px solid #374151;
+                padding-left: 12px;
+            }
+            h3 { color: #374151; font-size: 16px; font-weight: 700; margin-top: 30px; margin-bottom: 15px; }
+            
+            p { margin-bottom: 18px; text-align: justify; color: #4B5563; line-height: 1.7; }
             
             .step-card { 
                 background: #FFFFFF; 
                 border: 1px solid #E5E7EB; 
                 border-radius: 12px; 
-                padding: 18px 22px;
-                margin-bottom: 20px;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+                padding: 20px 24px;
+                margin-bottom: 25px;
             }
-            .step-header { display: flex; align-items: center; margin-bottom: 12px; }
+            .step-header { margin-bottom: 15px; }
             .step-number { 
-                background: #F3F4F6; color: #374151; width: 32px; height: 32px; 
-                border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
-                font-size: 14px; font-weight: 800; margin-right: 15px;
-                border: 1px solid #E5E7EB;
-                flex-shrink: 0;
+                background: #374151; color: #FFFFFF; 
+                padding: 4px 12px;
+                border-radius: 6px;
+                font-size: 13px; font-weight: 800;
+                margin-right: 12px;
             }
-            .step-title { font-weight: 700; color: #111827; font-size: 17px; line-height: 1.2; }
+            .step-title { font-weight: 700; color: #111827; font-size: 17px; }
             
             .tip-box { 
-                background-color: #ECFDF5; 
-                border-left: 4px solid #10B981; 
-                padding: 16px; 
-                margin: 25px 0; 
-                border-radius: 0 8px 8px 0;
+                background-color: #F0FDF4; 
+                border-left: 4px solid #22C55E; 
+                padding: 18px; 
+                margin: 30px 0; 
             }
-            .tip-title { color: #065F46; font-weight: 700; font-size: 13px; text-transform: uppercase; margin-bottom: 8px; display: block; }
+            .tip-title { color: #166534; font-weight: 800; font-size: 12px; text-transform: uppercase; margin-bottom: 8px; display: block; }
             
             .alerta { 
                 background-color: #FFFBEB; 
-                border: 1px solid #FEF3C7; 
-                padding: 16px; 
-                margin: 25px 0; 
-                border-radius: 8px;
+                border-left: 4px solid #F59E0B; 
+                padding: 18px; 
+                margin: 30px 0; 
                 color: #92400E;
             }
 
-            ul { margin-bottom: 16px; padding-left: 20px; }
-            li { margin-bottom: 8px; color: #4B5563; }
+            ul { margin-bottom: 18px; padding-left: 25px; }
+            li { margin-bottom: 10px; color: #4B5563; line-height: 1.6; }
             b, strong { color: #111827; font-weight: 700; }
-            i, em { color: #6B7280; }
-            hr { border: 0; border-top: 1px solid #F3F4F6; margin: 40px 0; }
+            i, em { color: #64748B; }
+            hr { border: 0; border-top: 1px solid #F1F5F9; margin: 45px 0; }
             
-            .footer-text { 
+            .footer-info { 
                 margin-top: 60px; 
-                padding-top: 20px;
-                border-top: 1px solid #F3F4F6;
-                font-size: 12px; 
-                color: #9CA3AF; 
-                text-align: center; 
+                padding: 40px;
+                background-color: #FFFFFF;
+                border-top: 1px solid #F1F5F9;
+                text-align: center;
+            }
+            .github-link { 
+                color: #334155;
+                font-weight: 700;
+                text-decoration: none;
+                font-size: 13px;
+                padding: 6px 15px;
+            }
+            .credits {
+                font-size: 12px;
+                color: #94A3B8;
+                margin-top: 20px;
                 font-style: italic;
             }
         </style>
@@ -189,6 +242,23 @@ class ManualUsuarioDialog(QDialog):
         lines = md.split('\n')
         html_output = [f"<html><head>{css}</head><body><div class='container'>"]
         
+        # Inserção do Cabeçalho usando Tabela (compatível com Qt)
+        # Spacer td de 240px garante o afastamento no motor limitado do Qt
+        logo_html = f'<td width="120" valign="middle"><img src="{logo_url}" height="84"></td>' if logo_url else ""
+        spacer_html = '<td width="120"></td>' if logo_url else ""
+        
+        html_output.append(f"""
+            <table class="header-table" cellpadding="0" cellspacing="0">
+                <tr>
+                    {logo_html}
+                    {spacer_html}
+                    <td valign="middle" align="left">
+                        <div class="brand-title">IA para Birdwatching</div>
+                    </td>
+                </tr>
+            </table>
+        """)
+            
         i = 0
         while i < len(lines):
             line = lines[i].strip()
@@ -197,24 +267,23 @@ class ManualUsuarioDialog(QDialog):
                 i += 1
                 continue
             
-            # 1. H1
+            # Pula o H1 pois já usamos no cabeçalho
             if line.startswith('# '):
-                html_output.append(f"<h1>{process_inline(line[2:])}</h1>")
+                i += 1
+                continue
             
             # 2. H2
-            elif line.startswith('## '):
+            if line.startswith('## '):
                 html_output.append(f"<h2>{process_inline(line[3:])}</h2>")
                 
-            # 3. Cards de Etapa (Tratamento especial para capturar parágrafos múltiplos)
+            # 3. Cards de Etapa
             elif line.startswith('### [ETAPA'):
                 match = re.search(r'\[ETAPA (\d+)\] (.*)', line)
                 if match:
                     num, title = match.groups()
                     i += 1
-                    # Captura parágrafos seguintes até o próximo header
                     content_segments = []
                     curr_segment = ""
-                    
                     while i < len(lines) and not lines[i].strip().startswith('#'):
                         l = lines[i].strip()
                         if not l:
@@ -224,11 +293,9 @@ class ManualUsuarioDialog(QDialog):
                         else:
                             curr_segment += " " + l
                         i += 1
-                    
                     if curr_segment:
                         content_segments.append(curr_segment)
                     
-                    # Constrói o HTML do card com parágrafos internos
                     p_tags = "".join([f"<p style='font-size: 13px; margin-bottom: 10px; color: #4B5563;'>{process_inline(s.strip())}</p>" for s in content_segments])
                     
                     html_output.append(f"""
@@ -240,17 +307,14 @@ class ManualUsuarioDialog(QDialog):
                         {p_tags}
                     </div>
                     """)
-                    i -= 1 # Volta um passo para o loop principal processar o header que interrompeu
+                    i -= 1
             
-            # 4. H3 Simples ou Temas
+            # 4. H3 Simples
             elif line.startswith('### '):
-                title = line[4:]
-                # Remove colchetes se houver [TEMA A] etc
-                title = re.sub(r'\[.*?\]', '', title).strip()
-                html_output.append(f"<h3>{process_inline(title)}</h3>")
+                html_output.append(f"<h3>{process_inline(line[4:].strip())}</h3>")
             
             # 5. Listas
-            elif line.startswith('- ') or (line[0].isdigit() and line[1:3] == '. '):
+            elif line.strip() and (line.startswith('- ') or (line[0].isdigit() and line[1:3] == '. ')):
                 html_output.append("<ul>")
                 while i < len(lines) and (lines[i].strip().startswith('- ') or (lines[i].strip() and lines[i].strip()[0].isdigit() and lines[i].strip()[1:3] == '. ')):
                     l = lines[i].strip()
@@ -286,6 +350,19 @@ class ManualUsuarioDialog(QDialog):
                 
             i += 1
 
+        # Rodapé com GitHub e Créditos
+        html_output.append("""
+            <div class="footer-info">
+                <b>iBirder — Tecnologia Nacional a Serviço da Ciência Cidadã</b><br>
+                <a href="https://github.com/KuriakinToscan/iBirder" class="github-link">github.com/KuriakinToscan/iBirder</a>
+                <div class="credits">
+                    Desenvolvido por Kuriakin Toscan<br>
+                    kuriakin.toscan@gmail.com<br>
+                    Versão 1.0 | © 2026 iBirder Project
+                </div>
+            </div>
+        """)
+        
         html_output.append("</div></body></html>")
         return "\n".join(html_output)
 
