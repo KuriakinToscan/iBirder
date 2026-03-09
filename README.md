@@ -1,31 +1,55 @@
 # iBirder 🐦
+**IA para Birdwatching — Inteligência Artificial local a serviço da ciência cidadã.**
 
-**Transforme fotografias em registros científicos completos de forma automática, local e segura.**
-
-O **iBirder** é uma ferramenta de código aberto projetada para automatizar o fluxo de trabalho de ornitólogos, observadores de aves e fotógrafos de natureza. Ele utiliza Inteligência Artificial de ponta para identificar espécies e enriquecer metadados fotográficos, transformando imagens simples em dados científicos prontos para catalogação.
-
----
+## 📖 Sobre o Projeto
+O **iBirder** é uma ferramenta de código aberto desenvolvida para ornitólogos, observadores de aves e fotógrafos de natureza. Com foco em **Edge AI**, o sistema processa identificações de espécies e metadados de forma 100% local, garantindo privacidade e velocidade sem depender de servidores externos ou conexão constante à internet.
 
 ## ✨ Principais Diferenciais
+- **Privacidade Total (Edge AI)**: O processamento de imagem ocorre na sua máquina. Suas fotos originais nunca saem do seu computador para fins de identificação.
+- **Otimizado para o Brasil**: Integração profunda com o **WikiAves** para etimologia e contexto biológico da nossa biodiversidade.
+- **Identificação Global**: Modelo treinado sobre a base do **iNaturalist Vision**, reconhecendo espécies validadas por especialistas no mundo todo.
+- **Persistência Científica**: Gravação de metadados nos padrões **EXIF/XMP**, **Darwin Core (DWC)** e palavras-chave hierárquicas.
 
-* **Edge AI (Privacidade Total):** Todo o processamento de imagem é realizado localmente no seu computador. Suas fotos nunca são enviadas para a nuvem para fins de identificação.
-* **Otimizado para o Brasil:** Integração com o **WikiAves** para fornecer contexto biológico e etimológico específico da biodiversidade brasileira.
-* **Inteligência Global:** Modelo treinado sobre a base do **iNaturalist Vision**, reconhecendo milhões de padrões de espécies de aves validados mundialmente.
-* **Persistência Científica:** Gravação automática de dados nos padrões **EXIF/XMP** e **Darwin Core (DWC)**, garantindo compatibilidade com softwares de edição e gerenciamento de fotografias.
+## 🛠️ Tecnologias e Fontes
+O iBirder integra as bibliotecas biológicas e tecnologias mais respeitadas do ecossistema científico:
+
+- **AI Engine**: Rede Neural **EfficientNet-V1.3** (Google Research).
+- **Interface**: Desenvolvido em **Python 3.13** com **PySide6**.
+- **Mapas & Geo**: **Folium**, **OpenStreetMap** e geocodificação via **Nominatim**.
+- **Fontes de Dados**:
+  - **WikiAves**: Etimologia e Biologia (Brasil).
+  - **iNaturalist**: Taxonomia e Validação Visual.
+  - **eBird (Cornell Lab)**: Nomenclatura Global.
+  - **GBIF**: Mapas de densidade de ocorrência.
+  - **IUCN & ICMBio (SALVE)**: Status de conservação e ameaça.
+  - **Xeno-Canto**: Vocalizações e registros sonoros.
+- **Motor de Metadados**: **ExifTool** (Phil Harvey).
+
+## 🚀 Instalação e Uso
+
+### Para Usuários (Windows)
+1. Baixe a versão mais recente em [Releases](https://github.com/KuriakinToscan/iBirder/releases).
+2. Execute o instalador `iBirder_v1.0.x_Setup.exe`.
+3. O app permite abrir fotos via "Arraste e Solte" ou diretamente pelo botão direito no Windows Explorer.
+
+### Para Desenvolvedores
+```bash
+# Clone o repositório
+git clone https://github.com/KuriakinToscan/iBirder.git
+
+# Crie e ative o ambiente virtual
+python -m venv .venv
+.\.venv\Scripts\activate
+
+# Instale as dependências
+pip install -r requirements.txt
+
+# Execute o aplicativo
+python main.py
+```
+
+## ⚖️ Licença
+Este software é distribuído sob a licença **GNU GPL v3**.
 
 ---
-
-## 🚀 Como Funciona?
-
-O iBirder simplifica o complexo processo de catalogação em um fluxo fluido:
-
-1.  **Diagnóstico:** Ao carregar uma foto, o sistema extrai dados de GPS e data. Caso não existam, você pode definir a localização em um mapa interativo.
-2.  **Identificação:** A rede neural **EfficientNet-V1.3** analisa a imagem localmente e sugere a espécie com base na confiança estatística.
-3.  **Enriquecimento:** O software consulta bases como **GBIF, IUCN e WikiAves** para buscar status de conservação (ICMBio/CITES), biomas e até vocalizações (Xeno-Canto).
-4.  **Gravação:** Com um clique, todas as informações são injetadas no arquivo original, organizadas em árvores hierárquicas de palavras-chave.
-
----
-
-## 🛠️ Instalação e Requisitos
-
-
+*Desenvolvido por Kuriakin Toscan | 2026*
