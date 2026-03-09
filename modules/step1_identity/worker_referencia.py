@@ -106,9 +106,9 @@ class ReferenceImageWorker(QThread):
             # 2. Baixar Imagem
             img_data = requests.get(img_url, headers=headers, timeout=10).content
             
-            temp_dir = Path(__file__).parent.parent / "temp"
-            temp_dir.mkdir(exist_ok=True)
-            save_path = temp_dir / "reference_bird.jpg"
+            from core.paths import TEMP_DIR
+            TEMP_DIR.mkdir(parents=True, exist_ok=True)
+            save_path = TEMP_DIR / "reference_bird.jpg"
             self.local_path = str(save_path) # Adicionado v0.8.8
             
             with open(save_path, "wb") as f:
