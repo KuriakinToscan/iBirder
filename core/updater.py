@@ -94,8 +94,9 @@ class ModelDownloadWorker(QThread):
     def __init__(self, manifest_data, parent=None):
         super().__init__(parent)
         self.manifest_data = manifest_data
+        from core.paths import TEMP_DIR
         self.assets_dir = Path(__file__).parent.parent / "assets" / "models"
-        self.temp_dir = Path(__file__).parent.parent / "temp" / "updates"
+        self.temp_dir = TEMP_DIR / "updates"
         
     def run(self):
         import requests
