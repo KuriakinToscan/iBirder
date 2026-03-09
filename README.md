@@ -28,12 +28,4 @@ O iBirder simplifica o complexo processo de catalogação em um fluxo fluido:
 
 ## 🛠️ Instalação e Requisitos
 
-### Pré-requisitos
-* **Python 3.9+**
-* **ExifTool** (Obrigatório para a manipulação de metadados)
 
-### Instalação
-1. Clone o repositório:
-   ```bash
-   git clone [https://github.com/seu-usuario/ibirder.git](https://github.com/seu-usuario/ibirder.git)
-   cd ibirder
