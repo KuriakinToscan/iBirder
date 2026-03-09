@@ -8,12 +8,16 @@ __pycache__/
 # Temporary Files
 temp/
 *.log
+audit_*.txt
+config.json
 
 # Build and Distribution
 build/
 dist/
+dist_installer/
 *.spec
 
 # Project specific
 assets/proposals/
 assets/Gemini_Generated_Image_*.jpg
+assets/logo_ave*_old.svg
