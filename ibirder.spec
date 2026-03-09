@@ -1,5 +1,8 @@
-# -*- mode: python ; coding: utf-8 -*-
+import sys
+import os
+from PyInstaller.utils.hooks import collect_submodules
 
+sys.path.append(os.path.abspath('.'))
 block_cipher = None
 
 added_files = [
@@ -8,20 +11,33 @@ added_files = [
     ('guia_do_usuario.md', '.'),
 ]
 
+hidden_modules = collect_submodules('modules') + collect_submodules('core') + collect_submodules('ui')
+
 a = Analysis(
     ['main.py'],
-    pathex=[],
+    pathex=[os.path.abspath('.')],
     binaries=[],
     datas=added_files,
     hiddenimports=[
+        'modules.step1_identity',
+        'modules.step2_biology',
+        'modules.step3_geography',
+        'modules.step4_vocalization',
+        'modules.step5_taxonomy',
+        'modules.step6_persistence',
+        'PIL._tkinter_finder',
         'PySide6.QtWebEngineWidgets',
-        'PySide6.QtWebEngineCore',
-        'PySide6.QtPrintSupport',
-    ],
+        'email',
+        'email.mime',
+        'email.mime.multipart',
+        'email.mime.text',
+        'email.mime.base',
+        'email.mime.application'
+    ] + hidden_modules,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['tkinter', 'unittest', 'email', 'http', 'xml', 'pydoc'],
+    excludes=['tkinter', 'unittest', 'pydoc'],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
@@ -35,17 +51,13 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name='iBirder',
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=True,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    # icon='assets/logo_ave.ico', # Adicionar se existir um .ico
+    icon='assets\\logo_ave.ico',
 )
 coll = COLLECT(
     exe,
