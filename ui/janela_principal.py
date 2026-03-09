@@ -107,6 +107,11 @@ class JanelaPrincipal(QMainWindow):
         
         self.setWindowTitle("iBirder")
         
+        # Define o ícone da aplicação na barra de títulos da Janela Principal
+        icon_path = self._obter_caminho_asset("logo_ave.ico")
+        if icon_path:
+            self.setWindowIcon(QIcon(icon_path))
+        
         # Inicialização da UI (v1.0.1): Deve ocorrer ANTES do resize/show
         self._configurar_ui()
         

@@ -221,7 +221,7 @@ class MapWidget(QWebEngineView):
 
                 # Obter caminho do asset (v0.8.2)
                 if getattr(sys, 'frozen', False):
-                    base_path = Path(sys._MEIPASS)
+                    base_path = Path(sys._MEIPASS) / 'assets'
                 else:
                     base_path = Path(__file__).parent.parent.parent / 'assets'
                 
