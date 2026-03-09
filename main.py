@@ -38,11 +38,7 @@ from core.paths import BASE_DIR, IS_FROZEN, garantir_diretorios
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-features=DarkMode"
 # from core.wikiaves_worker import WikiAvesWorker # Removed in v0.2.1 migration
 
-# Tenta importar o script de setup para criar atalhos
-try:
-    import setup_atalho
-except ImportError:
-    setup_atalho = None
+
 
 # Configuração do AppUserModelID (Apenas Windows)
 if platform.system() == "Windows":
@@ -78,83 +74,6 @@ def verificar_ambiente_virtual():
             tipo="erro"
         ).exec()
         sys.exit(1)
-
-def verificar_e_criar_atalho(DialogoAtalho):
-    """
-    Verifica se o atalho existe na Área de Trabalho.
-    Respeita a preferência 'pular_pergunta_atalho' (config.json).
-    """
-    try:
-        if platform.system() != "Windows":
-            return 
-
-        desktop = Path(os.environ["USERPROFILE"]) / "Desktop"
-        atalho_path = desktop / "iBirder.lnk"
-
-        if atalho_path.exists():
-            return
-
-        # 1. Verifica preferência config
-        # Carregamento local para evitar dependência circular ou falha no boot
-        from core.config import carregar_config, salvar_config
-        config = carregar_config()
-        if config.get("pular_pergunta_atalho", False):
-            return
-
-        # 2. Pergunta ao usuário
-        dialogo = DialogoAtalho()
-        resultado = dialogo.exec() 
-        
-        criar = (resultado == 1)
-        nao_perguntar = dialogo.nao_perguntar
-
-        if nao_perguntar:
-            config["pular_pergunta_atalho"] = True
-            salvar_config(config)
-
-        if criar:
-            criar_atalho_windows(atalho_path)
-
-    except Exception as e:
-        logging.warning(f"Erro ao verificar atalho: {e}")
-
-def criar_atalho_windows(atalho_path):
-    """Cria atalho usando PowerShell."""
-    if getattr(sys, 'frozen', False): 
-        target_exe = sys.executable
-        working_dir = str(Path(target_exe).parent)
-        arguments = ""
-    else: 
-        base_path = Path(__file__).parent.absolute()
-        pythonw_path = base_path / ".venv" / "Scripts" / "pythonw.exe"
-        python_path = base_path / ".venv" / "Scripts" / "python.exe"
-        
-        if pythonw_path.exists():
-            target_exe = str(pythonw_path)
-            arguments = f'"{str(base_path / "main.py")}"'
-        elif python_path.exists():
-            target_exe = str(python_path)
-            arguments = f'"{str(base_path / "main.py")}"'
-        else:
-            target_exe = sys.executable 
-            arguments = f'"{str(base_path / "main.py")}"'
-            
-        working_dir = str(BASE_DIR)
-
-    icon_path = str(BASE_DIR / "assets" / "logo_ave.ico") 
-
-    script = f'''
-    $WshShell = New-Object -comObject WScript.Shell
-    $Shortcut = $WshShell.CreateShortcut("{str(atalho_path)}")
-    $Shortcut.TargetPath = "{target_exe}"
-    $Shortcut.WorkingDirectory = "{working_dir}"
-    $Shortcut.Arguments = '{arguments}'
-    $Shortcut.IconLocation = "{icon_path}"
-    $Shortcut.Save()
-    '''
-    
-    subprocess.run(["powershell", "-Command", script], capture_output=True)
-
 
 def garantir_dependencias():
     """Verifica e instala dependências críticas automaticamente."""
@@ -269,10 +188,7 @@ if __name__ == "__main__":
         logging.info("CHECKPOINT 5: Carregando configurações...")
         config = carregar_config()
         
-        logging.info("CHECKPOINT 6: Verificando atalhos...")
-        # Importação SOB DEMANDA para evitar falhas no topo
-        from ui.dialogo_atalho import DialogoAtalho
-        verificar_e_criar_atalho(DialogoAtalho)
+
 
         logging.info("CHECKPOINT 7: Aplicando temas...")
         from core.style_manager import StyleManager
