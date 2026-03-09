@@ -1758,6 +1758,7 @@ class JanelaPrincipal(QMainWindow):
         self.txt_descricao.setPlaceholderText(self.PLACEHOLDER_TEXT)
         
         if self.map_principal:
+             self.map_principal.clear_audio_cache()
              self.map_principal.update_map(-14.2350, -51.9253, zoom=4, force_hide_alert=True)
              
         self.status_bar.showMessage("Pronto para nova identificação")
