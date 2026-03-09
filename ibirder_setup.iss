@@ -1,10 +1,10 @@
-; Script do Inno Setup para iBirder v1.0.1
+; Script do Inno Setup para iBirder v1.0.2
 ; Este script gera o instalador profissional para Windows
 
 [Setup]
 AppId={{C1B7D141-8B9CAD-4E1F-8D01-A1F620976779}}
 AppName=iBirder
-AppVersion=1.0.1
+AppVersion=1.0.2
 AppPublisher=Kuriakin Toscan
 AppPublisherURL=https://github.com/KuriakinToscan/iBirder
 AppSupportURL=https://github.com/KuriakinToscan/iBirder
@@ -14,8 +14,8 @@ DefaultGroupName=iBirder
 AllowNoIcons=yes
 SetupIconFile=assets\logo_ave.ico
 ; Local onde o instalador será salvo
-OutputDir=dist
-OutputBaseFilename=iBirder_v1.0.1_Setup
+OutputDir=C:\Users\98015753953\AppData\Local\Temp\iBirderInstaller
+OutputBaseFilename=iBirder_v1.0.2_Setup
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
