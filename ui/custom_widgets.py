@@ -97,7 +97,7 @@ class ImageCardWidget(QWidget):
 
     def _get_asset_path(self, filename):
         if getattr(sys, 'frozen', False):
-             base_path = Path(sys._MEIPASS)
+             base_path = Path(sys._MEIPASS) / 'assets'
         else:
              # iBirder/ui/custom_widgets.py -> iBirder/assets
              base_path = Path(__file__).parent.parent / 'assets'
@@ -543,7 +543,7 @@ class VocalAuditCard(QWidget):
     def _get_asset_path(self, filename):
         # Reuso do método auxiliar existente no ImageCardWidget
         if getattr(sys, 'frozen', False):
-             base_path = Path(sys._MEIPASS)
+             base_path = Path(sys._MEIPASS) / 'assets'
         else:
              base_path = Path(__file__).parent.parent / 'assets'
         
