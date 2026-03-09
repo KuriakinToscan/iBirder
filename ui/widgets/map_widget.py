@@ -154,8 +154,8 @@ class MapWidget(QWebEngineView):
                     attr_html = f'<a href="{species_url}" style="font-weight:bold; color:#005fa8; text-decoration:none;">Dados: GBIF 🔗</a>'
                     
                     # v0.3.13: HexPerTile=20 (Larger hexagons)
-                    # v1.0.2: Estilo fire.poly (Amarelo -> Laranja -> Vermelho)
-                    gbif_url = f"https://api.gbif.org/v2/map/occurrence/density/{{z}}/{{x}}/{{y}}@1x.png?taxonKey={taxon_key}&basisOfRecord=HUMAN_OBSERVATION&basisOfRecord=OBSERVATION&bin=hex&hexPerTile=20&style=fire.poly"
+                    # v1.0.2: Estilo classic.poly (Amarelo -> Laranja -> Vermelho)
+                    gbif_url = f"https://api.gbif.org/v2/map/occurrence/density/{{z}}/{{x}}/{{y}}@1x.png?taxonKey={taxon_key}&basisOfRecord=HUMAN_OBSERVATION&basisOfRecord=OBSERVATION&bin=hex&hexPerTile=20&style=classic.poly"
 
                     # Add Legend (v0.3.13 / v1.0.2 Cores)
                     legend_html = '''
