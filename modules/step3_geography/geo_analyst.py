@@ -15,6 +15,7 @@
 #  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
 
 import os
+import sys
 import json
 import logging
 from geopy.geocoders import Nominatim
@@ -42,8 +43,12 @@ class GeoAnalyst:
     def _load_biomes(self):
         logging.debug("Carregando arquivo de biomas (GeoJSON)...")
         try:
-            # Ajuste o caminho conforme a estrutura do usuário
-            path = os.path.join("Geo", "biomas.geojson")
+            # Resolve o caminho para funcionar tanto em dev quanto no executável
+            if getattr(sys, 'frozen', False):
+                base = sys._MEIPASS
+            else:
+                base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            path = os.path.join(base, "Geo", "biomas.geojson")
             if os.path.exists(path):
                 with open(path, 'r', encoding='utf-8') as f:
                     self.biomes_data = json.load(f)

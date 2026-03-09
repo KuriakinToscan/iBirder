@@ -7,6 +7,7 @@ block_cipher = None
 
 added_files = [
     ('assets', 'assets'),
+    ('Geo', 'Geo'),
     ('config.json', '.'),
     ('guia_do_usuario.md', '.'),
 ]
