@@ -154,9 +154,10 @@ class MapWidget(QWebEngineView):
                     attr_html = f'<a href="{species_url}" style="font-weight:bold; color:#005fa8; text-decoration:none;">Dados: GBIF 🔗</a>'
                     
                     # v0.3.13: HexPerTile=20 (Larger hexagons)
-                    gbif_url = f"https://api.gbif.org/v2/map/occurrence/density/{{z}}/{{x}}/{{y}}@1x.png?taxonKey={taxon_key}&basisOfRecord=HUMAN_OBSERVATION&basisOfRecord=OBSERVATION&bin=hex&hexPerTile=20&style=purpleYellow.poly"
+                    # v1.0.2: Estilo fire.poly (Amarelo -> Laranja -> Vermelho)
+                    gbif_url = f"https://api.gbif.org/v2/map/occurrence/density/{{z}}/{{x}}/{{y}}@1x.png?taxonKey={taxon_key}&basisOfRecord=HUMAN_OBSERVATION&basisOfRecord=OBSERVATION&bin=hex&hexPerTile=20&style=fire.poly"
 
-                    # Add Legend (v0.3.13)
+                    # Add Legend (v0.3.13 / v1.0.2 Cores)
                     legend_html = '''
                     <div style="position: fixed; 
                                 bottom: 20px; right: 20px; width: 140px; height: 90px; 
@@ -164,9 +165,9 @@ class MapWidget(QWebEngineView):
                                 background-color:rgba(255, 255, 255, 0.9);
                                 border-radius: 8px; padding: 10px;">
                         <b>Densidade (GBIF)</b><br>
-                        <i style="background: #FFFF00; width: 10px; height: 10px; display: inline-block; margin-right: 5px;"></i> Alta<br>
-                        <i style="background: #FF0000; width: 10px; height: 10px; display: inline-block; margin-right: 5px;"></i> Média<br>
-                        <i style="background: #800080; width: 10px; height: 10px; display: inline-block; margin-right: 5px;"></i> Baixa
+                        <i style="background: #FF0000; width: 10px; height: 10px; display: inline-block; margin-right: 5px;"></i> Alta<br>
+                        <i style="background: #FFA500; width: 10px; height: 10px; display: inline-block; margin-right: 5px;"></i> Média<br>
+                        <i style="background: #FFFF00; width: 10px; height: 10px; display: inline-block; margin-right: 5px;"></i> Baixa
                     </div>
                     '''
                     m.get_root().html.add_child(folium.Element(legend_html))
