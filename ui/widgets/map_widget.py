@@ -63,6 +63,7 @@ class MapWidget(QWebEngineView):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setPage(ExternalLinkPage(self)) # Intercepta links to open in default browser
+        self._cached_audio_markers = None  # Cache de pins de áudio (v1.0.1)
 
         # --- Alerta de GPS Ausente (v0.3.34 / v0.6.3 Interativo) ---
         from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout, QGraphicsDropShadowEffect
@@ -112,8 +113,17 @@ class MapWidget(QWebEngineView):
         """
         self.setHtml(html)
 
+    def clear_audio_cache(self):
+        """Limpa o cache de pins de áudio (chamado ao trocar de espécie/imagem)."""
+        self._cached_audio_markers = None
+
     def update_map(self, lat, lon, zoom=5, add_marker=False, scientific_name=None, audio_markers=None, force_hide_alert=False):
         try:
+            # Cache de pins: guarda novos ou reutiliza os anteriores (v1.0.1)
+            if audio_markers is not None:
+                self._cached_audio_markers = audio_markers
+            elif self._cached_audio_markers:
+                audio_markers = self._cached_audio_markers
             from modules.step3_geography.gbif_client import get_gbif_taxon_key
             import folium
             
