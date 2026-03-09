@@ -1,3 +1,19 @@
+#  iBirder -  IA para Birdwatching
+#  Copyright (C) 2026  Kuriakin Humberto Toscan
+#
+#  Este programa é um software livre: você pode redistribuí-lo e/ou 
+#  modificá-lo sob os termos da Licença Pública Geral GNU conforme 
+#  publicada pela Free Software Foundation, tanto a versão 3 da 
+#  Licença, como (a seu critério) qualquer versão posterior.
+#
+#  Este programa é distribuído na esperança de que possa ser útil, 
+#  mas SEM NENHUMA GARANTIA; sem uma garantia implícita de 
+#  ADEQUAÇÃO A QUALQUER MERCADO OU APLICAÇÃO EM PARTICULAR. 
+#  Veja a Licença Pública Geral GNU para mais detalhes.
+#
+#  Você deve ter recebido uma cópia da Licença Pública Geral GNU 
+#  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
+
 import logging
 import os
 import sys
@@ -5,22 +21,14 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
-# Configuração de Caminhos
-BASE_DIR = Path(__file__).parent.parent
-TEMP_DIR = BASE_DIR / "temp"
-LOGS_DIR = BASE_DIR / "logs"
-# Arquivo de log temporário da sessão ativa
-SESSION_LOG = TEMP_DIR / "session.log"
+# Importação central de Caminhos (v1.0.4)
+from core.paths import BASE_DIR, TEMP_DIR, LOGS_DIR, SESSION_LOG, IS_FROZEN, garantir_diretorios
 
 def setup_logger():
-    """
-    Configura o sistema de logging do Python para o iBirder.
-    - Grava logs detalhados (DEBUG) em temp/session.log para auditoria.
-    - Exibe mensagens amigáveis (INFO) no console/terminal.
-    - Suporta UTF-8 para nomes de espécies com acentuação.
-    """
-    TEMP_DIR.mkdir(exist_ok=True)
-    LOGS_DIR.mkdir(exist_ok=True)
+    """Configura o sistema de logging do Python para o iBirder."""
+    # Garante novamente que existem (double-check antes de abrir o handler)
+    TEMP_DIR.mkdir(exist_ok=True, parents=True)
+    LOGS_DIR.mkdir(exist_ok=True, parents=True)
     
     # Limpa log anterior se existir (nova sessão)
     if SESSION_LOG.exists():

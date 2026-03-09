@@ -1,3 +1,19 @@
+#  iBirder -  IA para Birdwatching
+#  Copyright (C) 2026  Kuriakin Humberto Toscan
+#
+#  Este programa é um software livre: você pode redistribuí-lo e/ou 
+#  modificá-lo sob os termos da Licença Pública Geral GNU conforme 
+#  publicada pela Free Software Foundation, tanto a versão 3 da 
+#  Licença, como (a seu critério) qualquer versão posterior.
+#
+#  Este programa é distribuído na esperança de que possa ser útil, 
+#  mas SEM NENHUMA GARANTIA; sem uma garantia implícita de 
+#  ADEQUAÇÃO A QUALQUER MERCADO OU APLICAÇÃO EM PARTICULAR. 
+#  Veja a Licença Pública Geral GNU para mais detalhes.
+#
+#  Você deve ter recebido uma cópia da Licença Pública Geral GNU 
+#  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
+
 # ADVERTÊNCIA: Proibido adicionar barras de menu ou ferramentas tradicionais conforme RULES v1.1.
 import sys
 import os
@@ -56,8 +72,13 @@ class JanelaPrincipal(QMainWindow):
     """
     PLACEHOLDER_TEXT = "Aguardando identificação...."
 
-    def __init__(self, nome_icone_janela="logo_ave.svg", modo_inicial="online", ai_status="READY"):
+    def __init__(self, nome_icone_janela="logo_ave.svg", modo_inicial="online", ai_status="READY", imagem_inicial=None):
         super().__init__()
+        
+        # Trava de Estilo (v0.6.9): Impede recursão infinita no changeEvent
+        # Deve ser inicializada ANTES de setWindowTitle/resize para evitar AttributeError
+        self._bloqueio_palette = False
+        
         self.nome_icone_janela = nome_icone_janela
         self.ai_status = ai_status
         
@@ -85,6 +106,10 @@ class JanelaPrincipal(QMainWindow):
         self.orchestrator.update_available.connect(self._ao_update_disponivel)
         
         self.setWindowTitle("iBirder")
+        
+        # Inicialização da UI (v1.0.1): Deve ocorrer ANTES do resize/show
+        self._configurar_ui()
+        
         self.resize(1100, 700)
         
         self.caminho_imagem_atual = None
@@ -100,22 +125,22 @@ class JanelaPrincipal(QMainWindow):
         self.last_iucn_data = {}
         self.last_conservation_data = {}
         
-        # Trava de Estilo (v0.6.9): Impede recursão infinita no changeEvent
-        self._bloqueio_palette = False
-
-        self._configurar_ui()
+        # Flags de Estado
+        self.caminho_imagem_atual = None
         self._aplicar_estilo()
         
         # Reforço de Title Bar Dark (v0.7.2)
         StyleManager.setup_window_theme(self)
         
-        # Ajuste inicial de alturas
-        # QTimer.singleShot(100, lambda: self._ajustar_altura_etimologia())
-        # QTimer.singleShot(100, lambda: self._ajustar_altura_descricao())
+        # Suporte a Menu de Contexto (v1.0): Carrega imagem inicial se houver
+        if imagem_inicial and os.path.exists(imagem_inicial):
+            # Usamos timer para garantir que a UI está pronta antes do processamento pesado
+            QTimer.singleShot(500, lambda: self._carregar_imagem(imagem_inicial))
 
     def _obter_caminho_asset(self, nome_arquivo):
         if getattr(sys, 'frozen', False):
-            base_path = Path(sys._MEIPASS)
+            # No executável, os assets estão na subpasta 'assets' dentro de _MEIPASS
+            base_path = Path(sys._MEIPASS) / 'assets'
         else:
             base_path = Path(__file__).parent.parent / 'assets'
         return str(base_path / nome_arquivo)
