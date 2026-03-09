@@ -249,6 +249,14 @@ if __name__ == "__main__":
         logging.info("CHECKPOINT 3: Criando QApplication...")
         app = QApplication(sys.argv)
         
+        # Ícone global da aplicação (barra de tarefas do Windows)
+        if getattr(sys, 'frozen', False):
+            icon_path = os.path.join(sys._MEIPASS, 'assets', 'logo_ave.ico')
+        else:
+            icon_path = os.path.join(os.path.dirname(__file__), 'assets', 'logo_ave.ico')
+        if os.path.exists(icon_path):
+            app.setWindowIcon(QIcon(icon_path))
+        
         logging.info("CHECKPOINT 4: Verificando ambiente virtual...")
         verificar_ambiente_virtual()
         
