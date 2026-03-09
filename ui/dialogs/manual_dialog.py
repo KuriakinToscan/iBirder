@@ -353,7 +353,7 @@ class ManualUsuarioDialog(QDialog):
         # Rodapé com GitHub e Créditos
         html_output.append("""
             <div class="footer-info">
-                <b>iBirder — Tecnologia Nacional a Serviço da Ciência Cidadã</b><br>
+                <b>iBirder — IA para Birdwatching</b><br>
                 <a href="https://github.com/KuriakinToscan/iBirder" class="github-link">github.com/KuriakinToscan/iBirder</a>
                 <div class="credits">
                     Desenvolvido por Kuriakin Toscan<br>
