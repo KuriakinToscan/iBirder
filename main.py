@@ -27,6 +27,7 @@ import traceback
 from pathlib import Path
 from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtGui import QIcon
+from PySide6.QtCore import Qt, QCoreApplication
 
 from pathlib import Path
 
@@ -145,7 +146,7 @@ if __name__ == "__main__":
         from core.config import carregar_config, salvar_config
         
         logger = setup_logger()
-        logging.info(f"--- INICIANDO DIAGNÓSTICO iBirder v1.0.1 ---")
+        logging.info(f"--- INICIANDO DIAGNÓSTICO iBirder v1.0.3 ---")
         logging.info(f"Frozen: {IS_FROZEN} | SO: {os.name} | Plataforma: {sys.platform}")
         logging.info(f"Diretório Base (Data): {BASE_DIR}")
         
@@ -166,6 +167,7 @@ if __name__ == "__main__":
             logging.warning("Pillow não encontrado.")
 
         logging.info("CHECKPOINT 3: Criando QApplication...")
+        QCoreApplication.setAttribute(Qt.AA_ShareOpenGLContexts)
         app = QApplication(sys.argv)
         
         # Ícone global da aplicação (barra de tarefas do Windows)

@@ -176,6 +176,7 @@ class Orchestrator(QObject):
         self.geo_worker = None
         self.audio_worker = None
         self.ebird_worker = None
+        self.conservation_worker = None
         
         self.current_lat = None
         self.current_lon = None

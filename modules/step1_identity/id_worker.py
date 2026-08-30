@@ -18,7 +18,7 @@ import time
 import logging
 from PySide6.QtCore import QThread, Signal
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 
 try:
     import ai_edge_litert.interpreter as tflite
@@ -111,8 +111,9 @@ class LocalIdentificationWorker(QThread):
             width = input_details[0]['shape'][2]
             
             # 3. Pré-processamento
-            # Carrega imagem original em memória (sem alterar arquivo)
+            # Carrega imagem original em memória e aplica rotação EXIF se houver
             img = Image.open(self.image_path).convert('RGB')
+            img = ImageOps.exif_transpose(img)
             
             # Redimensionamento de Alta Qualidade (LANCZOS)
             # Crucial para manter detalhes de plumagem e bico ao reduzir para 224x224

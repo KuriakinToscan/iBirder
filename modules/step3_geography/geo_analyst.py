@@ -21,6 +21,8 @@ import logging
 from geopy.geocoders import Nominatim
 from shapely.geometry import shape, Point
 
+from core.paths import BASE_DIR
+
 class GeoAnalyst:
     _instance = None
 
@@ -45,10 +47,9 @@ class GeoAnalyst:
         try:
             # Resolve o caminho para funcionar tanto em dev quanto no executável
             if getattr(sys, 'frozen', False):
-                base = sys._MEIPASS
+                path = os.path.join(sys._MEIPASS, "Geo", "biomas.geojson")
             else:
-                base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            path = os.path.join(base, "Geo", "biomas.geojson")
+                path = os.path.join(str(BASE_DIR), "Geo", "biomas.geojson")
             if os.path.exists(path):
                 with open(path, 'r', encoding='utf-8') as f:
                     self.biomes_data = json.load(f)

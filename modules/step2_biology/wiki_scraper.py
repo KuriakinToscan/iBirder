@@ -14,316 +14,158 @@
 #  Você deve ter recebido uma cópia da Licença Pública Geral GNU 
 #  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
 
-import time
-import random
+import requests
 import urllib.parse
 import re
 import logging
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
-from webdriver_manager.chrome import ChromeDriverManager
+import unicodedata
 from bs4 import BeautifulSoup
 
-
-# ==============================
-# CONFIGURAÇÃO
-# ==============================
-AVES_ALVO = [
-    "Turdus rufiventris",
-]
-
-TEMPO_ESPERA_MAX = 12
-# ==============================
-
+HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+}
 
 class BuscadorBlindado:
-
+    """
+    Buscador ultra-rápido via requisições HTTP seguras (Requests + BeautifulSoup).
+    Elimina a dependência de browsers como o Selenium/Chrome.
+    Resolve a URL do WikiAves através do nome popular gerado via iNaturalist API.
+    """
+    
     def __init__(self):
-        options = webdriver.ChromeOptions()
+        self.session = requests.Session()
+        self.session.headers.update(HEADERS)
 
-        # 🔹 NÍVEL 1 — Headless real (invisível)
-        options.add_argument("--headless=new")
-        options.add_argument("--window-size=1920,1080")
-
-        # Anti-detecção básica
-        options.add_argument("--disable-blink-features=AutomationControlled")
-
-        # Reduz logs do Chrome
-        options.add_argument("--log-level=3")
-        options.add_argument("--disable-logging")
-
-        # User-Agent
-        options.add_argument(
-            "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/120.0.0.0 Safari/537.36"
-        )
-
-        self.driver = webdriver.Chrome(
-            service=Service(ChromeDriverManager().install()),
-            options=options
-        )
-
-        self.wait = WebDriverWait(self.driver, TEMPO_ESPERA_MAX)
-
-    # ==================================================
-    # FUNÇÃO PRINCIPAL
-    # ==================================================
+    def _slugify(self, text):
+        if not text: return ""
+        text = unicodedata.normalize('NFD', text).encode('ascii', 'ignore').decode('utf-8')
+        text = re.sub(r'[^\w\s-]', '', text).strip().lower()
+        return re.sub(r'[-\s]+', '-', text)
 
     def buscar_link_wikiaves(self, scientific_name):
-
         logging.info(f"Buscando no WikiAves: {scientific_name}")
+        try:
+            # 1. Obter nome popular em Português na API iNaturalist
+            url_inat = f"https://api.inaturalist.org/v1/taxa?q={urllib.parse.quote(scientific_name)}&locale=pt-BR&rank=species"
+            resp = self.session.get(url_inat, timeout=5)
+            if resp.status_code == 200:
+                results = resp.json().get('results', [])
+                if results:
+                    common = results[0].get('preferred_common_name')
+                    if common:
+                        slug = self._slugify(common)
+                        wiki_url = f"https://www.wikiaves.com.br/wiki/{slug}"
+                        
+                        # 2. Validar se a página existe no WikiAves
+                        r_wiki = self.session.get(wiki_url, timeout=5)
+                        if r_wiki.status_code == 200:
+                            soup = BeautifulSoup(r_wiki.text, 'lxml')
+                            h1 = soup.find('h1')
+                            if h1 and "topico ainda nao existe" not in unicodedata.normalize('NFD', h1.get_text()).lower():
+                                logging.info(f"Link WikiAves encontrado via Slug ({common}): {wiki_url}")
+                                return wiki_url
 
-        link = self._tentar_google(scientific_name)
-
-        if not link:
-            logging.debug("Google falhou. Tentando Bing...")
-            link = self._tentar_bing(scientific_name)
-
-        if link:
-            logging.info(f"Link WikiAves encontrado: {link}")
-            return link
-        else:
-            logging.warning("Nenhum link WikiAves encontrado.")
-            # self.driver.save_screenshot("erro_tela.png") # Removido para limpeza de lixo
-            return None
+            # 3. Fallback: DuckDuckGo HTML POST (sem JS/Selenium)
+            ddg_url = "https://html.duckduckgo.com/html/"
+            r_ddg = self.session.post(ddg_url, data={'q': f'site:wikiaves.com.br "{scientific_name}"'}, timeout=5)
+            if r_ddg.status_code == 200:
+                soup_ddg = BeautifulSoup(r_ddg.text, 'lxml')
+                for a in soup_ddg.find_all('a', class_='result__url', href=True):
+                    href = a['href']
+                    if 'wikiaves.com.br/wiki/' in href and not any(x in href for x in ['especies', 'comunicados', 'regras']):
+                        clean_href = href.split('&')[0]
+                        logging.info(f"Link WikiAves encontrado via DuckDuckGo: {clean_href}")
+                        return clean_href
+        except Exception as e:
+            logging.error(f"Erro na busca de link WikiAves: {e}")
+            
+        logging.warning(f"Nenhum link WikiAves encontrado para {scientific_name}.")
+        return None
 
     def buscar_link_ebird(self, scientific_name):
         logging.info(f"Buscando eBird: {scientific_name}")
         try:
-            query = f'site:ebird.org "{scientific_name}"'
-            url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
-
-            logging.debug(f"Google (eBird): {url}")
-            self.driver.get(url)
-
-            self._espera_humana()
-            self._aceitar_consentimento_google()
-
-            self.wait.until(
-                EC.presence_of_element_located(
-                    (By.XPATH, "//a[contains(@href,'ebird.org/species/')]")
-                )
-            )
-
-            links = self.driver.find_elements(
-                By.XPATH, "//a[contains(@href,'ebird.org/species/')]"
-            )
-
-            for l in links:
-                href = l.get_attribute("href")
-                if href and "ebird.org/species/" in href:
-                    # Limpa parâmetros de busca se houver
-                    clean_href = href.split("?")[0].split("#")[0]
-                    return clean_href
-
-            return None
+            clean_code = scientific_name.replace(' ', '').lower()
+            ebird_url = f"https://ebird.org/species/{clean_code}"
+            return ebird_url
         except Exception as e:
             logging.error(f"Erro ao buscar eBird: {e}")
             return None
 
-    # ==================================================
-    # GOOGLE
-    # ==================================================
-
-    def _tentar_google(self, term):
-
-        try:
-            query = f'site:wikiaves.com.br "{term}"'
-            url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
-
-            logging.debug(f"Pesquisa Google: {url}")
-            self.driver.get(url)
-
-            self._espera_humana()
-            self._aceitar_consentimento_google()
-
-            self.wait.until(
-                EC.presence_of_element_located(
-                    (By.XPATH, "//a[contains(@href,'wikiaves.com.br/wiki/')]")
-                )
-            )
-
-            links = self.driver.find_elements(
-                By.XPATH, "//a[contains(@href,'wikiaves.com.br/wiki/')]"
-            )
-
-            for l in links:
-                href = l.get_attribute("href")
-                if href and "wikiaves.com.br/wiki/" in href:
-                    return href.split("&")[0]
-
-            return None
-
-        except TimeoutException:
-            logging.debug("Google não retornou resultados válidos (Timeout).")
-            return None
-        except Exception as e:
-            logging.error(f"Erro no Scraper (Google): {e}")
-            return None
-
-    # ==================================================
-    # BING
-    # ==================================================
-
-    def _tentar_bing(self, term):
-
-        try:
-            query = f'site:wikiaves.com.br "{term}"'
-            url = f"https://www.bing.com/search?q={urllib.parse.quote(query)}"
-
-            logging.debug(f"Pesquisa Bing: {url}")
-            self.driver.get(url)
-
-            self._espera_humana()
-
-            self.wait.until(
-                EC.presence_of_element_located(
-                    (By.XPATH, "//a[contains(@href,'wikiaves.com.br/wiki/')]")
-                )
-            )
-
-            links = self.driver.find_elements(
-                By.XPATH, "//a[contains(@href,'wikiaves.com.br/wiki/')]"
-            )
-
-            for l in links:
-                href = l.get_attribute("href")
-                if href and "wikiaves.com.br/wiki/" in href:
-                    return href.split("&")[0]
-
-            return None
-
-        except TimeoutException:
-            logging.debug("Bing não retornou resultados válidos (Timeout).")
-            return None
-        except Exception as e:
-            logging.error(f"Erro no Scraper (Bing): {e}")
-            return None
-
-    # ==================================================
-    # EXTRAÇÃO DAS SEÇÕES ESPECÍFICAS
-    # ==================================================
-
     def extrair_dados_especie(self, url):
-
         logging.debug(f"Extraindo dados de: {url}")
-
-        self.driver.get(url)
-
-        self.wait.until(
-            EC.presence_of_element_located((By.TAG_NAME, "h2"))
-        )
-
-        html = self.driver.page_source
-        soup = BeautifulSoup(html, "lxml")
-
         dados = {}
+        try:
+            resp = self.session.get(url, timeout=8)
+            if resp.status_code != 200:
+                return dados
+                
+            soup = BeautifulSoup(resp.text, "lxml")
 
-        # 🔹 Nome Comum (Título Principal h1 - v0.8.5)
-        # O seletor foi atualizado para class sectionedit1 conforme estrutura real do WikiAves
-        tag_h1 = soup.find("h1", class_="sectionedit1")
-        if tag_h1:
-             dados["nome_comum"] = tag_h1.get_text(separator=" ", strip=True)
-        else:
-             # Fallback para o id antigo ou seletor genérico
-             tag_h1 = soup.find("h1", id="titulo") or soup.find("h1")
-             dados["nome_comum"] = tag_h1.get_text(separator=" ", strip=True) if tag_h1 else "Não encontrado"
+            # 🔹 Nome Comum (Título Principal h1)
+            tag_h1 = soup.find("h1", class_="sectionedit1") or soup.find("h1", id="titulo") or soup.find("h1")
+            dados["nome_comum"] = tag_h1.get_text(separator=" ", strip=True) if tag_h1 else "Não encontrado"
 
-        # 🔹 Nome em Inglês (v0.8.5 - Novo campo capturado do WikiAves)
-        h2_ingles = soup.find("h2", string=lambda t: t and "Nome em Inglês" in t)
-        if h2_ingles:
-            # Pega o conteúdo de texto imediatamente após o H2
-            texto_prox = h2_ingles.next_sibling
-            if texto_prox:
-                dados["nome_ingles"] = str(texto_prox).strip()
+            # 🔹 Nome em Inglês
+            h2_ingles = soup.find("h2", string=lambda t: t and "Nome em Inglês" in t)
+            if h2_ingles and h2_ingles.next_sibling:
+                dados["nome_ingles"] = str(h2_ingles.next_sibling).strip()
             else:
                 dados["nome_ingles"] = "Desconhecido"
-        else:
-            dados["nome_ingles"] = "Desconhecido"
 
-        # 🔹 Etimologia (Que o WikiAves chama de nome_cientifico)
-        sec_nome = soup.find("h2", id="nome_cientifico")
-        if sec_nome:
-            div_nome = sec_nome.find_next("div", class_="level2")
-            if div_nome:
-                # Normalização de espaços e quebras de linha (v0.4.9)
-                texto_limpo = div_nome.get_text(separator=" ", strip=True)
-                dados["etimologia"] = re.sub(r'\s+', ' ', texto_limpo)
+            # 🔹 Etimologia (Nome científico)
+            sec_nome = soup.find("h2", id="nome_cientifico")
+            if sec_nome:
+                div_nome = sec_nome.find_next("div", class_="level2")
+                if div_nome:
+                    texto_limpo = div_nome.get_text(separator=" ", strip=True)
+                    dados["etimologia"] = re.sub(r'\s+', ' ', texto_limpo)
+                else:
+                    dados["etimologia"] = "Não encontrado"
             else:
                 dados["etimologia"] = "Não encontrado"
-        else:
-            dados["etimologia"] = "Não encontrado"
 
-        # 🔹 Características (Refinado: Apenas texto dentro da tag <p>)
-        sec_carac = soup.find("h2", id="caracteristicas")
-        if sec_carac:
-            div_carac = sec_carac.find_next("div", class_="level2")
-            if div_carac:
-                # Pega APENAS o primeiro parágrafo. Ignora players de áudio e botões subsequentes.
-                paragrafo = div_carac.find("p")
-                
-                if paragrafo:
-                    # separator=" " garante que tags <br> virem espaços simples (v0.4.9)
-                    texto_raw = paragrafo.get_text(separator=" ", strip=True)
-                    # Regex para remover múltiplas quebras de linha e espaços extras
-                    dados["caracteristicas"] = re.sub(r'\s+', ' ', texto_raw)
+            # 🔹 Características
+            sec_carac = soup.find("h2", id="caracteristicas")
+            if sec_carac:
+                div_carac = sec_carac.find_next("div", class_="level2")
+                if div_carac:
+                    paragrafo = div_carac.find("p")
+                    if paragrafo:
+                        texto_raw = paragrafo.get_text(separator=" ", strip=True)
+                        dados["caracteristicas"] = re.sub(r'\s+', ' ', texto_raw)
+                    else:
+                        dados["caracteristicas"] = "Descrição não disponível."
                 else:
-                    dados["caracteristicas"] = "Descrição não disponível."
+                    dados["caracteristicas"] = "Não encontrado"
             else:
                 dados["caracteristicas"] = "Não encontrado"
-        else:
-            dados["caracteristicas"] = "Não encontrado"
-            
-        # 🔹 Estado de Conservação (Fallback IUCN)
-        dados["status_conservacao"] = "Não encontrado"
-        links_iucn = soup.find_all("a", href=lambda href: href and "lista_vermelha_iucn" in href.lower())
-        for link in links_iucn:
-            texto = link.get_text(strip=True)
-            if texto and "IUCN" not in texto.upper():
-                dados["status_conservacao"] = texto
-                break
 
-        # 🔹 Taxonomia: Ordem e Família (v1.6.3 - Refinado via Auditoria Browser)
-        # O WikiAves atual organiza a taxonomia em uma tabela dentro de containers m-portlet
-        dados["ordem"] = "Desconhecida"
-        dados["familia"] = "Desconhecida"
-        
-        # Estratégia Robusta: Localizar o TD que contém o texto e pegar o próximo TD (que contém o link)
-        todas_as_celulas = soup.find_all("td")
-        for i, td in enumerate(todas_as_celulas):
-            texto_celula = td.get_text(strip=True)
-            if "Ordem:" in texto_celula and i + 1 < len(todas_as_celulas):
-                valor_celula = todas_as_celulas[i+1].get_text(strip=True)
-                dados["ordem"] = valor_celula
-            elif "Família:" in texto_celula and i + 1 < len(todas_as_celulas):
-                valor_celula = todas_as_celulas[i+1].get_text(strip=True)
-                dados["familia"] = valor_celula
+            # 🔹 Estado de Conservação (Fallback IUCN)
+            dados["status_conservacao"] = "Não encontrado"
+            links_iucn = soup.find_all("a", href=lambda href: href and "lista_vermelha_iucn" in href.lower())
+            for link in links_iucn:
+                texto = link.get_text(strip=True)
+                if texto and "IUCN" not in texto.upper():
+                    dados["status_conservacao"] = texto
+                    break
+
+            # 🔹 Taxonomia: Ordem e Família
+            dados["ordem"] = "Desconhecida"
+            dados["familia"] = "Desconhecida"
+            todas_as_celulas = soup.find_all("td")
+            for i, td in enumerate(todas_as_celulas):
+                texto_celula = td.get_text(strip=True)
+                if "Ordem:" in texto_celula and i + 1 < len(todas_as_celulas):
+                    dados["ordem"] = todas_as_celulas[i+1].get_text(strip=True)
+                elif "Família:" in texto_celula and i + 1 < len(todas_as_celulas):
+                    dados["familia"] = todas_as_celulas[i+1].get_text(strip=True)
+
+        except Exception as e:
+            logging.error(f"Erro ao extrair dados da espécie em {url}: {e}")
 
         return dados
 
-    # ==================================================
-    # UTILITÁRIOS
-    # ==================================================
-
-    def _espera_humana(self):
-        time.sleep(random.uniform(2, 4))
-
-    def _aceitar_consentimento_google(self):
-        try:
-            if "consent" in self.driver.current_url:
-                botoes = self.driver.find_elements(By.TAG_NAME, "button")
-                for b in botoes:
-                    if "aceitar" in b.text.lower() or "accept" in b.text.lower():
-                        b.click()
-                        time.sleep(2)
-                        break
-        except:
-            pass
-
     def fechar(self):
-        self.driver.quit()
+        """Método de interface para desacoplamento sem necessidade de fechar drivers externos."""
+        pass
