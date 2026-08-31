@@ -19,6 +19,7 @@ import logging
 from PySide6.QtCore import QThread, Signal
 import numpy as np
 from PIL import Image, ImageOps
+Image.MAX_IMAGE_PIXELS = None
 
 try:
     import ai_edge_litert.interpreter as tflite

@@ -16,6 +16,7 @@
 
 from pathlib import Path
 from PIL import Image
+Image.MAX_IMAGE_PIXELS = None
 import os
 import sys
 import logging

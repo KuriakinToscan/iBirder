@@ -153,7 +153,7 @@ class ImageCardWidget(QWidget):
         self._update_expand_button()
 
     def set_image_path(self, path):
-        """Carrega imagem do caminho e define como atual."""
+        """Carrega imagem do caminho e define como atual (Suporta fotos DSLR de alta resolução)."""
         if path:
             if isinstance(path, str):
                 if path.startswith("file:///"):
@@ -166,22 +166,29 @@ class ImageCardWidget(QWidget):
             clean_path = str(Path(path).resolve())
             if os.path.exists(clean_path):
                 self.image_path = clean_path
-                pix = QPixmap(clean_path)
+                pix = None
                 
-                # Fallback via PIL (suporta rotação EXIF e formatos especiais)
+                # 1. Carrega via PIL para contornar rejeição de 256MB do Qt QImageIOHandler em fotos DSLR (> 80MP)
+                try:
+                    from PIL import Image, ImageOps
+                    import io
+                    Image.MAX_IMAGE_PIXELS = None
+                    with Image.open(clean_path) as img:
+                        img = ImageOps.exif_transpose(img).convert("RGB")
+                        # Redimensiona para no máximo 2048px preservando proporção
+                        if max(img.size) > 2048:
+                            img.thumbnail((2048, 2048), Image.Resampling.LANCZOS)
+                        buffer = io.BytesIO()
+                        img.save(buffer, format="JPEG", quality=85)
+                        pix = QPixmap()
+                        pix.loadFromData(buffer.getvalue())
+                except Exception as e:
+                    import logging
+                    logging.warning(f"Fallback no carregamento PIL: {e}")
+                
+                # 2. Fallback para QPixmap direto se PIL não foi usado
                 if pix is None or pix.isNull():
-                    try:
-                        from PIL import Image, ImageOps
-                        import io
-                        with Image.open(clean_path) as img:
-                            img = ImageOps.exif_transpose(img).convert("RGB")
-                            buffer = io.BytesIO()
-                            img.save(buffer, format="JPEG")
-                            pix = QPixmap()
-                            pix.loadFromData(buffer.getvalue())
-                    except Exception as e:
-                        import logging
-                        logging.error(f"Falha ao carregar pixmap via PIL em set_image_path: {e}")
+                    pix = QPixmap(clean_path)
                 
                 self.pixmap = pix
                 self.update()
