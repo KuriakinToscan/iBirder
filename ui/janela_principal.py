@@ -1047,6 +1047,23 @@ class JanelaPrincipal(QMainWindow):
             settings.setValue("lens_dont_show_again", True)
 
     def _carregar_imagem(self, caminho: str):
+        if not caminho:
+            return
+
+        if isinstance(caminho, str):
+            if caminho.startswith("file:///"):
+                caminho = caminho[8:]
+            elif caminho.startswith("file://"):
+                caminho = caminho[7:]
+            import urllib.parse
+            caminho = urllib.parse.unquote(caminho)
+
+        caminho = str(Path(caminho).resolve())
+        if not os.path.exists(caminho):
+            logging.error(f"Arquivo de imagem não encontrado: {caminho}")
+            DialogoAviso("Erro ao Abrir Imagem", f"O arquivo não foi encontrado:\n{caminho}", self, tipo="erro").exec()
+            return
+
         self._resetar_interface() # Limpa tudo primeiro
 
         self.caminho_imagem_atual = caminho
@@ -1650,7 +1667,7 @@ class JanelaPrincipal(QMainWindow):
         last_folder = settings.value("last_folder", "")
         
         path, _ = QFileDialog.getOpenFileName(
-            self, "Nova Identificação", last_folder, "Imagens (*.png *.jpg *.jpeg)"
+            self, "Nova Identificação", last_folder, "Imagens (*.png *.jpg *.jpeg *.webp *.bmp *.tif *.tiff *.PNG *.JPG *.JPEG *.WEBP *.BMP)"
         )
         if path:
             self._carregar_imagem(path)

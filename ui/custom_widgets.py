@@ -18,7 +18,7 @@ from PySide6.QtWidgets import QWidget, QSizePolicy, QApplication, QPushButton, Q
 from PySide6.QtCore import Qt, QSize, QRectF, QMimeData, QUrl, QPoint
 from PySide6.QtGui import (
     QPainter, QPixmap, QColor, QFont, QPen, QPainterPath, 
-    QFontMetrics, QDrag, QDragEnterEvent, QDropEvent, QIcon, QCursor
+    QFontMetrics, QDrag, QDragEnterEvent, QDragMoveEvent, QDropEvent, QIcon, QCursor
 )
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -154,14 +154,43 @@ class ImageCardWidget(QWidget):
 
     def set_image_path(self, path):
         """Carrega imagem do caminho e define como atual."""
-        if path and os.path.exists(path):
-            self.image_path = path
-            self.pixmap = QPixmap(path)
-            self.update()
-        else:
-            self.image_path = None
-            self.pixmap = None
-            self.update()
+        if path:
+            if isinstance(path, str):
+                if path.startswith("file:///"):
+                    path = path[8:]
+                elif path.startswith("file://"):
+                    path = path[7:]
+                import urllib.parse
+                path = urllib.parse.unquote(path)
+            
+            clean_path = str(Path(path).resolve())
+            if os.path.exists(clean_path):
+                self.image_path = clean_path
+                pix = QPixmap(clean_path)
+                
+                # Fallback via PIL (suporta rotação EXIF e formatos especiais)
+                if pix is None or pix.isNull():
+                    try:
+                        from PIL import Image, ImageOps
+                        import io
+                        with Image.open(clean_path) as img:
+                            img = ImageOps.exif_transpose(img).convert("RGB")
+                            buffer = io.BytesIO()
+                            img.save(buffer, format="JPEG")
+                            pix = QPixmap()
+                            pix.loadFromData(buffer.getvalue())
+                    except Exception as e:
+                        import logging
+                        logging.error(f"Falha ao carregar pixmap via PIL em set_image_path: {e}")
+                
+                self.pixmap = pix
+                self.update()
+                self._update_expand_button()
+                return
+
+        self.image_path = None
+        self.pixmap = None
+        self.update()
         self._update_expand_button()
 
     def set_placeholder(self, text):
@@ -245,10 +274,16 @@ class ImageCardWidget(QWidget):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
 
+    def dragMoveEvent(self, event: QDragMoveEvent):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
     def dropEvent(self, event: QDropEvent):
         urls = event.mimeData().urls()
         if urls:
             path = urls[0].toLocalFile()
+            if not path and urls[0].toString():
+                path = urls[0].toString()
             if self.on_drop_callback:
                 self.on_drop_callback(path)
 
