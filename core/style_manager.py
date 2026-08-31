@@ -17,6 +17,8 @@
 from pathlib import Path
 import logging
 import platform
+from PySide6.QtGui import QPalette, QColor, QIcon
+from PySide6.QtCore import QLibraryInfo, QTranslator, QLocale
 
 class StyleManager:
     """Centralizador de Estilos e Temas do iBirder (v0.6.6)"""
@@ -46,9 +48,6 @@ class StyleManager:
         if StyleManager._last_mode == dark_mode:
             return # Evita re-aplicação redundante e loops de eventos
             
-        from PySide6.QtGui import QPalette, QColor
-        from PySide6.QtCore import QLibraryInfo, QTranslator, QLocale
-        
         # 1. Configurar Estilo Base (Apenas na primeira vez ou se necessário)
         if StyleManager._last_mode is None:
             app.setStyle("Fusion")
