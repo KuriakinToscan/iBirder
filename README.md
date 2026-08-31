@@ -29,7 +29,7 @@ O iBirder integra as bibliotecas biológicas e tecnologias mais respeitadas do e
 
 ### Para Usuários (Windows)
 1. Baixe a versão mais recente em [Releases](https://github.com/KuriakinToscan/iBirder/releases).
-2. Execute o instalador `iBirder_v1.0.x_Setup.exe`.
+2. Execute o instalador `iBirder_v1.0.3_Setup.exe`.
 3. O app permite abrir fotos via "Arraste e Solte" ou diretamente pelo botão direito no Windows Explorer.
 
 ### Para Desenvolvedores

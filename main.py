@@ -29,23 +29,18 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import Qt, QCoreApplication
 
-from pathlib import Path
-
 # IMPORTAÇÕES ESSENCIAIS (Sempre Seguras)
 # Definidas no escopo global para acesso por todas as funções
 from core.paths import BASE_DIR, IS_FROZEN, garantir_diretorios
 
 # BLOQUEIO DE TEMA CHROMIUM (v1.0.8)
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-features=DarkMode"
-# from core.wikiaves_worker import WikiAvesWorker # Removed in v0.2.1 migration
-
-
 
 # Configuração do AppUserModelID (Apenas Windows)
 if platform.system() == "Windows":
     try:
         # ID único para dissociar do ícone do Python
-        myappid = 'ibirder.app.visualizacao.v1.0.1'
+        myappid = 'ibirder.app.visualizacao.v1.0.3'
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     except Exception:
         pass 
@@ -103,8 +98,6 @@ def garantir_dependencias():
             except Exception:
                 pass
 
-import traceback
-
 def exception_hook(exctype, value, tb):
     logging.critical("Exceção não tratada detectada:", exc_info=(exctype, value, tb))
     sys.exit(1)
@@ -151,10 +144,6 @@ if __name__ == "__main__":
         logging.info(f"Diretório Base (Data): {BASE_DIR}")
         
         logging.info("CHECKPOINT 1: Logger pronto. Verificando ambiente...")
-        
-        # 0. Self-Healing (Apenas em Dev)
-        # if not IS_FROZEN:
-        #    garantir_dependencias()
 
         # Checagem de Status da IA
         global AI_ENGINE_STATUS
@@ -225,7 +214,6 @@ if __name__ == "__main__":
         else:
             # Fallback para ctypes se o app nem iniciou
             try:
-                import ctypes
                 ctypes.windll.user32.MessageBoxW(0, msg_final, "Erro Fatal iBirder", 0x10)
             except:
                 pass

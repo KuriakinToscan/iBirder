@@ -19,6 +19,7 @@ from PySide6.QtWebEngineCore import QWebEnginePage
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtCore import QUrl
 import io
+from urllib.parse import urlparse, parse_qs
 
 class ExternalLinkPage(QWebEnginePage):
     def __init__(self, parent=None):
@@ -28,7 +29,6 @@ class ExternalLinkPage(QWebEnginePage):
     def acceptNavigationRequest(self, url, _type, isMainFrame):
         url_str = url.toString()
         if url_str.startswith("ibirder://map_drag"):
-            from urllib.parse import urlparse, parse_qs
             parsed = urlparse(url_str)
             query = parse_qs(parsed.query)
             if 'lat' in query and 'lon' in query:
@@ -41,7 +41,6 @@ class ExternalLinkPage(QWebEnginePage):
             return False
             
         if url_str.startswith("ibirder://audio_click"):
-            from urllib.parse import urlparse, parse_qs
             parsed = urlparse(url_str)
             query = parse_qs(parsed.query)
             if 'id' in query:

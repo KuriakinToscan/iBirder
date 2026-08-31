@@ -73,7 +73,6 @@ class StyleManager:
 
     @staticmethod
     def _get_light_palette():
-        from PySide6.QtGui import QPalette, QColor
         palette = QPalette()
         off_white = QColor("#F0F2F5")
         pure_white = QColor("#FFFFFF")

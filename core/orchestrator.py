@@ -30,9 +30,6 @@ import logging
 import requests
 from core.config import carregar_config
 
-# Etapa 6: Persistência (EXIF) - Placeholder para futura integração direta
-# from modules.step6_persistence.exif_manager import EXIFManager
-
 class GeoWorker(QThread):
     """
     Worker especializado para processamento geográfico assíncrono (nominatim/biomas).
@@ -106,7 +103,6 @@ class Orchestrator(QObject):
         self._last_geo_run = {"sci_name": None, "lat": None, "lon": None}
         
         # Inteligência Evolutiva (OTA Updater)
-        import time
         start_ota_time = time.time()
         
         self.new_ia_available = False
@@ -385,8 +381,6 @@ class Orchestrator(QObject):
                 self.session_logger.atualizar_ultimo_registro({
                     "municipio": "Não informado", "estado": "N/A", "bioma": "Não mapeado"
                 })
-            # REMOVIDO: self.start_step4_vocalization(sci_name)
-            # Agora aguarda o reprocessar_localizacao ser chamado pela UI
 
     def _on_step3_geo_finished(self, details):
         mun = details.get('municipio', 'N/D')

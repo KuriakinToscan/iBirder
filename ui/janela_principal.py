@@ -1777,7 +1777,6 @@ class JanelaPrincipal(QMainWindow):
         # Detectar se há GPS original para proteger campos (v0.8.5)
         tem_gps = False
         if self.caminho_imagem_atual:
-            from modules.step3_geography.geo_utils import extract_lat_lon
             if extract_lat_lon(self.caminho_imagem_atual):
                 tem_gps = True
 

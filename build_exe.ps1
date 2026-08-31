@@ -1,6 +1,6 @@
-# Script de Construção do Executável iBirder v1.0
+# Script de Construção do Executável iBirder v1.0.3
 
-Write-Host "Iniciando processo de build do iBirder v1.0..." -ForegroundColor Cyan
+Write-Host "Iniciando processo de build do iBirder v1.0.3..." -ForegroundColor Cyan
 
 # 1. Garante que o PyInstaller está instalado
 Write-Host "Verificando PyInstaller..." -ForegroundColor Yellow
