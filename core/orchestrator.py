@@ -249,16 +249,24 @@ class Orchestrator(QObject):
     def _on_step1_finished(self, dados_identificacao):
         logging.debug("Etapa 1 Concluída.")
         
-        # Opcional: Registrar Etapa 1 direto no log (já feito na janela, mas poderia ser aqui centralizado)
-        # self.session_logger.registrar_identificacao(dados_identificacao)
-        
-        # Envia pra View pintar o passarinho
-        self.step1_identificacao_concluida.emit(dados_identificacao)
-        
         nome_cientifico = dados_identificacao.get("nome_cientifico")
         status_msg = dados_identificacao.get("status_msg", "")
-        
         self._last_sci_name = nome_cientifico
+        
+        # Validação Geoespacial por Bioma (Fase 3 do Modelo Neotropical)
+        if self.current_lat and self.current_lon and nome_cientifico != "Identificação Inconclusiva":
+            try:
+                from modules.step3_geography.geo_analyst import GeoAnalyst
+                geo_val = GeoAnalyst().validar_ocorrencia_especie(nome_cientifico, self.current_lat, self.current_lon)
+                if geo_val.get("bonificacao", 0) > 0 and "confianca" in dados_identificacao:
+                    nova_conf = min(1.0, float(dados_identificacao["confianca"]) + geo_val["bonificacao"])
+                    dados_identificacao["confianca"] = nova_conf
+                    logging.info(f"Bonificação Geoespacial ({geo_val['mensagem']}): Confiança ajustada para {nova_conf:.4f}")
+            except Exception as e:
+                logging.warning(f"Falha ao aplicar validação geoespacial: {e}")
+
+        # Envia pra View pintar o passarinho
+        self.step1_identificacao_concluida.emit(dados_identificacao)
         
         # REGISTRO CENTRALIZADO: ETAPA 1
         conf_valor = dados_identificacao.get("confianca", "N/A")

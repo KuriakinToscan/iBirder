@@ -23,6 +23,7 @@ class ModelManager:
     # Using the official TF Hub URL for V1.3
     URL_MODEL = "https://tfhub.dev/google/lite-model/aiy/vision/classifier/birds_V1/3?lite-format=tflite"
     URL_LABELS = "https://raw.githubusercontent.com/google-coral/test_data/master/inat_bird_labels.txt"
+    MODEL_VERSION = "1.0.3"
     
     def __init__(self):
         self.assets_dir = Path(__file__).parent.parent / "assets" / "models"
@@ -34,6 +35,15 @@ class ModelManager:
 
     def check_resources(self):
         return self.model_path.exists() and self.labels_path.exists()
+
+    def get_model_info(self):
+        """Retorna informações da versão e estado do modelo local."""
+        return {
+            "name": "iNaturalist Vision (Aves)",
+            "version": self.MODEL_VERSION,
+            "installed": self.check_resources(),
+            "path": str(self.model_path)
+        }
 
     def download_resources(self, callback=None):
         """

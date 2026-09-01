@@ -46,7 +46,16 @@ pip install -r requirements.txt
 
 # Execute o aplicativo
 python main.py
+
+# Scripts de ML Ops (Pipeline de Dados iNaturalist AWS)
+python scripts/etl_inaturalist_aws.py
+python scripts/train_neotropical_model.py
 ```
+
+## 🧠 Roadmap do Modelo Neotropical (v1.1.0)
+- **Base de Treinamento**: iNaturalist Open Data (AWS S3) + GBIF.
+- **Espécies Cobertas**: 1.980+ espécies de aves brasileiras.
+- **Validação Geoespacial**: Cruzamento de biomas em tempo real (Pampa, Cerrado, Mata Atlântica, Caatinga, Amazônia, Pantanal).
 
 ## ⚖️ Licença
 Este software é distribuído sob a licença **GNU GPL v3**.

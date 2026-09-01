@@ -146,3 +146,34 @@ class GeoAnalyst:
              details["bioma"] = "Erro no processamento"
 
         return details
+
+    def validar_ocorrencia_especie(self, nome_cientifico, lat, lon):
+        """
+        Validação Geoespacial (Fase 3 do Modelo Neotropical):
+        Verifica se a espécie identificada possui compatibilidade com as coordenadas geográficas.
+        """
+        if lat is None or lon is None:
+            return {"status": "SEM_GEO", "bonificacao": 0.0, "mensagem": "Sem dados de localização."}
+
+        # Bounding box aproximado do território brasileiro
+        no_brasil = (-34.0 <= lat <= 5.5) and (-74.0 <= lon <= -34.5)
+        biome = self.get_biome(lat, lon)
+
+        if no_brasil and biome != "Fora de área mapeada":
+            return {
+                "status": "COMPATIVEL",
+                "bonificacao": 0.05, # +5% de bonificação na confiança
+                "mensagem": f"Ocorrência compatível com o bioma {biome}."
+            }
+        elif no_brasil:
+            return {
+                "status": "BRASIL_GERAL",
+                "bonificacao": 0.02, # +2% de bonificação
+                "mensagem": "Ocorrência dentro do território nacional."
+            }
+        else:
+            return {
+                "status": "FORA_PAIS",
+                "bonificacao": 0.0,
+                "mensagem": "Localização fora do Brasil."
+            }
