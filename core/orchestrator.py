@@ -279,14 +279,38 @@ class Orchestrator(QObject):
                  "confianca": conf_valor
             })
 
-        # CASCATA LINEAR: Só inicia a Etapa 2 se a espécie for válida (v0.6.1)
-        # Bloqueia explicitamente nomes genéricos ou falhas de confiança
-        if nome_cientifico == "Identificação Inconclusiva" or status_msg == "Baixa confiança":
-            logging.warning("Identificação Inconclusiva detectada. Interrompendo cascata automática.")
+        # CASCATA LINEAR: Se a IA local não concluiu, ativa o refino transparente em background (Google Lens v1.0.4)
+        if nome_cientifico == "Identificação Inconclusiva" or status_msg == "Baixa confiança" or float(dados_identificacao.get("confianca", 0)) < 0.70:
+            logging.info("IA local inconclusiva. Disparando refino transparente em segundo plano (Google Lens)...")
+            if hasattr(self, "id_worker") and self.id_worker and hasattr(self.id_worker, "image_path"):
+                self.start_step1_lens_background(self.id_worker.image_path)
             return
 
         logging.info(f"Espécie validada. Iniciando cascata para: {nome_cientifico}")
         self.start_step2_biology(nome_cientifico)
+
+    def start_step1_lens_background(self, image_path):
+        """Dispara o refino transparente em background via Google Lens (v1.0.4)."""
+        logging.info("Disparando refino de identificação em segundo plano (Google Lens)...")
+        if getattr(self, "lens_worker", None):
+            try:
+                self.lens_worker.stop()
+                self.lens_worker.deleteLater()
+            except Exception:
+                pass
+
+        from modules.step1_identity.lens_worker import TransparentGoogleLensWorker
+        self.lens_worker = TransparentGoogleLensWorker(image_path, parent=self)
+        self.lens_worker.finished.connect(self._on_lens_background_finished)
+        self.lens_worker.start()
+
+    def _on_lens_background_finished(self, dados_lens):
+        nome_sci = dados_lens.get("nome_cientifico")
+        logging.info(f"Refino de segundo plano (Google Lens) concluído com sucesso: {nome_sci}")
+        if nome_sci and nome_sci != "Identificação Inconclusiva":
+            self.step1_identificacao_concluida.emit(dados_lens)
+            self._last_sci_name = nome_sci
+            self.start_step2_biology(nome_sci)
             
     # --- Etapa 2 ---
     def start_step2_biology(self, sci_name):

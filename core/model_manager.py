@@ -23,7 +23,7 @@ class ModelManager:
     # Using the official TF Hub URL for V1.3
     URL_MODEL = "https://tfhub.dev/google/lite-model/aiy/vision/classifier/birds_V1/3?lite-format=tflite"
     URL_LABELS = "https://raw.githubusercontent.com/google-coral/test_data/master/inat_bird_labels.txt"
-    MODEL_VERSION = "1.0.3"
+    MODEL_VERSION = "1.0.4"
     
     def __init__(self):
         self.assets_dir = Path(__file__).parent.parent / "assets" / "models"

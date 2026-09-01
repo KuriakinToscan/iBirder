@@ -40,7 +40,7 @@ os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-features=DarkMode"
 if platform.system() == "Windows":
     try:
         # ID único para dissociar do ícone do Python
-        myappid = 'ibirder.app.visualizacao.v1.0.3'
+        myappid = 'ibirder.app.visualizacao.v1.0.4'
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     except Exception:
         pass 
@@ -139,7 +139,7 @@ if __name__ == "__main__":
         from core.config import carregar_config, salvar_config
         
         logger = setup_logger()
-        logging.info(f"--- INICIANDO DIAGNÓSTICO iBirder v1.0.3 ---")
+        logging.info(f"--- INICIANDO DIAGNÓSTICO iBirder v1.0.4 ---")
         logging.info(f"Frozen: {IS_FROZEN} | SO: {os.name} | Plataforma: {sys.platform}")
         logging.info(f"Diretório Base (Data): {BASE_DIR}")
         
