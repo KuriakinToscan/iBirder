@@ -5,7 +5,7 @@
 O **iBirder** é uma ferramenta de código aberto desenvolvida para ornitólogos, observadores de aves e fotógrafos de natureza. Com sua inovadora arquitetura **Híbrida (Edge AI + Nuvem)**, o sistema prioriza o processamento local, mas pode recorrer de forma inteligente às APIs do iNaturalist e Google Vision para fotos complexas, garantindo a maior taxa de acerto possível.
 
 ## ✨ Principais Diferenciais
-- **Identificação em Cascata**: Prioriza a IA Local (Custo e latência zero). Se a confiança for baixa, tenta a nuvem (iNaturalist API) e, por fim, o Google Cloud Vision (v1.1+).
+- **Identificação em Cascata**: Prioriza a IA Local (Custo e latência zero). Se a confiança for baixa, tenta a nuvem (iNaturalist API) e, por fim, o Google Cloud Vision (v1.1.1+).
 - **Privacidade e Controle (BYOK)**: O processamento de imagem ocorre na sua máquina por padrão. As chamadas em nuvem requerem as suas próprias chaves de API (Bring Your Own Key).
 - **Otimizado para o Brasil**: Integração profunda com o **WikiAves** para etimologia e contexto biológico da nossa biodiversidade.
 - **Persistência Científica**: Gravação de metadados nos padrões **EXIF/XMP**, **Darwin Core (DWC)** e palavras-chave hierárquicas.
@@ -29,7 +29,7 @@ O iBirder integra as bibliotecas biológicas e tecnologias mais respeitadas do e
 
 ### Para Usuários (Windows)
 1. Baixe a versão mais recente em [Releases](https://github.com/KuriakinToscan/iBirder/releases).
-2. Execute o instalador `iBirder_v1.1.x_Setup.exe`.
+2. Execute o instalador `iBirder_v1.1.1.x_Setup.exe`.
 3. O app permite abrir fotos via "Arraste e Solte" ou diretamente pelo botão direito no Windows Explorer.
 
 ### Para Desenvolvedores

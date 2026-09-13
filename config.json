@@ -4,7 +4,7 @@
     "lembrar_modo": false,
     "xc_api_key": "5e485df54249c0435a13aac128b7f16d2be13da7",
     "inat_api_token": "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjo5NzMzNDE5LCJleHAiOjE3ODk0MDAyMTN9.S7wreiCZmW9bWGk-LfvnS-EUlgdKMwdDwwvfOLDG-17P_XneXorfz7NR9R6rElPfTog9SERjZwESIBU5CZFJSA",
-    "google_vision_api_key": "",
+    "google_vision_api_key": "AIzaSyC3cPFkTjQ4me-htBy5veEsi8Wcrd34iqo",
     "mostrar_alerta_boot_api": false,
     "mostrar_alerta_iucn": false,
     "mostrar_alerta_ebird": false

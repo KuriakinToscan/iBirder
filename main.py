@@ -44,7 +44,7 @@ os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-features=DarkMode"
 if platform.system() == "Windows":
     try:
         # Definindo ID unico da aplicacao para o icone da barra de tarefas
-        myappid = 'ibirder.app.visualizacao.v1.1'
+        myappid = 'ibirder.app.visualizacao.v1.1.1'
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     except Exception:
         pass 
@@ -133,7 +133,7 @@ def salvar_log_desespero(mensagem):
 if __name__ == "__main__":
     try:
         # ==========================================
-        # 0. Checkpoint Zero (v1.1)
+        # 0. Checkpoint Zero (v1.1.1)
         # ==========================================
         print("CHECKPOINT 0: Iniciando interpretador...") 
         
@@ -148,7 +148,7 @@ if __name__ == "__main__":
         
         setup_logger()
         logging.info("[BOOT] Sistema de Logging iBirder inicializado em modo UTF-8")
-        logging.info(f"--- INICIANDO DIAGNÓSTICO iBirder v1.1 ---")
+        logging.info(f"--- INICIANDO DIAGNÓSTICO iBirder v1.1.1 ---")
         logging.info(f"Frozen: {getattr(sys, 'frozen', False)} | SO: {os.name} | Plataforma: {sys.platform}")
         logging.info(f"Diretório Base (Data): {BASE_DIR}")
         
