@@ -59,6 +59,9 @@ class Orchestrator(QObject):
     desacoplamento das regras de negócio.
     """
     
+    # Emite aviso sobre atualização do app
+    app_update_available = Signal(dict)
+    
     # Sinais para atualizar a Janela Principal (View)
     update_available = Signal(dict) # Para OTA Updater
     
@@ -111,12 +114,17 @@ class Orchestrator(QObject):
         
         self.new_ia_available = False
         
-        from core.updater import ModelUpdater
+        from core.updater import ModelUpdater, AppUpdater
         self.updater = ModelUpdater(parent=self)
         # Ao invés de jogar sinal direto para UI agora, armazenamos a informação silenciosamente
         self.updater.update_available.connect(self._on_update_detected)
         # Disparo silencioso em background
         self.updater.check_for_updates()
+        
+        # OTA Updater (App Version)
+        self.app_updater = AppUpdater(parent=self)
+        self.app_updater.app_update_available.connect(self.app_update_available.emit)
+        self.app_updater.check_for_updates()
         
         # Exibe performance do boot técnico no log
         ota_ms = (time.time() - start_ota_time) * 1000

@@ -104,6 +104,7 @@ class JanelaPrincipal(QMainWindow):
         self.orchestrator.limpar_painel_audio.connect(self._limpar_painel_audio)
         self.orchestrator.step5_ebird_concluido.connect(self._ao_concluir_ebird)
         self.orchestrator.update_available.connect(self._ao_update_disponivel)
+        self.orchestrator.app_update_available.connect(self._ao_app_update_disponivel)
         
         self.setWindowTitle("iBirder")
         
@@ -220,7 +221,21 @@ class JanelaPrincipal(QMainWindow):
         
         # A busca de biologia via iNaturalist/WikiAves foi transferida para o Orchestrator
         
+    def _ao_app_update_disponivel(self, release_data):
+        ver = release_data.get("tag_name", "?")
+        url = release_data.get("html_url", "https://github.com/KuriakinToscan/iBirder/releases")
         
+        btn_app_update = QPushButton(f"🚀 Nova Versão do iBirder Disponível! ({ver})")
+        btn_app_update.setStyleSheet("background-color: #008CBA; color: white; border-radius: 4px; padding: 2px 10px; font-weight: bold; font-size: 11px;")
+        btn_app_update.setCursor(Qt.PointingHandCursor)
+        
+        from PySide6.QtGui import QDesktopServices
+        from PySide6.QtCore import QUrl
+        btn_app_update.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(url)))
+        
+        self.statusBar().addWidget(btn_app_update)
+        self._btn_app_update_ota = btn_app_update
+
     def _ao_update_disponivel(self, manifest_data):
         ver = manifest_data.get("version", "?")
         btn_update = QPushButton(f"Nova I.A. das Aves (v{ver}) Disponível! Clique para turbinar.")

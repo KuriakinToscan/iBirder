@@ -167,3 +167,58 @@ class ModelDownloadWorker(QThread):
         except Exception as e:
             # Em caso de erro o temp é abandonado (isolado) e o app continua
             self.error_occurred.emit(str(e))
+
+class AppUpdater(QObject):
+    app_update_available = Signal(dict) # Emite info sobre a nova versão do aplicativo
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        from core.config import APP_VERSION
+        self.current_version = APP_VERSION
+        self.api_url = "https://api.github.com/repos/KuriakinToscan/iBirder/releases/latest"
+        
+    def check_for_updates(self):
+        """Inicia thread para checar a API de releases do GitHub."""
+        self.worker = AppCheckWorker(self.api_url, self.current_version)
+        self.worker.app_update_ready.connect(self._on_update_ready)
+        self.worker.start()
+        
+    def _on_update_ready(self, release_data):
+        if release_data:
+            logging.info(f"Nova versão do App encontrada: {release_data['tag_name']}")
+            self.app_update_available.emit(release_data)
+        else:
+            logging.info("O Aplicativo iBirder já está na última versão.")
+
+class AppCheckWorker(QThread):
+    app_update_ready = Signal(dict)
+    
+    def __init__(self, url, current_version, parent=None):
+        super().__init__(parent)
+        self.url = url
+        self.current_version = current_version
+        
+    def run(self):
+        import requests
+        from packaging import version
+        import re
+        
+        try:
+            # Headers para evitar rate limits não autenticados, se possível, ou apenas usar padrão.
+            headers = {"Accept": "application/vnd.github.v3+json"}
+            resp = requests.get(self.url, headers=headers, timeout=3.0)
+            if resp.status_code == 200:
+                remote_data = resp.json()
+                remote_tag = remote_data.get("tag_name", "0.0.0")
+                
+                # Remove o prefixo 'v' para comparar (ex: 'v1.1.2' -> '1.1.2')
+                remote_ver_str = re.sub(r'^[vV]', '', remote_tag)
+                local_ver_str = re.sub(r'^[vV]', '', self.current_version)
+                
+                if version.parse(remote_ver_str) > version.parse(local_ver_str):
+                    self.app_update_ready.emit(remote_data)
+                    return
+        except Exception as e:
+            logging.debug(f"Check de update de App falhou silenciosamente: {e}")
+        
+        self.app_update_ready.emit({})
