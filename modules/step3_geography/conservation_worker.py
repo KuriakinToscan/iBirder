@@ -74,7 +74,7 @@ class NationalConservationWorker(QThread):
 
     def _fetch_cites_status(self, results):
         """Busca status na API do Species+/CITES (Simulação/Fallback iNaturalist)."""
-        # Em v1.0.0 usamos o iNaturalist como proxy para CITES quando disponível
+        # Em v1.1 usamos o iNaturalist como proxy para CITES quando disponível
         try:
             url = "https://api.inaturalist.org/v1/taxa"
             params = {"q": self.scientific_name}

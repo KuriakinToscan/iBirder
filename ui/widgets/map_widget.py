@@ -63,7 +63,7 @@ class MapWidget(QWebEngineView):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setPage(ExternalLinkPage(self)) # Intercepta links to open in default browser
-        self._cached_audio_markers = None  # Cache de pins de áudio (v1.0.1)
+        self._cached_audio_markers = None  # Cache de pins de áudio (v1.1)
 
         # --- Alerta de GPS Ausente (v0.3.34 / v0.6.3 Interativo) ---
         from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout, QGraphicsDropShadowEffect
@@ -119,7 +119,7 @@ class MapWidget(QWebEngineView):
 
     def update_map(self, lat, lon, zoom=5, add_marker=False, scientific_name=None, audio_markers=None, force_hide_alert=False):
         try:
-            # Cache de pins: guarda novos ou reutiliza os anteriores (v1.0.1)
+            # Cache de pins: guarda novos ou reutiliza os anteriores (v1.1)
             if audio_markers is not None:
                 self._cached_audio_markers = audio_markers
             elif self._cached_audio_markers:
@@ -154,10 +154,10 @@ class MapWidget(QWebEngineView):
                     attr_html = f'<a href="{species_url}" style="font-weight:bold; color:#005fa8; text-decoration:none;">Dados: GBIF 🔗</a>'
                     
                     # v0.3.13: HexPerTile=20 (Larger hexagons)
-                    # v1.0.2: Estilo classic.poly (Amarelo -> Laranja -> Vermelho)
+                    # v1.1: Estilo classic.poly (Amarelo -> Laranja -> Vermelho)
                     gbif_url = f"https://api.gbif.org/v2/map/occurrence/density/{{z}}/{{x}}/{{y}}@1x.png?taxonKey={taxon_key}&basisOfRecord=HUMAN_OBSERVATION&basisOfRecord=OBSERVATION&bin=hex&hexPerTile=20&style=classic.poly"
 
-                    # Add Legend (v0.3.13 / v1.0.2 Cores)
+                    # Add Legend (v0.3.13 / v1.1 Cores)
                     legend_html = '''
                     <div style="position: fixed; 
                                 bottom: 20px; right: 20px; width: 140px; height: 90px; 

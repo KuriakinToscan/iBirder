@@ -43,8 +43,8 @@ os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-features=DarkMode"
 # Configuração do AppUserModelID (Apenas Windows)
 if platform.system() == "Windows":
     try:
-        # ID único para dissociar do ícone do Python
-        myappid = 'ibirder.app.visualizacao.v1.0.1'
+        # Definindo ID unico da aplicacao para o icone da barra de tarefas
+        myappid = 'ibirder.app.visualizacao.v1.1'
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     except Exception:
         pass 
@@ -132,7 +132,9 @@ def salvar_log_desespero(mensagem):
 
 if __name__ == "__main__":
     try:
-        # 0. Checkpoint Zero (v1.0.1)
+        # ==========================================
+        # 0. Checkpoint Zero (v1.1)
+        # ==========================================
         print("CHECKPOINT 0: Iniciando interpretador...") 
         
         # 1. Garantia de Pastas
@@ -144,9 +146,10 @@ if __name__ == "__main__":
         from core.utils import limpar_temp_inteligente
         from core.config import carregar_config, salvar_config
         
-        logger = setup_logger()
-        logging.info(f"--- INICIANDO DIAGNÓSTICO iBirder v1.0.1 ---")
-        logging.info(f"Frozen: {IS_FROZEN} | SO: {os.name} | Plataforma: {sys.platform}")
+        setup_logger()
+        logging.info("[BOOT] Sistema de Logging iBirder inicializado em modo UTF-8")
+        logging.info(f"--- INICIANDO DIAGNÓSTICO iBirder v1.1 ---")
+        logging.info(f"Frozen: {getattr(sys, 'frozen', False)} | SO: {os.name} | Plataforma: {sys.platform}")
         logging.info(f"Diretório Base (Data): {BASE_DIR}")
         
         logging.info("CHECKPOINT 1: Logger pronto. Verificando ambiente...")
@@ -166,6 +169,8 @@ if __name__ == "__main__":
             logging.warning("Pillow não encontrado.")
 
         logging.info("CHECKPOINT 3: Criando QApplication...")
+        from PySide6.QtCore import Qt
+        QApplication.setAttribute(Qt.AA_ShareOpenGLContexts)
         app = QApplication(sys.argv)
         
         # Ícone global da aplicação (barra de tarefas do Windows)

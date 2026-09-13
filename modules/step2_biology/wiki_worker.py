@@ -43,7 +43,7 @@ class BuscadorWorker(QThread):
                 dados['link_origem'] = link
                 
                 # Sincronização eBird v0.8.0 Heritage (v1.6.10)
-                # O robô busca o eBird via Google logo após o WikiAves para garantir 100% de precisão.
+                # O robô busca o eBird via DuckDuckGo logo após o WikiAves para garantir 100% de precisão.
                 link_ebird = bot.buscar_link_ebird(self.scientific_name)
                 if link_ebird:
                     dados['link_ebird'] = link_ebird

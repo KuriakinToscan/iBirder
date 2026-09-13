@@ -78,10 +78,10 @@ class BuscadorBlindado:
 
         logging.info(f"Buscando no WikiAves: {scientific_name}")
 
-        link = self._tentar_google(scientific_name)
+        link = self._tentar_duckduckgo(scientific_name)
 
         if not link:
-            logging.debug("Google falhou. Tentando Bing...")
+            logging.debug("DuckDuckGo falhou. Tentando Bing...")
             link = self._tentar_bing(scientific_name)
 
         if link:
@@ -96,30 +96,30 @@ class BuscadorBlindado:
         logging.info(f"Buscando eBird: {scientific_name}")
         try:
             query = f'site:ebird.org "{scientific_name}"'
-            url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
+            url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
 
-            logging.debug(f"Google (eBird): {url}")
+            logging.debug(f"Pesquisa eBird (DuckDuckGo): {url}")
             self.driver.get(url)
 
             self._espera_humana()
-            self._aceitar_consentimento_google()
 
             self.wait.until(
-                EC.presence_of_element_located(
-                    (By.XPATH, "//a[contains(@href,'ebird.org/species/')]")
-                )
+                EC.presence_of_element_located((By.TAG_NAME, "a"))
             )
 
-            links = self.driver.find_elements(
-                By.XPATH, "//a[contains(@href,'ebird.org/species/')]"
-            )
+            links = self.driver.find_elements(By.TAG_NAME, "a")
 
             for l in links:
                 href = l.get_attribute("href")
-                if href and "ebird.org/species/" in href:
-                    # Limpa parâmetros de busca se houver
-                    clean_href = href.split("?")[0].split("#")[0]
-                    return clean_href
+                if href and "ebird.org/species/" in href and "uddg=" in href:
+                    parsed_url = urllib.parse.urlparse(href)
+                    qs = urllib.parse.parse_qs(parsed_url.query)
+                    if "uddg" in qs:
+                        real_link = qs["uddg"][0]
+                        if "ebird.org/species/" in real_link:
+                            # Limpa parâmetros de busca se houver
+                            clean_href = real_link.split("?")[0].split("#")[0]
+                            return clean_href
 
             return None
         except Exception as e:
@@ -127,43 +127,43 @@ class BuscadorBlindado:
             return None
 
     # ==================================================
-    # GOOGLE
+    # DUCKDUCKGO (Principal)
     # ==================================================
 
-    def _tentar_google(self, term):
-
+    def _tentar_duckduckgo(self, term):
         try:
             query = f'site:wikiaves.com.br "{term}"'
-            url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
+            url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
 
-            logging.debug(f"Pesquisa Google: {url}")
+            logging.debug(f"Pesquisa DuckDuckGo: {url}")
             self.driver.get(url)
-
+            
             self._espera_humana()
-            self._aceitar_consentimento_google()
 
             self.wait.until(
-                EC.presence_of_element_located(
-                    (By.XPATH, "//a[contains(@href,'wikiaves.com.br/wiki/')]")
-                )
+                EC.presence_of_element_located((By.TAG_NAME, "a"))
             )
 
-            links = self.driver.find_elements(
-                By.XPATH, "//a[contains(@href,'wikiaves.com.br/wiki/')]"
-            )
+            links = self.driver.find_elements(By.TAG_NAME, "a")
 
             for l in links:
                 href = l.get_attribute("href")
-                if href and "wikiaves.com.br/wiki/" in href:
-                    return href.split("&")[0]
+                if href and "wikiaves.com.br" in href and "uddg=" in href:
+                    # O DuckDuckGo encapsula o link real dentro do parametro uddg.
+                    parsed_url = urllib.parse.urlparse(href)
+                    qs = urllib.parse.parse_qs(parsed_url.query)
+                    if "uddg" in qs:
+                        real_link = qs["uddg"][0]
+                        if "wikiaves.com.br/wiki/" in real_link:
+                            return real_link.split("&")[0]
 
             return None
 
         except TimeoutException:
-            logging.debug("Google não retornou resultados válidos (Timeout).")
+            logging.debug("DuckDuckGo não retornou resultados (Timeout).")
             return None
         except Exception as e:
-            logging.error(f"Erro no Scraper (Google): {e}")
+            logging.error(f"Erro no Scraper (DuckDuckGo): {e}")
             return None
 
     # ==================================================
@@ -312,18 +312,6 @@ class BuscadorBlindado:
 
     def _espera_humana(self):
         time.sleep(random.uniform(2, 4))
-
-    def _aceitar_consentimento_google(self):
-        try:
-            if "consent" in self.driver.current_url:
-                botoes = self.driver.find_elements(By.TAG_NAME, "button")
-                for b in botoes:
-                    if "aceitar" in b.text.lower() or "accept" in b.text.lower():
-                        b.click()
-                        time.sleep(2)
-                        break
-        except:
-            pass
 
     def fechar(self):
         self.driver.quit()

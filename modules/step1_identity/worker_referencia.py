@@ -54,7 +54,7 @@ class ReferenceImageWorker(QThread):
             }
             # Boa prática: User-Agent descritivo
             headers = {
-                "User-Agent": "iBirder/1.0 (apenas uso pessoal didatico)"
+                "User-Agent": "iBirder/1.1 (apenas uso pessoal didatico)"
             }
             
             logging.debug(f"Consultando API iNaturalist: {url}")

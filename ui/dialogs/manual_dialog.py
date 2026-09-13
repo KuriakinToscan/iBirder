@@ -358,7 +358,7 @@ class ManualUsuarioDialog(QDialog):
                 <div class="credits">
                     Desenvolvido por Kuriakin Toscan<br>
                     kuriakin.toscan@gmail.com<br>
-                    Versão 1.0 | © 2026 iBirder Project
+                    Versão 1.1 | © 2026 iBirder Project
                 </div>
             </div>
         """)

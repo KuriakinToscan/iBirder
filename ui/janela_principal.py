@@ -112,7 +112,7 @@ class JanelaPrincipal(QMainWindow):
         if icon_path:
             self.setWindowIcon(QIcon(icon_path))
         
-        # Inicialização da UI (v1.0.1): Deve ocorrer ANTES do resize/show
+        # Inicialização da UI (v1.1): Deve ocorrer ANTES do resize/show
         self._configurar_ui()
         
         self.resize(1100, 700)
@@ -141,6 +141,11 @@ class JanelaPrincipal(QMainWindow):
         if imagem_inicial and os.path.exists(imagem_inicial):
             # Usamos timer para garantir que a UI está pronta antes do processamento pesado
             QTimer.singleShot(500, lambda: self._carregar_imagem(imagem_inicial))
+
+    def _abrir_configuracoes(self):
+        from ui.dialogs.api_settings_dialog import APISettingsDialog
+        dlg = APISettingsDialog(self)
+        dlg.exec()
 
     def _obter_caminho_asset(self, nome_arquivo):
         if getattr(sys, 'frozen', False):
@@ -532,8 +537,21 @@ class JanelaPrincipal(QMainWindow):
         layout_ajuda.addWidget(self.btn_ajuda)
         
         # Novo: Botão de Configurações
-        pass
+        self.btn_config = QPushButton()
+        self.btn_config.setFixedSize(40, 40)
+        self.btn_config.setProperty("class", "icon-btn")
+        self.btn_config.setCursor(Qt.PointingHandCursor)
+        self.btn_config.setToolTip("Configurações de API")
+        caminho_config = self._obter_caminho_asset("icon_settings.svg")
+        if os.path.exists(caminho_config):
+            self.btn_config.setIcon(QIcon(caminho_config))
+            self.btn_config.setIconSize(QSize(24, 24))
+        else:
+            self.btn_config.setText("⚙")
+            self.btn_config.setFont(QFont("Segoe UI", 16, QFont.Bold))
+        self.btn_config.clicked.connect(self._abrir_configuracoes)
         
+        layout_ajuda.addWidget(self.btn_config)
         # --- SOLDA CIRÚRGICA DE BRANDING PERDIDA NA FASE L ---
         layout_header.addLayout(layout_ajuda)
         

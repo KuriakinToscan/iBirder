@@ -19,6 +19,10 @@ import logging
 from PySide6.QtCore import QThread, Signal
 import numpy as np
 from PIL import Image
+import requests
+import base64
+import json
+from core.config import carregar_config
 
 try:
     import ai_edge_litert.interpreter as tflite
@@ -164,7 +168,49 @@ class LocalIdentificationWorker(QThread):
             confidence = float(results[idx])
 
             if confidence < self.min_confidence:
-                 # Em vez de erro, retornamos um resultado "Inconclusivo" para a UI tratar
+                 logging.info(f"Confiança local ({confidence*100:.1f}%) abaixo de {self.min_confidence*100:.0f}%. Iniciando cascata de IA (Nuvem).")
+                 
+                 # Fallback API (v1.1)
+                 config = carregar_config()
+                 inat_token = config.get("inat_api_token", "").strip()
+                 google_key = config.get("google_vision_api_key", "").strip()
+                 
+                 # 1. Tenta iNaturalist API
+                 if inat_token:
+                     self.progress_updated.emit("Confiança local baixa. Consultando iNaturalist (Nuvem)...")
+                     logging.info("Consultando iNaturalist Vision API...")
+                     try:
+                         inat_result = self._call_inat_api(self.image_path, inat_token)
+                         if inat_result:
+                             logging.info(f"Sucesso iNaturalist: {inat_result['nome_cientifico']} ({inat_result['confianca']*100:.1f}%)")
+                             self.finished.emit(inat_result)
+                             return
+                         else:
+                             logging.warning("iNaturalist não obteve resultado conclusivo ou ocorreu um erro de conexão.")
+                     except Exception as e:
+                         logging.error(f"Erro iNaturalist API (Exception): {e}")
+                 else:
+                     logging.info("Token iNaturalist ausente. Pulando primeira nuvem.")
+                 
+                 # 2. Tenta Google Vision API
+                 if google_key:
+                     self.progress_updated.emit("Consultando Google Cloud Vision...")
+                     logging.info("Consultando Google Cloud Vision API...")
+                     try:
+                         gvis_result = self._call_google_vision(self.image_path, google_key)
+                         if gvis_result:
+                             logging.info(f"Sucesso Google Vision: {gvis_result['nome_cientifico']}")
+                             self.finished.emit(gvis_result)
+                             return
+                         else:
+                             logging.warning("Google Vision não obteve resultado conclusivo.")
+                     except Exception as e:
+                         logging.error(f"Erro Google Vision API (Exception): {e}")
+                 else:
+                     logging.info("Chave Google Vision ausente. Pulando segunda nuvem.")
+
+                 # Se falhou tudo ou não tem chaves, retorna inconclusivo
+                 logging.warning("Cascata esgotada. Retornando identificação Inconclusiva ao usuário.")
                  resultado = {
                     "nome_cientifico": "Identificação Inconclusiva",
                     "nome_comum": "",
@@ -235,3 +281,93 @@ class LocalIdentificationWorker(QThread):
 
     def stop(self):
         self._stopped = True
+
+    def _call_inat_api(self, image_path, token):
+        url = "https://api.inaturalist.org/v1/computervision/score_image"
+        headers = {"Authorization": token if token.startswith("Bearer") else f"Bearer {token}"}
+        
+        import io
+        from PIL import Image
+        
+        # Comprime a imagem em memória para não estourar limite da API (ex: 413 Entity Too Large)
+        img = Image.open(image_path).convert('RGB')
+        img.thumbnail((800, 800), Image.Resampling.LANCZOS)
+        img_bytes = io.BytesIO()
+        img.save(img_bytes, format="JPEG", quality=85)
+        img_bytes.seek(0)
+        
+        files = {"image": ("image.jpg", img_bytes, "image/jpeg")}
+        response = requests.post(url, headers=headers, files=files, timeout=15)
+            
+        if response.status_code == 200:
+            data = response.json()
+            if "results" in data and len(data["results"]) > 0:
+                best_match = data["results"][0]
+                taxon = best_match.get("taxon", {})
+                nome_cientifico = taxon.get("name", "")
+                
+                # Se achou algo válido e é um nome científico (duas palavras)
+                if nome_cientifico and len(nome_cientifico.split()) >= 2:
+                    return {
+                        "nome_cientifico": nome_cientifico.capitalize(),
+                        "nome_comum": "",
+                        "descricao": "Identificado na nuvem (iNaturalist API).",
+                        "confianca": float(best_match.get("vision_score", 0)) / 100.0,
+                        "top3": [{"nome_cientifico": nome_cientifico.capitalize(), "confianca": 0.99}]
+                    }
+        else:
+            logging.error(f"Erro iNaturalist API ({response.status_code}): {response.text[:200]}")
+        return None
+
+    def _call_google_vision(self, image_path, api_key):
+        url = f"https://vision.googleapis.com/v1/images:annotate?key={api_key}"
+        
+        import io
+        from PIL import Image
+        img = Image.open(image_path).convert('RGB')
+        img.thumbnail((800, 800), Image.Resampling.LANCZOS)
+        img_bytes = io.BytesIO()
+        img.save(img_bytes, format="JPEG", quality=85)
+        base64_img = base64.b64encode(img_bytes.getvalue()).decode("utf-8")
+            
+        payload = {
+            "requests": [{
+                "image": {"content": base64_img},
+                "features": [
+                    {"type": "WEB_DETECTION", "maxResults": 3},
+                    {"type": "LABEL_DETECTION", "maxResults": 5}
+                ]
+            }]
+        }
+        
+        response = requests.post(url, json=payload, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            responses = data.get("responses", [{}])[0]
+            
+            best_name = None
+            # Prioriza Web Detection entities que parecem nomes científicos
+            web_entities = responses.get("webDetection", {}).get("webEntities", [])
+            for entity in web_entities:
+                desc = entity.get("description", "")
+                if desc and len(desc.split()) == 2:
+                    best_name = desc
+                    break
+            
+            # Se não achou na Web Detection, pega a primeira Label
+            if not best_name:
+                labels = responses.get("labelAnnotations", [])
+                if labels:
+                    best_name = labels[0].get("description", "")
+            
+            if best_name:
+                return {
+                    "nome_cientifico": best_name.capitalize(),
+                    "nome_comum": "",
+                    "descricao": "Identificado na nuvem (Google Vision).",
+                    "confianca": 0.85, # Valor estático alto já que é o último fallback
+                    "top3": [{"nome_cientifico": best_name.capitalize(), "confianca": 0.85}]
+                }
+        else:
+            logging.error(f"Erro Google Vision API ({response.status_code}): {response.text[:200]}")
+        return None

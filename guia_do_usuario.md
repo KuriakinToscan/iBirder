@@ -57,3 +57,38 @@ Este processo de gravação segue padrões rigorosos de interoperabilidade:
 3.  **Segurança e Integridade**: O sistema utiliza codificação UTF-8 via *argfiles*, garantindo que nomes científicos e acentuações da língua portuguesa não sofram corrupção.
 
 O iBirder atua como o facilitador definitivo entre o momento do clique em campo e a organização final do seu acervo. Ao assumir o trabalho pesado de pesquisa taxonômica e preenchimento manual de metadados, a plataforma devolve ao fotógrafo o que ele tem de mais valioso: o tempo. É a ferramenta que remove as barreiras técnicas entre a fotografia e o dado científico, permitindo que você se concentre no que realmente importa — a observação das aves e a arte de fotografar — enquanto o sistema garante que cada registro esteja organizado, enriquecido e pronto para o futuro.
+
+---
+
+## 2. Identificação em Nuvem (APIs v1.1)
+
+A partir da versão 1.1, o iBirder conta com um poderoso sistema de identificação em cascata. Isso significa que, caso a Inteligência Artificial Local tenha dúvidas sobre a foto (Confiança < 70%), o aplicativo pode consultar os supercomputadores do **iNaturalist** ou do **Google Vision** automaticamente para tentar salvar a sua identificação.
+
+Para proteger a sua privacidade e evitar custos centralizados, o iBirder usa o modelo **Bring Your Own Key (Traga Sua Própria Chave)**. 
+
+### 2.1 Configurando o iNaturalist (Recomendado)
+
+O iNaturalist possui o melhor modelo de identificação de biodiversidade do mundo. A API deles é restrita, mas pesquisadores e usuários avançados podem usar um token JWT (JSON Web Token) atrelado à própria conta.
+
+**Passo a passo para obter o Token:**
+1. Acesse o site do [iNaturalist](https://www.inaturalist.org) e faça login na sua conta.
+2. Abra uma nova aba no seu navegador e acesse a página de API para desenvolvedores: `https://www.inaturalist.org/users/api_token`
+3. Você verá uma página em branco contendo apenas um bloco de texto grande com várias letras e números.
+4. **Copie todo este texto**.
+5. Abra o **iBirder**, clique no ícone de **Engrenagem (⚙)** no canto superior direito.
+6. Cole o texto no campo **"Token iNaturalist"** e clique em Salvar.
+
+> **⚠️ Atenção:** O token do iNaturalist expira de tempos em tempos (geralmente a cada 24 horas). Se a identificação em nuvem parar de funcionar, basta repetir este processo.
+
+### 2.2 Configurando o Google Cloud Vision (Avançado)
+
+Se o iNaturalist falhar, o Google Vision ajuda a identificar se é um pássaro específico, pato, gavião, etc.
+
+**Passo a passo para obter a API Key:**
+1. Acesse o [Google Cloud Console](https://console.cloud.google.com/).
+2. Crie um novo projeto (ex: `iBirder-Vision`).
+3. Vá em **"APIs e Serviços"** > **"Biblioteca"** e Ative a **Cloud Vision API**.
+4. No menu lateral, vá em **"APIs e Serviços"** > **"Credenciais"**.
+5. Clique em **"+ Criar Credenciais"** e selecione **"Chave de API"**.
+6. **Copie esta chave**.
+7. Abra o **iBirder**, clique na **Engrenagem (⚙)**, cole a chave e clique em Salvar.
