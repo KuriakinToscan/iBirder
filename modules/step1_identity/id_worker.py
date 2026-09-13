@@ -244,7 +244,8 @@ class LocalIdentificationWorker(QThread):
                     "nome_comum": "", 
                     "descricao": "Identificado localmente (iNaturalist Vision).",
                     "confianca": float(confidence),
-                    "top3": top3_results
+                    "top3": top3_results,
+                    "modelo_ia": "EfficientNet V1.3 (Local)"
                 }
                 
                 self.finished.emit(resultado)
@@ -313,7 +314,8 @@ class LocalIdentificationWorker(QThread):
                         "nome_comum": "",
                         "descricao": "Identificado na nuvem (iNaturalist API).",
                         "confianca": float(best_match.get("vision_score", 0)) / 100.0,
-                        "top3": [{"nome_cientifico": nome_cientifico.capitalize(), "confianca": 0.99}]
+                        "top3": [{"nome_cientifico": nome_cientifico.capitalize(), "confianca": 0.99}],
+                        "modelo_ia": "iNaturalist API (Nuvem)"
                     }
         else:
             logging.error(f"Erro iNaturalist API ({response.status_code}): {response.text[:200]}")
@@ -366,7 +368,8 @@ class LocalIdentificationWorker(QThread):
                     "nome_comum": "",
                     "descricao": "Identificado na nuvem (Google Vision).",
                     "confianca": 0.85, # Valor estático alto já que é o último fallback
-                    "top3": [{"nome_cientifico": best_name.capitalize(), "confianca": 0.85}]
+                    "top3": [{"nome_cientifico": best_name.capitalize(), "confianca": 0.85}],
+                    "modelo_ia": "Google Vision API (Nuvem)"
                 }
         else:
             logging.error(f"Erro Google Vision API ({response.status_code}): {response.text[:200]}")

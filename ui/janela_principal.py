@@ -1286,9 +1286,10 @@ class JanelaPrincipal(QMainWindow):
         status_msg = dados.get("status_msg", "")
         top_candidates = dados.get("top_candidates", [])
         
-        # Exibição da Certeza (v0.8.8): Cor padronizada e metadados da IA
+        # Exibição da Certeza (v1.1): Cor padronizada e metadados da IA dinâmico
+        modelo_ia = dados.get("modelo_ia", "EfficientNet V1.3 (Local)")
         self.lbl_certeza.setText(f'<span style="color: #4B5563; font-weight: bold; font-size: 11px;">Certeza:</span>&nbsp;&nbsp;'
-                                 f'<span style="color: #4B5563; font-weight: 500; font-size: 13px;">{conf*100:.1f}% (EfficientNet V1.3)</span>')
+                                 f'<span style="color: #4B5563; font-weight: 500; font-size: 13px;">{conf*100:.1f}% ({modelo_ia})</span>')
         self.lbl_certeza.setVisible(True)
 
         if "Inconclusiva" not in status_msg and "Baixa" not in status_msg and sci:
