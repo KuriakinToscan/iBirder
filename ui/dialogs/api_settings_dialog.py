@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, 
+from PySide6.QtWidgets import (QApplication, QDialog, QVBoxLayout, QHBoxLayout, 
                                QLabel, QLineEdit, QPushButton, 
                                QMessageBox, QFormLayout)
 from PySide6.QtGui import QDesktopServices
