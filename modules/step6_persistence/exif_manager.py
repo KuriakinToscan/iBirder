@@ -20,6 +20,7 @@ import subprocess
 import tempfile
 import logging
 from pathlib import Path
+from core.paths import APP_DIR
 
 class EXIFManager:
     """
@@ -28,13 +29,7 @@ class EXIFManager:
     """
     
     def __init__(self):
-        if getattr(sys, 'frozen', False):
-            base_dir = Path(sys._MEIPASS)
-        else:
-            # Sobe 3 níveis: step6_persistence -> modules -> root
-            base_dir = Path(__file__).resolve().parent.parent.parent
-            
-        self.exiftool_path = str(base_dir / "assets" / "exiftool" / "exiftool.exe")
+        self.exiftool_path = str(APP_DIR / "assets" / "exiftool" / "exiftool.exe")
         
     def escrever_metadados_completos(self, caminho_imagem, dados, opcoes):
         """

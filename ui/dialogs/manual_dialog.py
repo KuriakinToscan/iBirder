@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QTextBrowser, QPushButton,
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QIcon, QFont, QColor
 from core.style_manager import StyleManager
+from core.paths import APP_DIR
 
 class ManualUsuarioDialog(QDialog):
     """
@@ -102,13 +103,8 @@ class ManualUsuarioDialog(QDialog):
 
     def _gerar_conteudo(self):
         # Caminhos base
-        if getattr(sys, 'frozen', False):
-            base_dir = Path(sys._MEIPASS)
-        else:
-            base_dir = Path(__file__).parent.parent.parent
-            
-        guia_path = base_dir / "guia_do_usuario.md"
-        logo_path = base_dir / "assets" / "logo_ave_escuro.svg"
+        guia_path = APP_DIR / "guia_do_usuario.md"
+        logo_path = APP_DIR / "assets" / "logo_ave_escuro.svg"
         
         # Converte Path para URL de arquivo local para o Qt
         logo_url = logo_path.as_uri() if logo_path.exists() else ""
@@ -358,7 +354,7 @@ class ManualUsuarioDialog(QDialog):
                 <div class="credits">
                     Desenvolvido por Kuriakin Toscan<br>
                     kuriakin.toscan@gmail.com<br>
-                    Versão 1.1.1 | © 2026 iBirder Project
+                    Versão 1.1 | © 2026 iBirder Project
                 </div>
             </div>
         """)

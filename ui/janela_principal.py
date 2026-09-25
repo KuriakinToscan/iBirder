@@ -557,7 +557,7 @@ class JanelaPrincipal(QMainWindow):
         self.btn_config.setProperty("class", "icon-btn")
         self.btn_config.setCursor(Qt.PointingHandCursor)
         self.btn_config.setToolTip("Configurações de API")
-        caminho_config = self._obter_caminho_asset("icon_settings.svg")
+        caminho_config = self._obter_caminho_asset("icon_config.svg")
         if os.path.exists(caminho_config):
             self.btn_config.setIcon(QIcon(caminho_config))
             self.btn_config.setIconSize(QSize(24, 24))

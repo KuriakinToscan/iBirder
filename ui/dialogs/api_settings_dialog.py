@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (QApplication, QDialog, QVBoxLayout, QHBoxLayout,
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtCore import QUrl
 from core.config import carregar_config, salvar_config
-from core.paths import BASE_DIR
+from core.paths import APP_DIR
 import requests
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QCursor
@@ -110,9 +110,9 @@ class APISettingsDialog(QDialog):
         browser = QTextBrowser()
         browser.setOpenExternalLinks(True)
         try:
-            path = BASE_DIR / "manual_apis_nuvem.md"
+            path = APP_DIR / "manual_apis_nuvem.md"
             if not path.exists():
-                path = BASE_DIR / "guia_do_usuario.md"
+                path = APP_DIR / "guia_do_usuario.md"
             with open(path, "r", encoding="utf-8") as f:
                 browser.setMarkdown(f.read())
         except Exception:

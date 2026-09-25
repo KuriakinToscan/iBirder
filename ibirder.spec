@@ -1,50 +1,29 @@
-import sys
-import os
-from PyInstaller.utils.hooks import collect_submodules
+# -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_all
 
-sys.path.append(os.path.abspath('.'))
-block_cipher = None
+datas = [('assets', 'assets'), ('Geo', 'Geo'), ('config.json', '.'), ('guia_do_usuario.md', '.'), ('README.md', '.'), ('RULES.md', '.'), ('manual_apis_nuvem.md', '.')]
+binaries = []
+hiddenimports = ['PIL._tkinter_finder', 'email', 'email.mime', 'email.mime.multipart', 'email.mime.text', 'email.mime.base', 'email.mime.application']
+tmp_ret = collect_all('selenium')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+tmp_ret = collect_all('folium')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
-added_files = [
-    ('assets', 'assets'),
-    ('Geo', 'Geo'),
-    ('config.json', '.'),
-    ('guia_do_usuario.md', '.'),
-]
-
-hidden_modules = collect_submodules('modules') + collect_submodules('core') + collect_submodules('ui')
 
 a = Analysis(
     ['main.py'],
-    pathex=[os.path.abspath('.')],
-    binaries=[],
-    datas=added_files,
-    hiddenimports=[
-        'modules.step1_identity',
-        'modules.step2_biology',
-        'modules.step3_geography',
-        'modules.step4_vocalization',
-        'modules.step5_taxonomy',
-        'modules.step6_persistence',
-        'PIL._tkinter_finder',
-        'PySide6.QtWebEngineWidgets',
-        'email',
-        'email.mime',
-        'email.mime.multipart',
-        'email.mime.text',
-        'email.mime.base',
-        'email.mime.application'
-    ] + hidden_modules,
+    pathex=[],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['tkinter', 'unittest', 'pydoc'],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
-    cipher=block_cipher,
+    excludes=[],
     noarchive=False,
+    optimize=0,
 )
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+pyz = PYZ(a.pure)
 
 exe = EXE(
     pyz,
@@ -52,18 +31,21 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name='iBirder',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='assets\\logo_ave.ico',
+    icon=['assets/logo_ave.ico'],
 )
 coll = COLLECT(
     exe,
     a.binaries,
-    a.zipfiles,
     a.datas,
     strip=False,
     upx=True,

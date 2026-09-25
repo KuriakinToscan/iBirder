@@ -19,7 +19,7 @@ import logging
 from core.paths import BASE_DIR
 
 CONFIG_FILE = "config.json"
-APP_VERSION = "1.1.1"
+APP_VERSION = "1.1"
 
 def obter_caminho_config():
     """Retorna o caminho absoluto para o arquivo de configuração."""

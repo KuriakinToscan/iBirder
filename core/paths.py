@@ -9,6 +9,7 @@ from pathlib import Path
 IS_FROZEN = getattr(sys, 'frozen', False)
 
 if IS_FROZEN:
+    APP_DIR = Path(sys._MEIPASS) if hasattr(sys, '_MEIPASS') else Path(sys.executable).parent.absolute()
     if os.name == 'nt':
         # Prioridade 1: APPDATA/iBirder
         # Prioridade 2: USERPROFILE/AppData/Roaming/iBirder
@@ -22,12 +23,13 @@ if IS_FROZEN:
         if appdata:
             BASE_DIR = Path(appdata) / "iBirder"
         else:
-            BASE_DIR = Path(sys.executable).parent.absolute()
+            BASE_DIR = APP_DIR
     else:
-        BASE_DIR = Path(sys.executable).parent.absolute()
+        BASE_DIR = APP_DIR
 else:
     # Modo Desenvolvimento: Raiz do projeto (iBirder/)
     BASE_DIR = Path(__file__).parent.parent.absolute()
+    APP_DIR = BASE_DIR
 
 TEMP_DIR = BASE_DIR / "temp"
 LOGS_DIR = BASE_DIR / "logs"

@@ -1,4 +1,4 @@
-# Manual de Configuração de APIs (Nuvem) - iBirder v1.1.1
+# Manual de Configuração de APIs (Nuvem) - iBirder v1.1
 
 A partir da versão 1.1, o iBirder conta com um poderoso sistema de identificação em cascata. Isso significa que, caso a Inteligência Artificial Local tenha dúvidas sobre a foto (Confiança < 70%), o aplicativo pode consultar os supercomputadores do **iNaturalist** ou do **Google Vision** automaticamente para tentar salvar a sua identificação.
 

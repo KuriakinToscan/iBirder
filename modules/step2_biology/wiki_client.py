@@ -25,7 +25,7 @@ class INaturalistClient:
     def __init__(self):
         self.session = requests.Session()
         self.headers = {
-            'User-Agent': 'iBirder/1.1.1 (Integration; +https://github.com/KuriakinToscan/iBirder)'
+            'User-Agent': 'iBirder/1.1 (Integration; +https://github.com/KuriakinToscan/iBirder)'
         }
         self.session.headers.update(self.headers)
 

@@ -1,5 +1,5 @@
-#  iBirder -  IA para Birdwatching
-#  Copyright (C) 2026  Kuriakin Humberto Toscan
+#  iBirder - Inteligência Artificial para Birdwatching
+#  Copyright (C) 2026 Kuriakin Humberto Toscan
 #
 #  Este programa é um software livre: você pode redistribuí-lo e/ou 
 #  modificá-lo sob os termos da Licença Pública Geral GNU conforme 
@@ -18,6 +18,39 @@ import sys
 import ctypes
 import platform
 import os
+
+# --- PATCH PARA RESOLVER CONFLITO DE DLL DO QT NO PYINSTALLER ---
+if getattr(sys, 'frozen', False):
+    base_dir = sys._MEIPASS
+    
+    # Python 3.8+ exige add_dll_directory para bibliotecas nativas (.pyd / .dll)
+    if hasattr(os, 'add_dll_directory'):
+        dirs_to_add = [
+            base_dir,
+            os.path.join(base_dir, 'PySide6'),
+            os.path.join(base_dir, 'shiboken6'),
+            os.path.join(base_dir, 'numpy.libs'),
+            os.path.join(base_dir, 'pandas.libs'),
+            os.path.join(base_dir, 'shapely.libs'),
+            os.path.join(base_dir, 'pyogrio.libs')
+        ]
+        for d in dirs_to_add:
+            if os.path.exists(d):
+                try: os.add_dll_directory(d)
+                except Exception: pass
+
+    # Remove Anaconda do PATH para o C++ loader do Qt não se confundir
+    paths = os.environ.get('PATH', '').split(os.pathsep)
+    clean_paths = [p for p in paths if 'anaconda' not in p.lower() and 'miniconda' not in p.lower()]
+    
+    # Coloca os diretórios do pacote no topo absoluto do PATH
+    for d in reversed(dirs_to_add):
+        if os.path.exists(d):
+            clean_paths.insert(0, d)
+            
+    os.environ['PATH'] = os.pathsep.join(clean_paths)
+# ----------------------------------------------------------------
+
 import subprocess
 import shutil
 import atexit
@@ -34,29 +67,16 @@ from pathlib import Path
 # Definidas no escopo global para acesso por todas as funções
 from core.paths import BASE_DIR, IS_FROZEN, garantir_diretorios
 
-# BLOQUEIO DE TEMA CHROMIUM (v1.0.8)
+# BLOQUEIO DE TEMA CHROMIUM (v1.1)
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-features=DarkMode"
-# from core.wikiaves_worker import WikiAvesWorker # Removed in v0.2.1 migration
-
-
-
 # Configuração do AppUserModelID (Apenas Windows)
 if platform.system() == "Windows":
     try:
         # Definindo ID unico da aplicacao para o icone da barra de tarefas
-        myappid = 'ibirder.app.visualizacao.v1.1.1'
+        myappid = 'ibirder.app.visualizacao.v1.1'
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     except Exception:
         pass 
-
-def limpar_temp():
-    """Remove a pasta temporária e seu conteúdo ao fechar."""
-    temp_dir = BASE_DIR / "temp"
-    if temp_dir.exists():
-        try:
-            shutil.rmtree(temp_dir)
-        except Exception as e:
-            logging.error(f"Erro ao limpar temp: {e}") 
 
 def verificar_ambiente_virtual():
     """Verifica se a pasta .venv existe no diretório do projeto (Apenas em desenvolvimento)."""
@@ -74,35 +94,6 @@ def verificar_ambiente_virtual():
             tipo="erro"
         ).exec()
         sys.exit(1)
-
-def garantir_dependencias():
-    """Verifica e instala dependências críticas automaticamente."""
-    libs = {
-        'bs4': 'beautifulsoup4',
-        'PIL': 'Pillow',
-        'requests': 'requests',
-        'numpy': 'numpy',
-        'selenium': 'selenium',
-        'webdriver_manager': 'webdriver-manager',
-        'folium': 'folium',
-        'geopandas': 'geopandas',
-        'geopy': 'geopy',
-        'shapely': 'shapely',
-        'lxml': 'lxml'
-    }
-    
-    for import_name, package_name in libs.items():
-        try:
-            __import__(import_name)
-        except ImportError:
-            logging.warning(f"[AUTO-REPARO] Import {import_name} falhou. Instalando {package_name}...")
-            try:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", package_name], 
-                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            except Exception:
-                pass
-
-import traceback
 
 def exception_hook(exctype, value, tb):
     logging.critical("Exceção não tratada detectada:", exc_info=(exctype, value, tb))
@@ -133,32 +124,28 @@ def salvar_log_desespero(mensagem):
 if __name__ == "__main__":
     try:
         # ==========================================
-        # 0. Checkpoint Zero (v1.1.1)
+        # 1. Checkpoint Inicialização (v1.1)
         # ==========================================
-        print("CHECKPOINT 0: Iniciando interpretador...") 
+        print("CHECKPOINT 1: Iniciando interpretador...") 
         
-        # 1. Garantia de Pastas
+        # 2. Garantia de Pastas
         if not garantir_diretorios():
             print("[FATAL] O iBirder não pôde criar as pastas de dados em %APPDATA%.")
             
-        # 2. Init Logger e Diagnóstico Pesado
+        # 3. Inicialização de Logger e Diagnóstico
         from core.logger import setup_logger, save_crash_log, cleanup_session_log
         from core.utils import limpar_temp_inteligente
         from core.config import carregar_config, salvar_config
         
         setup_logger()
         logging.info("[BOOT] Sistema de Logging iBirder inicializado em modo UTF-8")
-        logging.info(f"--- INICIANDO DIAGNÓSTICO iBirder v1.1.1 ---")
+        logging.info(f"--- INICIANDO DIAGNÓSTICO iBirder v1.1 ---")
         logging.info(f"Frozen: {getattr(sys, 'frozen', False)} | SO: {os.name} | Plataforma: {sys.platform}")
         logging.info(f"Diretório Base (Data): {BASE_DIR}")
         
-        logging.info("CHECKPOINT 1: Logger pronto. Verificando ambiente...")
-        
-        # 0. Self-Healing (Apenas em Dev)
-        # if not IS_FROZEN:
-        #    garantir_dependencias()
+        logging.info("CHECKPOINT 2: Logger pronto. Verificando ambiente...")
 
-        # Checagem de Status da IA
+        # Checagem de Status da IA e importação da biblioteca Pillow
         global AI_ENGINE_STATUS
         AI_ENGINE_STATUS = 'READY'
         try:
@@ -166,7 +153,7 @@ if __name__ == "__main__":
             logging.info("PIL importado com sucesso.")
         except ImportError:
             AI_ENGINE_STATUS = 'RESTART_REQUIRED'
-            logging.warning("Pillow não encontrado.")
+            logging.warning("Pillow não encontrado. O módulo de imagem pode falhar.")
 
         logging.info("CHECKPOINT 3: Criando QApplication...")
         from PySide6.QtCore import Qt
@@ -184,7 +171,7 @@ if __name__ == "__main__":
         logging.info("CHECKPOINT 4: Verificando ambiente virtual...")
         verificar_ambiente_virtual()
         
-        # Gestão de Pasta Temporária
+        # Gestão de Pasta Temporária com atexit
         temp_dir = BASE_DIR / "temp"
         temp_dir.mkdir(exist_ok=True, parents=True)
         atexit.register(cleanup_session_log)
@@ -192,20 +179,18 @@ if __name__ == "__main__":
         
         logging.info("CHECKPOINT 5: Carregando configurações...")
         config = carregar_config()
-        
 
-
-        logging.info("CHECKPOINT 7: Aplicando temas...")
+        logging.info("CHECKPOINT 6: Aplicando temas...")
         from core.style_manager import StyleManager
         dark_mode = StyleManager.detect_dark_mode()
         StyleManager.apply_theme(app, dark_mode=dark_mode)
 
-        logging.info("CHECKPOINT 8: Criando Janela Principal...")
+        logging.info("CHECKPOINT 7: Criando Janela Principal...")
         from ui.janela_principal import JanelaPrincipal
         caminho_inicial = sys.argv[1] if len(sys.argv) > 1 else None
         janela = JanelaPrincipal(ai_status=AI_ENGINE_STATUS, imagem_inicial=caminho_inicial)
         
-        logging.info("CHECKPOINT 9: Exibindo interface...")
+        logging.info("CHECKPOINT 8: Exibindo interface principal...")
         janela.show()
 
         logging.info("Finalizado com sucesso. Entrando no loop Qt.")
