@@ -38,7 +38,6 @@ from datetime import datetime
 # Importações do Core
 from modules.step3_geography.geo_utils import extract_lat_lon
 from modules.step1_identity.id_worker import LocalIdentificationWorker
-from modules.step1_identity.finder_ui import JanelaManual
 from ui.dialogo_aviso import DialogoAviso
 from modules.step1_identity.worker_referencia import ReferenceImageWorker
 from modules.step2_biology.wiki_worker import BuscadorWorker
@@ -1348,7 +1347,7 @@ class JanelaPrincipal(QMainWindow):
         top_candidates = dados.get("top_candidates", [])
         
         # Exibição da Certeza (v1.1): Cor padronizada e metadados da IA dinâmico
-        modelo_ia = dados.get("modelo_ia", "EfficientNet V1.3 (Local)")
+        modelo_ia = dados.get("modelo_ia", "MobileNetV2 (Local)")
         self.lbl_certeza.setText(f'<span style="color: #4B5563; font-weight: bold; font-size: 11px;">Certeza:</span>&nbsp;&nbsp;'
                                  f'<span style="color: #4B5563; font-weight: 500; font-size: 13px;">{conf*100:.1f}% ({modelo_ia})</span>')
         self.lbl_certeza.setVisible(True)
@@ -1512,7 +1511,7 @@ class JanelaPrincipal(QMainWindow):
             "audio_lon": audio.get('lon'),
             "audio_distancia_km": audio.get('distancia'),
             "audio_link_web": audio.get('link_web', ''),
-            "audio_source": audio.get('fonte', 'Xeno-canto'),
+            "audio_source": audio.get('fonte', 'iNaturalist'),
             "audio_data_gravacao": audio.get('data', 'Desconhecida'),
             "audio_comentarios": audio.get('comentarios', '')
         }
@@ -1590,7 +1589,9 @@ class JanelaPrincipal(QMainWindow):
         if endemismo is None:
             endemismo_str = '<span style="color: #9CA3AF; font-style: italic;">Consultando...</span>'
         else:
-            endemismo_str = f"{endemismo}"
+            ocorrencia = cons_data.get("ocorrencia_brasil")
+            # Ex.: "Não (Nativa)", "Não (Introduzida)"; "Sim" já significa endêmica
+            endemismo_str = f"{endemismo} ({ocorrencia})" if endemismo == "Não" and ocorrencia else f"{endemismo}"
 
         texto_html = f"""
         <div style="line-height: 150%;">
@@ -1620,8 +1621,8 @@ class JanelaPrincipal(QMainWindow):
         iucn_raw = iucn_data.get("iucn_status", "Não Avaliado")
         iucn_ext = NationalConservationWorker.traduzir_iucn(iucn_raw)
         
-        icmbio = cons_data.get("status_icmbio", "Não Avaliado")
-        cites = cons_data.get("status_cites", "Não Listado")
+        icmbio = cons_data.get("status_icmbio", "Não disponível")
+        cites = cons_data.get("status_cites", "Não disponível")
 
         texto_html = f"""
         <div style="line-height: 140%;">
@@ -1709,20 +1710,23 @@ class JanelaPrincipal(QMainWindow):
         iucn = getattr(self, 'last_iucn_data', {})
         cons = getattr(self, 'last_conservation_data', {})
         
-        # Mapeamento robusto para garantir que o diálogo EXIF e o EXIFManager encontrem os dados
+        # Só os valores que as etapas já trouxeram. Antes, valores padrão ("Brasil", "-",
+        # "Não Avaliado"...) sobrescreviam dados reais quando uma etapa terminava antes da outra,
+        # e o endemismo era lido de um campo inexistente (sempre "Não").
         dados_consolidados = {
             "latitude": self.lat_atual,
             "longitude": self.lon_atual,
-            "pais": geo.get("pais", "Brasil"),
-            "estado": geo.get("estado", "-"),
-            "municipio": geo.get("municipio", "-"),
-            "bioma": geo.get("bioma", "-"),
-            "endemismo": geo.get("endemico", "Não"),
-            "iucn_status": iucn.get("iucn_status", "Não Avaliado"),
-            "status_icmbio": cons.get("status_icmbio", "Não Avaliado"),
-            "status_cites": cons.get("status_cites", "Não Listado"),
+            "pais": geo.get("pais"),
+            "estado": geo.get("estado"),
+            "municipio": geo.get("municipio"),
+            "bioma": geo.get("bioma"),
+            "endemismo": cons.get("endemismo"),
+            "iucn_status": iucn.get("iucn_status"),
+            "status_icmbio": cons.get("status_icmbio"),
+            "status_cites": cons.get("status_cites"),
             "classe": "Aves"
         }
+        dados_consolidados = {k: v for k, v in dados_consolidados.items() if v is not None}
         
         if hasattr(self, 'session_logger'):
              self.session_logger.atualizar_ultimo_registro(dados_consolidados)

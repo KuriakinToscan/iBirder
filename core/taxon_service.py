@@ -28,6 +28,7 @@ import threading
 from core import http
 
 INAT_API = "https://api.inaturalist.org/v1"
+PLACE_BRASIL = 6878  # place_id do Brasil no iNaturalist (6857 é o Reino Unido)
 
 _cache = {}
 _cache_lock = threading.Lock()
@@ -76,6 +77,22 @@ class TaxonInfo:
                 return anc.get("name")
         return None
 
+    @property
+    def ocorrencia_brasil(self):
+        """'endemic', 'native', 'introduced' ou None (sem informação) para o Brasil."""
+        em = self.detail.get("establishment_means") or {}
+        lugar = em.get("place") or {}
+        if lugar.get("id") == PLACE_BRASIL or lugar.get("name") == "Brazil":
+            return em.get("establishment_means")
+        return None
+
+    def status_no_lugar(self, place_id):
+        """Status de conservação regional de um lugar (ex.: lista nacional do Brasil), se houver."""
+        for s in self.conservation_statuses:
+            if (s.get("place") or {}).get("id") == place_id:
+                return s
+        return None
+
     def status_por_autoridade(self, trecho):
         """Primeiro status de conservação cuja autoridade contém `trecho` (ex.: 'IUCN', 'CITES')."""
         trecho = trecho.upper()
@@ -100,8 +117,10 @@ def _buscar(sci_name):
     search = results[0]
     detail = None
     try:
-        # O detalhe traz ancestrais (ordem/família), nome em inglês e todos os status de conservação
-        resp_d = session.get(f"{INAT_API}/taxa/{search['id']}", timeout=10)
+        # O detalhe traz ancestrais (ordem/família), nome em inglês, todos os status de conservação
+        # e, com o Brasil como lugar preferido, se a espécie é endêmica/nativa/introduzida no país
+        resp_d = session.get(f"{INAT_API}/taxa/{search['id']}",
+                             params={"preferred_place_id": PLACE_BRASIL}, timeout=10)
         if resp_d.status_code == 200:
             detail = (resp_d.json().get("results") or [None])[0]
     except Exception as e:

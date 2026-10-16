@@ -14,7 +14,6 @@
 #  Você deve ter recebido uma cópia da Licença Pública Geral GNU 
 #  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
 
-import sys
 import os
 import subprocess
 import tempfile
@@ -96,25 +95,54 @@ class EXIFManager:
         except:
             return False
 
+    # Valores que significam "sem informação" e nunca devem ir para a foto
+    VALORES_VAZIOS = {"", "n/a", "n/d", "desconhecida", "desconhecido", "não encontrado", "não identificado",
+                      "não identificada", "não informado", "não mapeado", "fora de área mapeada",
+                      "dados de bioma não carregados", "erro no processamento", "não disponível"}
+
+    # Categorias reconhecidas para gravar o status nacional (ICMBio)
+    CATEGORIAS_NACIONAIS = {"Extinta", "Extinta na Natureza", "Criticamente em Perigo", "Em Perigo",
+                            "Vulnerável", "Quase Ameaçada", "Pouco Preocupante", "Dados Insuficientes"}
+
+    @classmethod
+    def _valido(cls, valor):
+        return valor is not None and str(valor).strip().lower() not in cls.VALORES_VAZIOS \
+            and not str(valor).lower().startswith(("erro", "não disponível", "informação não disponível"))
+
     def _gerar_comandos(self, dados, opcoes, gps_existente=False):
-        """Mapeia dados para Hierarchical Keywords (Seções iBirder) e Darwin Core."""
+        """
+        Mapeia dados para Hierarchical Keywords (Seções iBirder) e Darwin Core.
+        Respeita as escolhas do diálogo de gravação (opcoes: campo -> bool; campo ausente = gravar)
+        e nunca grava valores desconhecidos (ex.: endemismo não informado não vira "Não endêmico").
+        """
         cmds = []
-        
+
+        def usar(campo, valor):
+            """Valor a gravar, ou None se o usuário desmarcou o campo ou o valor é desconhecido."""
+            return valor if opcoes.get(campo, True) and self._valido(valor) else None
+
         # 0. Preparação de Dados
-        nome_comum = dados.get("nome_comum", "Ave")
-        nome_cientifico = dados.get("nome_cientifico", "Aves")
-        nome_ingles = dados.get("nome_ingles", "")
-        genero = nome_cientifico.split(' ')[0] if ' ' in nome_cientifico else nome_cientifico
-        familia = dados.get("familia", "")
-        ordem = dados.get("ordem", "")
-        classe = dados.get("classe", "")
-        
-        # Formatação de Endemismo
-        end_raw = str(dados.get("endemismo", "")).lower()
-        if any(x in end_raw for x in ["sim", "yes", "true", "endemica"]):
-            endemismo_fmt = "Endêmico do Brasil"
-        else:
-            endemismo_fmt = "Não endêmico do Brasil"
+        nome_cientifico = usar("nome_cientifico", dados.get("nome_cientifico"))
+        nome_comum = usar("nome_comum", dados.get("nome_comum"))
+        nome_ingles = usar("nome_ingles", dados.get("nome_ingles"))
+        genero_bruto = (dados.get("nome_cientifico") or "").split(" ")[0] or None
+        genero = usar("genero", genero_bruto)
+        familia = usar("familia", dados.get("familia"))
+        ordem = usar("ordem", dados.get("ordem"))
+        classe = usar("classe", dados.get("classe"))
+        pais = usar("pais", dados.get("pais"))
+        estado = usar("estado", dados.get("estado"))
+        municipio = usar("municipio", dados.get("municipio"))
+        bioma = usar("bioma", dados.get("bioma"))
+
+        # Endemismo: só "Sim"/"Não" confirmados (antes, desconhecido virava "Não endêmico")
+        end_raw = str(dados.get("endemismo", "")).strip().lower()
+        endemismo_fmt = None
+        if opcoes.get("endemismo", True):
+            if end_raw in ("sim", "yes", "true", "endêmica", "endemica", "endemic"):
+                endemismo_fmt = "Endêmico do Brasil"
+            elif end_raw in ("não", "nao", "no", "false"):
+                endemismo_fmt = "Não endêmico do Brasil"
 
         # 1. Título e Descrição (Sincronia Universal)
         titulo = f"{nome_comum} ({nome_cientifico})" if nome_comum and nome_cientifico else (nome_comum or nome_cientifico)
@@ -127,11 +155,8 @@ class EXIFManager:
         # 2. SEÇÃO iBirder: Tags Hierárquicas (Visível como Árvore no digiKam/Lightroom)
         # Formato: iBirder|Subseção|Chave|Valor
         def add_hier(subs, chave, valor):
-            """
-            Auxiliar para criar tags hierárquicas compatíveis com Lightroom e digiKam.
-            Cria uma estrutura: iBirder -> Seção -> Atributo -> Valor
-            """
-            if valor and valor != "N/A":
+            """Cria a árvore iBirder -> Seção -> Atributo -> Valor (Lightroom e digiKam)."""
+            if valor:
                 tag = f"iBirder|{subs}|{chave}|{valor}"
                 # "-=" antes de "+=" evita duplicar a tag ao gravar a mesma foto mais de uma vez
                 for grupo in ("XMP-lr", "XMP-mwg-rs"):
@@ -148,10 +173,10 @@ class EXIFManager:
         add_hier("Taxonomia", "Class", classe)
 
         # Subseção Geografia
-        add_hier("Geografia", "Country", dados.get("pais"))
-        add_hier("Geografia", "State", dados.get("estado"))
-        add_hier("Geografia", "City", dados.get("municipio"))
-        add_hier("Geografia", "Biome", dados.get("bioma"))
+        add_hier("Geografia", "Country", pais)
+        add_hier("Geografia", "State", estado)
+        add_hier("Geografia", "City", municipio)
+        add_hier("Geografia", "Biome", bioma)
         add_hier("Geografia", "Endemism", endemismo_fmt)
 
         # 3. PADRÃO CIENTÍFICO: Darwin Core (DWC)
@@ -165,24 +190,26 @@ class EXIFManager:
         if nome_comum:      cmds.append(f"-XMP-dwc:TaxonVernacularName={nome_comum}")
 
         # 4. Palavras-chave Planas (Compatibilidade Windows)
-        keywords = ["iBirder"]
-        for k in [nome_comum, nome_cientifico, familia, ordem, endemismo_fmt]:
-            if k and k != "N/A": keywords.append(k)
-        
-        kw_string = "; ".join(keywords)
-        if kw_string:
-            cmds.append(f"-XPKeywords={kw_string}")
-            for kw in keywords:
-                # "-=" antes de "+=" evita duplicar a palavra-chave em gravações repetidas
-                for tag in ("Keywords", "Subject"):
-                    cmds.append(f"-{tag}-={kw}")
-                    cmds.append(f"-{tag}+={kw}")
+        keywords = ["iBirder"] + [k for k in (nome_comum, nome_cientifico, familia, ordem, endemismo_fmt) if k]
+        cmds.append(f"-XPKeywords={'; '.join(keywords)}")
+        for kw in keywords:
+            # "-=" antes de "+=" evita duplicar a palavra-chave em gravações repetidas
+            for tag in ("Keywords", "Subject"):
+                cmds.append(f"-{tag}-={kw}")
+                cmds.append(f"-{tag}+={kw}")
 
-        # 5. Comentários e Status
+        # 5. Comentários e Status (só valores conhecidos)
         comentarios = []
-        if opcoes.get("iucn_status"): comentarios.append(f"IUCN: {dados.get('iucn_status','')}")
-        if opcoes.get("status_icmbio"): comentarios.append(f"ICMBio: {dados.get('status_icmbio','')}")
-        
+        iucn = dados.get("iucn_status")
+        if opcoes.get("iucn_status", True) and self._valido(iucn) and not str(iucn).startswith(("Espécie não", "Não Avaliado / Seguro")):
+            comentarios.append(f"IUCN: {iucn}")
+        icmbio = dados.get("status_icmbio")
+        if opcoes.get("status_icmbio", True) and icmbio in self.CATEGORIAS_NACIONAIS:
+            comentarios.append(f"ICMBio: {icmbio}")
+        cites = dados.get("status_cites")
+        if opcoes.get("status_cites", True) and str(cites or "").startswith("Anexo"):
+            comentarios.append(f"CITES: {cites}")
+
         final_comment = ". ".join(comentarios) + ". Registrado via iBirder." if comentarios else "Registrado via iBirder."
         cmds.append(f"-XPComment={final_comment}")
         cmds.append(f"-UserComment={final_comment}")
@@ -202,8 +229,8 @@ class EXIFManager:
             logging.debug("GPS original detectado na imagem. Preservando coordenadas existentes.")
 
         # 7. Finalização
-        cmds.append("-Software=iBirder")
-        cmds.append("-Creator=iBirder User")
+        # Não gravar Creator/Software: sobrescreviam o autor da foto (dc:creator, preenchido
+        # pelo Lightroom) e a versão do firmware da câmera. A origem fica no UserComment.
         cmds.append("-overwrite_original")
         
         return cmds

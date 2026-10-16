@@ -2,65 +2,78 @@
 **IA para Birdwatching — Inteligência Artificial local a serviço da ciência cidadã.**
 
 ## 📖 Sobre o Projeto
-O **iBirder** é uma ferramenta de código aberto desenvolvida para ornitólogos, observadores de aves e fotógrafos de natureza. Com sua inovadora arquitetura **Híbrida (Edge AI + Nuvem)**, o sistema prioriza o processamento local, mas pode recorrer de forma inteligente às APIs do iNaturalist e Google Vision para fotos complexas, garantindo a maior taxa de acerto possível.
+O **iBirder** é uma ferramenta de código aberto para observadores de aves, ornitólogos e fotógrafos de natureza. Ele sugere a espécie a partir de uma foto, reúne informações de bases científicas, mostra o contexto geográfico do registro e grava tudo nos metadados da imagem.
 
-## ✨ Principais Diferenciais
-- **Identificação em Cascata**: Prioriza a IA Local (Custo e latência zero). Se a confiança for baixa, tenta a nuvem (iNaturalist API) e, por fim, o Google Cloud Vision (v1.1+).
-- **Privacidade e Controle (BYOK)**: O processamento de imagem ocorre na sua máquina por padrão. As chamadas em nuvem requerem as suas próprias chaves de API (Bring Your Own Key).
-- **Otimizado para o Brasil**: Integração profunda com o **WikiAves** para etimologia e contexto biológico da nossa biodiversidade.
-- **Persistência Científica**: Gravação de metadados nos padrões **EXIF/XMP**, **Darwin Core (DWC)** e palavras-chave hierárquicas.
+A identificação roda **no seu computador**. Quando a IA local fica em dúvida, o app pode consultar o iNaturalist ou o Google Vision, usando as **suas** chaves de API.
+
+## ✨ Principais Recursos
+- **Identificação em cascata**: IA local primeiro (sem custo e sem internet). Abaixo de 70% de certeza, consulta o iNaturalist e, por fim, o Google Cloud Vision, se houver chaves configuradas.
+- **Privacidade (BYOK)**: a foto só sai do computador na consulta à nuvem (cópia reduzida) ou no Google Lens, por ação do usuário.
+- **Integração com o WikiAves**: nome popular, etimologia e características das espécies brasileiras.
+- **Contexto geográfico**: município, estado, bioma (IBGE), endemismo no Brasil, mapa de ocorrência (GBIF) e vocalizações próximas ao local da foto.
+- **Metadados científicos**: Darwin Core, palavras-chave hierárquicas (Lightroom/digiKam) e campos do Windows, com escolha dos campos a gravar.
 
 ## 🌟 Novidades na v1.2
-- **WikiAves mais rápido e preciso**: busca interna do próprio WikiAves (sem passar pelos buscadores), com validação do nome científico. Aves que não existem no WikiAves não recebem mais dados de outra espécie.
-- **Etapas em paralelo**: biologia, geografia e taxonomia rodam ao mesmo tempo; uma falha no WikiAves não interrompe mais as demais etapas, e a gravação na foto continua disponível.
+- **WikiAves mais rápido e preciso**: busca interna do próprio WikiAves, com validação do nome científico. Aves que não existem no WikiAves não recebem mais dados de outra espécie.
+- **Etapas em paralelo**: biologia, geografia e taxonomia rodam ao mesmo tempo; uma falha no WikiAves não interrompe as demais etapas nem bloqueia a gravação.
+- **Vocalizações**: novo player nativo que toca M4A, MP3 e WAV (antes, gravações M4A, quase metade das do iNaturalist, não tocavam).
+- **Dados corrigidos**: endemismo no Brasil passa a vir do iNaturalist (antes, toda espécie saía "não endêmica"); ICMBio e CITES aparecem como "Não disponível" em vez de valores enganosos.
+- **Metadados corrigidos**: Darwin Core gravado de fato; GPS no hemisfério correto; palavras-chave sem duplicação; os campos desmarcados no diálogo não são mais gravados; o autor da foto e os dados da câmera não são mais sobrescritos.
+- **Mapa incremental**: carregado uma única vez, GBIF em segundo plano; arrastar o pino e clicar nos áudios voltaram a funcionar.
 - **eBird embarcado**: link oficial, código e nome em inglês de 11 mil espécies sem internet.
-- **Metadados corrigidos**: Darwin Core passa a ser gravado de fato (`dwc:scientificName`, `dwc:family`...); GPS no hemisfério correto (Sul/Oeste); palavras-chave sem duplicação; fotos verticais analisadas na orientação certa.
-- **Mapa incremental**: carregado uma única vez (Leaflet embarcado), GBIF em segundo plano, e arrastar o pino e clicar nos áudios voltaram a funcionar.
-- **Estabilidade**: resultados de uma foto anterior não se misturam mais com a atual; logs com rotação, chaves de API mascaradas e opção "Copiar diagnóstico" no menu de ajuda.
+- **Chaves de API**: novo passo a passo para leigos (inclui o faturamento exigido pelo Google) e botão **Testar Chaves** que explica o erro; antes, uma chave inválida do Google aparecia como válida.
+- **Estabilidade**: resultados de uma foto anterior não se misturam com a atual; logs com rotação, chaves mascaradas e **Copiar diagnóstico** no menu de ajuda.
 - **Segurança**: chaves de API não são mais distribuídas no instalador.
 - **Build automático**: testes, autoteste do executável e instalador gerados pelo GitHub Actions.
 
-## Novidades na v1.1
-- **Compilação e Performance**: Migração do gerenciador de pacotes para `uv`, acelerando massivamente o tempo de build e isolando dependências.
-- **Refatoração de Diretórios**: Implementação inteligente do `APP_DIR`, resolvendo problemas de caminhos de arquivos empacotados (`sys._MEIPASS`) no Windows, garantindo que logos e manuais carreguem sempre e o ExifTool rode de forma imaculada.
-- **Identidade Visual**: Limpeza e padronização da UI, com adoção de ícones *line-art* SVG premium, eliminando fontes de emojis legadas do sistema.
-- **Cleaner Core**: Remoção de códigos de limpeza temporária inoperantes ou redundantes.
+## ⚠️ Limitações conhecidas
+- A IA local reconhece **965 espécies do mundo todo**, das quais cerca de **230 ocorrem no Brasil**. Para as demais, a identificação local pode ser inconclusiva ou errada: use a nuvem (iNaturalist), a Busca Manual ou o Google Lens.
+- O status nacional (**ICMBio**) e os anexos da **CITES** ainda não estão integrados.
+- O token do iNaturalist expira em cerca de 24 horas.
 
 ## 🛠️ Tecnologias e Fontes
-O iBirder integra as bibliotecas biológicas e tecnologias mais respeitadas do ecossistema científico:
-
-- **AI Engine**: Rede Neural **EfficientNet-V1.3** (Google Research).
-- **Interface**: Desenvolvido em **Python 3.12** com **PySide6**.
-- **Mapas & Geo**: **Leaflet** (embarcado), **OpenStreetMap** e geocodificação via **Nominatim**.
-- **Fontes de Dados**:
-  - **WikiAves**: Etimologia e Biologia (Brasil).
-  - **iNaturalist**: Taxonomia e Validação Visual.
-  - **eBird (Cornell Lab)**: Nomenclatura Global.
-  - **GBIF**: Mapas de densidade de ocorrência.
-  - **IUCN & ICMBio (SALVE)**: Status de conservação e ameaça.
-  - **Xeno-Canto**: Vocalizações e registros sonoros.
-- **Motor de Metadados**: **ExifTool** (Phil Harvey).
+- **IA local**: **MobileNetV2** quantizada (modelo "Birds V1" do Google AIY Vision, treinado com o iNaturalist), executada com o **LiteRT** (TensorFlow Lite).
+- **Interface**: **Python 3.12** e **PySide6** (Qt 6).
+- **Mapas e geografia**: **Leaflet** (embarcado), **OpenStreetMap**, **Nominatim** e polígonos de biomas do **IBGE**.
+- **Fontes de dados**:
+  - **WikiAves**: nome popular, etimologia e características.
+  - **iNaturalist**: taxonomia, imagem de referência, vocalizações, status IUCN e endemismo no Brasil.
+  - **eBird / Clements (Cornell Lab)**: códigos, nomes em inglês e links oficiais (tabela embarcada).
+  - **GBIF**: mapas de densidade de ocorrência.
+- **Metadados**: **ExifTool** (Phil Harvey).
 
 ## 🚀 Instalação e Uso
 
-### Para Usuários (Windows)
-1. Baixe a versão mais recente em [Releases](https://github.com/KuriakinToscan/iBirder/releases).
-2. Execute o instalador `Instalador_iBirder_v1.2.exe`.
-3. O app permite abrir fotos via "Arraste e Solte" ou diretamente pelo botão direito no Windows Explorer.
+### Para usuários (Windows 10/11, 64 bits)
+1. Instale o **Google Chrome**, se ainda não tiver (usado para consultar o WikiAves).
+2. Baixe o instalador mais recente em [Releases](https://github.com/KuriakinToscan/iBirder/releases) e execute `Instalador_iBirder_v1.2.exe`.
+3. Abra uma foto arrastando-a para a janela, pelo botão **Nova Identificação** ou por **Abrir com > iBirder** no Windows Explorer.
+4. (Opcional) Configure a identificação em nuvem na **engrenagem (⚙)**. O passo a passo está em [manual_apis_nuvem.md](manual_apis_nuvem.md).
 
-### Para Desenvolvedores
-Recomendamos o uso do `uv` para o gerenciamento ultrarrápido de pacotes virtuais.
-1. Clone o repositório ou baixe o `.zip`.
-2. Abra o terminal (PowerShell) na pasta do projeto e crie o ambiente com `uv`: `uv venv`.
-3. Ative o ambiente virtual no PowerShell com: `.\.venv\Scripts\Activate.ps1`.
-4. Instale as dependências com: `uv pip install -r requirements.txt`.
-5. Execute: `python main.py`.
-6. (Opcional) Rode os testes offline: `uv pip install pytest` e `python -m pytest tests`.
+O guia completo está no app (botão **?** > **Manual do usuário**) e em [guia_do_usuario.md](guia_do_usuario.md).
 
-> As chaves de API ficam no `config.json` local (ignorado pelo Git). Use `config.example.json` como modelo ou configure-as pela engrenagem (⚙) do app.
+### Para desenvolvedores
+Com `uv` (recomendado):
+1. Clone o repositório.
+2. `uv venv` e ative com `.\.venv\Scripts\Activate.ps1` (PowerShell).
+3. `uv pip install -r requirements.txt`
+4. `python main.py`
+
+Também funciona em ambientes **conda** ou **venv**: basta `pip install -r requirements.txt` no ambiente ativo.
+
+- **Testes**: `pip install pytest` e `python -m pytest tests`. Os testes não acessam a rede; os do mapa com QtWebEngine rodam com `IBIRDER_TESTES_GUI=1`.
+- **Autoteste do app**: `python main.py --smoke-test` abre o app e verifica modelo, ExifTool, biomas, eBird, áudio e mapa.
+- **Teste real do WikiAves**: `python tools/testar_wikiaves.py` (o WikiAves bloqueia servidores; rode no seu computador).
+- **Build local**: `build.ps1` (PyInstaller + Inno Setup 6, se instalado).
+- **Chaves de API**: ficam no `config.json` local, ignorado pelo Git. Use `config.example.json` como modelo.
+
+### Publicar uma versão
+1. Atualize `APP_VERSION` em `core/config.py` (única fonte da versão).
+2. Integre na `main` e crie a tag: `git tag v1.2` e `git push origin v1.2`.
+3. O GitHub Actions testa, gera o instalador e cria a Release automaticamente. A tag precisa ser igual a `v` + `APP_VERSION`.
 
 ## ⚖️ Licença
-Este software é distribuído sob a licença **GNU GPL v3**.
+Este software é distribuído sob a licença **GNU GPL v3**. Componentes de terceiros: ExifTool (Artistic/GPL), Leaflet (BSD-2), PySide6/Qt (LGPL), modelo Birds V1 do Google (Apache 2.0).
 
 ---
 *Desenvolvido por Kuriakin Toscan | 2026*

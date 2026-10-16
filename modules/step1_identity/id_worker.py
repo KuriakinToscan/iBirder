@@ -56,12 +56,14 @@ def free_interpreter_cache():
 class LocalIdentificationWorker(QThread):
     """
     Motor de Identificação Local (Etapa 1).
-    Realiza a inferência de IA usando modelos TFLite treinados na base do iNaturalist.
+    Modelo: Google AIY Vision "Birds V1" (MobileNetV2 quantizado, TFLite), treinado com fotos
+    do iNaturalist; 965 espécies do mundo todo (cerca de 230 ocorrem no Brasil).
+    Abaixo de 70% de confiança, consulta a nuvem (iNaturalist e/ou Google Vision) se houver chave.
     Gerencia:
-    1. Download e cache automático de modelos (ModelManager).
-    2. Pré-processamento de imagem (Resize, Normalização).
-    3. Inferência local sem necessidade de internet pós-download.
-    4. Rollback automático em caso de corrupção do modelo recebido via OTA.
+    1. Download do modelo se ausente (ModelManager; normalmente já vem no instalador).
+    2. Pré-processamento (orientação EXIF, redimensionamento para 224x224).
+    3. Inferência local, sem internet.
+    4. Rollback para models_back caso um modelo novo falhe (atualização de modelo está desativada).
     """
     progress_updated = Signal(str)
     finished = Signal(dict)
@@ -177,7 +179,8 @@ class LocalIdentificationWorker(QThread):
                  
                  # Fallback API (v1.1)
                  config = carregar_config()
-                 inat_token = config.get("inat_api_token", "").strip()
+                 from core.diagnostico_apis import normalizar_token_inat
+                 inat_token = normalizar_token_inat(config.get("inat_api_token", ""))
                  google_key = config.get("google_vision_api_key", "").strip()
                  
                  # 1. Tenta iNaturalist API
@@ -250,7 +253,7 @@ class LocalIdentificationWorker(QThread):
                     "descricao": "Identificado localmente (iNaturalist Vision).",
                     "confianca": float(confidence),
                     "top3": top3_results,
-                    "modelo_ia": "EfficientNet V1.3 (Local)"
+                    "modelo_ia": "MobileNetV2 (Local)"
                 }
                 
                 self.finished.emit(resultado)
@@ -268,9 +271,7 @@ class LocalIdentificationWorker(QThread):
     def _load_labels(self, path):
         """Lê o TXT de labels (suporta formato 'id,nome' ou apenas 'nome')."""
         labels = []
-        # Background class is handled by the model logic/mapping usually.
-        # EfficientNet V1.3 often matches lines to IDs directly (0-indexed or 1-indexed depending on training).
-        # We will load lines as is, but stripping ID headers if present.
+        # Uma linha por classe, na mesma ordem das 965 saídas do modelo (sem classe "background").
         
         try:
             with open(path, 'r', encoding='utf-8') as f:
@@ -290,7 +291,7 @@ class LocalIdentificationWorker(QThread):
 
     def _call_inat_api(self, image_path, token):
         url = "https://api.inaturalist.org/v1/computervision/score_image"
-        headers = {"Authorization": token if token.startswith("Bearer") else f"Bearer {token}"}
+        headers = {"Authorization": f"Bearer {token}"}
         
         import io
         

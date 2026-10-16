@@ -23,10 +23,11 @@ simples (403 "Just a moment..."), por isso as páginas são abertas num Chrome
 headless via Selenium, como nas versões anteriores. O fluxo é:
 
   1. Busca no próprio WikiAves (getTaxonsJSON.php?term=<nome científico>, o mesmo
-     endpoint do campo de busca do site) e usa o primeiro resultado retornado
-     (o de nome científico idêntico, se houver) -> /wiki/<wid>;
-  2. Se a busca interna não retornar nada: DuckDuckGo e, depois, Bing (fluxo antigo);
-  3. Extração dos dados da página da espécie.
+     endpoint do campo de busca do site) e usa o resultado com o mesmo nome científico
+     (exato ou gênero + espécie) -> /wiki/<wid>. Lista vazia = a espécie não existe no
+     WikiAves (resposta definitiva: nada de buscadores, que trariam outra ave);
+  2. Só se a busca interna falhar (erro/Cloudflare): DuckDuckGo e, depois, Bing;
+  3. Extração dos dados da página, exigindo o nome científico nela.
 """
 
 import json
