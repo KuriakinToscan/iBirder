@@ -35,8 +35,9 @@ inclusive com Chrome headless).
 - Modelo local: MobileNetV2 "Birds V1" (Google AIY), 965 espécies; só ~230 ocorrem no Brasil.
 - iNaturalist: lugar Brasil = `place_id` 6878 (6857 é o Reino Unido). Endemismo vem de
   `establishment_means` no detalhe do táxon com `preferred_place_id=6878`.
-- O iNaturalist não tem a lista nacional (ICMBio) nem os anexos da CITES: mostrar
-  "Não disponível", nunca "Não Avaliado"/"Não Listado".
+- O iNaturalist não tem a lista nacional (ICMBio) nem os anexos da CITES: desde a v1.3 elas vêm
+  das tabelas embarcadas (seção abaixo). Do iNaturalist vêm só as listas estaduais e de outros
+  países ("Outras avaliações"). Sem dado, mostrar "Não disponível", nunca inventar "Não Avaliado".
 - Gravações do iNaturalist são ~47% `.m4a` (AAC): o QtWebEngine do PySide6 (pip) não toca AAC;
   usar o player QtMultimedia (`ui/widgets/audio_player.py`).
 
