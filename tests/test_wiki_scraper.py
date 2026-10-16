@@ -46,12 +46,20 @@ TAXONS = [
 ]
 
 
-def test_busca_wikiaves_usa_primeiro_resultado():
-    assert ws.escolher_resultado_busca(TAXONS, "Tyrannus melancholicus")["wid"] == "bem-te-vi-rajado"
-
-
-def test_busca_wikiaves_prefere_nome_cientifico_identico():
+def test_busca_wikiaves_usa_resultado_com_nome_identico():
     assert ws.escolher_resultado_busca(TAXONS, "pitangus sulphuratus ")["wid"] == "bem-te-vi"
+    assert ws.escolher_resultado_busca(TAXONS, "Myiodynastes maculatus")["wid"] == "bem-te-vi-rajado"
+
+
+def test_busca_wikiaves_recusa_resultado_apenas_parecido():
+    # Caso real do relatório: Haemorhous cassinii não pode virar o guaxe (Cacicus haemorrhous)
+    guaxe = [{"id": "1", "wid": "guaxe", "label": "Cacicus haemorrhous", "nome": "guaxe"}]
+    assert ws.escolher_resultado_busca(guaxe, "Haemorhous cassinii") is None
+    assert ws.escolher_resultado_busca(TAXONS, "Tyrannus melancholicus") is None
+
+
+def test_busca_wikiaves_aceita_subespecie():
+    assert ws.escolher_resultado_busca(TAXONS, "Pitangus sulphuratus maximiliani")["wid"] == "bem-te-vi"
 
 
 def test_busca_wikiaves_sem_resultados():
@@ -78,3 +86,38 @@ def test_rejeita_pagina_que_nao_e_de_especie():
     assert ws.dados_de_especie_validos(ws.parse_pagina_especie(WIKI_HTML))
     desafio = "<html><body><h1>www.wikiaves.com.br</h1><h2>Verificando se você é humano</h2></body></html>"
     assert not ws.dados_de_especie_validos(ws.parse_pagina_especie(desafio))
+
+
+def test_pagina_menciona_especie():
+    html = "<h2>Nome Científico</h2><i>Pitangus  sulphuratus</i><br><sup>(Linnaeus, 1766)</sup>"
+    assert ws.pagina_menciona_especie(html, "Pitangus sulphuratus")
+    assert ws.pagina_menciona_especie(html, "Pitangus sulphuratus maximiliani")
+    assert not ws.pagina_menciona_especie(html, "Haemorhous cassinii")
+
+
+def _buscador_falso(status_interno, link_interno=None):
+    """BuscadorBlindado sem Chrome, registrando quais buscas foram feitas."""
+    b = object.__new__(ws.BuscadorBlindado)
+    b.chamadas = []
+    b._buscar_no_wikiaves = lambda sci: (link_interno, status_interno)
+    b._buscar_duckduckgo = lambda q, t: b.chamadas.append("ddg") or None
+    b._buscar_bing = lambda q, t: b.chamadas.append("bing") or "https://www.wikiaves.com.br/wiki/guaxe"
+    return b
+
+
+def test_especie_inexistente_nao_usa_buscadores_externos():
+    b = _buscador_falso(ws.BuscadorBlindado.NAO_EXISTE)
+    assert b.buscar_link_wikiaves("Haemorhous cassinii") is None
+    assert b.chamadas == []
+
+
+def test_falha_da_busca_interna_usa_buscadores_externos():
+    b = _buscador_falso(ws.BuscadorBlindado.FALHOU)
+    assert b.buscar_link_wikiaves("Cacicus haemorrhous") == "https://www.wikiaves.com.br/wiki/guaxe"
+    assert b.chamadas == ["ddg", "bing"]
+
+
+def test_busca_interna_encontrada_dispensa_buscadores():
+    b = _buscador_falso(ws.BuscadorBlindado.ENCONTRADO, "https://www.wikiaves.com.br/wiki/bem-te-vi")
+    assert b.buscar_link_wikiaves("Pitangus sulphuratus").endswith("/bem-te-vi")
+    assert b.chamadas == []

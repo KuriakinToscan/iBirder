@@ -41,7 +41,7 @@ class BuscadorWorker(QThread):
             link = bot.buscar_link_wikiaves(self.scientific_name)
             
             if link:
-                dados = bot.extrair_dados_especie(link)
+                dados = bot.extrair_dados_especie(link, self.scientific_name)
                 dados['link_origem'] = link
                 
                 # Link eBird: taxonomia embarcada (instantâneo, sem internet);

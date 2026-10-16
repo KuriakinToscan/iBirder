@@ -39,7 +39,9 @@ ESPECIES_PADRAO = [
     "Rupornis magnirostris",     # gavião-carijó (está nos rótulos do modelo)
     "Aramus guarauna",           # carão
     "Zonotrichia capensis",      # tico-tico
-    "Haemorhous cassinii",       # ave norte-americana: deve dar "não encontrado"
+    "Haemorhous cassinii",       # ave norte-americana: deve dar NÃO EXISTE (antes virava o guaxe)
+    "Cacicus haemorrhous",       # guaxe: deve ser encontrado normalmente
+    "Junco hyemalis caniceps",   # subespécie norte-americana do modelo: deve dar NÃO EXISTE
 ]
 
 PASTA_FALHAS = RAIZ / "tools" / "falhas_wikiaves"
@@ -68,35 +70,29 @@ def testar_especie(bot, ws, ebird_taxonomy, sci):
     slug = sci.replace(" ", "_")
     out(f"\n=== {sci} ===")
 
-    # 1. Busca interna do WikiAves
+    # 1. Busca interna do WikiAves (mesma função usada pelo app)
     t = time.time()
-    url_busca = f"{ws.WIKIAVES_URL}/getTaxonsJSON.php?term={sci.replace(' ', '%20')}"
-    link = None
+    link, status = bot._buscar_no_wikiaves(sci)
+    desafio = ws.em_desafio_cloudflare(bot.driver.title, bot.driver.page_source)
+    out(f"  [1] Busca interna ({time.time() - t:.1f}s) | status: {status} | Cloudflare pendente: {desafio}")
     try:
-        bot._abrir(url_busca)
-        desafio = ws.em_desafio_cloudflare(bot.driver.title, bot.driver.page_source)
-        texto = bot.driver.find_element(By.TAG_NAME, "body").text
-        try:
-            resultados = ws.parse_json_da_pagina(texto)
-        except ValueError:
-            resultados = None
-        out(f"  [1] Busca interna ({time.time() - t:.1f}s) | título: {bot.driver.title!r} | Cloudflare pendente: {desafio}")
-        if resultados:
-            out(f"      {len(resultados)} resultado(s). Primeiro (bruto): {json.dumps(resultados[0], ensure_ascii=False)[:300]}")
-            escolhido = ws.escolher_resultado_busca(resultados, sci)
-            if escolhido:
-                link = f"{ws.WIKIAVES_URL}/wiki/{escolhido['wid']}"
-                res["rota"] = "busca interna"
-                out(f"      Escolhido: {escolhido.get('label')} -> {link}")
-            else:
-                out("      Nenhum resultado com o campo 'wid' (formato inesperado!)")
-        else:
-            out(f"      Sem JSON. Início da resposta: {texto[:200]!r} | HTML salvo: {salvar_html(bot, slug + '_busca')}")
-    except Exception as e:
-        out(f"  [1] Busca interna FALHOU: {e!r}")
+        bruto = bot.driver.find_element(By.TAG_NAME, "body").text
+        resultados = ws.parse_json_da_pagina(bruto)
+    except Exception:
+        bruto, resultados = bot.driver.page_source[:200], None
+    if isinstance(resultados, list):
+        out(f"      {len(resultados)} resultado(s). Primeiro (bruto): "
+            f"{json.dumps(resultados[0], ensure_ascii=False)[:300] if resultados else '[]'}")
+    else:
+        out(f"      Sem JSON. Início da resposta: {bruto[:200]!r} | HTML salvo: {salvar_html(bot, slug + '_busca')}")
+    if link:
+        res["rota"] = "busca interna"
+        out(f"      Escolhido: {link}")
+    elif status == bot.NAO_EXISTE:
+        out("      Espécie não existe no WikiAves (resposta definitiva; o app não usa buscadores externos).")
 
-    # 2. Fallback por buscadores
-    if not link:
+    # 2. Fallback por buscadores (somente se a busca interna falhou, como no app)
+    if status == bot.FALHOU:
         t = time.time()
         query = f'site:wikiaves.com.br "{sci}"'
         link = bot._buscar_duckduckgo(query, "wikiaves.com.br/wiki/")
@@ -108,18 +104,20 @@ def testar_especie(bot, ws, ebird_taxonomy, sci):
         if link:
             res["rota"] = rota
 
-    # 3. Extração
+    # 3. Extração (valida que a página é mesmo da espécie)
     if link:
         t = time.time()
         try:
-            dados = bot.extrair_dados_especie(link)
+            dados = bot.extrair_dados_especie(link, sci)
             res["ok"] = True
             out(f"  [3] Extração OK ({time.time() - t:.1f}s)")
             for k, v in dados.items():
                 v = str(v)
                 out(f"      {k:20} {v[:90] + '…' if len(v) > 90 else v}")
         except Exception as e:
-            out(f"  [3] Extração FALHOU ({time.time() - t:.1f}s): {e!r} | HTML salvo: {salvar_html(bot, slug + '_pagina')}")
+            res["rota"] = None
+            out(f"  [3] Extração RECUSADA/FALHOU ({time.time() - t:.1f}s): {e!r} | HTML salvo: {salvar_html(bot, slug + '_pagina')}")
+    res["status"] = status
 
     # 4. eBird (taxonomia embarcada)
     eb = ebird_taxonomy.buscar(sci)
@@ -168,7 +166,13 @@ def main():
 
     out("\n=== RESUMO ===")
     for r in resultados:
-        out(f"  {'OK   ' if r['ok'] else 'FALHA'} {r['especie']:28} via {r['rota'] or '-'}")
+        if r["ok"]:
+            situacao = f"OK              via {r['rota']}"
+        elif r.get("status") == "nao_existe":
+            situacao = "NÃO EXISTE      (correto para aves fora do Brasil)"
+        else:
+            situacao = "FALHA"
+        out(f"  {r['especie']:28} {situacao}")
     ok = sum(r["ok"] for r in resultados)
     out(f"\n{ok}/{len(resultados)} espécies extraídas em {time.time() - inicio:.0f}s "
         f"({sum(r['rota'] == 'busca interna' for r in resultados)} pela busca interna do WikiAves).")

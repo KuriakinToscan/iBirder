@@ -157,16 +157,30 @@ def dados_de_especie_validos(dados):
     return any(dados.get(k) not in (None, "", "Não encontrado") for k in ("etimologia", "caracteristicas"))
 
 
+def _genero_especie(nome):
+    """'Junco hyemalis caniceps' -> 'junco hyemalis' (ignora subespécie, caixa e espaços extras)."""
+    return " ".join((nome or "").lower().split()[:2])
+
+
 def escolher_resultado_busca(resultados, scientific_name):
     """
     Escolhe o resultado da busca do WikiAves (lista de dicts com id, wid, label, nome...).
-    Usa o primeiro resultado retornado; se algum tiver o nome científico idêntico, prefere esse.
+    Usa o primeiro resultado cujo nome científico corresponde ao pesquisado: idêntico ou,
+    para subespécies, mesmo gênero + espécie. Resultados apenas parecidos são recusados
+    (ex.: "Haemorhous cassinii" não pode virar o guaxe, Cacicus haemorrhous).
     """
     especies = [r for r in (resultados or []) if isinstance(r, dict) and r.get("wid")]
-    if not especies:
-        return None
     alvo = scientific_name.strip().lower()
-    return next((r for r in especies if (r.get("label") or "").strip().lower() == alvo), especies[0])
+    exato = next((r for r in especies if (r.get("label") or "").strip().lower() == alvo), None)
+    if exato:
+        return exato
+    return next((r for r in especies if _genero_especie(r.get("label")) == _genero_especie(alvo)), None)
+
+
+def pagina_menciona_especie(html, scientific_name):
+    """A página da espécie traz o nome científico (ex.: <i>Pitangus sulphuratus</i>)."""
+    alvo = _genero_especie(scientific_name)
+    return bool(alvo) and alvo in re.sub(r"\s+", " ", (html or "").lower())
 
 
 def parse_json_da_pagina(texto):
@@ -228,7 +242,14 @@ class BuscadorBlindado:
 
     # ---------- 1. busca interna do WikiAves ----------
 
+    # Resultado da busca interna
+    ENCONTRADO, NAO_EXISTE, FALHOU = "encontrado", "nao_existe", "falhou"
+
     def _buscar_no_wikiaves(self, scientific_name):
+        """
+        Retorna (link, status). NAO_EXISTE é uma resposta definitiva do WikiAves
+        (lista vazia ou sem nome correspondente); FALHOU indica erro/bloqueio.
+        """
         from selenium.webdriver.common.by import By
         url = f"{WIKIAVES_URL}/getTaxonsJSON.php?term={urllib.parse.quote(scientific_name)}"
         try:
@@ -238,14 +259,19 @@ class BuscadorBlindado:
                 resultados = parse_json_da_pagina(self.driver.find_element(By.TAG_NAME, "body").text)
             except ValueError:
                 resultados = None  # ainda não é JSON (ex.: desafio não concluído)
+            if not isinstance(resultados, list):
+                logging.debug("Busca interna do WikiAves não retornou JSON.")
+                return None, self.FALHOU
             resultado = escolher_resultado_busca(resultados, scientific_name)
             if resultado:
-                logging.debug(f"Primeiro resultado WikiAves: {resultado.get('label')} -> {resultado.get('wid')}")
-                return f"{WIKIAVES_URL}/wiki/{resultado['wid']}"
-            logging.debug("Busca interna do WikiAves não retornou espécies.")
+                logging.debug(f"Resultado WikiAves: {resultado.get('label')} -> {resultado.get('wid')}")
+                return f"{WIKIAVES_URL}/wiki/{resultado['wid']}", self.ENCONTRADO
+            primeiro = resultados[0].get("label") if resultados and isinstance(resultados[0], dict) else None
+            logging.info(f"Espécie ausente no WikiAves ({len(resultados)} resultado(s); primeiro: {primeiro}).")
+            return None, self.NAO_EXISTE
         except Exception as e:
             logging.debug(f"Busca interna do WikiAves falhou: {e}")
-        return None
+            return None, self.FALHOU
 
     # ---------- 2. buscadores externos (fluxo antigo) ----------
 
@@ -274,8 +300,10 @@ class BuscadorBlindado:
     def buscar_link_wikiaves(self, scientific_name):
         logging.info(f"Buscando no WikiAves: {scientific_name}")
 
-        link = self._buscar_no_wikiaves(scientific_name)
-        if not link:
+        link, status = self._buscar_no_wikiaves(scientific_name)
+        # Buscadores externos só quando a busca interna falhou de fato; se o WikiAves
+        # respondeu que a espécie não existe, um resultado "parecido" seria outra ave.
+        if status == self.FALHOU:
             query = f'site:wikiaves.com.br "{scientific_name}"'
             link = (self._buscar_duckduckgo(query, "wikiaves.com.br/wiki/")
                     or self._buscar_bing(query, "wikiaves.com.br/wiki/"))
@@ -291,7 +319,7 @@ class BuscadorBlindado:
         logging.info(f"Buscando eBird: {scientific_name}")
         return self._buscar_duckduckgo(f'site:ebird.org "{scientific_name}"', "ebird.org/species/")
 
-    def extrair_dados_especie(self, url):
+    def extrair_dados_especie(self, url, scientific_name=None):
         from selenium.webdriver.common.by import By
         from selenium.webdriver.support import expected_conditions as EC
         logging.debug(f"Extraindo dados de: {url}")
@@ -301,9 +329,12 @@ class BuscadorBlindado:
         # Aguarda as seções da página de espécie, não qualquer <h2>
         self.wait.until(EC.presence_of_element_located(
             (By.CSS_SELECTOR, "h2#nome_cientifico, h2#caracteristicas")))
-        dados = parse_pagina_especie(self.driver.page_source)
+        html = self.driver.page_source
+        dados = parse_pagina_especie(html)
         if not dados_de_especie_validos(dados):
             raise ValueError(f"A página {url} não contém dados de espécie.")
+        if scientific_name and not pagina_menciona_especie(html, scientific_name):
+            raise ValueError(f"A página {url} não é de {scientific_name}.")
         return dados
 
     def fechar(self):
