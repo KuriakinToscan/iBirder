@@ -155,12 +155,14 @@ class EXIFManager:
         add_hier("Geografia", "Endemism", endemismo_fmt)
 
         # 3. PADRÃO CIENTÍFICO: Darwin Core (DWC)
-        if nome_cientifico: cmds.append(f"-XMP-dwc:ScientificName={nome_cientifico}")
-        if genero:          cmds.append(f"-XMP-dwc:Genus={genero}")
-        if familia:         cmds.append(f"-XMP-dwc:Family={familia}")
-        if ordem:           cmds.append(f"-XMP-dwc:Order={ordem}")
-        if classe:          cmds.append(f"-XMP-dwc:Class={classe}")
-        if nome_comum:      cmds.append(f"-XMP-dwc:VernacularName={nome_comum}")
+        # No ExifTool os termos taxonômicos do DwC ficam na estrutura Taxon (TaxonScientificName...).
+        # Os nomes antigos (XMP-dwc:ScientificName...) não existem e eram ignorados em silêncio.
+        if nome_cientifico: cmds.append(f"-XMP-dwc:TaxonScientificName={nome_cientifico}")
+        if genero:          cmds.append(f"-XMP-dwc:TaxonGenus={genero}")
+        if familia:         cmds.append(f"-XMP-dwc:TaxonFamily={familia}")
+        if ordem:           cmds.append(f"-XMP-dwc:TaxonOrder={ordem}")
+        if classe:          cmds.append(f"-XMP-dwc:TaxonClass={classe}")
+        if nome_comum:      cmds.append(f"-XMP-dwc:TaxonVernacularName={nome_comum}")
 
         # 4. Palavras-chave Planas (Compatibilidade Windows)
         keywords = ["iBirder"]

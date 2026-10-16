@@ -95,6 +95,7 @@ class JanelaPrincipal(QMainWindow):
         self.orchestrator.step1_identificacao_erro.connect(self._ao_erro_identificacao)
         self.orchestrator.step1_progress_updated.connect(self._ao_progresso_identificacao)
         self.orchestrator.step2_wiki_concluida.connect(self._ao_receber_info_especie)
+        self.orchestrator.step2_wiki_erro.connect(self._ao_erro_wiki)
         self.orchestrator.step3_iucn_concluida.connect(self._ao_concluir_iucn)
         self.orchestrator.step3_geo_concluida.connect(self._ao_concluir_geo_analise)
         self.orchestrator.step3_conservacao_concluida.connect(self._ao_concluir_conservacao_nacional)
@@ -342,9 +343,9 @@ class JanelaPrincipal(QMainWindow):
         ni = dados.get("nome_ingles", "")
         if ni and ni.lower() not in ["desconhecido", "unknown"]:
             self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", ni))
-        else:
-            if nc:
-                self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", "Desconhecido"))
+        elif nc and self.PLACEHOLDER_TEXT in self.lbl_nome_ingles.text():
+            # Não sobrescreve o nome em inglês já preenchido pela taxonomia eBird
+            self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", "Desconhecido"))
 
         # Atualiza Campo Etimologia
         # Atualiza Campo Etimologia
@@ -426,6 +427,22 @@ class JanelaPrincipal(QMainWindow):
             logging.info("--- PROCESSO DE IDENTIFICAÇÃO FINALIZADO ---")
 
         
+    def _ao_erro_wiki(self):
+        """WikiAves indisponível: libera os campos e a gravação com os dados das outras fontes."""
+        logging.warning("WikiAves indisponível. Exibindo dados das demais fontes.")
+        aviso = "Não disponível (WikiAves inacessível no momento)"
+        if self.PLACEHOLDER_TEXT in self.lbl_nome_comum.text():
+            ultimo = self.session_logger.buffer[-1] if self.session_logger.buffer else {}
+            # Usa o nome popular do iNaturalist, se a taxonomia já o trouxe
+            self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", ultimo.get("nome_comum") or "Não encontrado"))
+        self.txt_etimologia.setPlaceholderText(aviso)
+        self.txt_descricao.setPlaceholderText(aviso)
+        self.status_bar.showMessage("WikiAves indisponível. Demais dados carregados normalmente.", 8000)
+        # Taxonomia, geografia e conservação continuam graváveis na foto
+        if hasattr(self, 'btn_gravar_exif') and self.session_logger.buffer:
+            self.btn_gravar_exif.setEnabled(True)
+            self.btn_gravar_exif.setVisible(True)
+
     def _ao_erro_api(self, erro_msg):
         logging.error(f"Erro na API (Info Espécie): {erro_msg}")
         self.lbl_etimologia_texto.setText(f"Erro ao buscar informações: {erro_msg}")
@@ -1616,6 +1633,16 @@ class JanelaPrincipal(QMainWindow):
             if not self.dados_identificacao_atual:
                 self.dados_identificacao_atual = {}
             self.dados_identificacao_atual["link_ebird"] = link_ebird_final
+
+        # Nome popular do iNaturalist, caso o WikiAves já tenha falhado
+        nc = results.get("nome_comum")
+        if nc and "Não encontrado" in self.lbl_nome_comum.text():
+            self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", nc))
+
+        # Nome em inglês da taxonomia eBird, caso o WikiAves ainda não tenha preenchido
+        ni = results.get("nome_ingles")
+        if ni and ni != "Desconhecido" and self.PLACEHOLDER_TEXT in self.lbl_nome_ingles.text():
+            self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", ni))
 
         if hasattr(self, 'lbl_taxonomia_texto'):
             ordem_vis = results.get('ordem') if (results.get('ordem') and results.get('ordem') != "Desconhecida") else self.dados_identificacao_atual.get("ordem")

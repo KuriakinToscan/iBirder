@@ -535,6 +535,11 @@ class Orchestrator(QObject):
                 if valor and str(valor) not in ["", "Desconhecida", "Desconhecido", "N/A", "N/D"]:
                     tax_patch[chave] = valor
             
+            # Nome comum do iNaturalist só entra se o WikiAves (fonte preferida) ainda não preencheu
+            ultimo = self.session_logger.buffer[-1] if self.session_logger.buffer else {}
+            if results.get("nome_comum") and not ultimo.get("nome_comum"):
+                tax_patch["nome_comum"] = results["nome_comum"]
+
             if tax_patch:
                 self.session_logger.atualizar_ultimo_registro(tax_patch)
                 

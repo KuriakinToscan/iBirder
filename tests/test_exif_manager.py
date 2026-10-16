@@ -19,3 +19,12 @@ def test_palavras_chave_sao_idempotentes():
     cmds = EXIFManager()._gerar_comandos(DADOS, {})
     for kw in ("iBirder", "Bem-te-vi"):
         assert cmds.index(f"-Keywords-={kw}") < cmds.index(f"-Keywords+={kw}")
+
+
+def test_darwin_core_usa_tags_da_estrutura_taxon():
+    cmds = EXIFManager()._gerar_comandos({**DADOS, "familia": "Tyrannidae", "ordem": "Passeriformes", "classe": "Aves"}, {})
+    for tag, valor in [("TaxonScientificName", "Pitangus sulphuratus"), ("TaxonGenus", "Pitangus"),
+                       ("TaxonFamily", "Tyrannidae"), ("TaxonOrder", "Passeriformes"),
+                       ("TaxonClass", "Aves"), ("TaxonVernacularName", "Bem-te-vi")]:
+        assert f"-XMP-dwc:{tag}={valor}" in cmds
+    assert not any(c.startswith("-XMP-dwc:ScientificName") for c in cmds)

@@ -18,6 +18,7 @@
 import logging
 from PySide6.QtCore import QThread, Signal
 from core.taxon_service import get_taxon
+from modules.step5_taxonomy import ebird_taxonomy
 
 
 class EBirdWorker(QThread):
@@ -59,11 +60,25 @@ class EBirdWorker(QThread):
                     if familia := taxon.ancestor("family"):
                         resultados["familia"] = familia.capitalize()
                     resultados["link_ebird"] = taxon.url
+                # Nome popular em português do iNaturalist: reserva caso o WikiAves falhe
+                if taxon.nome_comum_pt:
+                    resultados["nome_comum"] = taxon.nome_comum_pt
                 resultados["raridade_regional"] = "Não Avaliado (Fallback iNaturalist)"
             else:
                 resultados["raridade_regional"] = "Espécie não encontrada (iNaturalist)"
         except Exception as e:
             logging.error(f"Erro no Fallback Taxonomia iNaturalist: {e}")
             resultados["raridade_regional"] = "Erro de Conexão (Fallback)"
+
+        # Taxonomia eBird embarcada: código, link oficial e nome em inglês sem internet
+        ebird = ebird_taxonomy.buscar(self.scientific_name)
+        if ebird:
+            resultados["ebird_code"] = ebird["species_code"]
+            resultados["link_ebird"] = ebird["link"]
+            resultados["nome_ingles"] = ebird["common_name"]
+            if resultados["ordem"] == "Desconhecida" and ebird["order"]:
+                resultados["ordem"] = ebird["order"]
+            if resultados["familia"] == "Desconhecida" and ebird["family"]:
+                resultados["familia"] = ebird["family"]
 
         self.finished.emit(resultados)

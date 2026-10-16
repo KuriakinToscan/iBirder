@@ -16,43 +16,40 @@
 
 
 """
-Busca de dados biológicos no WikiAves sem navegador.
+Busca de dados biológicos no WikiAves.
 
-Até a v1.1 esta etapa abria um Chrome invisível (Selenium) a cada espécie, com
-esperas artificiais de 2–4 s, e exigia o Google Chrome instalado. Agora tudo é
-feito com requisições HTTP diretas (requests + BeautifulSoup), na ordem:
+O WikiAves fica atrás de uma proteção do Cloudflare que recusa requisições HTTP
+simples (403 "Just a moment..."), por isso as páginas são abertas num Chrome
+headless via Selenium, como nas versões anteriores. O fluxo é:
 
-  1. URL direta do WikiAves montada a partir do nome popular em português
-     (vindo do iNaturalist), validada pela presença do nome científico na página;
-  2. DuckDuckGo (versão HTML);
-  3. Bing;
-  4. Último recurso: Selenium/Chrome, somente se estiverem instalados.
+  1. Busca no próprio WikiAves (getTaxonsJSON.php?term=<nome científico>, o mesmo
+     endpoint do campo de busca do site) e usa o primeiro resultado retornado
+     (o de nome científico idêntico, se houver) -> /wiki/<wid>;
+  2. Se a busca interna não retornar nada: DuckDuckGo e, depois, Bing (fluxo antigo);
+  3. Extração dos dados da página da espécie.
 """
 
-import base64
+import json
 import logging
-import re
-import unicodedata
+import random
+import time
 import urllib.parse
+import base64
+import re
 from bs4 import BeautifulSoup
-from core import http
 
-WIKIAVES_BASE = "https://www.wikiaves.com.br/wiki/"
-TIMEOUT = 10
+WIKIAVES_URL = "https://www.wikiaves.com.br"
+TEMPO_ESPERA_MAX = 12
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/120.0.0.0 Safari/537.36"
+)
 
 
 # ==================================================
 # FUNÇÕES PURAS (testáveis sem rede)
 # ==================================================
-
-def slug_wikiaves(nome_comum):
-    """'Sabiá-laranjeira' -> 'sabia-laranjeira' (padrão das URLs do WikiAves)."""
-    if not nome_comum:
-        return None
-    texto = unicodedata.normalize("NFKD", nome_comum).encode("ascii", "ignore").decode()
-    texto = re.sub(r"[^a-z0-9]+", "-", texto.lower()).strip("-")
-    return texto or None
-
 
 def _decodificar_link_bing(href):
     """Links do Bing vêm como bing.com/ck/a?...&u=a1<base64url>; devolve a URL real."""
@@ -87,11 +84,6 @@ def extrair_links(html, trecho_url):
             if limpo not in vistos:
                 vistos.append(limpo)
     return vistos
-
-
-def pagina_corresponde(html, scientific_name):
-    """Confere se a página do WikiAves é mesmo da espécie (evita homônimos de nome popular)."""
-    return bool(html) and scientific_name.lower() in html.lower()
 
 
 def parse_pagina_especie(html):
@@ -149,133 +141,176 @@ def parse_pagina_especie(html):
     return dados
 
 
+def em_desafio_cloudflare(titulo, html):
+    """Detecta a página intermediária do Cloudflare independentemente do idioma do título."""
+    titulo = (titulo or "").lower()
+    # "_cf_chl_opt" só existe na página de desafio; "challenge-platform" não serve,
+    # pois o Cloudflare também injeta esse script em páginas normais.
+    return "just a moment" in titulo or "um momento" in titulo or "_cf_chl_opt" in (html or "")
+
+
+def dados_de_especie_validos(dados):
+    """
+    A página precisa ter ao menos etimologia ou características. Evita aceitar a tela
+    do Cloudflare ("www.wikiaves.com.br") ou páginas que não são de espécie.
+    """
+    return any(dados.get(k) not in (None, "", "Não encontrado") for k in ("etimologia", "caracteristicas"))
+
+
+def escolher_resultado_busca(resultados, scientific_name):
+    """
+    Escolhe o resultado da busca do WikiAves (lista de dicts com id, wid, label, nome...).
+    Usa o primeiro resultado retornado; se algum tiver o nome científico idêntico, prefere esse.
+    """
+    especies = [r for r in (resultados or []) if isinstance(r, dict) and r.get("wid")]
+    if not especies:
+        return None
+    alvo = scientific_name.strip().lower()
+    return next((r for r in especies if (r.get("label") or "").strip().lower() == alvo), especies[0])
+
+
+def parse_json_da_pagina(texto):
+    """O Chrome exibe JSON dentro de <pre>; aceita tanto o texto puro quanto o HTML."""
+    texto = (texto or "").strip()
+    if texto.startswith("<"):
+        texto = BeautifulSoup(texto, "lxml").get_text()
+    inicio = min([i for i in (texto.find("["), texto.find("{")) if i >= 0], default=-1)
+    if inicio < 0:
+        return None
+    return json.loads(texto[inicio:])
+
+
 # ==================================================
-# BUSCADOR
+# BUSCADOR (Chrome headless)
 # ==================================================
 
-class BuscadorWikiAves:
+def _criar_driver():
+    from selenium import webdriver
+    from selenium.webdriver.chrome.service import Service
+
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless=new")
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_argument("--log-level=3")
+    options.add_argument("--disable-logging")
+    options.add_argument(f"user-agent={USER_AGENT}")
+
+    # Mesmo caminho das versões anteriores (webdriver-manager); se falhar,
+    # o Selenium Manager embutido no Selenium 4.6+ localiza/baixa o driver.
+    try:
+        from webdriver_manager.chrome import ChromeDriverManager
+        return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    except Exception as e:
+        logging.debug(f"webdriver-manager indisponível ({e}). Usando Selenium Manager.")
+        return webdriver.Chrome(options=options)
+
+
+class BuscadorBlindado:
 
     def __init__(self):
-        self.session = http.get_session()
-        self._html_cache = {}
+        from selenium.webdriver.support.ui import WebDriverWait
+        self.driver = _criar_driver()
+        self.wait = WebDriverWait(self.driver, TEMPO_ESPERA_MAX)
 
-    def _get_html(self, url):
-        if url in self._html_cache:
-            return self._html_cache[url]
-        resp = self.session.get(url, timeout=TIMEOUT)
-        if resp.status_code != 200:
+    # ---------- utilitários ----------
+
+    def _abrir(self, url):
+        """Abre a URL e aguarda o desafio do Cloudflare ("Just a moment..."/"Um momento...") terminar."""
+        self.driver.get(url)
+        limite = time.time() + TEMPO_ESPERA_MAX
+        while em_desafio_cloudflare(self.driver.title, self.driver.page_source) and time.time() < limite:
+            time.sleep(0.5)
+
+    def _espera_humana(self):
+        time.sleep(random.uniform(2, 4))
+
+    # ---------- 1. busca interna do WikiAves ----------
+
+    def _buscar_no_wikiaves(self, scientific_name):
+        from selenium.webdriver.common.by import By
+        url = f"{WIKIAVES_URL}/getTaxonsJSON.php?term={urllib.parse.quote(scientific_name)}"
+        try:
+            logging.debug(f"Busca interna WikiAves: {url}")
+            self._abrir(url)
+            try:
+                resultados = parse_json_da_pagina(self.driver.find_element(By.TAG_NAME, "body").text)
+            except ValueError:
+                resultados = None  # ainda não é JSON (ex.: desafio não concluído)
+            resultado = escolher_resultado_busca(resultados, scientific_name)
+            if resultado:
+                logging.debug(f"Primeiro resultado WikiAves: {resultado.get('label')} -> {resultado.get('wid')}")
+                return f"{WIKIAVES_URL}/wiki/{resultado['wid']}"
+            logging.debug("Busca interna do WikiAves não retornou espécies.")
+        except Exception as e:
+            logging.debug(f"Busca interna do WikiAves falhou: {e}")
+        return None
+
+    # ---------- 2. buscadores externos (fluxo antigo) ----------
+
+    def _buscar_externo(self, url_busca, trecho_url):
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support import expected_conditions as EC
+        try:
+            logging.debug(f"Pesquisa: {url_busca}")
+            self._abrir(url_busca)
+            self._espera_humana()
+            self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "a")))
+            links = extrair_links(self.driver.page_source, trecho_url)
+            return links[0] if links else None
+        except Exception as e:
+            logging.debug(f"Pesquisa falhou ({url_busca}): {e}")
             return None
-        self._html_cache[url] = resp.text
-        return resp.text
-
-    # ---------- Buscadores ----------
 
     def _buscar_duckduckgo(self, query, trecho_url):
-        try:
-            resp = self.session.get("https://html.duckduckgo.com/html/", params={"q": query}, timeout=TIMEOUT)
-            if resp.status_code == 200:
-                return extrair_links(resp.text, trecho_url)
-            logging.debug(f"DuckDuckGo respondeu {resp.status_code}.")
-        except Exception as e:
-            logging.debug(f"DuckDuckGo falhou: {e}")
-        return []
+        return self._buscar_externo(f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}", trecho_url)
 
     def _buscar_bing(self, query, trecho_url):
-        try:
-            resp = self.session.get("https://www.bing.com/search", params={"q": query}, timeout=TIMEOUT)
-            if resp.status_code == 200:
-                return extrair_links(resp.text, trecho_url)
-            logging.debug(f"Bing respondeu {resp.status_code}.")
-        except Exception as e:
-            logging.debug(f"Bing falhou: {e}")
-        return []
+        return self._buscar_externo(f"https://www.bing.com/search?q={urllib.parse.quote(query)}", trecho_url)
 
     # ---------- API pública ----------
 
-    def buscar_link_wikiaves(self, scientific_name, nome_comum_pt=None):
+    def buscar_link_wikiaves(self, scientific_name):
         logging.info(f"Buscando no WikiAves: {scientific_name}")
 
-        # 1. URL direta pelo nome popular (1 requisição, sem buscador)
-        slug = slug_wikiaves(nome_comum_pt)
-        if slug:
-            url = WIKIAVES_BASE + slug
-            try:
-                if pagina_corresponde(self._get_html(url), scientific_name):
-                    logging.info(f"Link WikiAves (URL direta): {url}")
-                    return url
-            except Exception as e:
-                logging.debug(f"URL direta do WikiAves falhou: {e}")
+        link = self._buscar_no_wikiaves(scientific_name)
+        if not link:
+            query = f'site:wikiaves.com.br "{scientific_name}"'
+            link = (self._buscar_duckduckgo(query, "wikiaves.com.br/wiki/")
+                    or self._buscar_bing(query, "wikiaves.com.br/wiki/"))
 
-        # 2 e 3. Buscadores, validando cada candidato
-        query = f'site:wikiaves.com.br "{scientific_name}"'
-        for buscador in (self._buscar_duckduckgo, self._buscar_bing):
-            for link in buscador(query, "wikiaves.com.br/wiki/")[:3]:
-                try:
-                    if pagina_corresponde(self._get_html(link), scientific_name):
-                        logging.info(f"Link WikiAves encontrado: {link}")
-                        return link
-                except Exception as e:
-                    logging.debug(f"Candidato {link} falhou: {e}")
-
-        # 4. Último recurso: navegador (somente se Selenium e Chrome estiverem disponíveis)
-        link = _buscar_link_via_navegador(scientific_name)
         if link:
-            return link
-
-        logging.warning("Nenhum link WikiAves encontrado.")
-        return None
+            logging.info(f"Link WikiAves encontrado: {link}")
+        else:
+            logging.warning("Nenhum link WikiAves encontrado.")
+        return link
 
     def buscar_link_ebird(self, scientific_name):
+        """Fallback quando a espécie não está na taxonomia eBird embarcada."""
         logging.info(f"Buscando eBird: {scientific_name}")
-        query = f'site:ebird.org "{scientific_name}"'
-        for buscador in (self._buscar_duckduckgo, self._buscar_bing):
-            links = buscador(query, "ebird.org/species/")
-            if links:
-                return links[0]
-        return None
+        return self._buscar_duckduckgo(f'site:ebird.org "{scientific_name}"', "ebird.org/species/")
 
     def extrair_dados_especie(self, url):
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support import expected_conditions as EC
         logging.debug(f"Extraindo dados de: {url}")
-        html = self._get_html(url)
-        if not html:
-            raise ConnectionError(f"Não foi possível carregar {url}")
-        return parse_pagina_especie(html)
+        self._abrir(url)
+        if em_desafio_cloudflare(self.driver.title, self.driver.page_source):
+            raise ConnectionError("WikiAves bloqueou o acesso (verificação do Cloudflare não concluída).")
+        # Aguarda as seções da página de espécie, não qualquer <h2>
+        self.wait.until(EC.presence_of_element_located(
+            (By.CSS_SELECTOR, "h2#nome_cientifico, h2#caracteristicas")))
+        dados = parse_pagina_especie(self.driver.page_source)
+        if not dados_de_especie_validos(dados):
+            raise ValueError(f"A página {url} não contém dados de espécie.")
+        return dados
 
     def fechar(self):
-        self._html_cache.clear()
+        try:
+            self.driver.quit()
+        except Exception:
+            pass
 
 
-# Compatibilidade com o nome antigo
-BuscadorBlindado = BuscadorWikiAves
-
-
-def _buscar_link_via_navegador(scientific_name):
-    """Fallback opcional com Chrome headless. Ignorado se Selenium/Chrome não existirem."""
-    try:
-        from selenium import webdriver
-    except ImportError:
-        return None
-
-    driver = None
-    try:
-        logging.info("Buscas HTTP falharam. Tentando via navegador (Selenium)...")
-        options = webdriver.ChromeOptions()
-        options.add_argument("--headless=new")
-        options.add_argument("--log-level=3")
-        options.add_argument(f"user-agent={http.BROWSER_UA}")
-        # O Selenium 4.6+ localiza/baixa o driver sozinho (Selenium Manager)
-        driver = webdriver.Chrome(options=options)
-        driver.set_page_load_timeout(TIMEOUT)
-        query = urllib.parse.quote(f'site:wikiaves.com.br "{scientific_name}"')
-        driver.get(f"https://html.duckduckgo.com/html/?q={query}")
-        links = extrair_links(driver.page_source, "wikiaves.com.br/wiki/")
-        return links[0] if links else None
-    except Exception as e:
-        logging.debug(f"Fallback via navegador indisponível: {e}")
-        return None
-    finally:
-        if driver:
-            try:
-                driver.quit()
-            except Exception:
-                pass
+# Nome usado na v1.2 (alias)
+BuscadorWikiAves = BuscadorBlindado

@@ -14,13 +14,6 @@ WIKI_HTML = """<html><body>
 </body></html>"""
 
 
-def test_slug_remove_acentos_e_espacos():
-    assert ws.slug_wikiaves("Sabiá-laranjeira") == "sabia-laranjeira"
-    assert ws.slug_wikiaves("João-de-barro") == "joao-de-barro"
-    assert ws.slug_wikiaves("Tico tico") == "tico-tico"
-    assert ws.slug_wikiaves(None) is None
-
-
 def test_links_duckduckgo_desembrulha_uddg():
     html = ('<a href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.wikiaves.com.br%2Fwiki%2Fbem-te-vi&rut=x">r</a>'
             '<a href="//duckduckgo.com/l/?uddg=https%3A%2F%2Febird.org%2Fspecies%2Fgrekis%3Fsiteid%3D1">e</a>')
@@ -34,12 +27,6 @@ def test_links_bing_decodifica_base64():
     assert ws.extrair_links(html, "wikiaves.com.br/wiki/") == ["https://www.wikiaves.com.br/wiki/bem-te-vi"]
 
 
-def test_pagina_corresponde_exige_nome_cientifico():
-    assert ws.pagina_corresponde(WIKI_HTML, "Pitangus sulphuratus")
-    assert not ws.pagina_corresponde("<html>outra ave</html>", "Pitangus sulphuratus")
-    assert not ws.pagina_corresponde(None, "Pitangus sulphuratus")
-
-
 def test_parse_pagina_especie():
     assert ws.parse_pagina_especie(WIKI_HTML) == {
         "nome_comum": "Bem-te-vi",
@@ -50,3 +37,44 @@ def test_parse_pagina_especie():
         "ordem": "Passeriformes",
         "familia": "Tyrannidae",
     }
+
+
+# Formato do getTaxonsJSON.php (campos usados: wid = página na wiki, label = nome científico)
+TAXONS = [
+    {"id": "11000", "wid": "bem-te-vi-rajado", "label": "Myiodynastes maculatus", "nome": "bem-te-vi-rajado"},
+    {"id": "11001", "wid": "bem-te-vi", "label": "Pitangus sulphuratus", "nome": "bem-te-vi"},
+]
+
+
+def test_busca_wikiaves_usa_primeiro_resultado():
+    assert ws.escolher_resultado_busca(TAXONS, "Tyrannus melancholicus")["wid"] == "bem-te-vi-rajado"
+
+
+def test_busca_wikiaves_prefere_nome_cientifico_identico():
+    assert ws.escolher_resultado_busca(TAXONS, "pitangus sulphuratus ")["wid"] == "bem-te-vi"
+
+
+def test_busca_wikiaves_sem_resultados():
+    assert ws.escolher_resultado_busca([], "Pitangus sulphuratus") is None
+    assert ws.escolher_resultado_busca(None, "Pitangus sulphuratus") is None
+
+
+def test_json_exibido_pelo_chrome():
+    import json
+    bruto = json.dumps(TAXONS)
+    assert ws.parse_json_da_pagina(bruto) == TAXONS
+    assert ws.parse_json_da_pagina(f"<html><body><pre>{bruto}</pre></body></html>") == TAXONS
+    assert ws.parse_json_da_pagina("<html>Just a moment...</html>") is None
+
+
+def test_detecta_desafio_cloudflare_em_qualquer_idioma():
+    assert ws.em_desafio_cloudflare("Just a moment...", "")
+    assert ws.em_desafio_cloudflare("Um momento…", "")
+    assert ws.em_desafio_cloudflare("", "<script>window._cf_chl_opt={}</script>")
+    assert not ws.em_desafio_cloudflare("Bem-te-vi | Wiki Aves", "<h1>Bem-te-vi</h1>")
+
+
+def test_rejeita_pagina_que_nao_e_de_especie():
+    assert ws.dados_de_especie_validos(ws.parse_pagina_especie(WIKI_HTML))
+    desafio = "<html><body><h1>www.wikiaves.com.br</h1><h2>Verificando se você é humano</h2></body></html>"
+    assert not ws.dados_de_especie_validos(ws.parse_pagina_especie(desafio))
