@@ -46,7 +46,10 @@ class EXIFManager:
         # Lógica de GPS Condicional
         tem_gps = self._verificar_gps_existente(caminho_imagem)
         
-        comandos = self._gerar_comandos(dados, opcoes, gps_existente=tem_gps)
+        # Registro anterior do iBirder na foto: suas tags são removidas antes da nova gravação
+        from modules.step6_persistence.registro_ibirder import ler_registro
+        comandos = self._gerar_comandos(dados, opcoes, gps_existente=tem_gps,
+                                        registro_anterior=ler_registro(caminho_imagem))
         if not comandos:
             return True
 
@@ -101,21 +104,39 @@ class EXIFManager:
                       "dados de bioma não carregados", "erro no processamento", "não disponível"}
 
     # Categorias reconhecidas para gravar o status nacional (ICMBio)
+    # Categorias da lista nacional (Portaria MMA nº 148/2022) que são gravadas na foto
     CATEGORIAS_NACIONAIS = {"Extinta", "Extinta na Natureza", "Criticamente em Perigo", "Em Perigo",
-                            "Vulnerável", "Quase Ameaçada", "Pouco Preocupante", "Dados Insuficientes"}
+                            "Vulnerável", "Criticamente em Perigo (Provavelmente Extinta)",
+                            "Regionalmente Extinta (Extinta no Brasil)"}
 
     @classmethod
     def _valido(cls, valor):
         return valor is not None and str(valor).strip().lower() not in cls.VALORES_VAZIOS \
             and not str(valor).lower().startswith(("erro", "não disponível", "informação não disponível"))
 
-    def _gerar_comandos(self, dados, opcoes, gps_existente=False):
+    def _gerar_comandos(self, dados, opcoes, gps_existente=False, registro_anterior=None, agora=None):
         """
         Mapeia dados para Hierarchical Keywords (Seções iBirder) e Darwin Core.
         Respeita as escolhas do diálogo de gravação (opcoes: campo -> bool; campo ausente = gravar)
         e nunca grava valores desconhecidos (ex.: endemismo não informado não vira "Não endêmico").
         """
+        from datetime import datetime
+        from core.config import APP_VERSION
+        agora = agora or datetime.now()
         cmds = []
+
+        # 0. Reprocessamento: remove o que o iBirder gravou antes (tags hierárquicas e as
+        #    palavras-chave planas derivadas delas), para não acumular valores antigos.
+        if registro_anterior:
+            for tag in registro_anterior.get("tags", []):
+                for grupo in ("XMP-lr", "XMP-mwg-rs"):
+                    cmds.append(f"-{grupo}:HierarchicalSubject-={tag}")
+            antigos = registro_anterior.get("dados", {})
+            for chave in (("Taxonomia", "CommonName"), ("Taxonomia", "ScientificName"), ("Taxonomia", "Family"),
+                          ("Taxonomia", "Order"), ("Geografia", "Endemism")):
+                if antigos.get(chave):
+                    for tag in ("Keywords", "Subject"):
+                        cmds.append(f"-{tag}-={antigos[chave]}")
 
         def usar(campo, valor):
             """Valor a gravar, ou None se o usuário desmarcou o campo ou o valor é desconhecido."""
@@ -198,19 +219,26 @@ class EXIFManager:
                 cmds.append(f"-{tag}-={kw}")
                 cmds.append(f"-{tag}+={kw}")
 
-        # 5. Comentários e Status (só valores conhecidos)
+        # 5. Conservação: comentário e subseção hierárquica (só valores conhecidos)
         comentarios = []
         iucn = dados.get("iucn_status")
         if opcoes.get("iucn_status", True) and self._valido(iucn) and not str(iucn).startswith(("Espécie não", "Não Avaliado / Seguro")):
             comentarios.append(f"IUCN: {iucn}")
-        icmbio = dados.get("status_icmbio")
-        if opcoes.get("status_icmbio", True) and icmbio in self.CATEGORIAS_NACIONAIS:
-            comentarios.append(f"ICMBio: {icmbio}")
+            add_hier("Conservacao", "IUCN", iucn)
+        nacional = dados.get("categoria_icmbio")
+        if opcoes.get("status_icmbio", True) and nacional in self.CATEGORIAS_NACIONAIS:
+            comentarios.append(f"Brasil (Portaria MMA 148/2022): {nacional}")
+            add_hier("Conservacao", "Brasil", nacional)
         cites = dados.get("status_cites")
         if opcoes.get("status_cites", True) and str(cites or "").startswith("Anexo"):
             comentarios.append(f"CITES: {cites}")
+            add_hier("Conservacao", "CITES", cites)
 
-        final_comment = ". ".join(comentarios) + ". Registrado via iBirder." if comentarios else "Registrado via iBirder."
+        # 5b. Quando e com qual versão a foto foi processada (lido no aviso de "foto já processada")
+        add_hier("Registro", "Data", agora.strftime("%Y-%m-%d %H:%M"))
+        add_hier("Registro", "Versao", APP_VERSION)
+        assinatura = f"Registrado via iBirder v{APP_VERSION} em {agora.strftime('%d/%m/%Y %H:%M')}."
+        final_comment = ". ".join(comentarios) + ". " + assinatura if comentarios else assinatura
         cmds.append(f"-XPComment={final_comment}")
         cmds.append(f"-UserComment={final_comment}")
 

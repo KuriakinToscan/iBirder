@@ -40,6 +40,14 @@ inclusive com Chrome headless).
 - Gravações do iNaturalist são ~47% `.m4a` (AAC): o QtWebEngine do PySide6 (pip) não toca AAC;
   usar o player QtMultimedia (`ui/widgets/audio_player.py`).
 
+## Listas de conservação embarcadas (v1.3)
+
+- `assets/conservacao/`: `lista_nacional_aves_mma2022.csv` (Portaria MMA 148/2022, com `inat_id`),
+  `cites_aves.csv` (Species+, com sinônimos) e `aves_registradas_brasil.csv` (iNaturalist, place 6878).
+- Geradas por `python tools/atualizar_listas_conservacao.py [mma|cites|brasil]` (exige `pdftotext`);
+  consultadas por `modules/step3_geography/listas_conservacao.py`.
+- Subespécie da portaria só casa com subespécie no iNaturalist (nunca marcar a espécie inteira).
+
 ## Testes
 
 - Offline: `python -m pytest tests` (sem rede, sem Chrome).

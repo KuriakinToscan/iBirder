@@ -11,7 +11,14 @@ A identificação roda **no seu computador**. Quando a IA local fica em dúvida,
 - **Privacidade (BYOK)**: a foto só sai do computador na consulta à nuvem (cópia reduzida) ou no Google Lens, por ação do usuário.
 - **Integração com o WikiAves**: nome popular, etimologia e características das espécies brasileiras.
 - **Contexto geográfico**: município, estado, bioma (IBGE), endemismo no Brasil, mapa de ocorrência (GBIF) e vocalizações próximas ao local da foto.
+- **Conservação**: IUCN, lista nacional (Portaria MMA 148/2022), CITES e avaliações estaduais e de outros países (iNaturalist).
 - **Metadados científicos**: Darwin Core, palavras-chave hierárquicas (Lightroom/digiKam) e campos do Windows, com escolha dos campos a gravar.
+
+## 🌟 Novidades na v1.3
+- **Conservação completa**: lista nacional oficial (**Portaria MMA nº 148/2022**, ICMBio) e anexos da **CITES** embarcados, consultados sem internet. Novas **outras avaliações** do iNaturalist: listas estaduais (a do estado da foto em destaque) e de outros países.
+- **Foto já processada**: ao abrir uma foto que já tem dados do iBirder, o app mostra o que foi gravado e quando, e pergunta se deve processar novamente ou ignorar.
+- **Aviso de região**: se a IA local sugerir uma espécie sem registro no Brasil para uma foto do Brasil, o app consulta a nuvem ou avisa e mostra os candidatos que ocorrem no país (clicáveis).
+- **Instalador menor**: partes do Qt que o app não usa (QML, 3D, gráficos, traduções do navegador interno) ficam de fora.
 
 ## 🌟 Novidades na v1.2
 - **WikiAves mais rápido e preciso**: busca interna do próprio WikiAves, com validação do nome científico. Aves que não existem no WikiAves não recebem mais dados de outra espécie.
@@ -28,7 +35,7 @@ A identificação roda **no seu computador**. Quando a IA local fica em dúvida,
 
 ## ⚠️ Limitações conhecidas
 - A IA local reconhece **965 espécies do mundo todo**, das quais cerca de **230 ocorrem no Brasil**. Para as demais, a identificação local pode ser inconclusiva ou errada: use a nuvem (iNaturalist), a Busca Manual ou o Google Lens.
-- O status nacional (**ICMBio**) e os anexos da **CITES** ainda não estão integrados.
+- As listas embarcadas (MMA, CITES, ocorrência no Brasil) refletem a data da versão; são atualizadas com `tools/atualizar_listas_conservacao.py`.
 - O token do iNaturalist expira em cerca de 24 horas.
 
 ## 🛠️ Tecnologias e Fontes
@@ -37,7 +44,9 @@ A identificação roda **no seu computador**. Quando a IA local fica em dúvida,
 - **Mapas e geografia**: **Leaflet** (embarcado), **OpenStreetMap**, **Nominatim** e polígonos de biomas do **IBGE**.
 - **Fontes de dados**:
   - **WikiAves**: nome popular, etimologia e características.
-  - **iNaturalist**: taxonomia, imagem de referência, vocalizações, status IUCN e endemismo no Brasil.
+  - **iNaturalist**: taxonomia, imagem de referência, vocalizações, status IUCN, avaliações regionais e endemismo no Brasil.
+  - **MMA/ICMBio**: Portaria MMA nº 148/2022 (lista oficial embarcada).
+  - **CITES**: Checklist oficial (Species+), embarcado.
   - **eBird / Clements (Cornell Lab)**: códigos, nomes em inglês e links oficiais (tabela embarcada).
   - **GBIF**: mapas de densidade de ocorrência.
 - **Metadados**: **ExifTool** (Phil Harvey).
@@ -46,7 +55,7 @@ A identificação roda **no seu computador**. Quando a IA local fica em dúvida,
 
 ### Para usuários (Windows 10/11, 64 bits)
 1. Instale o **Google Chrome**, se ainda não tiver (usado para consultar o WikiAves).
-2. Baixe o instalador mais recente em [Releases](https://github.com/KuriakinToscan/iBirder/releases) e execute `Instalador_iBirder_v1.2.exe`.
+2. Baixe o instalador mais recente em [Releases](https://github.com/KuriakinToscan/iBirder/releases) e execute `Instalador_iBirder_v1.3.exe`.
 3. Abra uma foto arrastando-a para a janela, pelo botão **Nova Identificação** ou por **Abrir com > iBirder** no Windows Explorer.
 4. (Opcional) Configure a identificação em nuvem na **engrenagem (⚙)**. O passo a passo está em [manual_apis_nuvem.md](manual_apis_nuvem.md).
 
@@ -62,14 +71,15 @@ Com `uv` (recomendado):
 Também funciona em ambientes **conda** ou **venv**: basta `pip install -r requirements.txt` no ambiente ativo.
 
 - **Testes**: `pip install pytest` e `python -m pytest tests`. Os testes não acessam a rede; os do mapa com QtWebEngine rodam com `IBIRDER_TESTES_GUI=1`.
-- **Autoteste do app**: `python main.py --smoke-test` abre o app e verifica modelo, ExifTool, biomas, eBird, áudio e mapa.
+- **Autoteste do app**: `python main.py --smoke-test` abre o app e verifica modelo, ExifTool, biomas, eBird, listas de conservação, áudio e mapa.
 - **Teste real do WikiAves**: `python tools/testar_wikiaves.py` (o WikiAves bloqueia servidores; rode no seu computador).
+- **Listas de conservação**: `python tools/atualizar_listas_conservacao.py [mma|cites|brasil]` regenera `assets/conservacao/` (exige internet e o `pdftotext`).
 - **Build local**: `build.ps1` (PyInstaller + Inno Setup 6, se instalado).
 - **Chaves de API**: ficam no `config.json` local, ignorado pelo Git. Use `config.example.json` como modelo.
 
 ### Publicar uma versão
 1. Atualize `APP_VERSION` em `core/config.py` (única fonte da versão).
-2. Integre na `main` e crie a tag: `git tag v1.2` e `git push origin v1.2`.
+2. Integre na `main` e crie a tag: `git tag v1.3` e `git push origin v1.3`.
 3. O GitHub Actions testa, gera o instalador e cria a Release automaticamente. A tag precisa ser igual a `v` + `APP_VERSION`.
 
 ## ⚖️ Licença

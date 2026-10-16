@@ -1,5 +1,16 @@
 # Histórico de versões
 
+## v1.3
+
+### Novidades
+- **Lista nacional (ICMBio/MMA)**: Portaria MMA nº 148/2022 embarcada (257 aves ameaçadas, incluindo 51 subespécies, e 6 extintas), comparada pelo ID do iNaturalist e pelo nome. Subespécies ameaçadas não marcam a espécie inteira.
+- **CITES**: anexos de 1.545 espécies e subespécies de aves (Checklist oficial), com sinônimos e populações não listadas.
+- **Outras avaliações (iNaturalist)**: listas estaduais e de outros países no card de conservação, com link; a do estado da foto aparece primeiro.
+- **Foto já processada**: o app detecta os dados gravados pelo iBirder, mostra o que foi gravado e quando, e pergunta se deve processar novamente ou ignorar. A gravação passa a incluir `iBirder|Registro|Data` e `iBirder|Registro|Versao`, e regravar substitui o registro anterior.
+- **Aviso de região**: espécie sugerida sem registro no Brasil (lista de 1.759 espécies do iNaturalist) para foto do Brasil aciona a nuvem ou um aviso com os candidatos que ocorrem no país; os candidatos são clicáveis.
+- **Instalador menor**: o build exclui QML, bibliotecas Qt não usadas (3D, Charts, Quick Controls...), as DevTools e as traduções do navegador interno, exceto português e inglês (cerca de 150 MB a menos antes da compressão).
+- Ferramenta de manutenção `tools/atualizar_listas_conservacao.py`.
+
 ## v1.2
 
 ### Novidades

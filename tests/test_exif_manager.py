@@ -48,9 +48,10 @@ def test_valores_desconhecidos_nao_sao_gravados():
 
 
 def test_endemismo_e_status_conhecidos_sao_gravados():
-    dados = {**DADOS, "endemismo": "Sim", "status_icmbio": "Vulnerável", "status_cites": "Anexo II"}
+    dados = {**DADOS, "endemismo": "Sim", "categoria_icmbio": "Vulnerável", "status_cites": "Anexo II"}
     texto = "\n".join(EXIFManager()._gerar_comandos(dados, {}))
-    assert "Endêmico do Brasil" in texto and "ICMBio: Vulnerável" in texto and "CITES: Anexo II" in texto
+    assert "Endêmico do Brasil" in texto and "Brasil (Portaria MMA 148/2022): Vulnerável" in texto
+    assert "CITES: Anexo II" in texto
 
 
 def test_nao_sobrescreve_autor_nem_software_da_camera():

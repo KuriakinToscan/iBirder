@@ -28,18 +28,39 @@ def test_endemismo_vem_do_lugar_brasil(monkeypatch, ocorrencia, endemismo, texto
     w.finished.connect(out.update)
     w.run()
     assert out["endemismo"] == endemismo and out["ocorrencia_brasil"] == texto
-    assert out["status_icmbio"] == "Não disponível"     # nunca o enganoso "Não Avaliado"
-    assert out["status_cites"] == "Não disponível"      # nunca o falso "Não Listado"
+    # Espécie fictícia: não consta nas listas embarcadas
+    assert out["status_icmbio"] == "Não ameaçada (não consta na lista oficial)"
+    assert out["categoria_icmbio"] is None
+    assert out["status_cites"] == "Não listada"
 
 
-def test_status_nacional_quando_o_inaturalist_tiver(monkeypatch):
-    nacional = {"authority": "ICMBio", "status": "vu", "place": {"id": taxon_service.PLACE_BRASIL}}
-    monkeypatch.setattr(cw, "get_taxon", lambda nome: _taxon("endemic", [nacional]))
+def test_listas_embarcadas_e_outras_avaliacoes(monkeypatch):
+    estadual = {"authority": "Governo do Paraná", "status": "en", "iucn": 40,
+                "place": {"id": 1, "display_name": "Paraná, BR"}}
+    argentina = {"authority": "MAyDS", "status": "vu", "iucn": 30, "place": {"id": 2, "display_name": "Argentina"}}
+    global_ = {"authority": "IUCN Red List", "status": "lc", "iucn": 10}
+    monkeypatch.setattr(cw, "get_taxon", lambda nome: _taxon("native", [argentina, global_, estadual]))
     out = {}
-    w = cw.NationalConservationWorker("Teste teste", country="Brasil")
+    w = cw.NationalConservationWorker("Harpia harpyja", country="Brasil", estado="Paraná")
     w.finished.connect(out.update)
     w.run()
-    assert out["status_icmbio"] == "Vulnerável"
+    assert out["status_icmbio"] == "Vulnerável (VU)" and out["categoria_icmbio"] == "Vulnerável"
+    assert out["status_cites"] == "Anexo I"
+    lugares = [a["lugar"] for a in out["outras_avaliacoes"]]
+    assert lugares == ["Paraná (BR)", "Argentina"]          # estado da foto primeiro; IUCN global fora
+    assert out["outras_avaliacoes"][0]["estado_da_foto"] and out["outras_avaliacoes"][0]["categoria"] == "Em Perigo"
+
+
+def test_sem_internet_as_listas_oficiais_continuam(monkeypatch):
+    def falha(nome):
+        raise ConnectionError("sem rede")
+    monkeypatch.setattr(cw, "get_taxon", falha)
+    out = {}
+    w = cw.NationalConservationWorker("Sporophila maximiliani", country="Brasil")
+    w.finished.connect(out.update)
+    w.run()
+    assert out["status_icmbio"] == "Criticamente em Perigo (CR)" and out["status_cites"] == "Anexo I"
+    assert out["endemismo"] == "Não informado"
 
 
 def test_estabelecimento_de_outro_lugar_e_ignorado():

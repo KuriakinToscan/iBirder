@@ -72,6 +72,18 @@ def _ebird():
     return "Pitangus sulphuratus -> grekis"
 
 
+def _conservacao():
+    from modules.step3_geography import listas_conservacao as listas
+    nacional = listas.status_nacional("Harpia harpyja")
+    if not nacional or nacional["categoria"] != "VU":
+        raise RuntimeError("lista nacional (MMA) ausente ou inválida")
+    if listas.anexo_cites("Harpia harpyja") != "I":
+        raise RuntimeError("tabela da CITES ausente ou inválida")
+    if not listas.registrada_no_brasil("Pitangus sulphuratus"):
+        raise RuntimeError("lista de ocorrência no Brasil ausente")
+    return "Harpia harpyja -> VU (MMA), Anexo I (CITES)"
+
+
 def _guia():
     json.loads((APP_DIR / "assets" / "models" / "model_meta.json").read_text(encoding="utf-8"))
     for arquivo in ("guia_do_usuario.md", "manual_apis_nuvem.md"):
@@ -132,6 +144,7 @@ VERIFICACOES = [
     ("ExifTool", _exiftool),
     ("Biomas (IBGE)", _biomas),
     ("Taxonomia eBird", _ebird),
+    ("Listas de conservação", _conservacao),
     ("Manuais", _guia),
     ("Áudio (QtMultimedia)", _audio),
 ]

@@ -15,16 +15,51 @@
 #  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
 
 from core.taxon_service import get_taxon, PLACE_BRASIL
+from modules.step3_geography import listas_conservacao as listas
 import logging
 from PySide6.QtCore import QThread, Signal
 
+# Códigos numéricos de equivalência IUCN usados pelo iNaturalist em cada status regional
+CATEGORIA_POR_CODIGO_IUCN = {
+    5: "Dados Insuficientes", 10: "Pouco Preocupante", 20: "Quase Ameaçada", 30: "Vulnerável",
+    40: "Em Perigo", 50: "Criticamente em Perigo", 60: "Extinta na Natureza", 70: "Extinta",
+}
+
+
+def outras_avaliacoes(statuses, estado=None):
+    """
+    Avaliações regionais/nacionais do iNaturalist além da IUCN global: listas estaduais
+    brasileiras (ex.: Espírito Santo, 2019) e de outros países (Argentina, Uruguai...).
+    Ordem: estado da foto, demais estados do Brasil, outros países.
+    """
+    estado = (estado or "").strip().lower()
+    itens = []
+    for st in statuses or []:
+        lugar = st.get("place") or {}
+        if not lugar:
+            continue  # IUCN global: exibida separadamente
+        nome_lugar = lugar.get("display_name") or lugar.get("name") or "?"
+        brasil = lugar.get("id") == PLACE_BRASIL or nome_lugar.endswith(", BR") or nome_lugar == "Brazil"
+        categoria = CATEGORIA_POR_CODIGO_IUCN.get(st.get("iucn"))
+        itens.append({
+            "lugar": nome_lugar.replace(", BR", " (BR)"),
+            "categoria": categoria or str(st.get("status") or "?"),
+            "status_original": st.get("status"),
+            "autoridade": (st.get("authority") or "").strip(),
+            "url": st.get("url") or "",
+            "brasil": brasil,
+            "estado_da_foto": bool(estado) and nome_lugar.lower().startswith(estado),
+        })
+    itens.sort(key=lambda i: (not i["estado_da_foto"], not i["brasil"], i["lugar"]))
+    return itens
+
+
 class NationalConservationWorker(QThread):
     """
-    Etapa 3C: dados de conservação, todos via iNaturalist (TaxonService):
-    1. Endemismo/ocorrência no Brasil (establishment_means do lugar Brasil)
-    2. Status nacional, quando o iNaturalist tiver a lista brasileira (raro; a lista
-       oficial do ICMBio/MMA ainda não é integrada -> "Não disponível")
-    3. CITES (Comércio Internacional)
+    Etapa 3C: conservação e ocorrência no Brasil.
+    1. Lista nacional (Portaria MMA nº 148/2022 / ICMBio) — tabela embarcada;
+    2. CITES (Checklist oficial) — tabela embarcada;
+    3. Endemismo/ocorrência no Brasil e outras avaliações regionais — iNaturalist (TaxonService).
     """
     finished = Signal(dict)
     error_occurred = Signal(str)
@@ -42,69 +77,48 @@ class NationalConservationWorker(QThread):
         "NE": "Não Avaliada"
     }
 
-    def __init__(self, scientific_name, country="Brazil", parent=None):
+    def __init__(self, scientific_name, country="Brazil", estado=None, parent=None):
         super().__init__(parent)
         self.scientific_name = scientific_name
         self.country = country or "Brazil"
+        self.estado = estado
 
     def run(self):
         logging.info(f"Iniciando análise de conservação nacional para: {self.scientific_name}")
-        
         results = {
-            # A lista nacional (ICMBio/MMA) ainda não é integrada: não afirmar "Não Avaliado"
             "status_icmbio": "Não disponível",
-            "status_cites": "Não disponível",  # o iNaturalist quase nunca traz os anexos da CITES
+            "status_cites": "Não disponível",
             "endemismo": "Não informado",
-            "msg_distribuicao": "Distribuição padrão",
-            "is_brazil": self.country.lower() in ["brazil", "brasil"]
+            "ocorrencia_brasil": "Não informada",
+            "outras_avaliacoes": [],
+            "is_brazil": self.country.lower() in ["brazil", "brasil"],
         }
-
         try:
-            # 1. Busca CITES (Global)
-            self._fetch_cites_status(results)
+            taxon = None
+            try:
+                taxon = get_taxon(self.scientific_name)
+            except Exception as e:
+                logging.debug(f"iNaturalist indisponível para conservação: {e}")
 
-            # 2. Endemismo e status nacional (iNaturalist, lugar Brasil)
-            if results["is_brazil"]:
-                self._fetch_brazilian_data(results)
-            else:
-                results["status_icmbio"] = "Não disponível (registro fora do Brasil)"
-            
+            # 1 e 2. Listas oficiais embarcadas (funcionam sem internet)
+            inat_id = taxon.id if taxon else None
+            results["status_icmbio"] = listas.descrever_status_nacional(self.scientific_name, inat_id)
+            nacional = listas.status_nacional(self.scientific_name, inat_id)
+            results["categoria_icmbio"] = nacional["categoria_extenso"] if nacional else None
+            results["status_cites"] = listas.descrever_cites(self.scientific_name)
+
+            # 3. iNaturalist: endemismo e outras avaliações
+            if taxon and taxon.found:
+                ocorrencia = taxon.ocorrencia_brasil
+                results["endemismo"] = {"endemic": "Sim", "native": "Não", "introduced": "Não"}.get(ocorrencia, "Não informado")
+                results["ocorrencia_brasil"] = {"endemic": "Endêmica do Brasil", "native": "Nativa",
+                                                "introduced": "Introduzida"}.get(ocorrencia, "Não informada")
+                results["outras_avaliacoes"] = outras_avaliacoes(taxon.conservation_statuses, self.estado)
+
             self.finished.emit(results)
         except Exception as e:
             logging.error(f"Erro no ConservationWorker: {e}")
             self.error_occurred.emit(str(e))
-
-    def _fetch_cites_status(self, results):
-        """Busca status na API do Species+/CITES (Simulação/Fallback iNaturalist)."""
-        # Em v1.1 usamos o iNaturalist como proxy para CITES quando disponível
-        # (TaxonService: mesmo taxon já buscado pelas outras etapas, sem nova requisição)
-        try:
-            cites = get_taxon(self.scientific_name).status_por_autoridade("CITES")
-            if cites:
-                results["status_cites"] = f"Anexo {cites.get('status')}"
-        except Exception as e:
-            logging.debug(f"CITES indisponível: {e}")
-
-    def _fetch_brazilian_data(self, results):
-        """
-        Endemismo e status nacional a partir do iNaturalist (TaxonService, lugar Brasil = 6878).
-        Até a v1.2 esta consulta usava o place_id 6857 (Reino Unido) e um campo que a API não
-        devolve, então toda espécie saía "não endêmica" e o ICMBio sempre "Não Avaliado".
-        """
-        try:
-            taxon = get_taxon(self.scientific_name)
-            ocorrencia = taxon.ocorrencia_brasil
-            results["endemismo"] = {"endemic": "Sim", "native": "Não", "introduced": "Não"}.get(ocorrencia, "Não informado")
-            results["ocorrencia_brasil"] = {"endemic": "Endêmica do Brasil", "native": "Nativa",
-                                            "introduced": "Introduzida"}.get(ocorrencia, "Não informada")
-
-            # O iNaturalist raramente tem a lista nacional brasileira; quando tiver, usamos
-            nacional = taxon.status_no_lugar(PLACE_BRASIL)
-            if nacional:
-                sigla = str(nacional.get("status", "")).upper()
-                results["status_icmbio"] = self.TRADUCAO_STATUS.get(sigla, nacional.get("status"))
-        except Exception as e:
-            logging.debug(f"Dados nacionais indisponíveis: {e}")
 
     @staticmethod
     def traduzir_iucn(sigla):

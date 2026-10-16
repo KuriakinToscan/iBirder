@@ -652,6 +652,8 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_candidatos.setTextFormat(Qt.RichText)
         self.lbl_candidatos.setVisible(False)
         self.lbl_candidatos.setProperty("class", "container-borda-cinza-fill")
+        # Cada sugestão é um link: clicar faz a busca manual daquela espécie
+        self.lbl_candidatos.linkActivated.connect(self._buscar_candidato)
 
         self.lbl_nome_ingles = QLabel(self._format_nome_ave("Nome em Inglês:", self.PLACEHOLDER_TEXT, is_placeholder=True))
         self.lbl_nome_ingles.setWordWrap(True)
@@ -1002,6 +1004,24 @@ class JanelaPrincipal(QMainWindow):
             url = f"https://www.google.com/search?q={urllib.parse.quote(sciname)}"
             QDesktopServices.openUrl(QUrl(url))
 
+    def _buscar_candidato(self, nome_cientifico):
+        """Clique em uma sugestão alternativa: busca manual da espécie."""
+        self.input_especie.setText(nome_cientifico)
+        self._realizar_busca_manual()
+
+    def _html_candidatos(self, titulo, candidatos, marcar_sem_registro=False):
+        """Lista de candidatos clicáveis (nome científico + confiança)."""
+        from modules.step3_geography import listas_conservacao as listas
+        html = f'<div style="line-height: 150%; font-size: 12px; color: #374151;">{titulo}<br>'
+        for cand in candidatos[:3]:
+            nome = cand.get("nome_cientifico") or cand.get("label", "")
+            nota = ""
+            if marcar_sem_registro and not listas.registrada_no_brasil(nome):
+                nota = ' <span style="color:#9CA3AF;">(sem registro no Brasil)</span>'
+            html += (f'• <a href="{nome}" style="color:#005fa8;"><i>{nome}</i></a> '
+                     f'({cand.get("confianca", 0.0)*100:.1f}%){nota}<br>')
+        return html + '</div>'
+
     def _realizar_busca_manual(self):
         texto = self.input_especie.text().strip()
         if not texto:
@@ -1125,6 +1145,10 @@ class JanelaPrincipal(QMainWindow):
             settings.setValue("lens_dont_show_again", True)
 
     def _carregar_imagem(self, caminho: str):
+        # Foto já processada pelo iBirder: mostra o que foi gravado e quando, e pergunta
+        if not self._confirmar_reprocessamento(caminho):
+            return
+
         self._resetar_interface() # Limpa tudo primeiro
 
         self.caminho_imagem_atual = caminho
@@ -1222,6 +1246,19 @@ class JanelaPrincipal(QMainWindow):
                  self.lbl_geo_details.style().polish(self.lbl_geo_details)
              
         self._identificar_ave()
+
+    def _confirmar_reprocessamento(self, caminho):
+        """True para processar a foto; False se ela já tem registro do iBirder e o usuário ignorou."""
+        from modules.step6_persistence.registro_ibirder import ler_registro
+        registro = ler_registro(caminho)
+        if not registro:
+            return True
+        logging.info(f"Foto já processada pelo iBirder: {Path(caminho).name} ({len(registro['tags'])} tags)")
+        from ui.dialogs.registro_dialog import DialogoFotoProcessada
+        if DialogoFotoProcessada(registro, Path(caminho).name, self).exec():
+            return True
+        self.status_bar.showMessage(f"Foto ignorada (já processada): {Path(caminho).name}", 8000)
+        return False
 
     def _ao_arrastar_pino(self, lat, lon):
         logging.info(f"Pino do mapa arrastado para: Lat {lat}, Lon {lon}")
@@ -1344,7 +1381,7 @@ class JanelaPrincipal(QMainWindow):
             
         conf = dados.get("confianca", 0.0)
         status_msg = dados.get("status_msg", "")
-        top_candidates = dados.get("top_candidates", [])
+        top_candidates = dados.get("top3") or dados.get("top_candidates", [])
         
         # Exibição da Certeza (v1.1): Cor padronizada e metadados da IA dinâmico
         modelo_ia = dados.get("modelo_ia", "MobileNetV2 (Local)")
@@ -1368,23 +1405,34 @@ class JanelaPrincipal(QMainWindow):
             if self.dados_identificacao_atual:
                 self.dados_identificacao_atual["nome_cientifico"] = sci_formatted
             
-            self.lbl_candidatos.setVisible(False)
+            aviso = dados.get("aviso_ocorrencia")
+            if aviso:
+                # Espécie sugerida sem registro no Brasil e sem nuvem para confirmar
+                alternativas = dados.get("alternativas_brasil") or []
+                html = (f'<div style="font-size: 12px; color: #92400E; background: #FFFBEB; padding: 6px;">'
+                        f'⚠ {aviso}</div>')
+                if alternativas:
+                    html += self._html_candidatos("<b>Candidatas com registro no Brasil</b> (clique para pesquisar):",
+                                                  alternativas)
+                self.lbl_candidatos.setText(html)
+                self.lbl_candidatos.setVisible(True)
+                self.status_bar.showMessage("Atenção: espécie sugerida sem registro no Brasil. Confira a identificação.", 15000)
+            else:
+                self.lbl_candidatos.setVisible(False)
         else:
              self.input_especie.clear()
              self.input_especie.setProperty("class", "container-borda-cinza")
              self.input_especie.style().unpolish(self.input_especie)
              self.input_especie.style().polish(self.input_especie)
              
-             # Exibição de Candidatos Alternativos (v0.8.6)
+             # Sugestões alternativas da IA local (clicáveis). Antes nunca apareciam:
+             # a identificação não enviava os candidatos.
              if top_candidates:
-                 html_cand = '<div style="line-height: 140%; font-size: 12px; color: #374151;">'
-                 html_cand += '<b>Sugestões Alternativas:</b><br>'
-                 for i, cand in enumerate(top_candidates[:3]):
-                      nome_c = cand.get("label", "Desconhecido")
-                      c_conf = cand.get("confianca", 0.0)
-                      html_cand += f"• {nome_c} ({c_conf*100:.1f}%)<br>"
-                 html_cand += '</div>'
-                 self.lbl_candidatos.setText(html_cand)
+                 from modules.step1_identity.id_worker import foto_no_brasil
+                 no_brasil = bool(foto_no_brasil(self.lat_atual, self.lon_atual))
+                 self.lbl_candidatos.setText(self._html_candidatos(
+                     "<b>Sugestões alternativas</b> (clique para pesquisar):", top_candidates,
+                     marcar_sem_registro=no_brasil))
                  self.lbl_candidatos.setVisible(True)
              else:
                  self.lbl_candidatos.setVisible(False)
@@ -1405,7 +1453,8 @@ class JanelaPrincipal(QMainWindow):
             self.btn_google_lens.setEnabled(True)
 
         else:
-            self.status_bar.showMessage("Identificação concluída.")
+            if not dados.get("aviso_ocorrencia"):
+                self.status_bar.showMessage("Identificação concluída.")
             
             self.btn_wiki.setEnabled(True)
             self.btn_google.setEnabled(True)
@@ -1621,17 +1670,33 @@ class JanelaPrincipal(QMainWindow):
         iucn_raw = iucn_data.get("iucn_status", "Não Avaliado")
         iucn_ext = NationalConservationWorker.traduzir_iucn(iucn_raw)
         
-        icmbio = cons_data.get("status_icmbio", "Não disponível")
-        cites = cons_data.get("status_cites", "Não disponível")
+        icmbio = cons_data.get("status_icmbio", "Consultando...")
+        cites = cons_data.get("status_cites", "Consultando...")
+
+        # Outras avaliações do iNaturalist (listas estaduais e de outros países)
+        outras = cons_data.get("outras_avaliacoes") or []
+        linhas_outras = ""
+        for item in outras[:5]:
+            lugar = item["lugar"]
+            if item.get("url", "").startswith("http"):
+                lugar = f'<a href="{item["url"]}" style="color:#005fa8; text-decoration:none;">{lugar}</a>'
+            destaque = " ★" if item.get("estado_da_foto") else ""
+            linhas_outras += f"&nbsp;&nbsp;• {lugar}{destaque}: {item['categoria']}<br>"
+        if len(outras) > 5:
+            linhas_outras += f"&nbsp;&nbsp;<i>e mais {len(outras) - 5} lista(s)</i><br>"
+        bloco_outras = (f"<b>Outras avaliações (iNaturalist):</b><br>{linhas_outras}" if outras else "")
 
         texto_html = f"""
         <div style="line-height: 140%;">
         <b>IUCN (Global):</b> {iucn_ext}<br>
-        <b>ICMBio (Nacional):</b> {icmbio}<br>
-        <b>CITES:</b> {cites}
+        <b>Brasil (ICMBio/MMA 148/2022):</b> {icmbio}<br>
+        <b>CITES:</b> {cites}<br>
+        {bloco_outras}
         </div>
         """
         self.lbl_conservacao_texto.setText(texto_html)
+        self.lbl_conservacao_texto.setWordWrap(True)
+        self.lbl_conservacao_texto.setOpenExternalLinks(True)
         self._set_placeholder_style(self.lbl_conservacao_texto, active=False)
         self.lbl_conservacao_texto.setVisible(True)
 
@@ -1723,6 +1788,7 @@ class JanelaPrincipal(QMainWindow):
             "endemismo": cons.get("endemismo"),
             "iucn_status": iucn.get("iucn_status"),
             "status_icmbio": cons.get("status_icmbio"),
+            "categoria_icmbio": cons.get("categoria_icmbio"),
             "status_cites": cons.get("status_cites"),
             "classe": "Aves"
         }

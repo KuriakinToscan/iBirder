@@ -19,7 +19,7 @@ import logging
 from core.paths import BASE_DIR
 
 CONFIG_FILE = "config.json"
-APP_VERSION = "1.2"  # fonte única da versão (instalador, CI, interface, logs)
+APP_VERSION = "1.3"  # fonte única da versão (instalador, CI, interface, logs)
 
 def obter_caminho_config():
     """Retorna o caminho absoluto para o arquivo de configuração."""

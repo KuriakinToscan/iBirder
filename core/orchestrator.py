@@ -234,6 +234,7 @@ class Orchestrator(QObject):
         self.id_worker = LocalIdentificationWorker(image_path, parent=self)
         self.id_worker.skip_model = skip_model
         self.id_worker.is_photo = is_photo
+        self.id_worker.lat, self.id_worker.lon = self.current_lat, self.current_lon
         self._conectar("id", self.id_worker.finished, self._on_step1_finished)
         self._conectar("id", self.id_worker.error, self._on_step1_error)
         self._conectar("id", self.id_worker.progress_updated, self.step1_progress_updated.emit)
@@ -464,16 +465,17 @@ class Orchestrator(QObject):
         
         # CASCATA LINEAR CONTINUA: 3A (IUCN) -> 3C (Conservação Nacional) (v1.6.5)
         # Identificamos o país a partir do último registro seguro
-        pais = "Brazil"
+        pais, estado = "Brazil", None
         if self.session_logger and self.session_logger.buffer:
             pais = self.session_logger.buffer[-1].get("pais", "Brazil")
-            
-        self.start_step3_conservation(self._last_sci_name, pais=pais)
+            estado = self.session_logger.buffer[-1].get("estado")
+
+        self.start_step3_conservation(self._last_sci_name, pais=pais, estado=estado)
 
     # --- Etapa 3C (v1.6.5) ---
-    def start_step3_conservation(self, sci_name, pais="Brazil"):
+    def start_step3_conservation(self, sci_name, pais="Brazil", estado=None):
         self._trocar_worker("conservacao", self.conservation_worker)
-        self.conservation_worker = NationalConservationWorker(sci_name, country=pais, parent=self)
+        self.conservation_worker = NationalConservationWorker(sci_name, country=pais, estado=estado, parent=self)
         self._conectar("conservacao", self.conservation_worker.finished, self._on_step3_conservation_finished)
         self.conservation_worker.start()
         
