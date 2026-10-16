@@ -132,8 +132,11 @@ class EXIFManager:
             Cria uma estrutura: iBirder -> Seção -> Atributo -> Valor
             """
             if valor and valor != "N/A":
-                cmds.append(f"-XMP-lr:HierarchicalSubject+=iBirder|{subs}|{chave}|{valor}")
-                cmds.append(f"-XMP-mwg-rs:HierarchicalSubject+=iBirder|{subs}|{chave}|{valor}")
+                tag = f"iBirder|{subs}|{chave}|{valor}"
+                # "-=" antes de "+=" evita duplicar a tag ao gravar a mesma foto mais de uma vez
+                for grupo in ("XMP-lr", "XMP-mwg-rs"):
+                    cmds.append(f"-{grupo}:HierarchicalSubject-={tag}")
+                    cmds.append(f"-{grupo}:HierarchicalSubject+={tag}")
 
         # Subseção Taxonomia
         add_hier("Taxonomia", "ScientificName", nome_cientifico)
@@ -168,8 +171,10 @@ class EXIFManager:
         if kw_string:
             cmds.append(f"-XPKeywords={kw_string}")
             for kw in keywords:
-                cmds.append(f"-Keywords+={kw}")
-                cmds.append(f"-Subject+={kw}")
+                # "-=" antes de "+=" evita duplicar a palavra-chave em gravações repetidas
+                for tag in ("Keywords", "Subject"):
+                    cmds.append(f"-{tag}-={kw}")
+                    cmds.append(f"-{tag}+={kw}")
 
         # 5. Comentários e Status
         comentarios = []
@@ -185,10 +190,12 @@ class EXIFManager:
             lat = dados.get("latitude") or dados.get("lat")
             lon = dados.get("longitude") or dados.get("lon")
             if lat is not None and lon is not None:
-                cmds.append(f"-GPSLatitude={lat}")
-                cmds.append(f"-GPSLongitude={lon}")
-                cmds.append("-GPSLatitudeRef#")
-                cmds.append("-GPSLongitudeRef#")
+                lat, lon = float(lat), float(lon)
+                # O EXIF ignora o sinal: o hemisfério precisa ir explícito nas tags Ref
+                cmds.append(f"-GPSLatitude={abs(lat)}")
+                cmds.append(f"-GPSLatitudeRef={'S' if lat < 0 else 'N'}")
+                cmds.append(f"-GPSLongitude={abs(lon)}")
+                cmds.append(f"-GPSLongitudeRef={'W' if lon < 0 else 'E'}")
         elif gps_existente:
             logging.debug("GPS original detectado na imagem. Preservando coordenadas existentes.")
 

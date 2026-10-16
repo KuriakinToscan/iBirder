@@ -8,6 +8,7 @@ __pycache__/
 # Temporary Files
 temp/
 *.log
+logs/
 audit_*.txt
 config.json
 

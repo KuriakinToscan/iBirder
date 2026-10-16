@@ -15,7 +15,7 @@
 #  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
 
 from PySide6.QtWidgets import QWidget, QSizePolicy, QApplication, QPushButton, QHBoxLayout, QLabel, QVBoxLayout
-from PySide6.QtCore import Qt, QSize, QRectF, QMimeData, QUrl, QPoint
+from PySide6.QtCore import Qt, QSize, QRectF, QMimeData, QUrl, QPoint, QTimer
 from PySide6.QtGui import (
     QPainter, QPixmap, QColor, QFont, QPen, QPainterPath, 
     QFontMetrics, QDrag, QDragEnterEvent, QDropEvent, QIcon, QCursor

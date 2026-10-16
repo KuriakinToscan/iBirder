@@ -1,0 +1,11 @@
+{
+    "pular_pergunta_atalho": false,
+    "modo_operacao": null,
+    "lembrar_modo": false,
+    "xc_api_key": "",
+    "inat_api_token": "",
+    "google_vision_api_key": "",
+    "mostrar_alerta_boot_api": false,
+    "mostrar_alerta_iucn": false,
+    "mostrar_alerta_ebird": false
+}

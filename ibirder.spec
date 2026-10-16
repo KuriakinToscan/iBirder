@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('assets', 'assets'), ('Geo', 'Geo'), ('config.json', '.'), ('guia_do_usuario.md', '.'), ('README.md', '.'), ('RULES.md', '.'), ('manual_apis_nuvem.md', '.')]
+datas = [('assets', 'assets'), ('Geo', 'Geo'), ('guia_do_usuario.md', '.'), ('README.md', '.'), ('manual_apis_nuvem.md', '.')]
 binaries = []
 hiddenimports = ['PIL._tkinter_finder', 'email', 'email.mime', 'email.mime.multipart', 'email.mime.text', 'email.mime.base', 'email.mime.application']
 tmp_ret = collect_all('selenium')

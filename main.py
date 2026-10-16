@@ -90,13 +90,19 @@ def verificar_ambiente_virtual():
         from ui.dialogo_aviso import DialogoAviso
         DialogoAviso(
             "Erro de Ambiente", 
-            "Ambiente virtual não encontrado.\n\nCertifique-se de que a pasta .venv está presente na pasta do iBirder e execute o setup_ambiente.ps1.", 
+            "Ambiente virtual não encontrado.\n\nCrie o ambiente na pasta do iBirder com:\n  uv venv\n  uv pip install -r requirements.txt", 
             tipo="erro"
         ).exec()
         sys.exit(1)
 
 def exception_hook(exctype, value, tb):
     logging.critical("Exceção não tratada detectada:", exc_info=(exctype, value, tb))
+    # Copia o session.log para logs/ antes que o atexit o apague
+    try:
+        from core.logger import save_crash_log
+        save_crash_log()
+    except Exception:
+        pass
     sys.exit(1)
 
 sys.excepthook = exception_hook
@@ -199,6 +205,12 @@ if __name__ == "__main__":
     except Exception as e:
         error_msg = f"ERRO FATAL NA INICIALIZAÇÃO:\n{str(e)}\n\n{traceback.format_exc()}"
         print(error_msg) # Força no console
+        logging.critical(error_msg)
+        try:
+            from core.logger import save_crash_log
+            save_crash_log()
+        except Exception:
+            pass
         
         # Salva o "log do desespero"
         location = salvar_log_desespero(error_msg)

@@ -10,3 +10,5 @@ selenium==4.40.0
 shapely==2.1.1
 webdriver-manager==4.0.2
 lxml==6.0.2
+ai-edge-litert==2.3.0
+packaging==26.3

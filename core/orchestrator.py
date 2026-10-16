@@ -118,8 +118,10 @@ class Orchestrator(QObject):
         self.updater = ModelUpdater(parent=self)
         # Ao invés de jogar sinal direto para UI agora, armazenamos a informação silenciosamente
         self.updater.update_available.connect(self._on_update_detected)
-        # Disparo silencioso em background
-        self.updater.check_for_updates()
+        # Checagem desativada: o ModelDownloadWorker ainda não baixa modelos reais
+        # (apenas recopia os arquivos locais) e a troca em Program Files exige admin.
+        # Reativar quando houver manifesto real com SHA-256 e destino em %APPDATA%.
+        # self.updater.check_for_updates()
         
         # OTA Updater (App Version)
         self.app_updater = AppUpdater(parent=self)

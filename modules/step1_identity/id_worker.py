@@ -18,7 +18,7 @@ import time
 import logging
 from PySide6.QtCore import QThread, Signal
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 import requests
 import base64
 import json
@@ -37,6 +37,11 @@ from core.model_manager import ModelManager
 
 # Global Cache for TFLite Interpreter
 _interpreter_cache = None
+
+def abrir_imagem_rgb(image_path):
+    """Abre a imagem já rotacionada conforme a tag EXIF Orientation (fotos verticais de câmera/celular)."""
+    with Image.open(image_path) as img:
+        return ImageOps.exif_transpose(img).convert('RGB')
 
 def get_current_interpreter():
     global _interpreter_cache
@@ -116,7 +121,7 @@ class LocalIdentificationWorker(QThread):
             
             # 3. Pré-processamento
             # Carrega imagem original em memória (sem alterar arquivo)
-            img = Image.open(self.image_path).convert('RGB')
+            img = abrir_imagem_rgb(self.image_path)
             
             # Redimensionamento de Alta Qualidade (LANCZOS)
             # Crucial para manter detalhes de plumagem e bico ao reduzir para 224x224
@@ -288,10 +293,9 @@ class LocalIdentificationWorker(QThread):
         headers = {"Authorization": token if token.startswith("Bearer") else f"Bearer {token}"}
         
         import io
-        from PIL import Image
         
         # Comprime a imagem em memória para não estourar limite da API (ex: 413 Entity Too Large)
-        img = Image.open(image_path).convert('RGB')
+        img = abrir_imagem_rgb(image_path)
         img.thumbnail((800, 800), Image.Resampling.LANCZOS)
         img_bytes = io.BytesIO()
         img.save(img_bytes, format="JPEG", quality=85)
@@ -325,8 +329,7 @@ class LocalIdentificationWorker(QThread):
         url = f"https://vision.googleapis.com/v1/images:annotate?key={api_key}"
         
         import io
-        from PIL import Image
-        img = Image.open(image_path).convert('RGB')
+        img = abrir_imagem_rgb(image_path)
         img.thumbnail((800, 800), Image.Resampling.LANCZOS)
         img_bytes = io.BytesIO()
         img.save(img_bytes, format="JPEG", quality=85)
