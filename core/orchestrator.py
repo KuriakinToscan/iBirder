@@ -27,7 +27,6 @@ from modules.step5_taxonomy.ebird_worker import EBirdWorker
 from modules.step3_geography.geo_analyst import GeoAnalyst
 from modules.step3_geography.conservation_worker import NationalConservationWorker
 import logging
-import requests
 from core.config import carregar_config
 
 # Etapa 6: Persistência (EXIF) - Placeholder para futura integração direta
@@ -186,6 +185,7 @@ class Orchestrator(QObject):
         self.geo_worker = None
         self.audio_worker = None
         self.ebird_worker = None
+        self.conservation_worker = None
         
         self.current_lat = None
         self.current_lon = None
@@ -199,14 +199,25 @@ class Orchestrator(QObject):
         
     def start_cascade_from_step2(self, sci_name):
         """
-        Fluxo Linear Estrito: 2 (Biologia) -> 3 (Geografia) -> 4 (Vocalização) -> 5 (Taxonomia).
+        Dispara as etapas 2 a 5 a partir de um nome científico.
         Utilizado quando o usuário clica em uma espécie da lista de resultados 
         ou para re-identificação manual.
         """
         logging.info(f"Iniciando cascata para: {sci_name}")
+        self._iniciar_etapas_paralelas(sci_name)
+
+    def _iniciar_etapas_paralelas(self, sci_name):
+        """
+        Etapas independentes rodam ao mesmo tempo (v1.2):
+          2 (Biologia/WikiAves) | 3 (IUCN + Geo -> 4 Áudio -> ...) | 5 (Taxonomia)
+        Antes eram encadeadas (2 -> 3 -> 4 -> 5): a etapa mais lenta atrasava todas,
+        uma falha no WikiAves interrompia o resto e, sem GPS, a taxonomia nunca rodava.
+        Todas compartilham o mesmo taxon do iNaturalist via TaxonService.
+        """
         self._last_sci_name = sci_name
         self.start_step2_biology(sci_name)
-        # As etapas seguintes (3, 4 e 5) serão disparadas sequencialmente pelos callbacks.
+        self.start_step3_geography(sci_name)
+        self.start_step5_taxonomy(sci_name)
 
     def get_audio_data_by_id(self, audio_id):
         """Busca os dados completos de um áudio no cache central pelo ID (v1.0.0)."""
@@ -291,7 +302,7 @@ class Orchestrator(QObject):
             return
 
         logging.info(f"Espécie validada. Iniciando cascata para: {nome_cientifico}")
-        self.start_step2_biology(nome_cientifico)
+        self._iniciar_etapas_paralelas(nome_cientifico)
             
     # --- Etapa 2 ---
     def start_step2_biology(self, sci_name):
@@ -309,44 +320,8 @@ class Orchestrator(QObject):
             self.session_logger.atualizar_ultimo_registro(resultados)
         self.step2_wiki_concluida.emit(resultados)
         
-        # CASCATA LINEAR CONTINUA: 2 -> 3
-        if self._last_sci_name:
-            self.start_step3_geography(self._last_sci_name)
-        
-        # Fallback IUCN via WikiAves
-        if getattr(self, "esperando_fallback_iucn", False):
-            status_wiki = resultados.get("status_conservacao")
-            if status_wiki and status_wiki != "Não encontrado":
-                logging.info(f"Aplicando Fallback de Conservação WikiAves: {status_wiki}")
-                self.step3_iucn_concluida.emit({
-                    "iucn_status": f"{status_wiki} (Fonte: WikiAves)",
-                    "geojson_path": None,
-                    "link_iucn": f"https://www.iucnredlist.org/search?query={resultados.get('original_scientific_name', '').replace(' ', '+')}&searchType=species"
-                })
-            else:
-                logging.warning("WikiAves não retornou status. Acionando Fallback iNaturalist.")
-                self._executar_fallback_inaturalist(resultados.get("original_scientific_name", ""))
-            self.esperando_fallback_iucn = False
-            
-    def _executar_fallback_inaturalist(self, sci_name):
-        fallback_res = {
-            "iucn_status": "Não Avaliado (Fallback Local)",
-            "geojson_path": None,
-            "link_iucn": f"https://www.iucnredlist.org/search?query={sci_name.replace(' ', '+')}&searchType=species"
-        }
-        try:
-            url = "https://api.inaturalist.org/v1/taxa"
-            params = {
-                "q": sci_name,
-                "is_active": "true",
-                "rank": "species"
-            }
-            resp = requests.get(url, params=params, timeout=3)
-            if resp.status_code == 200 and resp.json().get("results"):
-                cs = resp.json()["results"][0].get("conservation_status")
-                fallback_res["iucn_status"] = f"{cs.get('status', 'Não Avaliado').upper()} (via iNaturalist)" if cs else "Não Avaliado / Seguro (via iNaturalist)"
-        except Exception: pass
-        self._on_step3_finished(fallback_res)
+        if self.session_logger:
+            self.session_logger.flush()
 
     # --- Etapa 3 ---
     def start_step3_geography(self, sci_name):
@@ -516,10 +491,8 @@ class Orchestrator(QObject):
             
         self.step4_audio_concluido.emit(audios)
         self.audio_processed.emit(audios) # Emitir para plotagem externa (v0.4.3)
-        
-        # CASCATA LINEAR CONTINUA: 4 -> 5
-        if sci_name:
-            self.start_step5_taxonomy(sci_name)
+        if self.session_logger:
+            self.session_logger.flush()
         
     def _on_step4_failed_intercept(self, sci_name):
         # Cache negative hit
@@ -531,10 +504,6 @@ class Orchestrator(QObject):
              self.session_logger.atualizar_ultimo_registro({"vocalizacoes": 0})
              
         self.step4_audio_erro.emit()
-        
-        # CASCATA LINEAR CONTINUA mesmo em falha: 4 -> 5
-        if sci_name:
-            self.start_step5_taxonomy(sci_name)
         
     # --- Etapa 5 ---
     def start_step5_taxonomy(self, sci_name):

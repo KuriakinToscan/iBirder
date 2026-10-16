@@ -14,7 +14,8 @@
 #  Você deve ter recebido uma cópia da Licença Pública Geral GNU 
 #  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
 
-import requests
+from core import http
+from core.taxon_service import get_taxon
 import logging
 from PySide6.QtCore import QThread, Signal
 
@@ -75,20 +76,13 @@ class NationalConservationWorker(QThread):
     def _fetch_cites_status(self, results):
         """Busca status na API do Species+/CITES (Simulação/Fallback iNaturalist)."""
         # Em v1.1 usamos o iNaturalist como proxy para CITES quando disponível
+        # (TaxonService: mesmo taxon já buscado pelas outras etapas, sem nova requisição)
         try:
-            url = "https://api.inaturalist.org/v1/taxa"
-            params = {"q": self.scientific_name}
-            resp = requests.get(url, params=params, timeout=5)
-            if resp.status_code == 200:
-                data = resp.json()
-                if data.get("results"):
-                    taxon = data["results"][0]
-                    # Algumas taxonomias no iNat marcam CITES em 'conservation_statuses'
-                    statuses = taxon.get("conservation_statuses", [])
-                    for s in statuses:
-                        if s.get("authority", "").upper() == "CITES":
-                            results["status_cites"] = f"Anexo {s.get('status')}"
-        except: pass
+            cites = get_taxon(self.scientific_name).status_por_autoridade("CITES")
+            if cites:
+                results["status_cites"] = f"Anexo {cites.get('status')}"
+        except Exception as e:
+            logging.debug(f"CITES indisponível: {e}")
 
     def _fetch_brazilian_data(self, results):
         """Busca dados oficiais do catálogo brasileiro."""
@@ -100,7 +94,7 @@ class NationalConservationWorker(QThread):
                 "q": self.scientific_name,
                 "place_id": 6857  # ID 6857 = Brasil
             }
-            resp = requests.get(url, params=params, timeout=5)
+            resp = http.get(url, params=params, timeout=5)
             if resp.status_code == 200:
                 data = resp.json()
                 if data.get("results"):

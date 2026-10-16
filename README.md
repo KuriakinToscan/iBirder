@@ -45,6 +45,9 @@ Recomendamos o uso do `uv` para o gerenciamento ultrarrápido de pacotes virtuai
 3. Ative o ambiente virtual no PowerShell com: `.\.venv\Scripts\Activate.ps1`.
 4. Instale as dependências com: `uv pip install -r requirements.txt`.
 5. Execute: `python main.py`.
+6. (Opcional) Rode os testes offline: `uv pip install pytest` e `python -m pytest tests`.
+
+> As chaves de API ficam no `config.json` local (ignorado pelo Git). Use `config.example.json` como modelo ou configure-as pela engrenagem (⚙) do app.
 
 ## ⚖️ Licença
 Este software é distribuído sob a licença **GNU GPL v3**.

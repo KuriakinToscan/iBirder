@@ -14,9 +14,12 @@
 #  Você deve ter recebido uma cópia da Licença Pública Geral GNU 
 #  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
 
+
+from concurrent.futures import ThreadPoolExecutor
 from PySide6.QtCore import QThread, Signal
 import logging
-from modules.step2_biology.wiki_scraper import BuscadorBlindado
+from modules.step2_biology.wiki_scraper import BuscadorWikiAves
+from core.taxon_service import get_taxon
 
 class BuscadorWorker(QThread):
     info_found = Signal(dict)
@@ -26,6 +29,14 @@ class BuscadorWorker(QThread):
         super().__init__(parent)
         self.scientific_name = scientific_name
 
+    def _nome_comum_pt(self):
+        """Nome popular em português do iNaturalist, usado para montar a URL direta do WikiAves."""
+        try:
+            return get_taxon(self.scientific_name).nome_comum_pt
+        except Exception as e:
+            logging.debug(f"Nome popular indisponível no iNaturalist: {e}")
+            return None
+
     def run(self):
         # Validação de segurança
         if not self.scientific_name or "Inconclusiva" in self.scientific_name:
@@ -33,29 +44,33 @@ class BuscadorWorker(QThread):
             self.error_occurred.emit("Identificação inconclusiva. Aguardando entrada manual.")
             return
 
-        bot = None
+        # Buscadores separados: cada thread do pool usa sua própria sessão HTTP
+        bot_wiki = BuscadorWikiAves()
         try:
-            bot = BuscadorBlindado()
-            link = bot.buscar_link_wikiaves(self.scientific_name)
-            
-            if link:
-                dados = bot.extrair_dados_especie(link)
-                dados['link_origem'] = link
-                
-                # Sincronização eBird v0.8.0 Heritage (v1.6.10)
-                # O robô busca o eBird via DuckDuckGo logo após o WikiAves para garantir 100% de precisão.
-                link_ebird = bot.buscar_link_ebird(self.scientific_name)
-                if link_ebird:
-                    dados['link_ebird'] = link_ebird
-                    logging.debug(f"Link eBird encontrado: {link_ebird}")
-                
-                dados['original_scientific_name'] = self.scientific_name
-                self.info_found.emit(dados)
-            else:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                # O link do eBird é buscado em paralelo com o WikiAves
+                futuro_ebird = pool.submit(lambda: BuscadorWikiAves().buscar_link_ebird(self.scientific_name))
+                link = bot_wiki.buscar_link_wikiaves(self.scientific_name, self._nome_comum_pt())
+                dados = bot_wiki.extrair_dados_especie(link) if link else None
+                try:
+                    link_ebird = futuro_ebird.result(timeout=30)
+                except Exception as e:
+                    logging.debug(f"Busca do link eBird falhou: {e}")
+                    link_ebird = None
+
+            if dados is None:
                 self.error_occurred.emit("Espécie não encontrada no WikiAves.")
-                
+                return
+
+            dados['link_origem'] = link
+            if link_ebird:
+                dados['link_ebird'] = link_ebird
+                logging.debug(f"Link eBird encontrado: {link_ebird}")
+            dados['original_scientific_name'] = self.scientific_name
+            self.info_found.emit(dados)
+
         except Exception as e:
+            logging.error(f"Erro na busca do WikiAves: {e}")
             self.error_occurred.emit(str(e))
         finally:
-            if bot:
-                bot.fechar()
+            bot_wiki.fechar()
