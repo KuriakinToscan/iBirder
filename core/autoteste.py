@@ -80,6 +80,23 @@ def _guia():
     return "manuais e metadados presentes"
 
 
+def _mapa(janela):
+    """O mapa precisa carregar dentro do executável (QtWebEngine é o ponto frágil do PyInstaller)."""
+    import time
+    from PySide6.QtCore import QEventLoop, QTimer
+    mapa = getattr(janela, "map_principal", None)
+    if mapa is None:
+        raise RuntimeError("janela sem mapa")
+    limite = time.time() + 20
+    while not mapa._pronto and time.time() < limite:
+        loop = QEventLoop()
+        QTimer.singleShot(200, loop.quit)
+        loop.exec()
+    if not mapa._pronto:
+        raise RuntimeError("página do mapa não carregou em 20 s")
+    return "página Leaflet carregada"
+
+
 VERIFICACOES = [
     ("Modelo de IA", _modelo),
     ("ExifTool", _exiftool),
@@ -89,10 +106,13 @@ VERIFICACOES = [
 ]
 
 
-def executar_smoke_test():
+def executar_smoke_test(janela=None):
     """Executa as verificações, registra no log/console e retorna o código de saída."""
     falhas = 0
-    for nome, verificar in VERIFICACOES:
+    verificacoes = list(VERIFICACOES)
+    if janela is not None:
+        verificacoes.append(("Mapa (QtWebEngine)", lambda: _mapa(janela)))
+    for nome, verificar in verificacoes:
         try:
             detalhe = verificar()
             msg = f"[SMOKE] OK    {nome}: {detalhe}"

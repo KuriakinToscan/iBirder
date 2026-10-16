@@ -56,7 +56,9 @@ def app(monkeypatch):
     monkeypatch.setattr(ww, "BuscadorBlindado", _BuscadorFalso)
     import core.updater as up
     monkeypatch.setattr(up.AppUpdater, "check_for_updates", lambda self: None)
-    return QtCore.QCoreApplication.instance() or QtCore.QCoreApplication([])
+    # QApplication (e não QCoreApplication): outros testes criam widgets no mesmo processo
+    from PySide6.QtWidgets import QApplication
+    return QApplication.instance() or QApplication([])
 
 
 def _rodar(app, segundos):

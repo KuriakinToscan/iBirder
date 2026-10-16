@@ -1,11 +1,14 @@
 # -*- mode: python ; coding: utf-8 -*-
+# Fonte única do build: usado pelo build.ps1 (local) e pelo GitHub Actions.
 from PyInstaller.utils.hooks import collect_all
 
 datas = [('assets', 'assets'), ('Geo', 'Geo'), ('guia_do_usuario.md', '.'), ('README.md', '.'), ('manual_apis_nuvem.md', '.')]
 binaries = []
 hiddenimports = ['PIL._tkinter_finder', 'email', 'email.mime', 'email.mime.multipart', 'email.mime.text', 'email.mime.base', 'email.mime.application']
-tmp_ret = collect_all('selenium')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+# selenium: inclui o selenium-manager; ai_edge_litert: runtime da IA local (.pyd e dados)
+for pacote in ('selenium', 'ai_edge_litert'):
+    tmp_ret = collect_all(pacote)
+    datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
 a = Analysis(

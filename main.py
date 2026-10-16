@@ -23,17 +23,15 @@ import os
 if getattr(sys, 'frozen', False):
     base_dir = sys._MEIPASS
     
-    # Python 3.8+ exige add_dll_directory para bibliotecas nativas (.pyd / .dll)
+    dirs_to_add = [
+        base_dir,
+        os.path.join(base_dir, 'PySide6'),
+        os.path.join(base_dir, 'shiboken6'),
+        os.path.join(base_dir, 'numpy.libs'),
+        os.path.join(base_dir, 'shapely.libs'),
+    ]
+    # Python 3.8+ exige add_dll_directory para bibliotecas nativas (.pyd / .dll) no Windows
     if hasattr(os, 'add_dll_directory'):
-        dirs_to_add = [
-            base_dir,
-            os.path.join(base_dir, 'PySide6'),
-            os.path.join(base_dir, 'shiboken6'),
-            os.path.join(base_dir, 'numpy.libs'),
-            os.path.join(base_dir, 'pandas.libs'),
-            os.path.join(base_dir, 'shapely.libs'),
-            os.path.join(base_dir, 'pyogrio.libs')
-        ]
         for d in dirs_to_add:
             if os.path.exists(d):
                 try: os.add_dll_directory(d)
@@ -206,7 +204,7 @@ if __name__ == "__main__":
             # Autoteste (CI): confere os componentes com a janela aberta e encerra
             from PySide6.QtCore import QTimer
             from core.autoteste import executar_smoke_test
-            QTimer.singleShot(3000, lambda: app.exit(executar_smoke_test()))
+            QTimer.singleShot(3000, lambda: app.exit(executar_smoke_test(janela)))
 
         logging.info("Finalizado com sucesso. Entrando no loop Qt.")
         sys.exit(app.exec())
