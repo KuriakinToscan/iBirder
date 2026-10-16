@@ -16,6 +16,9 @@ Uso (na pasta do iBirder):
     python tools/testar_wikiaves.py --visivel    # Chrome visível, para observar
     python tools/testar_wikiaves.py "Nome cientifico" "Outro nome"
 
+No Windows do autor, usar o ambiente conda "ibirder-teste" (conda activate ibirder-teste).
+Remover quando não for mais necessário: conda env remove -n ibirder-teste
+
 Gera tools/relatorio_wikiaves.txt (e HTMLs das falhas em tools/falhas_wikiaves/)
 para enviar de volta e analisar.
 """
