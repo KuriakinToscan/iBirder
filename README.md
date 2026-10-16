@@ -10,7 +10,17 @@ O **iBirder** é uma ferramenta de código aberto desenvolvida para ornitólogos
 - **Otimizado para o Brasil**: Integração profunda com o **WikiAves** para etimologia e contexto biológico da nossa biodiversidade.
 - **Persistência Científica**: Gravação de metadados nos padrões **EXIF/XMP**, **Darwin Core (DWC)** e palavras-chave hierárquicas.
 
-## 🌟 Novidades na v1.1
+## 🌟 Novidades na v1.2
+- **WikiAves mais rápido e preciso**: busca interna do próprio WikiAves (sem passar pelos buscadores), com validação do nome científico. Aves que não existem no WikiAves não recebem mais dados de outra espécie.
+- **Etapas em paralelo**: biologia, geografia e taxonomia rodam ao mesmo tempo; uma falha no WikiAves não interrompe mais as demais etapas, e a gravação na foto continua disponível.
+- **eBird embarcado**: link oficial, código e nome em inglês de 11 mil espécies sem internet.
+- **Metadados corrigidos**: Darwin Core passa a ser gravado de fato (`dwc:scientificName`, `dwc:family`...); GPS no hemisfério correto (Sul/Oeste); palavras-chave sem duplicação; fotos verticais analisadas na orientação certa.
+- **Mapa incremental**: carregado uma única vez (Leaflet embarcado), GBIF em segundo plano, e arrastar o pino e clicar nos áudios voltaram a funcionar.
+- **Estabilidade**: resultados de uma foto anterior não se misturam mais com a atual; logs com rotação, chaves de API mascaradas e opção "Copiar diagnóstico" no menu de ajuda.
+- **Segurança**: chaves de API não são mais distribuídas no instalador.
+- **Build automático**: testes, autoteste do executável e instalador gerados pelo GitHub Actions.
+
+## Novidades na v1.1
 - **Compilação e Performance**: Migração do gerenciador de pacotes para `uv`, acelerando massivamente o tempo de build e isolando dependências.
 - **Refatoração de Diretórios**: Implementação inteligente do `APP_DIR`, resolvendo problemas de caminhos de arquivos empacotados (`sys._MEIPASS`) no Windows, garantindo que logos e manuais carreguem sempre e o ExifTool rode de forma imaculada.
 - **Identidade Visual**: Limpeza e padronização da UI, com adoção de ícones *line-art* SVG premium, eliminando fontes de emojis legadas do sistema.
@@ -35,7 +45,7 @@ O iBirder integra as bibliotecas biológicas e tecnologias mais respeitadas do e
 
 ### Para Usuários (Windows)
 1. Baixe a versão mais recente em [Releases](https://github.com/KuriakinToscan/iBirder/releases).
-2. Execute o instalador `Instalador_iBirder_v1.1.exe`.
+2. Execute o instalador `Instalador_iBirder_v1.2.exe`.
 3. O app permite abrir fotos via "Arraste e Solte" ou diretamente pelo botão direito no Windows Explorer.
 
 ### Para Desenvolvedores

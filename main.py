@@ -139,10 +139,10 @@ if __name__ == "__main__":
         # 3. Inicialização de Logger e Diagnóstico
         from core.logger import setup_logger, save_crash_log, cleanup_session_log
         from core.utils import limpar_temp_inteligente
-        from core.config import carregar_config, salvar_config
+        from core.config import carregar_config, salvar_config, APP_VERSION
         
         setup_logger()
-        logging.info(f"--- INICIANDO DIAGNÓSTICO iBirder v1.1 ---")
+        logging.info(f"--- INICIANDO DIAGNÓSTICO iBirder v{APP_VERSION} ---")
         logging.info(f"Frozen: {getattr(sys, 'frozen', False)} | SO: {os.name} | Plataforma: {sys.platform}")
         logging.info(f"Diretório Base (Data): {BASE_DIR}")
         

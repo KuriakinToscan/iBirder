@@ -1,7 +1,7 @@
 ; Versão vem do build (ISCC /DAppVersion=x.y, lida de core/config.py);
 ; o valor abaixo é só o padrão para compilação manual.
 #ifndef AppVersion
-  #define AppVersion "1.1"
+  #define AppVersion "1.2"
 #endif
 
 [Setup]

@@ -347,14 +347,15 @@ class ManualUsuarioDialog(QDialog):
             i += 1
 
         # Rodapé com GitHub e Créditos
-        html_output.append("""
+        from core.config import APP_VERSION
+        html_output.append(f"""
             <div class="footer-info">
                 <b>iBirder — IA para Birdwatching</b><br>
                 <a href="https://github.com/KuriakinToscan/iBirder" class="github-link">github.com/KuriakinToscan/iBirder</a>
                 <div class="credits">
                     Desenvolvido por Kuriakin Toscan<br>
                     kuriakin.toscan@gmail.com<br>
-                    Versão 1.1 | © 2026 iBirder Project
+                    Versão {APP_VERSION} | © 2026 iBirder Project
                 </div>
             </div>
         """)

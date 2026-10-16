@@ -165,7 +165,8 @@ class AudioWorker(QThread):
                 'per_page': 100,
                 'order_by': 'votes'
             }
-            headers = {"User-Agent": "iBirder/1.1 (Windows NT 10.0; Win64; x64)"}
+            from core.config import APP_VERSION
+            headers = {"User-Agent": f"iBirder/{APP_VERSION} (Windows NT 10.0; Win64; x64)"}
             resp = requests.get(url, params=params, headers=headers, timeout=10)
             if resp.status_code != 200: return []
                  
