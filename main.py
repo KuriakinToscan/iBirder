@@ -76,21 +76,31 @@ if platform.system() == "Windows":
     except Exception:
         pass 
 
+# Pacote importável -> nome no pip (dependências essenciais do requirements.txt)
+DEPENDENCIAS_ESSENCIAIS = {
+    "PySide6": "PySide6", "PIL": "Pillow", "numpy": "numpy", "requests": "requests",
+    "ai_edge_litert": "ai-edge-litert", "selenium": "selenium", "bs4": "beautifulsoup4",
+    "lxml": "lxml", "geopy": "geopy", "shapely": "shapely",
+}
+
 def verificar_ambiente_virtual():
-    """Verifica se a pasta .venv existe no diretório do projeto (Apenas em desenvolvimento)."""
+    """
+    Em desenvolvimento, confere se as dependências estão instaladas no ambiente atual
+    (venv, uv ou conda). Antes exigia a pasta .venv no projeto, impedindo o uso em conda.
+    """
     if IS_FROZEN:
         return
 
-    venv_path = BASE_DIR / ".venv"
-    
-    if not venv_path.exists():
+    import importlib.util
+    faltando = [pip for modulo, pip in DEPENDENCIAS_ESSENCIAIS.items()
+                if importlib.util.find_spec(modulo) is None]
+    if faltando:
+        mensagem = ("Dependências ausentes no ambiente Python atual:\n  " + ", ".join(faltando) +
+                    "\n\nNa pasta do iBirder, execute:\n  pip install -r requirements.txt")
+        print(mensagem)
         app = QApplication.instance() or QApplication(sys.argv)
         from ui.dialogo_aviso import DialogoAviso
-        DialogoAviso(
-            "Erro de Ambiente", 
-            "Ambiente virtual não encontrado.\n\nCrie o ambiente na pasta do iBirder com:\n  uv venv\n  uv pip install -r requirements.txt", 
-            tipo="erro"
-        ).exec()
+        DialogoAviso("Erro de Ambiente", mensagem, tipo="erro").exec()
         sys.exit(1)
 
 def exception_hook(exctype, value, tb):
