@@ -23,3 +23,7 @@ assets/proposals/
 assets/Gemini_Generated_Image_*.jpg
 assets/logo_ave*_old.svg
 RULES.md
+
+# Saídas do teste manual do WikiAves
+tools/relatorio_wikiaves.txt
+tools/falhas_wikiaves/

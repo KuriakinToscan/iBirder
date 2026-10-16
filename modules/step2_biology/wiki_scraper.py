@@ -184,12 +184,13 @@ def parse_json_da_pagina(texto):
 # BUSCADOR (Chrome headless)
 # ==================================================
 
-def _criar_driver():
+def _criar_driver(headless=True):
     from selenium import webdriver
     from selenium.webdriver.chrome.service import Service
 
     options = webdriver.ChromeOptions()
-    options.add_argument("--headless=new")
+    if headless:
+        options.add_argument("--headless=new")
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--log-level=3")
@@ -208,9 +209,9 @@ def _criar_driver():
 
 class BuscadorBlindado:
 
-    def __init__(self):
+    def __init__(self, headless=True):
         from selenium.webdriver.support.ui import WebDriverWait
-        self.driver = _criar_driver()
+        self.driver = _criar_driver(headless=headless)
         self.wait = WebDriverWait(self.driver, TEMPO_ESPERA_MAX)
 
     # ---------- utilitários ----------
