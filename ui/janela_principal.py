@@ -1942,9 +1942,11 @@ class JanelaPrincipal(QMainWindow):
                 tem_gps = True
 
         # 🔹 Restauração do Diálogo de Configuração (v0.8.4)
-        config_dialog = ExifConfigDialog(self, dados, tem_gps_nativo=tem_gps)
+        config_dialog = ExifConfigDialog(self, dados, tem_gps_nativo=tem_gps,
+                                         caminho_imagem=self.caminho_imagem_atual)
         if config_dialog.exec():
             selecionados = config_dialog.get_selected_fields()
+            renomeacao = config_dialog.get_renomeacao()
             
             try:
                 # Forçamos o processamento de eventos para garantir estabilidade da UI
@@ -1952,12 +1954,44 @@ class JanelaPrincipal(QMainWindow):
                 
                 manager = EXIFManager()
                 if manager.escrever_metadados_completos(self.caminho_imagem_atual, dados, selecionados):
+                    mensagem, titulo = "Dados gravados com sucesso na fotografia.", "Sucesso"
+                    if renomeacao:
+                        texto_nome, ok = self._renomear_foto(renomeacao)
+                        mensagem += "\n\n" + texto_nome
+                        if not ok:
+                            titulo = "Dados gravados (atenção ao nome)"
+
                     def show_success():
-                        msg = DialogoAviso("Sucesso", "Dados gravados com sucesso na fotografia.", self)
-                        msg.exec()
+                        DialogoAviso(titulo, mensagem, self).exec()
                     QTimer.singleShot(100, show_success)
             except Exception as e:
                 DialogoAviso("Erro", f"Falha na gravação: {e}", self, tipo="erro").exec()
+
+    def _renomear_foto(self, renomeacao):
+        """
+        Renomeia a foto depois da gravação (os dados já estão salvos mesmo se falhar).
+        Retorna (mensagem, sucesso).
+        """
+        from core import nome_arquivo
+        antigo = Path(self.caminho_imagem_atual)
+        try:
+            novo, feitos, falhas = nome_arquivo.renomear(antigo, renomeacao["base"], renomeacao["irmaos"])
+        except OSError as e:
+            logging.error(f"Falha ao renomear {antigo.name}: {e}")
+            return (f"Não foi possível renomear o arquivo ({e.strerror or e}). Os dados foram gravados; "
+                    "feche a foto em outros programas e tente de novo."), False
+        if not feitos:
+            return f"O arquivo já se chama {novo.name}.", True
+
+        self.caminho_imagem_atual = str(novo)
+        self.card_user.image_path = str(novo)
+        self.status_bar.showMessage(f"Arquivo renomeado: {antigo.name} → {novo.name}", 10000)
+        texto = f"Arquivo renomeado para {novo.name}."
+        if len(feitos) > 1:
+            texto += " Também renomeados: " + ", ".join(n.name for _, n in feitos[1:]) + "."
+        if falhas:
+            texto += " Não foi possível renomear: " + "; ".join(falhas) + "."
+        return texto, not falhas
 
 
     def closeEvent(self, event):

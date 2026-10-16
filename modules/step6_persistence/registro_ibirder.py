@@ -96,11 +96,27 @@ def tags_ibirder(xmp):
     return vistas
 
 
+def nome_preservado(xmp):
+    """Nome original do arquivo (XMP xmpMM:PreservedFileName, gravado pelo iBirder e pelo Lightroom)."""
+    m = (re.search(r'xmpMM:PreservedFileName="([^"]*)"', xmp)
+         or re.search(r"<xmpMM:PreservedFileName>(.*?)</xmpMM:PreservedFileName>", xmp, flags=re.S))
+    return html.unescape(m.group(1).strip()) if m else None
+
+
+def ler_nome_preservado(caminho):
+    try:
+        with Image.open(caminho) as img:
+            return nome_preservado(_xmp_bruto(img))
+    except Exception:
+        return None
+
+
 def ler_registro(caminho):
     """
     Retorna None se a foto nunca foi processada pelo iBirder; senão um dict com:
       tags (lista bruta), dados {(seção, chave): valor}, data (datetime|None),
-      versao (str|None), comentario (str), modificado_em (datetime do arquivo).
+      versao (str|None), comentario (str), modificado_em (datetime do arquivo),
+      nome_original (str|None: nome do arquivo antes de ser renomeado).
     """
     try:
         with Image.open(caminho) as img:
@@ -132,7 +148,7 @@ def ler_registro(caminho):
         modificado = None
 
     return {"tags": tags, "dados": dados, "data": data, "versao": dados.get(("Registro", "Versao")),
-            "comentario": comentario, "modificado_em": modificado}
+            "comentario": comentario, "modificado_em": modificado, "nome_original": nome_preservado(xmp)}
 
 
 def resumo_legivel(registro):

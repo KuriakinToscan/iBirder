@@ -47,9 +47,12 @@ class EXIFManager:
         tem_gps = self._verificar_gps_existente(caminho_imagem)
         
         # Registro anterior do iBirder na foto: suas tags são removidas antes da nova gravação
-        from modules.step6_persistence.registro_ibirder import ler_registro
+        from modules.step6_persistence.registro_ibirder import ler_registro, ler_nome_preservado
+        # Nome original do arquivo, guardado só na primeira gravação (antes de uma renomeação)
+        nome_original = None if ler_nome_preservado(caminho_imagem) else os.path.basename(caminho_imagem)
         comandos = self._gerar_comandos(dados, opcoes, gps_existente=tem_gps,
-                                        registro_anterior=ler_registro(caminho_imagem))
+                                        registro_anterior=ler_registro(caminho_imagem),
+                                        nome_original=nome_original)
         if not comandos:
             return True
 
@@ -114,7 +117,8 @@ class EXIFManager:
         return valor is not None and str(valor).strip().lower() not in cls.VALORES_VAZIOS \
             and not str(valor).lower().startswith(("erro", "não disponível", "informação não disponível"))
 
-    def _gerar_comandos(self, dados, opcoes, gps_existente=False, registro_anterior=None, agora=None):
+    def _gerar_comandos(self, dados, opcoes, gps_existente=False, registro_anterior=None, agora=None,
+                        nome_original=None):
         """
         Mapeia dados para Hierarchical Keywords (Seções iBirder) e Darwin Core.
         Respeita as escolhas do diálogo de gravação (opcoes: campo -> bool; campo ausente = gravar)
@@ -256,7 +260,11 @@ class EXIFManager:
         elif gps_existente:
             logging.debug("GPS original detectado na imagem. Preservando coordenadas existentes.")
 
-        # 7. Finalização
+        # 7. Nome original do arquivo (permite saber o nome da câmera após renomear)
+        if nome_original:
+            cmds.append(f"-XMP-xmpMM:PreservedFileName={nome_original}")
+
+        # 8. Finalização
         # Não gravar Creator/Software: sobrescreviam o autor da foto (dc:creator, preenchido
         # pelo Lightroom) e a versão do firmware da câmera. A origem fica no UserComment.
         cmds.append("-overwrite_original")

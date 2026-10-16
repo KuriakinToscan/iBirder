@@ -38,7 +38,10 @@ class DialogoFotoProcessada(BaseDialog):
         titulo.setStyleSheet("font-size: 16px; font-weight: bold; color: #111827;")
         self.main_layout.addWidget(titulo)
 
-        cabecalho = QLabel(f"<b>Arquivo:</b> {html.escape(nome_arquivo)}<br>"
+        original = registro.get("nome_original")
+        linha_original = (f"<b>Nome original:</b> {html.escape(original)}<br>"
+                          if original and original != nome_arquivo else "")
+        cabecalho = QLabel(f"<b>Arquivo:</b> {html.escape(nome_arquivo)}<br>{linha_original}"
                            f"<b>Processada em:</b> {html.escape(descrever_quando(registro))}")
         cabecalho.setWordWrap(True)
         cabecalho.setStyleSheet("color: #374151;")

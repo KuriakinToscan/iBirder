@@ -63,3 +63,15 @@ def test_reprocessar_remove_registro_anterior_e_grava_data():
     assert "-XMP-lr:HierarchicalSubject+=iBirder|Geografia|Endemism|Endêmico do Brasil" in cmds
     assert "-XMP-lr:HierarchicalSubject+=iBirder|Registro|Data|2026-10-16 13:05" in cmds
     assert any(c.startswith("-UserComment=") and "em 16/10/2026 13:05" in c for c in cmds)
+
+
+def test_nome_original_gravado_so_na_primeira_vez():
+    from modules.step6_persistence.exif_manager import EXIFManager
+    from modules.step6_persistence.registro_ibirder import nome_preservado
+    cmds = EXIFManager()._gerar_comandos({"nome_cientifico": "Pitangus sulphuratus"}, {}, nome_original="IMG_0001.JPG")
+    assert "-XMP-xmpMM:PreservedFileName=IMG_0001.JPG" in cmds
+    cmds = EXIFManager()._gerar_comandos({"nome_cientifico": "Pitangus sulphuratus"}, {})
+    assert not any("PreservedFileName" in c for c in cmds)
+    assert nome_preservado('<rdf:Description xmpMM:PreservedFileName="IMG_0001.JPG"/>') == "IMG_0001.JPG"
+    assert nome_preservado("<xmpMM:PreservedFileName>DSC_9.NEF</xmpMM:PreservedFileName>") == "DSC_9.NEF"
+    assert nome_preservado("") is None

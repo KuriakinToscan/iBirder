@@ -80,6 +80,15 @@ O iBirder usa o **ExifTool** e grava:
 - **coordenadas GPS**, apenas se a foto ainda não tiver GPS próprio;
 - **data da gravação e versão do iBirder**, usadas para avisar quando a foto for aberta de novo.
 
+**Renomear o arquivo (opcional):** marque **Renomear o arquivo** no mesmo diálogo. O nome sugerido segue o padrão **NomeComum_aaaammdd**, com o nome comum sem acentos e cada palavra começando com maiúscula, e a data de captura da foto:
+
+- *Sabiá-laranjeira*, foto de 16/10/2026 → `SabiaLaranjeira_20261016.jpg`
+- outra foto do mesmo dia → `SabiaLaranjeira_20261016_2.jpg` (o iBirder nunca sobrescreve um arquivo)
+
+Também há os padrões com a hora (`NomeComum_aaaammdd_hhmmss`) e com o nome científico (`NomeCientifico_aaaammdd`). O nome pode ser editado antes de gravar, e a prévia mostra o nome final. Se a foto não tiver data de captura, complete a data no nome. Arquivos RAW e `.xmp` com o mesmo nome da foto podem ser renomeados junto. O nome original fica guardado nos metadados e aparece no aviso de foto já processada. O iBirder lembra a sua escolha para as próximas fotos.
+
+> **Usa o Lightroom?** Renomeie pelo próprio Lightroom: um arquivo renomeado fora dele aparece como "ausente" no catálogo.
+
 > **O arquivo original é alterado.** Mantenha um backup das suas fotos. O iBirder não altera o autor da foto nem os dados da câmera, e gravar duas vezes a mesma foto não duplica as palavras-chave.
 
 ---
