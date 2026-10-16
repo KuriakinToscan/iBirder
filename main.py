@@ -144,7 +144,6 @@ if __name__ == "__main__":
         from core.config import carregar_config, salvar_config
         
         setup_logger()
-        logging.info("[BOOT] Sistema de Logging iBirder inicializado em modo UTF-8")
         logging.info(f"--- INICIANDO DIAGNÓSTICO iBirder v1.1 ---")
         logging.info(f"Frozen: {getattr(sys, 'frozen', False)} | SO: {os.name} | Plataforma: {sys.platform}")
         logging.info(f"Diretório Base (Data): {BASE_DIR}")
@@ -174,8 +173,10 @@ if __name__ == "__main__":
         if os.path.exists(icon_path):
             app.setWindowIcon(QIcon(icon_path))
         
-        logging.info("CHECKPOINT 4: Verificando ambiente virtual...")
-        verificar_ambiente_virtual()
+        SMOKE_TEST = "--smoke-test" in sys.argv
+        if not SMOKE_TEST:
+            logging.info("CHECKPOINT 4: Verificando ambiente virtual...")
+            verificar_ambiente_virtual()
         
         # Gestão de Pasta Temporária com atexit
         temp_dir = BASE_DIR / "temp"
@@ -193,11 +194,19 @@ if __name__ == "__main__":
 
         logging.info("CHECKPOINT 7: Criando Janela Principal...")
         from ui.janela_principal import JanelaPrincipal
-        caminho_inicial = sys.argv[1] if len(sys.argv) > 1 else None
+        # Opções (--smoke-test) não são caminhos de imagem
+        argumentos = [a for a in sys.argv[1:] if not a.startswith("--")]
+        caminho_inicial = argumentos[0] if argumentos else None
         janela = JanelaPrincipal(ai_status=AI_ENGINE_STATUS, imagem_inicial=caminho_inicial)
         
         logging.info("CHECKPOINT 8: Exibindo interface principal...")
         janela.show()
+
+        if SMOKE_TEST:
+            # Autoteste (CI): confere os componentes com a janela aberta e encerra
+            from PySide6.QtCore import QTimer
+            from core.autoteste import executar_smoke_test
+            QTimer.singleShot(3000, lambda: app.exit(executar_smoke_test()))
 
         logging.info("Finalizado com sucesso. Entrando no loop Qt.")
         sys.exit(app.exec())

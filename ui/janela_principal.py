@@ -559,7 +559,7 @@ class JanelaPrincipal(QMainWindow):
         self.btn_ajuda.setFixedSize(40, 40)
         self.btn_ajuda.setProperty("class", "icon-btn")
         self.btn_ajuda.setCursor(Qt.PointingHandCursor)
-        self.btn_ajuda.setToolTip("Manual de Instruções")
+        self.btn_ajuda.setToolTip("Ajuda: manual e diagnóstico")
         caminho_help = self._obter_caminho_asset("icon_help.svg")
         if os.path.exists(caminho_help):
             self.btn_ajuda.setIcon(QIcon(caminho_help))
@@ -567,7 +567,7 @@ class JanelaPrincipal(QMainWindow):
         else:
              self.btn_ajuda.setText("?")
              self.btn_ajuda.setFont(QFont("Segoe UI", 16, QFont.Bold))
-        self.btn_ajuda.clicked.connect(self._abrir_manual)
+        self.btn_ajuda.clicked.connect(self._abrir_menu_ajuda)
         
         layout_ajuda.addWidget(self.btn_ajuda)
         
@@ -936,6 +936,32 @@ class JanelaPrincipal(QMainWindow):
         """Abre o Guia do Usuário detalhado."""
         dialog = ManualUsuarioDialog(self)
         dialog.exec()
+
+    def _abrir_menu_ajuda(self):
+        """Menu do botão de ajuda: manual, diagnóstico para suporte e pasta de logs."""
+        from PySide6.QtWidgets import QMenu
+        menu = QMenu(self)
+        menu.addAction("Manual do usuário", self._abrir_manual)
+        menu.addSeparator()
+        menu.addAction("Copiar diagnóstico", self._copiar_diagnostico)
+        menu.addAction("Abrir pasta de logs", self._abrir_pasta_logs)
+        menu.exec(self.btn_ajuda.mapToGlobal(self.btn_ajuda.rect().bottomLeft()))
+
+    def _copiar_diagnostico(self):
+        """Copia versões, configuração (sem chaves) e o fim do log para enviar ao suporte."""
+        from core.logger import gerar_diagnostico
+        QApplication.clipboard().setText(gerar_diagnostico())
+        DialogoAviso(
+            "Diagnóstico copiado",
+            "As informações de diagnóstico foram copiadas para a área de transferência.\n\n"
+            "Cole (Ctrl+V) em um e-mail ou mensagem para o suporte. "
+            "As chaves de API não são incluídas.",
+            self, tipo="info").exec()
+
+    def _abrir_pasta_logs(self):
+        from core.paths import LOGS_DIR
+        LOGS_DIR.mkdir(parents=True, exist_ok=True)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(LOGS_DIR)))
 
     def _obter_sciname_atual(self):
         return self.dados_identificacao_atual.get("nome_cientifico", "")

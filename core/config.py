@@ -55,5 +55,7 @@ def salvar_config(config):
     try:
         with open(config_path, "w") as f:
             json.dump(config, f, indent=4)
+        from core.logger import atualizar_segredos
+        atualizar_segredos(config)  # novas chaves passam a ser mascaradas nos logs
     except Exception as e:
         logging.error(f"Erro ao salvar config: {e}")
