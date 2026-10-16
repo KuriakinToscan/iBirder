@@ -208,11 +208,14 @@ class JanelaPrincipal(QMainWindow):
                 old_worker_ref.search_failed.disconnect()
             except: pass
             
+            # Sem wait(): ele bloqueava a interface até o download anterior terminar.
+            # A busca antiga já está desconectada; fica guardada até a thread acabar.
+            self._refs_orfaos = [w for w in getattr(self, "_refs_orfaos", []) if w.isRunning()]
             if old_worker_ref.isRunning():
                 old_worker_ref.requestInterruption()
-                old_worker_ref.quit()
-                old_worker_ref.wait() # Bloqueia brevemente para garantir parada
-            old_worker_ref.deleteLater()
+                self._refs_orfaos.append(old_worker_ref)
+            else:
+                old_worker_ref.deleteLater()
 
         self.worker_referencia = ReferenceImageWorker(nome_cientifico, parent=self)
         self.worker_referencia.image_found.connect(self._ao_encontrar_imagem_referencia)
@@ -1862,6 +1865,9 @@ class JanelaPrincipal(QMainWindow):
 
 
     def closeEvent(self, event):
+        # Aguarda (com limite) as threads em execução para não fechar com a thread ativa
+        if hasattr(self, 'orchestrator'):
+            self.orchestrator.encerrar()
         if hasattr(self, 'session_logger'):
             self.session_logger.flush()
             self.session_logger.limpar_sessao()
