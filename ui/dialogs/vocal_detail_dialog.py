@@ -20,7 +20,7 @@ from PySide6.QtGui import QIcon, QDesktopServices
 import os
 import requests
 import logging
-from PySide6.QtWebEngineWidgets import QWebEngineView
+from ui.widgets.audio_player import PlayerAudio
 from ui.base.base_dialog import BaseDialog
 from core.style_manager import StyleManager
 
@@ -44,12 +44,10 @@ class VocalDetailDialog(BaseDialog):
         logging.debug("VocalDetailDialog UI montada.")
 
     def setup_ui(self):
-        # 0. Player de Áudio (Topo)
-        self.webview_player = QWebEngineView()
-        self.webview_player.setFixedHeight(60)
-        self.webview_player.setStyleSheet("background: transparent; border: none;")
-        self.webview_player.page().setBackgroundColor(Qt.transparent)
-        self.main_layout.addWidget(self.webview_player)
+        # 0. Player de Áudio (Topo) — nativo; ver ui/widgets/audio_player.py
+        self.layout_player = QVBoxLayout()
+        self.main_layout.addLayout(self.layout_player)
+        self.player = None
         
         # 0.1 Créditos (v0.8.2 - Movido para baixo do player)
         self.lbl_creditos = QLabel("")
@@ -136,36 +134,9 @@ class VocalDetailDialog(BaseDialog):
             elif url_audio.startswith('http://'):
                 url_audio = url_audio.replace('http://', 'https://', 1)
             
-        if url_audio:
-            logging.debug(f"Carregando player de áudio: {url_audio}")
-            html = f"""
-            <!DOCTYPE html>
-            <html><head><style>
-                body {{ 
-                    margin: 0; padding: 0; background: transparent; 
-                    display: flex; align-items: center; justify-content: center; 
-                    height: 100vh; overflow: hidden; 
-                }}
-                audio {{ width: 95%; outline: none; }}
-            </style></head><body>
-                <audio id="player" controls controlsList="nodownload" preload="auto">
-                    <source src="{url_audio}" type="audio/mpeg">
-                    <source src="{url_audio}" type="audio/wav">
-                    <source src="{url_audio}">
-                    Seu navegador não suporta áudio.
-                </audio>
-                <script>
-                    var audio = document.getElementById('player');
-                    audio.onerror = function() {{
-                        document.body.innerHTML = "<div style='color:#6B7280; font-family:sans-serif; text-align:center;'>Falha ao carregar áudio (Erro de Rede/Formato)</div>";
-                    }};
-                </script>
-            </body></html>
-            """
-            self.webview_player.setHtml(html)
-        else:
-            logging.warning("Nenhuma URL de áudio disponível para o diálogo de detalhes.")
-            self.webview_player.setHtml("<html><body style='color:#6B7280; font-family:sans-serif; display:flex; align-items:center; justify-content:center; height:100vh;'>Áudio não disponível na sessão</body></html>")
+        logging.debug(f"Carregando player de áudio: {url_audio}")
+        self.player = PlayerAudio(url_audio, self)
+        self.layout_player.addWidget(self.player)
 
         # 1. Carregar ID e Fonte
         id_reg = self.audio_data.get('id_original') or self.audio_data.get('id', '-')
@@ -190,6 +161,11 @@ class VocalDetailDialog(BaseDialog):
             self.audio_data['final_link_obs'] = link_obs # Cache interno
         else:
             self.btn_registro.setVisible(False)
+
+    def done(self, resultado):
+        if self.player:
+            self.player.parar()  # o som não continua após fechar a janela
+        super().done(resultado)
 
     def _abrir_registro(self):
         url = self.audio_data.get('final_link_obs')

@@ -97,12 +97,43 @@ def _mapa(janela):
     return "página Leaflet carregada"
 
 
+def _audio():
+    """O player de vocalizações (QtMultimedia/FFmpeg) precisa estar no executável."""
+    import math
+    import struct
+    import time
+    import wave
+    from PySide6.QtCore import QEventLoop, QTimer, QUrl
+    from PySide6.QtMultimedia import QMediaPlayer
+    from core.paths import TEMP_DIR
+    arquivo = TEMP_DIR / "autoteste_audio.wav"
+    arquivo.parent.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(arquivo), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(22050)
+        w.writeframes(b"".join(struct.pack("<h", int(8000 * math.sin(i / 10))) for i in range(22050)))
+    player = QMediaPlayer()
+    player.setSource(QUrl.fromLocalFile(str(arquivo)))
+    limite = time.time() + 10
+    while player.mediaStatus() not in (QMediaPlayer.LoadedMedia, QMediaPlayer.InvalidMedia) and time.time() < limite:
+        loop = QEventLoop()
+        QTimer.singleShot(100, loop.quit)
+        loop.exec()
+    status = player.mediaStatus()
+    player.setSource(QUrl())
+    if status != QMediaPlayer.LoadedMedia:
+        raise RuntimeError(f"áudio não carregou (status {status.name})")
+    return f"WAV de teste carregado ({player.duration() if player.duration() > 0 else 1000} ms)"
+
+
 VERIFICACOES = [
     ("Modelo de IA", _modelo),
     ("ExifTool", _exiftool),
     ("Biomas (IBGE)", _biomas),
     ("Taxonomia eBird", _ebird),
     ("Manuais", _guia),
+    ("Áudio (QtMultimedia)", _audio),
 ]
 
 

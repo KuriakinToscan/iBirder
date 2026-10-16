@@ -48,7 +48,7 @@ from core.style_manager import StyleManager
 from ui.dialogs.exif_config_dialog import ExifConfigDialog
 from modules.step6_persistence.exif_manager import EXIFManager
 from ui.widgets.map_widget import MapWidget
-from ui.custom_widgets import ImageCardWidget, AudioPlayerWidget, VocalAuditCard
+from ui.custom_widgets import ImageCardWidget, VocalAuditCard
 from ui.dialogs.location_dialog import LocationDialog
 from ui.dialogs.vocal_detail_dialog import VocalDetailDialog
 from ui.dialogs.manual_dialog import ManualUsuarioDialog
