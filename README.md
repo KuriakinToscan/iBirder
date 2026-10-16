@@ -21,7 +21,7 @@ O iBirder integra as bibliotecas biológicas e tecnologias mais respeitadas do e
 
 - **AI Engine**: Rede Neural **EfficientNet-V1.3** (Google Research).
 - **Interface**: Desenvolvido em **Python 3.12** com **PySide6**.
-- **Mapas & Geo**: **Folium**, **OpenStreetMap** e geocodificação via **Nominatim**.
+- **Mapas & Geo**: **Leaflet** (embarcado), **OpenStreetMap** e geocodificação via **Nominatim**.
 - **Fontes de Dados**:
   - **WikiAves**: Etimologia e Biologia (Brasil).
   - **iNaturalist**: Taxonomia e Validação Visual.

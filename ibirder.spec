@@ -6,8 +6,6 @@ binaries = []
 hiddenimports = ['PIL._tkinter_finder', 'email', 'email.mime', 'email.mime.multipart', 'email.mime.text', 'email.mime.base', 'email.mime.application']
 tmp_ret = collect_all('selenium')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('folium')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
 a = Analysis(

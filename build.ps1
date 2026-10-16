@@ -22,7 +22,6 @@ Write-Host "Rodando PyInstaller (ONEDIR Mode)..."
             --add-data "README.md;." `
             --add-data "manual_apis_nuvem.md;." `
             --collect-all "selenium" `
-            --collect-all "folium" `
             --hidden-import "PIL._tkinter_finder" `
             --hidden-import "email" `
             --hidden-import "email.mime" `
