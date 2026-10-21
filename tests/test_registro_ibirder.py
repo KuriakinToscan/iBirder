@@ -1,4 +1,5 @@
 """Detecção de foto já processada e substituição do registro ao reprocessar."""
+import os
 from datetime import datetime
 
 import pytest
@@ -75,3 +76,40 @@ def test_nome_original_gravado_so_na_primeira_vez():
     assert nome_preservado('<rdf:Description xmpMM:PreservedFileName="IMG_0001.JPG"/>') == "IMG_0001.JPG"
     assert nome_preservado("<xmpMM:PreservedFileName>DSC_9.NEF</xmpMM:PreservedFileName>") == "DSC_9.NEF"
     assert nome_preservado("") is None
+
+
+def test_nome_original_visivel_no_comentario_e_na_palavra_chave():
+    from modules.step6_persistence.exif_manager import EXIFManager
+    cmds = EXIFManager()._gerar_comandos({"nome_cientifico": "Pitangus sulphuratus"}, {},
+                                         nome_original="IMG_0001.JPG", gravar_preservado=False)
+    texto = "\n".join(cmds)
+    assert "Arquivo original: IMG_0001.JPG" in texto
+    assert "-XMP-lr:HierarchicalSubject+=iBirder|Arquivo|NomeOriginal|IMG_0001.JPG" in cmds
+    assert "PreservedFileName" not in texto      # já preservado: não regrava
+
+
+def _exiftool():
+    import shutil
+    from modules.step6_persistence.exif_manager import EXIFManager
+    caminho = EXIFManager().exiftool_path
+    return caminho if os.path.exists(caminho) and os.name == "nt" else shutil.which("exiftool")
+
+
+def test_sidecar_do_raw_criado_e_preservado(tmp_path):
+    exiftool = _exiftool()
+    if not exiftool:
+        pytest.skip("ExifTool não disponível")
+    from modules.step6_persistence.exif_manager import EXIFManager
+    from modules.step6_persistence.registro_ibirder import nome_preservado
+    m = EXIFManager()
+    m.exiftool_path = exiftool
+    raw = tmp_path / "IMG_0042.CR3"
+    raw.write_bytes(b"raw")
+    sidecar, criado = m.gravar_nome_original_sidecar(raw)
+    assert criado and sidecar.name == "IMG_0042.xmp"
+    assert nome_preservado(sidecar.read_text(encoding="utf-8")) == "IMG_0042.CR3"
+    assert raw.read_bytes() == b"raw"                 # o RAW nunca é alterado
+    # Segunda vez (ex.: RAW já renomeado antes): mantém o nome original
+    raw2 = raw.rename(tmp_path / "IMG_0042.NEF")
+    assert m.gravar_nome_original_sidecar(raw2) == (sidecar, False)
+    assert nome_preservado(sidecar.read_text(encoding="utf-8")) == "IMG_0042.CR3"

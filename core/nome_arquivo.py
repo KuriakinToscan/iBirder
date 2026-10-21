@@ -10,9 +10,14 @@ Padrão: nome comum em PascalCase, sem acentos, + data de captura (EXIF):
 Nomes repetidos (fotos em sequência) recebem sufixo: BemTeVi_20261016_2.jpg.
 Arquivos irmãos (RAW de mesmo nome e .xmp) podem ser renomeados junto.
 
+O nome original fica na foto (XMP xmpMM:PreservedFileName, comentário e palavra-chave
+iBirder|Arquivo|NomeOriginal), no .xmp do RAW e no histórico logs/renomeacoes.csv,
+o que permite desfazer a renomeação.
+
 Funções sem interface, para teste e reuso.
 """
 
+import csv
 import logging
 import os
 import re
@@ -188,4 +193,56 @@ def renomear(caminho, base, irmaos=()):
             falhas.append(f"{irmao.name}: {e.strerror or e}")
     for antigo, novo_nome in feitos:
         logging.info(f"Arquivo renomeado: {antigo.name} -> {novo_nome.name}")
+    registrar_historico(feitos, "renomeado")
     return novo, feitos, falhas
+
+
+# ---------------------------------------------------------------- Histórico e desfazer
+
+def arquivo_historico():
+    from core.paths import LOGS_DIR
+    return Path(LOGS_DIR) / "renomeacoes.csv"
+
+
+def registrar_historico(feitos, acao, arquivo=None):
+    """Acrescenta as renomeações ao CSV (data; ação; pasta; nome antigo; nome novo)."""
+    if not feitos:
+        return
+    arquivo = Path(arquivo) if arquivo else arquivo_historico()
+    try:
+        arquivo.parent.mkdir(parents=True, exist_ok=True)
+        novo_arquivo = not arquivo.exists()
+        # utf-8-sig e ";" para abrir direto no Excel em português
+        with open(arquivo, "a", encoding="utf-8-sig", newline="") as f:
+            w = csv.writer(f, delimiter=";")
+            if novo_arquivo:
+                w.writerow(["data", "acao", "pasta", "nome_antigo", "nome_novo"])
+            agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            for antigo, novo in feitos:
+                w.writerow([agora, acao, str(Path(antigo).parent), Path(antigo).name, Path(novo).name])
+    except OSError as e:
+        logging.warning(f"Não foi possível atualizar o histórico de renomeações: {e}")
+
+
+def desfazer_renomeacao(caminho, nome_original):
+    """
+    Volta a foto (e os arquivos irmãos renomeados junto) ao nome original.
+    Nunca sobrescreve: se o nome original estiver ocupado, lança FileExistsError.
+    Retorna (novo_caminho, [(antigo, novo), ...]).
+    """
+    caminho = Path(caminho)
+    base = Path(nome_original).stem
+    if base == caminho.stem:
+        return caminho, []
+    arquivos = [caminho, *arquivos_irmaos(caminho)]
+    ocupados = [_destino(f, caminho, base).name for f in arquivos if _ocupado(_destino(f, caminho, base), f)]
+    if ocupados:
+        raise FileExistsError(f"já existe(m) na pasta: {', '.join(ocupados)}")
+    feitos = []
+    for f in arquivos:
+        destino = _destino(f, caminho, base)
+        os.rename(f, destino)
+        feitos.append((f, destino))
+        logging.info(f"Renomeação desfeita: {f.name} -> {destino.name}")
+    registrar_historico(feitos, "desfeito")
+    return feitos[0][1], feitos

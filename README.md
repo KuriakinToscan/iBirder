@@ -17,7 +17,7 @@ A identificação roda **no seu computador**. Quando a IA local fica em dúvida,
 ## 🌟 Novidades na v1.3
 - **Conservação completa**: lista nacional oficial (**Portaria MMA nº 148/2022**, ICMBio) e anexos da **CITES** embarcados, consultados sem internet. Novas **outras avaliações** do iNaturalist: listas estaduais (a do estado da foto em destaque) e de outros países.
 - **Foto já processada**: ao abrir uma foto que já tem dados do iBirder, o app mostra o que foi gravado e quando, e pergunta se deve processar novamente ou ignorar.
-- **Renomear ao gravar**: opção de renomear a foto no padrão `NomeComum_aaaammdd` (ex.: `SabiaLaranjeira_20261016.jpg`), com sufixo automático para fotos em sequência, RAW/.xmp renomeados junto e o nome original guardado nos metadados.
+- **Renomear ao gravar**: opção de renomear a foto no padrão `NomeComum_aaaammdd` (ex.: `SabiaLaranjeira_20261016.jpg`), com sufixo automático para fotos em sequência, RAW/.xmp renomeados junto, nome original guardado nos metadados (comentário, palavra-chave e `.xmp` do RAW) e no histórico `renomeacoes.csv`, e botão para desfazer.
 - **Aviso de região**: se a IA local sugerir uma espécie sem registro no Brasil para uma foto do Brasil, o app consulta a nuvem ou avisa e mostra os candidatos que ocorrem no país (clicáveis).
 - **Instalador menor**: partes do Qt que o app não usa (QML, 3D, gráficos, traduções do navegador interno) ficam de fora.
 

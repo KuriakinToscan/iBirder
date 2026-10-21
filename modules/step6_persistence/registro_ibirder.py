@@ -22,8 +22,8 @@ Detecta fotos já processadas a partir de:
 - palavras-chave hierárquicas "iBirder|Seção|Chave|Valor" (XMP lr/mwg-rs:hierarchicalSubject);
 - comentário EXIF "Registrado via iBirder" (UserComment).
 
-A partir da v1.3 também é gravado "iBirder|Registro|Data|AAAA-MM-DD HH:MM" e
-"iBirder|Registro|Versao|x.y". Fotos gravadas por versões anteriores não têm data.
+A partir da v1.3 também é gravado "iBirder|Registro|Data|AAAA-MM-DD HH:MM",
+"iBirder|Registro|Versao|x.y" e "iBirder|Arquivo|NomeOriginal|<nome>". Fotos gravadas por versões anteriores não têm data.
 
 Só usa o Pillow (sem ExifTool): rápido o bastante para rodar a cada foto aberta.
 """
@@ -148,7 +148,7 @@ def ler_registro(caminho):
         modificado = None
 
     return {"tags": tags, "dados": dados, "data": data, "versao": dados.get(("Registro", "Versao")),
-            "comentario": comentario, "modificado_em": modificado, "nome_original": nome_preservado(xmp)}
+            "comentario": comentario, "modificado_em": modificado, "nome_original": nome_preservado(xmp) or dados.get(("Arquivo", "NomeOriginal"))}
 
 
 def resumo_legivel(registro):

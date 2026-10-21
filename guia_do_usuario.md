@@ -85,7 +85,16 @@ O iBirder usa o **ExifTool** e grava:
 - *Sabiá-laranjeira*, foto de 16/10/2026 → `SabiaLaranjeira_20261016.jpg`
 - outra foto do mesmo dia → `SabiaLaranjeira_20261016_2.jpg` (o iBirder nunca sobrescreve um arquivo)
 
-Também há os padrões com a hora (`NomeComum_aaaammdd_hhmmss`) e com o nome científico (`NomeCientifico_aaaammdd`). O nome pode ser editado antes de gravar, e a prévia mostra o nome final. Se a foto não tiver data de captura, complete a data no nome. Arquivos RAW e `.xmp` com o mesmo nome da foto podem ser renomeados junto. O nome original fica guardado nos metadados e aparece no aviso de foto já processada. O iBirder lembra a sua escolha para as próximas fotos.
+Também há os padrões com a hora (`NomeComum_aaaammdd_hhmmss`) e com o nome científico (`NomeCientifico_aaaammdd`). O nome pode ser editado antes de gravar, e a prévia mostra o nome final. Se a foto não tiver data de captura, complete a data no nome. Arquivos RAW e `.xmp` com o mesmo nome da foto podem ser renomeados junto. O iBirder lembra a sua escolha para as próximas fotos.
+
+**O nome original nunca se perde.** Ele fica guardado:
+
+- nos **comentários** da foto ("Arquivo original: IMG_0042.jpg"), visíveis em *Propriedades > Detalhes* no Windows;
+- na palavra-chave *iBirder > Arquivo > NomeOriginal*, para buscar a foto pelo nome da câmera no Lightroom ou no digiKam;
+- no campo padrão de nome original (*Preserved File Name*) da foto e do `.xmp` do RAW, que o iBirder cria se não existir (o arquivo RAW em si nunca é alterado);
+- no histórico `renomeacoes.csv`, na pasta de logs (**Ajuda (?) > Abrir pasta de logs**), que abre no Excel.
+
+Antes de renomear, o iBirder confere se o nome original foi mesmo gravado na foto. Para **voltar ao nome original**, abra a foto no iBirder: o aviso de foto já processada mostra o botão **Desfazer renomeação**, que também volta o RAW e o `.xmp`.
 
 > **Usa o Lightroom?** Renomeie pelo próprio Lightroom: um arquivo renomeado fora dele aparece como "ausente" no catálogo.
 

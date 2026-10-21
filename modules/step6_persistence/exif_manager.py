@@ -48,11 +48,12 @@ class EXIFManager:
         
         # Registro anterior do iBirder na foto: suas tags são removidas antes da nova gravação
         from modules.step6_persistence.registro_ibirder import ler_registro, ler_nome_preservado
-        # Nome original do arquivo, guardado só na primeira gravação (antes de uma renomeação)
-        nome_original = None if ler_nome_preservado(caminho_imagem) else os.path.basename(caminho_imagem)
-        comandos = self._gerar_comandos(dados, opcoes, gps_existente=tem_gps,
-                                        registro_anterior=ler_registro(caminho_imagem),
-                                        nome_original=nome_original)
+        # Nome original do arquivo: o já preservado (foto renomeada antes) ou o nome atual
+        registro = ler_registro(caminho_imagem)
+        preservado = ler_nome_preservado(caminho_imagem) or (registro or {}).get("nome_original")
+        comandos = self._gerar_comandos(dados, opcoes, gps_existente=tem_gps, registro_anterior=registro,
+                                        nome_original=preservado or os.path.basename(caminho_imagem),
+                                        gravar_preservado=not ler_nome_preservado(caminho_imagem))
         if not comandos:
             return True
 
@@ -87,6 +88,37 @@ class EXIFManager:
             if argfile_path and os.path.exists(argfile_path): os.remove(argfile_path)
             return False
 
+    def gravar_nome_original_sidecar(self, caminho_raw):
+        """
+        Grava o nome original do RAW no .xmp que o acompanha (IMG_1234.CR3 -> IMG_1234.xmp),
+        criando o .xmp se ele não existir. O RAW nunca é alterado.
+        Retorna (caminho do .xmp, criado agora) ou None em caso de falha.
+        """
+        from modules.step6_persistence.registro_ibirder import nome_preservado
+        caminho_raw = Path(caminho_raw)
+        sidecar = caminho_raw.with_suffix(".xmp")
+        existia = sidecar.exists()
+        if existia:
+            try:
+                if nome_preservado(sidecar.read_text(encoding="utf-8", errors="ignore")):
+                    return sidecar, False  # já tem o nome original: não sobrescreve
+            except OSError:
+                pass
+        try:
+            resultado = subprocess.run(
+                [self.exiftool_path, "-charset", "filename=utf8", "-overwrite_original",
+                 f"-XMP-xmpMM:PreservedFileName={caminho_raw.name}", str(sidecar)],
+                capture_output=True, text=True, encoding="utf-8")
+        except Exception as e:
+            logging.error(f"Falha ao gravar o nome original em {sidecar.name}: {e}")
+            return None
+        if resultado.returncode != 0:
+            logging.error(f"Erro ExifTool no sidecar {sidecar.name}: {resultado.stderr}")
+            return None
+        logging.info(f"Nome original de {caminho_raw.name} gravado em {sidecar.name}"
+                     + ("" if existia else " (criado)"))
+        return sidecar, not existia
+
     def _verificar_gps_existente(self, caminho_imagem):
         """Retorna True se a imagem já possuir tags de GPS."""
         try:
@@ -118,7 +150,7 @@ class EXIFManager:
             and not str(valor).lower().startswith(("erro", "não disponível", "informação não disponível"))
 
     def _gerar_comandos(self, dados, opcoes, gps_existente=False, registro_anterior=None, agora=None,
-                        nome_original=None):
+                        nome_original=None, gravar_preservado=True):
         """
         Mapeia dados para Hierarchical Keywords (Seções iBirder) e Darwin Core.
         Respeita as escolhas do diálogo de gravação (opcoes: campo -> bool; campo ausente = gravar)
@@ -241,6 +273,11 @@ class EXIFManager:
         # 5b. Quando e com qual versão a foto foi processada (lido no aviso de "foto já processada")
         add_hier("Registro", "Data", agora.strftime("%Y-%m-%d %H:%M"))
         add_hier("Registro", "Versao", APP_VERSION)
+        # Nome original do arquivo: visível no Explorer (Comentários) e como filtro no Lightroom/digiKam
+        if nome_original:
+            comentarios.append(f"Arquivo original: {nome_original}")
+            add_hier("Arquivo", "NomeOriginal", nome_original)
+
         assinatura = f"Registrado via iBirder v{APP_VERSION} em {agora.strftime('%d/%m/%Y %H:%M')}."
         final_comment = ". ".join(comentarios) + ". " + assinatura if comentarios else assinatura
         cmds.append(f"-XPComment={final_comment}")
@@ -260,8 +297,8 @@ class EXIFManager:
         elif gps_existente:
             logging.debug("GPS original detectado na imagem. Preservando coordenadas existentes.")
 
-        # 7. Nome original do arquivo (permite saber o nome da câmera após renomear)
-        if nome_original:
+        # 7. Nome original do arquivo no campo padrão da Adobe (só na primeira gravação)
+        if nome_original and gravar_preservado:
             cmds.append(f"-XMP-xmpMM:PreservedFileName={nome_original}")
 
         # 8. Finalização

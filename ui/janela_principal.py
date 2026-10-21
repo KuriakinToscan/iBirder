@@ -1146,7 +1146,9 @@ class JanelaPrincipal(QMainWindow):
 
     def _carregar_imagem(self, caminho: str):
         # Foto já processada pelo iBirder: mostra o que foi gravado e quando, e pergunta
-        if not self._confirmar_reprocessamento(caminho):
+        # (o caminho muda se o usuário desfizer a renomeação nesse aviso)
+        caminho = self._confirmar_reprocessamento(caminho)
+        if not caminho:
             return
 
         self._resetar_interface() # Limpa tudo primeiro
@@ -1248,17 +1250,23 @@ class JanelaPrincipal(QMainWindow):
         self._identificar_ave()
 
     def _confirmar_reprocessamento(self, caminho):
-        """True para processar a foto; False se ela já tem registro do iBirder e o usuário ignorou."""
+        """
+        Caminho da foto a processar, ou None se ela já tem registro do iBirder e o usuário ignorou.
+        O caminho pode mudar se o usuário desfizer a renomeação no aviso.
+        """
         from modules.step6_persistence.registro_ibirder import ler_registro
         registro = ler_registro(caminho)
         if not registro:
-            return True
+            return caminho
         logging.info(f"Foto já processada pelo iBirder: {Path(caminho).name} ({len(registro['tags'])} tags)")
         from ui.dialogs.registro_dialog import DialogoFotoProcessada
-        if DialogoFotoProcessada(registro, Path(caminho).name, self).exec():
-            return True
+        dialogo = DialogoFotoProcessada(registro, Path(caminho).name, self, caminho=caminho)
+        processar = dialogo.exec()
+        caminho = str(dialogo.caminho)
+        if processar:
+            return caminho
         self.status_bar.showMessage(f"Foto ignorada (já processada): {Path(caminho).name}", 8000)
-        return False
+        return None
 
     def _ao_arrastar_pino(self, lat, lon):
         logging.info(f"Pino do mapa arrastado para: Lat {lat}, Lon {lon}")
@@ -1973,9 +1981,30 @@ class JanelaPrincipal(QMainWindow):
         Retorna (mensagem, sucesso).
         """
         from core import nome_arquivo
+        from modules.step6_persistence.registro_ibirder import ler_registro
         antigo = Path(self.caminho_imagem_atual)
+
+        # Só renomeia se o nome original estiver confirmado na foto (lido de volta do arquivo)
+        registro = ler_registro(antigo)
+        if not registro or not registro.get("nome_original"):
+            logging.error(f"Nome original não confirmado em {antigo.name}; renomeação cancelada")
+            return ("O arquivo não foi renomeado: não foi possível confirmar o nome original "
+                    "gravado na foto. Os dados foram gravados normalmente."), False
+
+        # RAW renomeado junto: o nome original vai para o .xmp que o acompanha (criado se preciso)
+        irmaos = list(renomeacao["irmaos"])
+        manager = EXIFManager()
+        for raw in [f for f in irmaos if f.suffix.lower() in nome_arquivo.EXTENSOES_RAW]:
+            resultado = manager.gravar_nome_original_sidecar(raw)
+            if resultado is None:
+                return (f"O arquivo não foi renomeado: não foi possível gravar o nome original de "
+                        f"{raw.name} no arquivo .xmp. Os dados da foto foram gravados normalmente."), False
+            sidecar, _ = resultado
+            if sidecar not in irmaos:
+                irmaos.append(sidecar)
+
         try:
-            novo, feitos, falhas = nome_arquivo.renomear(antigo, renomeacao["base"], renomeacao["irmaos"])
+            novo, feitos, falhas = nome_arquivo.renomear(antigo, renomeacao["base"], irmaos)
         except OSError as e:
             logging.error(f"Falha ao renomear {antigo.name}: {e}")
             return (f"Não foi possível renomear o arquivo ({e.strerror or e}). Os dados foram gravados; "

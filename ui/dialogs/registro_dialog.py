@@ -18,6 +18,8 @@
 """Aviso exibido ao abrir uma foto que já foi processada pelo iBirder."""
 
 import html
+import logging
+from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QScrollArea
@@ -27,9 +29,13 @@ from ui.base.base_dialog import BaseDialog
 
 
 class DialogoFotoProcessada(BaseDialog):
-    """exec() devolve Accepted para "Processar novamente" e Rejected para "Ignorar"."""
+    """
+    exec() devolve Accepted para "Processar novamente" e Rejected para "Ignorar".
+    Se a foto foi renomeada pelo iBirder, oferece "Desfazer renomeação"; depois de exec(),
+    self.caminho tem o caminho atual da foto.
+    """
 
-    def __init__(self, registro, nome_arquivo, parent=None):
+    def __init__(self, registro, nome_arquivo, parent=None, caminho=None):
         super().__init__("Foto já processada", parent)
         self.setMinimumWidth(520)
         self.resize(560, 520)
@@ -38,14 +44,29 @@ class DialogoFotoProcessada(BaseDialog):
         titulo.setStyleSheet("font-size: 16px; font-weight: bold; color: #111827;")
         self.main_layout.addWidget(titulo)
 
-        original = registro.get("nome_original")
-        linha_original = (f"<b>Nome original:</b> {html.escape(original)}<br>"
-                          if original and original != nome_arquivo else "")
-        cabecalho = QLabel(f"<b>Arquivo:</b> {html.escape(nome_arquivo)}<br>{linha_original}"
-                           f"<b>Processada em:</b> {html.escape(descrever_quando(registro))}")
-        cabecalho.setWordWrap(True)
-        cabecalho.setStyleSheet("color: #374151;")
-        self.main_layout.addWidget(cabecalho)
+        self.registro = registro
+        self.caminho = Path(caminho) if caminho else None
+        self.nome_original = registro.get("nome_original")
+        self.cabecalho = QLabel()
+        self.cabecalho.setWordWrap(True)
+        self.cabecalho.setStyleSheet("color: #374151;")
+        self.main_layout.addWidget(self.cabecalho)
+        self._atualizar_cabecalho(nome_arquivo)
+
+        # Desfazer renomeação: só quando a foto está com nome diferente do original
+        self.btn_desfazer = None
+        if self.caminho and self.nome_original and Path(self.nome_original).stem != self.caminho.stem:
+            linha = QHBoxLayout()
+            self.btn_desfazer = QPushButton(f"Desfazer renomeação (voltar para {self.nome_original})")
+            self.btn_desfazer.setCursor(Qt.PointingHandCursor)
+            self.btn_desfazer.clicked.connect(self._desfazer_renomeacao)
+            linha.addWidget(self.btn_desfazer)
+            linha.addStretch()
+            self.main_layout.addLayout(linha)
+        self.lbl_resultado = QLabel()
+        self.lbl_resultado.setWordWrap(True)
+        self.lbl_resultado.setVisible(False)
+        self.main_layout.addWidget(self.lbl_resultado)
 
         corpo = ""
         for secao, itens in resumo_legivel(registro):
@@ -87,3 +108,30 @@ class DialogoFotoProcessada(BaseDialog):
             botoes.addWidget(b)
         self.btn_processar.setStyleSheet("background-color: #374151; color: white; font-weight: bold; border-radius: 4px;")
         self.main_layout.addLayout(botoes)
+
+    def _atualizar_cabecalho(self, nome_arquivo):
+        original = self.nome_original
+        linha_original = (f"<b>Nome original:</b> {html.escape(original)}<br>"
+                          if original and Path(original).stem != Path(nome_arquivo).stem else "")
+        self.cabecalho.setText(f"<b>Arquivo:</b> {html.escape(nome_arquivo)}<br>{linha_original}"
+                               f"<b>Processada em:</b> {html.escape(descrever_quando(self.registro))}")
+
+    def _desfazer_renomeacao(self):
+        from core import nome_arquivo
+        try:
+            novo, feitos = nome_arquivo.desfazer_renomeacao(self.caminho, self.nome_original)
+        except (OSError, FileExistsError) as e:
+            logging.error(f"Falha ao desfazer a renomeação de {self.caminho.name}: {e}")
+            self._mostrar_resultado(f"Não foi possível desfazer: {e}", erro=True)
+            return
+        self.caminho = novo
+        self._atualizar_cabecalho(novo.name)
+        self.btn_desfazer.setVisible(False)
+        nomes = ", ".join(n.name for _, n in feitos)
+        self._mostrar_resultado(f"Renomeação desfeita: {nomes}.")
+
+    def _mostrar_resultado(self, texto, erro=False):
+        cor = ("#B91C1C", "#FEE2E2") if erro else ("#065F46", "#D1FAE5")
+        self.lbl_resultado.setText(html.escape(texto))
+        self.lbl_resultado.setStyleSheet(f"color: {cor[0]}; background: {cor[1]}; padding: 8px; border-radius: 6px;")
+        self.lbl_resultado.setVisible(True)

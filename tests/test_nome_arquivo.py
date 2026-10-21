@@ -9,6 +9,14 @@ from core import nome_arquivo as na
 DATA = datetime(2026, 10, 16, 14, 35, 22)
 
 
+@pytest.fixture(autouse=True)
+def historico_temporario(tmp_path, monkeypatch):
+    """O histórico de renomeações dos testes não vai para a pasta de logs real."""
+    arquivo = tmp_path / "logs" / "renomeacoes.csv"
+    monkeypatch.setattr(na, "arquivo_historico", lambda: arquivo)
+    return arquivo
+
+
 @pytest.mark.parametrize("nome, esperado", [
     ("Sabiá-laranjeira", "SabiaLaranjeira"),
     ("bem-te-vi", "BemTeVi"),
@@ -96,3 +104,35 @@ def test_raw_e_xmp_renomeados_junto(tmp_path):
     nomes = sorted(p.name for p in tmp_path.iterdir())
     assert {"SabiaLaranjeira_20261016_2.CR3", "SabiaLaranjeira_20261016_2.xmp",
             "SabiaLaranjeira_20261016_2.JPG.xmp", "IMG_12345.CR3", "IMG_1234.txt"} <= set(nomes)
+
+
+def test_historico_registra_renomeacao_e_desfazer(tmp_path, historico_temporario):
+    foto = _jpg(tmp_path / "IMG_0042.jpg")
+    (tmp_path / "IMG_0042.CR3").write_bytes(b"raw")
+    (tmp_path / "IMG_0042.xmp").write_text("<x/>")
+    novo, _, _ = na.renomear(foto, "BemTeVi_20261016", na.arquivos_irmaos(foto))
+    assert novo.name == "BemTeVi_20261016.jpg"
+
+    volta, feitos = na.desfazer_renomeacao(novo, "IMG_0042.jpg")
+    assert volta == foto and foto.exists()
+    assert sorted(p.name for p in tmp_path.glob("IMG_0042*")) == ["IMG_0042.CR3", "IMG_0042.jpg", "IMG_0042.xmp"]
+    assert not list(tmp_path.glob("BemTeVi*"))
+
+    linhas = historico_temporario.read_text(encoding="utf-8-sig").splitlines()
+    assert linhas[0] == "data;acao;pasta;nome_antigo;nome_novo"
+    acoes = [l.split(";")[1] for l in linhas[1:]]
+    assert acoes == ["renomeado"] * 3 + ["desfeito"] * 3
+    assert any(l.endswith(";IMG_0042.CR3;BemTeVi_20261016.CR3") for l in linhas)
+
+
+def test_desfazer_nunca_sobrescreve(tmp_path):
+    foto = _jpg(tmp_path / "BemTeVi_20261016.jpg")
+    (tmp_path / "IMG_0042.jpg").write_bytes(b"outra foto")
+    with pytest.raises(FileExistsError):
+        na.desfazer_renomeacao(foto, "IMG_0042.jpg")
+    assert foto.exists() and (tmp_path / "IMG_0042.jpg").read_bytes() == b"outra foto"
+
+
+def test_desfazer_sem_mudanca(tmp_path):
+    foto = _jpg(tmp_path / "IMG_0042.jpg")
+    assert na.desfazer_renomeacao(foto, "IMG_0042.jpg") == (foto, [])
