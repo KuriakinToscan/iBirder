@@ -44,12 +44,12 @@ class ManualUsuarioDialog(QDialog):
         # Header do Manual
         header = QFrame()
         header.setFixedHeight(70)
-        header.setStyleSheet("background-color: #F9FAFB; border-bottom: 1px solid #E5E7EB;")
+        StyleManager.estilizar(header, "background-color: var(--superficie_alt); border-bottom: 1px solid var(--borda_suave);")
         header_layout = QHBoxLayout(header)
         header_layout.setContentsMargins(25, 0, 25, 0)
         
         lbl_title = QLabel("Manual de Instruções")
-        lbl_title.setStyleSheet("font-size: 18px; font-weight: bold; color: #111827; border: none;")
+        StyleManager.estilizar(lbl_title, "font-size: 18px; font-weight: bold; color: var(--texto); border: none;")
         header_layout.addWidget(lbl_title)
         
         layout.addWidget(header)
@@ -58,38 +58,39 @@ class ManualUsuarioDialog(QDialog):
         self.browser = QTextBrowser()
         self.browser.setOpenExternalLinks(True)
         self.browser.setFrameShape(QFrame.NoFrame)
-        self.browser.setStyleSheet("""
+        StyleManager.estilizar(self.browser, """
             QTextBrowser {
-                background-color: #FFFFFF;
+                background-color: var(--superficie);
                 padding: 30px;
                 line-height: 160%;
             }
         """)
         
         conteudo_html = self._gerar_conteudo()
-        self.browser.setHtml(conteudo_html)
+        self.browser.setHtml(StyleManager.render(conteudo_html))
         layout.addWidget(self.browser)
         
         # Footer com botão de fechar
         footer = QFrame()
         footer.setFixedHeight(60)
-        footer.setStyleSheet("background-color: #F9FAFB; border-top: 1px solid #E5E7EB;")
+        StyleManager.estilizar(footer, "background-color: var(--superficie_alt); border-top: 1px solid var(--borda_suave);")
         footer_layout = QHBoxLayout(footer)
         footer_layout.setContentsMargins(20, 0, 20, 0)
         
         btn_close = QPushButton("Entendido")
         btn_close.setFixedSize(120, 36)
         btn_close.setCursor(Qt.PointingHandCursor)
-        btn_close.setStyleSheet("""
+        StyleManager.estilizar(btn_close, """
             QPushButton {
-                background-color: #374151;
-                color: white;
+                background-color: var(--destaque);
+                color: var(--texto_destaque);
+                border: none;
                 border-radius: 6px;
                 font-weight: bold;
                 font-size: 14px;
             }
             QPushButton:hover {
-                background-color: #1F2937;
+                background-color: var(--destaque_hover);
             }
         """)
         btn_close.clicked.connect(self.accept)
@@ -104,7 +105,7 @@ class ManualUsuarioDialog(QDialog):
     def _gerar_conteudo(self):
         # Caminhos base
         guia_path = APP_DIR / "guia_do_usuario.md"
-        logo_path = APP_DIR / "assets" / "logo_ave_escuro.svg"
+        logo_path = Path(StyleManager.caminho_logo())  # logo na cor do tema
         
         # Converte Path para URL de arquivo local para o Qt
         logo_url = logo_path.as_uri() if logo_path.exists() else ""
@@ -122,16 +123,15 @@ class ManualUsuarioDialog(QDialog):
     def _parse_markdown(self, md, logo_url=""):
         import re
         
-        # Estilos CSS Premium (Charcoal #374151)
+        # Estilos CSS com tokens do tema (renderizados em setHtml)
         css = """
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
             body {
-                font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
-                color: #374151;
+                font-family: 'var(--fonte)', 'Segoe UI', Arial, sans-serif;
+                color: var(--texto);
                 font-size: 14px;
                 line-height: 1.6;
-                background-color: #FFFFFF;
+                background-color: var(--superficie);
                 padding: 10px;
             }
             .container { max-width: 800px; margin: 0 auto; }
@@ -139,8 +139,8 @@ class ManualUsuarioDialog(QDialog):
             /* Cabeçalho de Marca Sincronizado */
             .header-table { 
                 width: 100%; 
-                background-color: #FFFFFF; 
-                border-bottom: 2px solid #F3F4F6; 
+                background-color: var(--superficie); 
+                border-bottom: 2px solid var(--hover); 
                 margin-bottom: 40px; 
                 padding: 15px 0;
             }
@@ -148,72 +148,72 @@ class ManualUsuarioDialog(QDialog):
                 font-size: 52px; 
                 font-weight: 300; 
                 font-style: italic;
-                color: #4B5563; 
+                color: var(--texto_secundario); 
                 margin: 0;
                 letter-spacing: -2px;
             }
             
             h2 { 
-                color: #111827; 
+                color: var(--texto); 
                 font-size: 19px; 
                 font-weight: 700; 
                 margin-top: 40px; 
                 margin-bottom: 20px; 
-                border-left: 4px solid #374151;
+                border-left: 4px solid var(--destaque);
                 padding-left: 12px;
             }
-            h3 { color: #374151; font-size: 16px; font-weight: 700; margin-top: 30px; margin-bottom: 15px; }
+            h3 { color: var(--titulo_sessao); font-size: 16px; font-weight: 700; margin-top: 30px; margin-bottom: 15px; }
             
-            p { margin-bottom: 18px; text-align: justify; color: #4B5563; line-height: 1.7; }
+            p { margin-bottom: 18px; text-align: justify; color: var(--texto_secundario); line-height: 1.7; }
             
             .step-card { 
-                background: #FFFFFF; 
-                border: 1px solid #E5E7EB; 
+                background: var(--superficie); 
+                border: 1px solid var(--borda_suave); 
                 border-radius: 12px; 
                 padding: 20px 24px;
                 margin-bottom: 25px;
             }
             .step-header { margin-bottom: 15px; }
             .step-number { 
-                background: #374151; color: #FFFFFF; 
+                background: var(--destaque); color: var(--texto_destaque); 
                 padding: 4px 12px;
                 border-radius: 6px;
                 font-size: 13px; font-weight: 800;
                 margin-right: 12px;
             }
-            .step-title { font-weight: 700; color: #111827; font-size: 17px; }
+            .step-title { font-weight: 700; color: var(--texto); font-size: 17px; }
             
             .tip-box { 
-                background-color: #F0FDF4; 
-                border-left: 4px solid #22C55E; 
+                background-color: var(--sucesso_fundo); 
+                border-left: 4px solid var(--enfase); 
                 padding: 18px; 
                 margin: 30px 0; 
             }
-            .tip-title { color: #166534; font-weight: 800; font-size: 12px; text-transform: uppercase; margin-bottom: 8px; display: block; }
+            .tip-title { color: var(--sucesso_texto); font-weight: 800; font-size: 12px; text-transform: uppercase; margin-bottom: 8px; display: block; }
             
             .alerta { 
-                background-color: #FFFBEB; 
-                border-left: 4px solid #F59E0B; 
+                background-color: var(--alerta_fundo); 
+                border-left: 4px solid var(--alerta_borda); 
                 padding: 18px; 
                 margin: 30px 0; 
-                color: #92400E;
+                color: var(--alerta_texto);
             }
 
             ul, ol { margin-bottom: 18px; padding-left: 25px; }
-            li { margin-bottom: 10px; color: #4B5563; line-height: 1.6; }
-            b, strong { color: #111827; font-weight: 700; }
-            i, em { color: #64748B; }
-            hr { border: 0; border-top: 1px solid #F1F5F9; margin: 45px 0; }
+            li { margin-bottom: 10px; color: var(--texto_secundario); line-height: 1.6; }
+            b, strong { color: var(--texto); font-weight: 700; }
+            i, em { color: var(--texto_suave); }
+            hr { border: 0; border-top: 1px solid var(--borda_suave); margin: 45px 0; }
             
             .footer-info { 
                 margin-top: 60px; 
                 padding: 40px;
-                background-color: #FFFFFF;
-                border-top: 1px solid #F1F5F9;
+                background-color: var(--superficie);
+                border-top: 1px solid var(--borda_suave);
                 text-align: center;
             }
             .github-link { 
-                color: #334155;
+                color: var(--texto);
                 font-weight: 700;
                 text-decoration: none;
                 font-size: 13px;
@@ -221,7 +221,7 @@ class ManualUsuarioDialog(QDialog):
             }
             .credits {
                 font-size: 12px;
-                color: #94A3B8;
+                color: var(--texto_suave);
                 margin-top: 20px;
                 font-style: italic;
             }
@@ -230,9 +230,9 @@ class ManualUsuarioDialog(QDialog):
 
         def process_inline(text):
             # Código `assim` (antes do negrito/itálico para não interpretar * dentro do código)
-            text = re.sub(r'`([^`]+)`', r'<code style="background:#F3F4F6; padding:1px 4px;">\1</code>', text)
+            text = re.sub(r'`([^`]+)`', r'<code style="background:var(--hover); padding:1px 4px;">\1</code>', text)
             # Links [texto](https://...) — abertos no navegador (setOpenExternalLinks)
-            text = re.sub(r'\[([^\]]+)\]\((https?://[^)\s]+)\)', r'<a href="\2" style="color:#005fa8;">\1</a>', text)
+            text = re.sub(r'\[([^\]]+)\]\((https?://[^)\s]+)\)', r'<a href="\2" style="color:var(--link);">\1</a>', text)
             # Negrito
             text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
             # Itálico
@@ -268,7 +268,7 @@ class ManualUsuarioDialog(QDialog):
                            and not linhas[j].strip().startswith('>')):
                         texto.append(linhas[j].strip())
                         j += 1
-                    partes.append(f"<p style='font-size: 13px; margin-bottom: 10px; color: #4B5563;'>{process_inline(' '.join(texto))}</p>")
+                    partes.append(f"<p style='font-size: 13px; margin-bottom: 10px; color: var(--texto_secundario);'>{process_inline(' '.join(texto))}</p>")
             return "".join(partes)
 
         lines = md.split('\n')

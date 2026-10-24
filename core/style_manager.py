@@ -1,32 +1,69 @@
 #  iBirder -  IA para Birdwatching
 #  Copyright (C) 2026  Kuriakin Humberto Toscan
 #
-#  Este programa é um software livre: você pode redistribuí-lo e/ou 
-#  modificá-lo sob os termos da Licença Pública Geral GNU conforme 
-#  publicada pela Free Software Foundation, tanto a versão 3 da 
+#  Este programa é um software livre: você pode redistribuí-lo e/ou
+#  modificá-lo sob os termos da Licença Pública Geral GNU conforme
+#  publicada pela Free Software Foundation, tanto a versão 3 da
 #  Licença, como (a seu critério) qualquer versão posterior.
 #
-#  Este programa é distribuído na esperança de que possa ser útil, 
-#  mas SEM NENHUMA GARANTIA; sem uma garantia implícita de 
-#  ADEQUAÇÃO A QUALQUER MERCADO OU APLICAÇÃO EM PARTICULAR. 
+#  Este programa é distribuído na esperança de que possa ser útil,
+#  mas SEM NENHUMA GARANTIA; sem uma garantia implícita de
+#  ADEQUAÇÃO A QUALQUER MERCADO OU APLICAÇÃO EM PARTICULAR.
 #  Veja a Licença Pública Geral GNU para mais detalhes.
 #
-#  Você deve ter recebido uma cópia da Licença Pública Geral GNU 
+#  Você deve ter recebido uma cópia da Licença Pública Geral GNU
 #  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
 
 from pathlib import Path
 import logging
 import platform
 
+from core.temas import TEMAS, TEMA_PADRAO, obter_tema, renderizar, barra_titulo_escura, cor_bgr
+
+# Propriedades dinâmicas que guardam o modelo (com var(--token)) de um widget,
+# para renderizá-lo de novo quando o tema muda
+_PROP_QSS = "_ibirder_qss"
+_PROP_HTML = "_ibirder_html"
+_PROP_HTML_RENDER = "_ibirder_html_render"
+
+# Fontes embarcadas em assets/ (registradas uma vez, antes do primeiro tema)
+_FONTES_EMBARCADAS = ("Figtree-VariableFont_wght.ttf",)
+
+
+def _caminho_assets():
+    from core.paths import APP_DIR
+    return APP_DIR / "assets"
+
+
+class _Notificador:
+    """Cria sob demanda o QObject que emite tema_alterado (evita QObject antes do QApplication)."""
+    _instancia = None
+
+    @classmethod
+    def obter(cls):
+        if cls._instancia is None:
+            from PySide6.QtCore import QObject, Signal
+
+            class _Sinais(QObject):
+                tema_alterado = Signal(str)
+
+            cls._instancia = _Sinais()
+        return cls._instancia
+
+
 class StyleManager:
-    """Centralizador de Estilos e Temas do iBirder (v0.6.6)"""
-    
+    """Centralizador de Estilos e Temas do iBirder (v1.4: temas por tokens)."""
+
     # Constantes de Design
     SPACING_XS = 4
     SPACING_SM = 8
     SPACING_MD = 12
     SPACING_LG = 20
-    
+
+    _tema = obter_tema(TEMA_PADRAO)
+    _tema_aplicado = None  # id do último tema aplicado ao QApplication
+    _fontes_registradas = False
+
     @staticmethod
     def apply_shadow(widget, blur=20, offset=(0, 5), color=(0, 0, 0, 20)):
         """Aplica um efeito de sombra suave a um widget (v1.6.15)."""
@@ -38,28 +75,96 @@ class StyleManager:
         sombra.setColor(QColor(*color))
         widget.setGraphicsEffect(sombra)
 
-    _last_mode = None # Cache do último tema aplicado
+    # --- Tema ativo -------------------------------------------------------
 
     @staticmethod
-    def apply_theme(app, dark_mode=False):
-        """Aplica o tema adaptativo (Paleta + CSS + Tradução) ao QApplication."""
-        if StyleManager._last_mode == dark_mode:
-            return # Evita re-aplicação redundante e loops de eventos
-            
-        from PySide6.QtGui import QPalette, QColor
-        from PySide6.QtCore import QLibraryInfo, QTranslator, QLocale
-        
-        # 1. Configurar Estilo Base (Apenas na primeira vez ou se necessário)
-        if StyleManager._last_mode is None:
-            app.setStyle("Fusion")
+    def tema_atual():
+        return StyleManager._tema
 
-        # 2. Paleta Soberana (Apenas Off-White v0.6.6)
-        # O aplicativo ignora o modo escuro interno para manter a estética Off-White Premium.
-        # O Dark Mode do sistema afetará apenas a Title Bar através do DWM API.
-        palette = StyleManager._get_light_palette()
-        app.setPalette(palette)
-        
-        # 3. Injetar Tradução do Qt
+    @staticmethod
+    def cor(token):
+        """Valor de um token do tema ativo (ex.: StyleManager.cor("destaque") -> "#374151")."""
+        return StyleManager._tema[token]
+
+    @staticmethod
+    def qcor(token):
+        from PySide6.QtGui import QColor
+        return QColor(StyleManager._tema[token])
+
+    @staticmethod
+    def render(texto):
+        """Renderiza um QSS ou HTML escrito com var(--token) para o tema ativo."""
+        return renderizar(texto, StyleManager._tema)
+
+    @staticmethod
+    def sinal_tema_alterado():
+        """Sinal emitido (com o id do tema) depois que um tema novo é aplicado."""
+        return _Notificador.obter().tema_alterado
+
+    @staticmethod
+    def estilizar(widget, modelo_qss):
+        """setStyleSheet com tokens; o widget é reestilizado sozinho quando o tema muda."""
+        widget.setProperty(_PROP_QSS, modelo_qss)
+        widget.setStyleSheet(StyleManager.render(modelo_qss))
+
+    @staticmethod
+    def definir_texto(rotulo, modelo_html):
+        """setText de rótulo com HTML e tokens; o texto é renderizado de novo quando o tema muda."""
+        texto = StyleManager.render(modelo_html)
+        rotulo.setProperty(_PROP_HTML, modelo_html)
+        rotulo.setProperty(_PROP_HTML_RENDER, texto)
+        rotulo.setText(texto)
+
+    @staticmethod
+    def caminho_logo():
+        """Logo do painel para o tema ativo (o original, recolorido); cai no original se faltar."""
+        base = _caminho_assets()
+        caminho = base / StyleManager._tema.logo
+        if not caminho.exists():
+            caminho = base / "logo_ave.svg"
+        return str(caminho)
+
+    @staticmethod
+    def _registrar_fontes():
+        if StyleManager._fontes_registradas:
+            return
+        from PySide6.QtGui import QFontDatabase
+        for nome in _FONTES_EMBARCADAS:
+            caminho = _caminho_assets() / nome
+            if caminho.exists() and QFontDatabase.addApplicationFont(str(caminho)) < 0:
+                logging.warning(f"Fonte não carregada: {caminho}")
+        StyleManager._fontes_registradas = True
+
+    @staticmethod
+    def apply_theme(app, tema=None, dark_mode=None, forcar=False):
+        """
+        Aplica o tema (Paleta + CSS + Tradução) ao QApplication.
+        tema: id em core.temas.TEMAS; None = o salvo em config.json (ou Off-White).
+        dark_mode: mantido por compatibilidade; o modo escuro do Windows só afeta a barra
+        de título quando o próprio tema pede barra escura.
+        """
+        if tema is None:
+            from core.config import carregar_config
+            tema = carregar_config().get("tema") or TEMA_PADRAO
+        novo = obter_tema(tema)
+        if StyleManager._tema_aplicado == novo.id and not forcar:
+            return  # Evita re-aplicação redundante e loops de eventos (changeEvent da janela)
+
+        from PySide6.QtGui import QFont
+        from PySide6.QtCore import QLibraryInfo, QTranslator, QLocale
+
+        primeira_vez = StyleManager._tema_aplicado is None
+        StyleManager._tema = novo
+        StyleManager._tema_aplicado = novo.id
+
+        if primeira_vez:
+            app.setStyle("Fusion")
+            StyleManager._registrar_fontes()
+
+        app.setPalette(StyleManager._get_palette())
+        app.setFont(QFont(novo["fonte"], 10))
+
+        # Tradução do Qt
         if not hasattr(app, "_translator"):
             path = QLibraryInfo.path(QLibraryInfo.TranslationsPath)
             translator = QTranslator(app)
@@ -67,39 +172,65 @@ class StyleManager:
                 app.installTranslator(translator)
                 app._translator = translator
 
-        # 4. Aplicar Stylesheet Global Adaptativo
-        app.setStyleSheet(StyleManager.get_global_stylesheet(dark_mode))
-        StyleManager._last_mode = dark_mode
+        app.setStyleSheet(StyleManager.get_global_stylesheet())
+
+        if not primeira_vez:
+            StyleManager._reestilizar_widgets(app)
+        logging.info(f"Tema aplicado: {novo.nome}")
+        StyleManager.sinal_tema_alterado().emit(novo.id)
 
     @staticmethod
-    def _get_light_palette():
+    def _reestilizar_widgets(app):
+        """Renderiza de novo os estilos e textos com tokens e redesenha tudo (troca sem reiniciar)."""
+        for w in app.allWidgets():
+            modelo = w.property(_PROP_QSS)
+            if modelo:
+                w.setStyleSheet(StyleManager.render(modelo))
+            modelo = w.property(_PROP_HTML)
+            # Só se o texto não foi trocado depois por um setText comum
+            if modelo and hasattr(w, "text") and w.text() == w.property(_PROP_HTML_RENDER):
+                StyleManager.definir_texto(w, modelo)
+            w.update()
+        for janela in app.topLevelWidgets():
+            if janela.isWindow() and janela.isVisible():
+                StyleManager.setup_window_theme(janela)
+
+    @staticmethod
+    def _get_palette():
         from PySide6.QtGui import QPalette, QColor
+        t = StyleManager._tema
         palette = QPalette()
-        off_white = QColor("#F0F2F5")
-        pure_white = QColor("#FFFFFF")
-        gray_text = QColor("#374151")
-        dark_text = QColor("#1F2937")
-        highlight = QColor("#F3F4F6")
-        
-        palette.setColor(QPalette.Window, off_white)
-        palette.setColor(QPalette.WindowText, dark_text)
-        palette.setColor(QPalette.Base, pure_white)
-        palette.setColor(QPalette.AlternateBase, off_white)
-        palette.setColor(QPalette.Text, gray_text)
-        palette.setColor(QPalette.Button, pure_white)
-        palette.setColor(QPalette.ButtonText, gray_text)
-        palette.setColor(QPalette.Highlight, highlight)
-        palette.setColor(QPalette.HighlightedText, QColor("#111827"))
-        
+        fundo = QColor(t["fundo"])
+        superficie = QColor(t["superficie"])
+        texto = QColor(t["texto"])
+
+        palette.setColor(QPalette.Window, fundo)
+        palette.setColor(QPalette.WindowText, texto)
+        palette.setColor(QPalette.Base, superficie)
+        palette.setColor(QPalette.AlternateBase, QColor(t["superficie_alt"]))
+        palette.setColor(QPalette.Text, texto)
+        palette.setColor(QPalette.Button, superficie)
+        palette.setColor(QPalette.ButtonText, texto)
+        palette.setColor(QPalette.Highlight, QColor(t["selecao"]))
+        palette.setColor(QPalette.HighlightedText, texto)
+        palette.setColor(QPalette.PlaceholderText, QColor(t["texto_suave"]))
+        palette.setColor(QPalette.Link, QColor(t["link"]))
+        palette.setColor(QPalette.ToolTipBase, superficie)
+        palette.setColor(QPalette.ToolTipText, texto)
+
         # Blindagem Inativa
-        palette.setColor(QPalette.Inactive, QPalette.Window, off_white)
-        palette.setColor(QPalette.Inactive, QPalette.WindowText, dark_text)
+        palette.setColor(QPalette.Inactive, QPalette.Window, fundo)
+        palette.setColor(QPalette.Inactive, QPalette.WindowText, texto)
         return palette
+
+    # Compatibilidade com chamadas antigas
+    @staticmethod
+    def _get_light_palette():
+        return StyleManager._get_palette()
 
     @staticmethod
     def _get_dark_palette():
-        """Alias para _get_light_palette para garantir soberania Off-White."""
-        return StyleManager._get_light_palette()
+        return StyleManager._get_palette()
 
     @staticmethod
     def is_windows_dark_mode():
@@ -120,27 +251,27 @@ class StyleManager:
         from PySide6.QtCore import QSize
         import os
         import sys
-        
+
         if dark_mode is None:
             dark_mode = StyleManager.detect_dark_mode()
-            
+
         icon_name = StyleManager.get_app_icon_name(dark_mode)
-        
+
         # Obter caminho (Adaptado da JanelaPrincipal)
         if getattr(sys, 'frozen', False):
             base_path = Path(sys._MEIPASS)
         else:
             base_path = Path(__file__).parent.parent / 'assets'
-            
+
         caminho_svg = str(base_path / icon_name)
         caminho_ico = str(base_path / "logo_ave.ico")
-        
+
         icone = QIcon()
         if os.path.exists(caminho_svg):
             icone.addFile(caminho_svg)
         if os.path.exists(caminho_ico):
             icone.addFile(caminho_ico) # Fallback para Titlebar
-            
+
         if not icone.isNull():
             window.setWindowIcon(icone)
 
@@ -165,279 +296,305 @@ class StyleManager:
 
     @staticmethod
     def get_global_stylesheet(dark_mode=False):
-        """Retorna o CSS unificado: Estética Off-White (v0.8.1)."""
-        # ESTÉTICA SOBERANA: Mantemos o Off-White/Branco por padrão no corpo
-        # A detecção de tema afetará principalmente os Menus e detalhes sutis
-        bg_app = "#F0F2F5"
-        bg_card = "#FFFFFF"
-        text_primary = "#1F2937"
-        text_secondary = "#4B5563"
-        border = "#D1D5DB"
-        accent_btn = "#374151"
-        accent_hover = "#1F2937"
-
-        # Cores para o campo de Input de Nome Científico (Biologia v0.8.1)
-        # Usamos uma classe específica para o itálico biológico
-        
-        return f"""
-            QMainWindow {{ background-color: {bg_app}; }}
-            QDialog {{ background-color: {bg_app}; }}
-            
-            QFrame.painel {{ 
-                background-color: {bg_card}; 
-                border-radius: 12px; 
-                border: 1px solid {border}; 
-            }}
-            
-            QLabel {{ color: {text_primary}; font-family: 'Segoe UI'; font-size: 13px; }}
-            
-            #lbl_slogan {{
-                font-size: 26px;
-                font-style: italic;
-                font-weight: 500;
-                color: {text_primary};
-            }}
-            
-            /* Nome Científico: Formatação Biológica Rigorosa */
-            QLineEdit.sci-name-input {{
-                font-family: 'Segoe UI';
-                font-style: italic;
-                font-weight: 500;
-                color: #1F2937;
-                background-color: {bg_card};
-                border: 1px solid {border};
-                border-radius: 6px;
-                padding: 6px;
-            }}
-            
-            QLineEdit, QTextEdit {{
-                background-color: {bg_card};
-                border: 1px solid {border};
-                border-radius: 6px;
-                padding: 6px;
-                color: {text_primary};
-            }}
-
-            QLineEdit::placeholder, QTextEdit::placeholder {{
-                color: #9CA3AF;
-                font-style: italic;
-            }}
-
-            .lbl-placeholder {{
-                color: #9CA3AF;
-                font-style: italic;
-                font-weight: 500;
-                font-size: 13px;
-            }}
-            
-            QListWidget, QListView {{
-                background-color: {bg_card};
-                border: 1px solid {border};
-                border-radius: 8px;
-                color: {text_primary};
-                outline: none;
-                padding: 4px;
-            }}
-            QListWidget::item, QListView::item {{
-                padding: 8px;
-                border-radius: 6px;
-                color: {text_primary};
-            }}
-            QListWidget::item:hover, QListView::item:hover {{
-                background-color: #F3F4F6;
-            }}
-            QListWidget::item:selected, QListView::item:selected {{
-                background-color: #E5E7EB;
-                color: {text_primary};
-            }}
-
-            /* ScrollArea e ScrollBars (v0.6.6) */
-            QScrollArea {{ border: none; background-color: transparent; }}
-            
-            QScrollBar:vertical {{
-                border: none;
-                background: transparent;
-                width: 8px;
-                margin: 0px;
-            }}
-            QScrollBar::handle:vertical {{
-                background: #D1D5DB;
-                min-height: 20px;
-                border-radius: 4px;
-            }}
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0px; }}
-            
-            /* Botões Primários (Padrão Extra-Slim 26px) */
-            QPushButton {{ 
-                background-color: {accent_btn}; 
-                color: white; 
-                border-radius: 8px; 
-                padding: 2px 16px; 
-                min-height: 26px;
-                max-height: 26px;
-                font-weight: bold; 
-                font-family: 'Segoe UI';
-            }}
-            QPushButton:hover {{ background-color: {accent_hover}; }}
-            
-            /* Botões Secundários */
-            QPushButton.secundario {{
-                background-color: #E5E7EB;
-                color: #374151;
-                border: 1px solid #D1D5DB;
-            }}
-            QPushButton.secundario:hover {{ background-color: #D1D5DB; }}
-            
-            /* Botões Ícone */
-            QPushButton[class="icon-btn"] {{ background-color: transparent; color: {text_secondary}; padding: 4px; border: none; }}
-            QPushButton[class="icon-btn"]:hover {{ background-color: #E5E7EB; border-radius: 4px; }}
-            
-            /* Botões de Link */
-            QPushButton.btn-link {{
-                 background: transparent;
-                 color: #3B82F6;
-                 text-decoration: underline;
-                 border: none;
-                 font-size: 11px;
-                 padding: 0px;
-                 text-align: left;
-            }}
-            QPushButton.btn-link:hover {{ color: #2563EB; }}
-
-            /* Menus (Harmonização v0.6.7+ - Blindagem 2.0) */
-            QMenu {{
-                background-color: #FFFFFF !important;
-                border: 1px solid #D1D5DB !important;
-                border-radius: 8px !important;
-                padding: 6px !important;
-            }}
-            QMenu::item {{
-                background-color: transparent !important;
-                color: #1F2937 !important;
-                padding: 8px 32px 8px 12px !important;
-                border-radius: 6px !important;
-                margin: 2px 4px !important;
-            }}
-            QMenu::item:selected {{
-                background-color: #F3F4F6 !important;
-                color: #1F2937 !important;
-            }}
-            QMenu::item:disabled {{ 
-                color: #9CA3AF !important; 
-                background-color: transparent !important;
-            }}
-            QMenu::separator {{ 
-                height: 1px; 
-                background: #E5E7EB; 
-                margin: 6px 10px; 
-            }}
-            QMenu::icon {{
-                margin-left: 8px;
-            }}
-
-            /* GroupBox */
-            QGroupBox {{ 
-                border: 1px solid {border}; 
-                border-radius: 8px; 
-                margin-top: 12px; 
-                padding-top: 12px; 
-                font-weight: bold; 
-                font-size: 11px; 
-                background-color: {bg_card}; 
-                color: {text_secondary}; 
-                text-transform: uppercase; 
-            }}
-            QGroupBox::title {{ 
-                background-color: {bg_card}; 
-                color: {text_primary};
-            }}
-
-            /* Checkbox e RadioButton (Visibilidade v0.8.3) */
-            QCheckBox, QRadioButton {{
-                color: {text_primary};
-                spacing: 8px;
-            }}
-            QCheckBox::indicator, QRadioButton::indicator {{
-                width: 18px;
-                height: 18px;
-                border: 1px solid {border};
-                border-radius: 4px;
-                background-color: white;
-            }}
-            QCheckBox::indicator:checked {{
-                background-color: {accent_btn};
-                image: url(none); /* Pode ser substituído por um SVG check se carregado */
-            }}
-            /* Fallback visual simples para checked se não houver asset */
-            QCheckBox::indicator:checked {{ background-color: #374151; }}
-
-            /* Classes Abstratas para Widgets Customizados */
-            .lbl-titulo-sessao {{ font-weight: bold; color: {text_secondary}; font-size: 11px; }}
-            .container-borda-cinza {{ border: 1px solid {border}; border-radius: 6px; padding: 4px; color: {text_primary}; }}
-            .container-borda-cinza-fill {{ background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 6px; padding: 6px; color: #1F2937; font-size: 11px; }}
-            
-            /* Botão Fechar Modal (Lightbox) */
-            QPushButton.btn-fechar-modal {{
-                background-color: transparent;
-                color: #374151;
-                border: none;
-                font-size: 16px;
-                font-weight: bold;
-                padding: 0px;
-                border-radius: 16px;
-            }}
-            QPushButton.btn-fechar-modal:hover {{
-                background-color: #F3F4F6;
-                color: #1F2937;
-            }}
-            
-            /* Overlays de Alerta */
-            QFrame#overlay_alert {{
-                background-color: {"rgba(254, 243, 199, 0.95)" if not dark_mode else "rgba(69, 26, 3, 0.9)"};
-                border: 2px solid #F59E0B; border-radius: 8px;
-            }}
-            QLabel#alert_text {{ color: {"#92400E" if not dark_mode else "#FDE68A"}; font-size: 12px; font-weight: bold; }}
-        """
+        """Retorna o CSS unificado do tema ativo (dark_mode mantido só por compatibilidade)."""
+        return StyleManager.render(QSS_GLOBAL)
 
     @staticmethod
-    def setup_window_theme(window, force_dark=True):
+    def setup_window_theme(window, force_dark=None):
         """
-        Ajusta a Title Bar via DWM API para combinar com o tema (v0.8.0).
+        Ajusta a Title Bar via DWM API com as cores do tema ativo (v1.4).
         Utiliza Immersive Dark Mode e Força Refresh de Frame (SWP_FRAMECHANGED).
+        force_dark: mantido por compatibilidade; quem decide é o tema (barra clara ou escura).
         """
         if platform.system() != "Windows":
             return
-            
+
         try:
             from ctypes import wintypes
             import ctypes
-            
+
             hwnd = window.winId()
             if hasattr(hwnd, 'id'): hwnd = hwnd.id()
-            
+
             handle = wintypes.HWND(hwnd)
-            dark_mode = StyleManager.detect_dark_mode()
-            
-            is_dark = 1 if (dark_mode or force_dark) else 0
-            mode = ctypes.c_int(is_dark)
-            
-            # 1. Ativar modo escuro imersivo (Compatibilidade Win10/11)
+            tema = StyleManager._tema
+
+            mode = ctypes.c_int(1 if barra_titulo_escura(tema) else 0)
+
+            # 1. Modo escuro imersivo (Compatibilidade Win10/11): define a cor dos botões Min/Max/Close
             ctypes.windll.dwmapi.DwmSetWindowAttribute(handle, 19, ctypes.byref(mode), ctypes.sizeof(mode))
             ctypes.windll.dwmapi.DwmSetWindowAttribute(handle, 20, ctypes.byref(mode), ctypes.sizeof(mode))
-            
-            # 2. Cor da Barra e Texto (v0.8.0: Re-introduzidos para consistência visual)
-            # DWMWA_CAPTION_COLOR = 35, DWMWA_TEXT_COLOR = 36
-            # iBirder Dark Gray: #374151 -> BGR: 0x00514137
-            bg_color = ctypes.c_int(0x00514137)
-            text_color = ctypes.c_int(0x00FFFFFF)
-            
+
+            # 2. Cor da Barra e Texto (Windows 11). DWMWA_CAPTION_COLOR = 35, DWMWA_TEXT_COLOR = 36
+            bg_color = ctypes.c_int(cor_bgr(tema["barra_titulo"]))
+            text_color = ctypes.c_int(cor_bgr(tema["texto_barra_titulo"]))
+
             ctypes.windll.dwmapi.DwmSetWindowAttribute(handle, 35, ctypes.byref(bg_color), ctypes.sizeof(bg_color))
             ctypes.windll.dwmapi.DwmSetWindowAttribute(handle, 36, ctypes.byref(text_color), ctypes.sizeof(text_color))
-            
+
             # 3. FORÇA REFRESH DE FRAME (CRÍTICO v0.8.0)
             # Isso força o Windows 11 a re-calcular a área dos botões (Min/Max/Close)
             # SWP_FRAMECHANGED = 0x0020, SWP_NOMOVE = 0x0002, SWP_NOSIZE = 0x0001, SWP_NOZORDER = 0x0004
             ctypes.windll.user32.SetWindowPos(handle, 0, 0, 0, 0, 0, 0x0020 | 0x0002 | 0x0001 | 0x0004 | 0x0010)
-            
+
         except Exception as e:
             logging.error(f"Erro ao ajustar Title Bar: {e}")
+
+
+# QSS global, escrito com tokens (core/temas.py). Botão comum usa botao_*; o principal
+# de cada tela leva a classe "primario" (no Off-White os dois são iguais).
+QSS_GLOBAL = """
+    QMainWindow { background-color: var(--fundo); }
+    QDialog { background-color: var(--fundo); }
+    QStatusBar { background-color: var(--fundo); color: var(--texto_secundario); }
+    QToolTip { background-color: var(--superficie); color: var(--texto); border: 1px solid var(--borda); padding: 4px; }
+
+    QScrollArea#area_rolagem, QWidget#container_rolagem { background-color: var(--fundo); border: none; }
+
+    QFrame.painel {
+        background-color: var(--superficie);
+        border-radius: var(--raio);
+        border: 1px solid var(--borda);
+    }
+
+    QLabel { color: var(--texto); font-family: 'var(--fonte)'; font-size: 13px; }
+
+    #lbl_slogan {
+        font-family: 'var(--fonte_titulo)';
+        font-size: 26px;
+        font-style: italic;
+        font-weight: 500;
+        color: var(--texto);
+    }
+
+    /* Nome Científico: Formatação Biológica Rigorosa */
+    QLineEdit.sci-name-input {
+        font-family: 'var(--fonte_titulo)';
+        font-style: italic;
+        font-weight: 500;
+        color: var(--texto);
+        background-color: var(--superficie);
+        border: 1px solid var(--borda);
+        border-radius: 6px;
+        padding: 6px;
+    }
+
+    QLineEdit, QTextEdit {
+        background-color: var(--superficie);
+        border: 1px solid var(--borda);
+        border-radius: 6px;
+        padding: 6px;
+        color: var(--texto);
+        font-family: 'var(--fonte)';
+    }
+
+    .lbl-placeholder {
+        color: var(--texto_suave);
+        font-style: italic;
+        font-weight: 500;
+        font-size: 13px;
+    }
+
+    QListWidget, QListView {
+        background-color: var(--superficie);
+        border: 1px solid var(--borda);
+        border-radius: 8px;
+        color: var(--texto);
+        outline: none;
+        padding: 4px;
+    }
+    QListWidget::item, QListView::item {
+        padding: 8px;
+        border-radius: 6px;
+        color: var(--texto);
+    }
+    QListWidget::item:hover, QListView::item:hover { background-color: var(--hover); }
+    QListWidget::item:selected, QListView::item:selected {
+        background-color: var(--selecao);
+        color: var(--texto);
+    }
+
+    /* ScrollArea e ScrollBars (v0.6.6) */
+    QScrollArea { border: none; background-color: transparent; }
+    QScrollBar:vertical {
+        border: none;
+        background: transparent;
+        width: 8px;
+        margin: 0px;
+    }
+    QScrollBar::handle:vertical {
+        background: var(--borda);
+        min-height: 20px;
+        border-radius: 4px;
+    }
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
+
+    /* Botões (Padrão Slim: altura do tema) */
+    QPushButton {
+        background-color: var(--botao_fundo);
+        color: var(--botao_texto);
+        border: 1px solid var(--botao_borda);
+        border-radius: var(--raio_botao);
+        padding: 2px 16px;
+        min-height: var(--altura_botao);
+        max-height: var(--altura_botao);
+        font-weight: bold;
+        font-family: 'var(--fonte)';
+    }
+    QPushButton:hover { background-color: var(--botao_hover); }
+    QPushButton:disabled {
+        background-color: var(--borda_suave);
+        color: var(--texto_suave);
+        border: 1px solid var(--borda_suave);
+    }
+
+    /* Botão principal da tela */
+    QPushButton.primario {
+        background-color: var(--destaque);
+        color: var(--texto_destaque);
+        border: 1px solid var(--destaque);
+    }
+    QPushButton.primario:hover { background-color: var(--destaque_hover); }
+
+    /* Botões Secundários */
+    QPushButton.secundario {
+        background-color: var(--secundario_fundo);
+        color: var(--secundario_texto);
+        border: 1px solid var(--borda);
+    }
+    QPushButton.secundario:hover { background-color: var(--selecao); }
+    QPushButton.primario:disabled, QPushButton.secundario:disabled {
+        background-color: var(--borda_suave);
+        color: var(--texto_suave);
+        border: 1px solid var(--borda_suave);
+    }
+
+    /* Botões da barra de status (novidades) */
+    QPushButton#btn_status_novidade {
+        background-color: var(--destaque);
+        color: var(--texto_destaque);
+        border: none;
+        border-radius: 4px;
+        padding: 2px 10px;
+        font-size: 11px;
+        min-height: 18px;
+        max-height: 22px;
+    }
+
+    /* Botões Ícone */
+    QPushButton[class="icon-btn"] { background-color: transparent; color: var(--texto_secundario); padding: 4px; border: none; }
+    QPushButton[class="icon-btn"]:hover { background-color: var(--hover); border-radius: 4px; }
+
+    /* Botões de Link */
+    QPushButton.btn-link {
+         background: transparent;
+         color: var(--link);
+         text-decoration: underline;
+         border: none;
+         font-size: 11px;
+         padding: 0px;
+         text-align: left;
+    }
+    QPushButton.btn-link:hover { color: var(--link_hover); }
+
+    /* Menus (Harmonização v0.6.7+ - Blindagem 2.0) */
+    QMenu {
+        background-color: var(--superficie) !important;
+        border: 1px solid var(--borda) !important;
+        border-radius: 8px !important;
+        padding: 6px !important;
+    }
+    QMenu::item {
+        background-color: transparent !important;
+        color: var(--texto) !important;
+        padding: 8px 32px 8px 12px !important;
+        border-radius: 6px !important;
+        margin: 2px 4px !important;
+    }
+    QMenu::item:selected {
+        background-color: var(--hover) !important;
+        color: var(--texto) !important;
+    }
+    QMenu::item:disabled {
+        color: var(--texto_suave) !important;
+        background-color: transparent !important;
+    }
+    QMenu::separator {
+        height: 1px;
+        background: var(--borda_suave);
+        margin: 6px 10px;
+    }
+    QMenu::icon { margin-left: 8px; }
+
+    /* GroupBox */
+    QGroupBox {
+        border: 1px solid var(--borda);
+        border-radius: 8px;
+        margin-top: 12px;
+        padding-top: 12px;
+        font-weight: bold;
+        font-size: 11px;
+        background-color: var(--superficie);
+        color: var(--texto_secundario);
+        text-transform: uppercase;
+    }
+    QGroupBox::title {
+        background-color: var(--superficie);
+        color: var(--texto);
+    }
+
+    /* Checkbox e RadioButton (Visibilidade v0.8.3) */
+    QCheckBox, QRadioButton {
+        color: var(--texto);
+        spacing: 8px;
+        font-family: 'var(--fonte)';
+    }
+    QCheckBox::indicator, QRadioButton::indicator {
+        width: 18px;
+        height: 18px;
+        border: 1px solid var(--borda);
+        border-radius: 4px;
+        background-color: var(--superficie);
+    }
+    QRadioButton::indicator { border-radius: 9px; }
+    QCheckBox::indicator:checked, QRadioButton::indicator:checked {
+        background-color: var(--destaque);
+        border: 1px solid var(--destaque);
+    }
+
+    /* Classes Abstratas para Widgets Customizados */
+    .lbl-titulo-sessao { font-family: 'var(--fonte_titulo)'; font-weight: bold; color: var(--titulo_sessao); font-size: 11px; }
+    .container-borda-cinza { border: 1px solid var(--borda); border-radius: 6px; padding: 4px; color: var(--texto); }
+    .container-borda-cinza-fill { background-color: var(--superficie_alt); border: 1px solid var(--borda_suave); border-radius: 6px; padding: 6px; color: var(--texto); font-size: 11px; }
+
+    /* Faixa de etimologia */
+    QFrame#frame_etimologia {
+        background-color: var(--superficie_alt);
+        border-left: 4px solid var(--enfase);
+        border-radius: 4px;
+        padding: 10px;
+        margin-top: 10px;
+    }
+
+    /* Botão Fechar Modal (Lightbox) */
+    QPushButton.btn-fechar-modal {
+        background-color: transparent;
+        color: var(--texto_secundario);
+        border: none;
+        font-size: 16px;
+        font-weight: bold;
+        padding: 0px;
+        border-radius: 16px;
+    }
+    QPushButton.btn-fechar-modal:hover {
+        background-color: var(--hover);
+        color: var(--texto);
+    }
+
+    /* Overlays de Alerta */
+    QFrame#overlay_alert {
+        background-color: var(--alerta_fundo);
+        border: 2px solid var(--alerta_borda); border-radius: 8px;
+    }
+    QLabel#alert_text { color: var(--alerta_texto); font-size: 12px; font-weight: bold; }
+"""

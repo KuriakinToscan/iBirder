@@ -37,6 +37,7 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout, QGraphicsDropShadowEffect
 
 from core.paths import APP_DIR
+from core.style_manager import StyleManager
 
 ASSETS = APP_DIR / "assets"
 
@@ -195,13 +196,13 @@ class MapWidget(QWebEngineView):
         self._pagina_carregada = False
         self._pronto = False
         self._fila_js.clear()
-        self.setHtml(f"""
+        self.setHtml(StyleManager.render(f"""
         <html>
-        <body style="display:flex; justify-content:center; align-items:center; height:100%; margin:0; font-family:'Segoe UI', sans-serif; background-color:#f0f2f5; color:#6b7280;">
+        <body style="display:flex; justify-content:center; align-items:center; height:100%; margin:0; font-family:'var(--fonte)', sans-serif; background-color: var(--fundo); color: var(--texto_suave);">
             <div style="text-align:center;"><div style="font-size:14px;">{message}</div></div>
         </body>
         </html>
-        """)
+        """))
 
     def clear_audio_cache(self):
         """Limpa o cache de pins de áudio (chamado ao trocar de espécie/imagem)."""
@@ -241,7 +242,7 @@ class MapWidget(QWebEngineView):
         if chave:
             url = GBIF_TILE.format(chave=chave)
             atribuicao = (f'<a href="https://www.gbif.org/species/{chave}" '
-                          'style="font-weight:bold; color:#005fa8; text-decoration:none;">Dados: GBIF 🔗</a>')
+                          'style="font-weight:bold; color:' + StyleManager.cor("link") + '; text-decoration:none;">Dados: GBIF 🔗</a>')
             self._js(f"ibirder.gbif({json.dumps(url)}, {json.dumps(atribuicao)});")
         else:
             self._js("ibirder.gbif(null, null);")

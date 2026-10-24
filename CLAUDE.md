@@ -49,6 +49,15 @@ inclusive com Chrome headless).
   consultadas por `modules/step3_geography/listas_conservacao.py`.
 - Subespécie da portaria só casa com subespécie no iNaturalist (nunca marcar a espécie inteira).
 
+## Temas (v1.4)
+
+- Tokens em `core/temas.py` (Off-White, Clean, Clássico); escolha salva em `config.json` (`"tema"`).
+- Nada de cor fixa na `ui/`: escrever QSS/HTML com `var(--token)` e aplicar por
+  `StyleManager.estilizar(widget, qss)` / `StyleManager.definir_texto(rotulo, html)`, que guardam o
+  modelo e renderizam de novo na troca de tema (sem reiniciar). `tests/test_temas.py` acusa `#RRGGBB`
+  na `ui/` (exceto as cores de dado do mapa) e contraste de texto abaixo de 4,5:1.
+- Logos dos temas: `python tools/gerar_logos.py` (duotone do `assets/logo_ave.svg`).
+
 ## Testes
 
 - Offline: `python -m pytest tests` (sem rede, sem Chrome).

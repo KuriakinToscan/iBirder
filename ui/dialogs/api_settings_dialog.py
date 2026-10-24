@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import (QApplication, QDialog, QVBoxLayout, QHBoxLayout, 
                                QLabel, QLineEdit, QPushButton, 
-                               QMessageBox, QFormLayout, QCheckBox)
+                               QMessageBox, QFormLayout, QCheckBox, QGroupBox,
+                               QRadioButton, QButtonGroup)
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtCore import QUrl
 from core.config import carregar_config, salvar_config
@@ -8,20 +9,46 @@ from core.paths import APP_DIR
 import requests
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QCursor
+from core.style_manager import StyleManager
+from core.temas import TEMAS, TEMA_PADRAO
 
 class APISettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Configurações de API (Integrações)")
-        self.resize(500, 260)
+        self.setWindowTitle("Configurações")
+        self.resize(520, 400)
         
         self.config = carregar_config()
+        # Tema salvo: a escolha é aplicada na hora (prévia) e desfeita se o diálogo for cancelado
+        self._tema_salvo = self.config.get("tema") or TEMA_PADRAO
         
         self.init_ui()
         self.load_data()
         
     def init_ui(self):
         layout = QVBoxLayout(self)
+
+        # Aparência (v1.4): um botão por tema de core/temas.py
+        grupo_tema = QGroupBox("Aparência")
+        layout_tema = QVBoxLayout(grupo_tema)
+        self.grupo_botoes_tema = QButtonGroup(self)
+        self.botoes_tema = {}
+        for tema in TEMAS.values():
+            botao = QRadioButton(tema.nome)
+            botao.setToolTip(tema.descricao)
+            botao.setCursor(Qt.PointingHandCursor)
+            botao.toggled.connect(lambda marcado, t=tema.id: marcado and self._previa_tema(t))
+            self.grupo_botoes_tema.addButton(botao)
+            self.botoes_tema[tema.id] = botao
+            layout_tema.addWidget(botao)
+        lbl_tema = QLabel("O tema é aplicado na hora, sem reiniciar o iBirder.")
+        lbl_tema.setProperty("class", "lbl-placeholder")
+        layout_tema.addWidget(lbl_tema)
+        layout.addWidget(grupo_tema)
+
+        lbl_apis = QLabel("Integrações em nuvem")
+        lbl_apis.setProperty("class", "lbl-titulo-sessao")
+        layout.addWidget(lbl_apis)
         
         form_layout = QFormLayout()
         
@@ -39,7 +66,8 @@ class APISettingsDialog(QDialog):
         layout.addLayout(form_layout)
         
         # Link de Ajuda
-        self.lbl_help = QLabel('<a href="#help" style="color: #66b2ff;">Como obter essas chaves? (passo a passo)</a>')
+        self.lbl_help = QLabel()
+        StyleManager.definir_texto(self.lbl_help, '<a href="#help" style="color: var(--link);">Como obter essas chaves? (passo a passo)</a>')
         self.lbl_help.linkActivated.connect(self._show_help)
         layout.addWidget(self.lbl_help)
 
@@ -51,6 +79,7 @@ class APISettingsDialog(QDialog):
         btn_layout = QHBoxLayout()
         self.btn_test = QPushButton("Testar Chaves")
         self.btn_save = QPushButton("Salvar")
+        self.btn_save.setProperty("class", "primario")
         self.btn_cancel = QPushButton("Cancelar")
         
         btn_layout.addWidget(self.btn_test)
@@ -133,6 +162,26 @@ class APISettingsDialog(QDialog):
         self.input_inat.setText(self.config.get("inat_api_token", ""))
         self.input_google.setText(self.config.get("google_vision_api_key", ""))
         self.chk_atualizacoes.setChecked(bool(self.config.get("verificar_atualizacoes", True)))
+        botao = self.botoes_tema.get(self._tema_salvo) or self.botoes_tema[TEMA_PADRAO]
+        botao.blockSignals(True)  # marcar o tema salvo não é uma prévia
+        botao.setChecked(True)
+        botao.blockSignals(False)
+
+    def _tema_escolhido(self):
+        for id_tema, botao in self.botoes_tema.items():
+            if botao.isChecked():
+                return id_tema
+        return self._tema_salvo
+
+    def _previa_tema(self, id_tema):
+        """Aplica o tema marcado na hora, para a pessoa ver antes de salvar."""
+        StyleManager.apply_theme(QApplication.instance(), tema=id_tema)
+
+    def reject(self):
+        # Cancelar (ou fechar no X) desfaz a prévia do tema
+        if StyleManager.tema_atual().id != self._tema_salvo:
+            StyleManager.apply_theme(QApplication.instance(), tema=self._tema_salvo)
+        super().reject()
         
     def save_settings(self):
         from core.diagnostico_apis import normalizar_token_inat
@@ -144,8 +193,10 @@ class APISettingsDialog(QDialog):
             "inat_api_token": self.config["inat_api_token"],
             "google_vision_api_key": self.config["google_vision_api_key"],
             "verificar_atualizacoes": self.chk_atualizacoes.isChecked(),
+            "tema": self._tema_escolhido(),
         })
         self.config = atual
         salvar_config(self.config)
+        self._tema_salvo = self.config["tema"]
         QMessageBox.information(self, "Sucesso", "Configurações salvas com sucesso.")
         self.accept()
