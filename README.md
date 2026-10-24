@@ -39,10 +39,10 @@ A identificação roda **no seu computador**. Quando a IA local fica em dúvida,
 - As listas embarcadas (MMA, CITES, ocorrência no Brasil) refletem a data da versão; são atualizadas com `tools/atualizar_listas_conservacao.py`.
 - O token do iNaturalist expira em cerca de 24 horas.
 
-## 🗺️ Em planejamento
+## 🗺️ Em desenvolvimento
 - **Publicar o registro** ([issue #9](https://github.com/KuriakinToscan/iBirder/issues/9)):
-  - iNaturalist: envio direto da observação com a foto, após a confirmação do usuário. Licença padrão: observação CC BY e foto CC BY-NC. A localização das espécies ameaçadas é ocultada por sugestão.
-  - WikiAves: assistente que prepara os dados e abre a página de envio. O envio é manual, porque os Termos de Uso do WikiAves proíbem automação.
+  - iNaturalist: envio direto da observação com a foto, depois da conferência do usuário. Licença padrão da observação: CC BY. A localização das espécies ameaçadas é ocultada por sugestão. O código está pronto; falta registrar o aplicativo no iNaturalist para ativar.
+  - WikiAves (planejado): assistente que prepara os dados e abre a página de envio. O envio é manual, porque os Termos de Uso do WikiAves proíbem automação.
 
 ## 🛠️ Tecnologias e Fontes
 - **IA local**: **MobileNetV2** quantizada (modelo "Birds V1" do Google AIY Vision, treinado com o iNaturalist), executada com o **LiteRT** (TensorFlow Lite).

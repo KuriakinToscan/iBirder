@@ -1,7 +1,7 @@
 # iBirder — notas para o Claude Code
 
 Aplicativo desktop (Windows) em Python 3.12 + PySide6 para identificação de aves por foto.
-Pipeline em `core/orchestrator.py`; etapas em `modules/step1..step6`; interface em `ui/`.
+Pipeline em `core/orchestrator.py`; etapas em `modules/step1..step6` (e publicação em `modules/step7_publicacao`); interface em `ui/`.
 
 ## Ambiente de testes do usuário (Windows / Anaconda)
 
@@ -49,20 +49,30 @@ inclusive com Chrome headless).
   consultadas por `modules/step3_geography/listas_conservacao.py`.
 - Subespécie da portaria só casa com subespécie no iNaturalist (nunca marcar a espécie inteira).
 
-## Postagem no iNaturalist e no WikiAves (planejada, issue #9; decisões de 24/10/2026)
+## Postagem no iNaturalist e no WikiAves (issue #9; decisões de 24/10/2026)
 
-- **iNaturalist**: autenticação por **OAuth** (aplicativo registrado), não pelo JWT de 24 h usado na
-  identificação. API v1: `POST /observations` e depois `POST /observation_photos`. Requisitos de
-  registro do app e suporte a PKCE ainda não verificados.
-- Licenças padrão: **observação CC BY** e **foto CC BY-NC**. Só observações em CC0, CC BY ou CC BY-NC
-  vão para o GBIF. Geoprivacidade **aberta** por padrão, com sugestão de **ocultada** para espécies CR/EN/VU
-  da Portaria MMA 148/2022 ou do Anexo I da CITES (tabelas de `assets/conservacao/`). O usuário confirma
-  antes de cada envio, e o id da observação fica guardado para evitar duplicata.
+- **iNaturalist (fase 1, implementada)**: `core/inat_oauth.py` (OAuth 2.0 com **PKCE**, sem client
+  secret; retorno em `http://127.0.0.1:8913/callback`; access token salvo em `inat_oauth_token` e trocado
+  por JWT em `/users/api_token`), `modules/step7_publicacao/` (corpo da observação, envio e thread) e
+  `ui/dialogs/publicar_inat_dialog.py` (conferência obrigatória). API v1: `POST /observations` e depois
+  `POST /observation_photos` com o **id numérico** (UUID dá 422). O JWT de 24 h em `inat_api_token`
+  continua só para a identificação.
+- **Pendente:** registrar o aplicativo iBirder em inaturalist.org/oauth/applications com o redirect URI
+  acima, exatamente igual, e preencher `INAT_APP_ID` em `core/inat_oauth.py`. Até lá o botão explica que
+  a publicação não está ativa (o `config.json` aceita `inat_app_id` para testes).
+- **Não verificado sem teste real** (rodar no `ibirder-teste`): se a API aceita `license` no corpo da
+  observação (o app registra no log quando a licença aplicada difere da pedida) e se o access token OAuth
+  expira (o fluxo refaz o login uma vez se `/users/api_token` responder 401).
+- Licenças padrão: **observação CC BY**; a da **foto** segue a conta do usuário (recomendado CC BY-NC).
+  Só observações em CC0, CC BY ou CC BY-NC vão para o GBIF. Geoprivacidade **aberta** por padrão, com
+  sugestão de **ocultada** para espécies CR/EN/VU da Portaria MMA 148/2022 ou do Anexo I da CITES.
+- O id da observação é gravado como `iBirder|Publicacao|iNaturalist|<id>`. Regravar a foto **não** remove
+  essa tag (`EXIFManager._gerar_comandos`).
 - **WikiAves** (Termos de Uso v02, 31/08/2021): o item 13.3 proíbe mineração de dados, bots e
-  "operações massificadas". **Não automatizar o envio.** O app só prepara foto, espécie, data e município,
-  mostra o checklist das regras (mídia própria; ave nativa pela lista do CBRO e em liberdade; sem
-  pessoa, borda ou assinatura) e abre a página de envio, e o usuário envia manualmente, logado na própria
-  conta. Nunca guardar a senha do WikiAves.
+  "operações massificadas". **Não automatizar o envio.** A fase 2 (ainda não feita) é um assistente: o
+  app prepara foto, espécie, data e município, mostra o checklist das regras (mídia própria; ave nativa
+  pela lista do CBRO e em liberdade; sem pessoa, borda ou assinatura) e abre a página de envio, e o usuário
+  envia manualmente, logado na própria conta. Nunca guardar a senha do WikiAves.
 - A leitura automatizada da etapa 2 foi mantida por decisão do mantenedor (uso não comercial, com
   crédito; issue #10 fechada). Os textos wiki estão em CC BY-NC-SA 4.0 (item 12.6 dos termos).
 - O ambiente do Claude não alcança wikiaves.com.br: para ler páginas do site, pedir o texto ao usuário.

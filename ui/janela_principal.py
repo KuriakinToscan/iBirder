@@ -446,6 +446,7 @@ class JanelaPrincipal(QMainWindow):
         # Se chegamos aqui, temos dados biológicos mínimos para persistir.
         if hasattr(self, 'btn_gravar_exif'):
             self.btn_gravar_exif.setEnabled(True)
+            self.btn_publicar_inat.setEnabled(True)
             self.btn_gravar_exif.setVisible(True)
             
         self.frame_etimologia.setVisible(False)
@@ -512,6 +513,7 @@ class JanelaPrincipal(QMainWindow):
         # Taxonomia, geografia e conservação continuam graváveis na foto
         if hasattr(self, 'btn_gravar_exif') and self.session_logger.buffer:
             self.btn_gravar_exif.setEnabled(True)
+            self.btn_publicar_inat.setEnabled(True)
             self.btn_gravar_exif.setVisible(True)
 
     def _ao_erro_api(self, erro_msg):
@@ -828,6 +830,12 @@ class JanelaPrincipal(QMainWindow):
         self.btn_gravar_exif.setCursor(Qt.PointingHandCursor)
         self.btn_gravar_exif.setEnabled(False)
         self.btn_gravar_exif.clicked.connect(self._gravar_metadados_exif)
+        self.btn_publicar_inat = QPushButton("Publicar no iNaturalist")
+        self.btn_publicar_inat.setToolTip("Publica a foto como observação na sua conta do iNaturalist")
+        self.btn_publicar_inat.setCursor(Qt.PointingHandCursor)
+        self.btn_publicar_inat.setEnabled(False)
+        self.btn_publicar_inat.clicked.connect(self._publicar_inaturalist)
+        self.worker_publicacao = None
 
         # 4. Blocos Geo e Audio (v1.6.25: Mapa em Card Padronizado)
         self.grupo_mapa_card = QFrame()
@@ -896,6 +904,7 @@ class JanelaPrincipal(QMainWindow):
             buscas=barra_buscas,
             btn_nova=self.btn_nova,
             btn_gravar=self.btn_gravar_exif,
+            btn_publicar=self.btn_publicar_inat,
             mapa=self.grupo_mapa_card,
             geo=grupo_geo,
             sons=grupo_audio,
@@ -1510,6 +1519,7 @@ class JanelaPrincipal(QMainWindow):
             self.btn_google.setEnabled(True)
             self.btn_ebird.setEnabled(True)
             self.btn_gravar_exif.setEnabled(True)
+            self.btn_publicar_inat.setEnabled(True)
             self.btn_wiki.setVisible(True)
             self.btn_google.setVisible(True)
             self.btn_ebird.setVisible(True)
@@ -1924,6 +1934,7 @@ class JanelaPrincipal(QMainWindow):
         self.btn_google.setEnabled(False)
         self.btn_ebird.setEnabled(False)
         self.btn_gravar_exif.setEnabled(False)
+        self.btn_publicar_inat.setEnabled(False)
         self.btn_wiki.setVisible(True)
         self.btn_google.setVisible(True)
         self.btn_ebird.setVisible(True)
@@ -2019,6 +2030,105 @@ class JanelaPrincipal(QMainWindow):
             except Exception as e:
                 DialogoAviso("Erro", f"Falha na gravação: {e}", self, tipo="erro").exec()
 
+    def _publicar_inaturalist(self):
+        """Publica a foto como observação no iNaturalist, depois da conferência do usuário (issue #9)."""
+        from core import inat_oauth
+        from modules.step6_persistence.registro_ibirder import ler_registro
+        from modules.step7_publicacao import inat_publicador
+        from ui.dialogs.publicar_inat_dialog import DialogoPublicarInat
+
+        if not self.caminho_imagem_atual or not self.session_logger.buffer:
+            DialogoAviso("Sem Dados", "Identifique a ave antes de publicar.", self, tipo="info").exec()
+            return
+        if self.worker_publicacao and self.worker_publicacao.isRunning():
+            self.status_bar.showMessage("Publicação em andamento...", 5000)
+            return
+        config = carregar_config()
+        if not inat_oauth.obter_app_id(config):
+            DialogoAviso("Publicação indisponível",
+                         "O aplicativo iBirder ainda não foi registrado no iNaturalist, então a publicação "
+                         "não está ativa nesta versão. Veja o guia do usuário.", self, tipo="info").exec()
+            return
+        try:
+            inat_publicador.verificar_foto(self.caminho_imagem_atual)
+        except inat_publicador.ErroPublicacao as e:
+            DialogoAviso("Não é possível publicar", str(e), self, tipo="erro").exec()
+            return
+
+        id_anterior = inat_publicador.ler_publicacao(ler_registro(self.caminho_imagem_atual))
+        if id_anterior:
+            pergunta = DialogoAviso("Foto já publicada",
+                                    f"Esta foto já foi publicada no iNaturalist (observação {id_anterior}). "
+                                    "Publicar de novo cria uma observação duplicada. Continuar?",
+                                    self, tipo="pergunta")
+            if not pergunta.exec():
+                return
+
+        dados = self.session_logger.buffer[-1]
+        nome = dados.get("nome_cientifico") or self.especie_em_processamento
+        try:
+            taxon_id = inat_publicador.obter_taxon_id(nome)
+        except Exception as e:
+            logging.error(f"[Publicação] Falha ao consultar o táxon {nome}: {e}")
+            taxon_id = None
+        if not taxon_id:
+            DialogoAviso("Não é possível publicar",
+                         f"Não foi possível confirmar {nome} no iNaturalist (sem conexão ou nome diferente).",
+                         self, tipo="erro").exec()
+            return
+
+        geo_sugerida, motivo = inat_publicador.sugerir_geoprivacidade(nome, taxon_id)
+        local = ", ".join(v for v in (dados.get("municipio"), dados.get("estado")) if v)
+        resumo = {
+            "nome_cientifico": nome,
+            "nome_comum": dados.get("nome_comum"),
+            "data": inat_publicador.ler_data_foto(self.caminho_imagem_atual),
+            "latitude": self.lat_atual,
+            "longitude": self.lon_atual,
+            "local": local,
+            "arquivo": Path(self.caminho_imagem_atual).name,
+        }
+        dialogo = DialogoPublicarInat(resumo, geo_sugerida, motivo,
+                                      config.get("inat_licenca_observacao") or inat_publicador.LICENCA_PADRAO, self)
+        if not dialogo.exec():
+            return
+        try:
+            corpo = inat_publicador.montar_observacao(
+                taxon_id, nome, resumo["data"], self.lat_atual, self.lon_atual,
+                geoprivacidade=dialogo.geoprivacidade(), licenca=dialogo.licenca(), descricao=dialogo.descricao())
+        except inat_publicador.ErroPublicacao as e:
+            DialogoAviso("Não é possível publicar", str(e), self, tipo="erro").exec()
+            return
+
+        from modules.step7_publicacao.publicacao_worker import PublicacaoInatWorker
+        self.btn_publicar_inat.setEnabled(False)
+        self.worker_publicacao = PublicacaoInatWorker(corpo, self.caminho_imagem_atual, self)
+        caminho = self.caminho_imagem_atual
+        self.worker_publicacao.progresso.connect(lambda texto: self.status_bar.showMessage(texto))
+        self.worker_publicacao.concluido.connect(lambda r: self._ao_publicar_inaturalist(r, caminho))
+        self.worker_publicacao.falhou.connect(self._ao_falhar_publicacao)
+        self.worker_publicacao.start()
+
+    def _ao_publicar_inaturalist(self, resultado, caminho):
+        self.btn_publicar_inat.setEnabled(True)
+        registrado = EXIFManager().gravar_publicacao(caminho, "iNaturalist", resultado["id"])
+        self.status_bar.showMessage(f"Publicado no iNaturalist: observação {resultado['id']}", 10000)
+        mensagem = f"Observação {resultado['id']} criada no iNaturalist."
+        if not resultado.get("foto_ok"):
+            mensagem += " A foto não foi enviada: anexe-a pela página da observação."
+        if not registrado:
+            mensagem += " O número da observação não pôde ser gravado na foto."
+        DialogoAviso("Publicado", mensagem, self, botoes=[
+            {"texto": "Fechar"},
+            {"texto": "Abrir no site", "destaque": True,
+             "funcao": lambda: QDesktopServices.openUrl(QUrl(resultado["url"]))},
+        ]).exec()
+
+    def _ao_falhar_publicacao(self, mensagem):
+        self.btn_publicar_inat.setEnabled(True)
+        self.status_bar.showMessage("Publicação no iNaturalist não concluída.", 8000)
+        DialogoAviso("Publicação não concluída", mensagem, self, tipo="erro").exec()
+
     def _renomear_foto(self, renomeacao):
         """
         Renomeia a foto depois da gravação (os dados já estão salvos mesmo se falhar).
@@ -2071,6 +2181,8 @@ class JanelaPrincipal(QMainWindow):
         # Aguarda (com limite) as threads em execução para não fechar com a thread ativa
         if hasattr(self, 'orchestrator'):
             self.orchestrator.encerrar()
+        if getattr(self, "worker_publicacao", None) and self.worker_publicacao.isRunning():
+            self.worker_publicacao.wait(3000)  # envio em andamento: espera um pouco antes de fechar
         if hasattr(self, 'session_logger'):
             self.session_logger.flush()
             self.session_logger.limpar_sessao()

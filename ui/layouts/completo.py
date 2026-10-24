@@ -78,7 +78,8 @@ class LayoutCompleto(Layout):
         grade.addWidget(p.descricao, 3, 0, 1, 2)
         grade.addWidget(p.conservacao, 3, 2)
 
-        grade.addWidget(p.btn_nova, 4, 0, 1, 2)
+        grade.addWidget(p.btn_nova, 4, 0)
+        grade.addWidget(p.btn_publicar, 4, 1)
         grade.addWidget(p.btn_gravar, 4, 2)
 
         grade.addWidget(p.mapa, 5, 0, 2, 2)

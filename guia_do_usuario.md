@@ -100,6 +100,26 @@ Antes de renomear, o iBirder confere se o nome original foi mesmo gravado na fot
 
 > **O arquivo original é alterado.** Mantenha um backup das suas fotos. O iBirder não altera o autor da foto nem os dados da câmera, e gravar duas vezes a mesma foto não duplica as palavras-chave.
 
+### [ETAPA 8] Publicar no iNaturalist (opcional)
+Clique em **Publicar no iNaturalist** para criar uma observação na **sua conta** do iNaturalist com a foto, a espécie, a data de captura e o local.
+
+Antes do envio, uma janela mostra tudo o que será publicado:
+
+- **Localização pública:** *Aberta* mostra a coordenada exata; *Ocultada* mostra um ponto aleatório numa área de cerca de 0,2° × 0,2° (a coordenada real fica guardada e só é compartilhada com quem você autorizar no iNaturalist); *Privada* não mostra nenhuma localização. Para espécies ameaçadas da lista nacional (CR, EN, VU) ou do Anexo I da CITES, o iBirder **sugere ocultar**.
+- **Licença da observação:** o padrão é **CC BY**, que permite o reúso dos dados com crédito e o envio ao GBIF. Também há CC BY-NC e CC0.
+- **Licença da foto:** segue a configuração da sua conta no iNaturalist. Recomendamos **CC BY-NC**.
+- **Descrição:** texto livre, que pode ser editado.
+
+Marque **"Conferi a espécie, a data e o local, e a foto é de minha autoria"** para liberar o botão **Publicar**. A identificação automática pode errar, e a observação fica pública.
+
+Na primeira publicação, o navegador abre a página do iNaturalist para você **autorizar o iBirder**. Sua senha é digitada só no site do iNaturalist e nunca passa pelo iBirder. Depois disso, o iBirder lembra a autorização e só pede de novo quando ela expirar.
+
+Ao terminar, o número da observação é gravado na foto (*iBirder > Publicacao > iNaturalist*). Se você tentar publicar a mesma foto de novo, o iBirder avisa, para não duplicar a observação.
+
+> A foto precisa ter a **data de captura** (EXIF) e estar em **JPG ou PNG**. Sem localização, a observação é publicada, mas não chega ao grau de pesquisa do iNaturalist.
+
+> **WikiAves:** os Termos de Uso do WikiAves proíbem envio automatizado. A publicação lá continua sendo feita por você, pelo site.
+
 ---
 
 ## 3. Botões do topo
@@ -145,6 +165,7 @@ Para configurar, clique na **engrenagem (⚙)** e depois em **"Como obter essas 
 - **As coordenadas:** são enviadas ao OpenStreetMap (Nominatim) para descobrir país, estado e município.
 - **O nome da espécie:** é enviado ao WikiAves, iNaturalist, GBIF e eBird para buscar as informações.
 - **Chaves de API:** ficam só no seu computador e nunca aparecem nos logs nem no diagnóstico.
+- **Publicação no iNaturalist:** só acontece quando você clica em **Publicar** e confirma. São enviados a foto original (com os metadados), a espécie, a data, as coordenadas e a descrição, para a sua conta. A autorização fica guardada só no seu computador.
 - **Novas versões:** a consulta ao GitHub informa só a versão do iBirder em uso (como em qualquer acesso à internet, o GitHub recebe o seu endereço IP). Pode ser desligada na engrenagem (⚙).
 
 ---
@@ -156,4 +177,5 @@ Para configurar, clique na **engrenagem (⚙)** e depois em **"Como obter essas 
 - **Identificação inconclusiva em espécie comum:** a espécie pode não estar entre as que a IA local conhece. Use a Busca Manual ou configure o iNaturalist.
 - **Vocalização não toca:** a janela mostra o motivo e o botão **Abrir no navegador**.
 - **Erro ao testar as chaves:** siga a mensagem do botão **Testar Chaves** e o passo a passo da engrenagem (⚙).
+- **Publicação no iNaturalist:** "porta 8913 ocupada" significa que outro programa usa a porta do retorno da autorização: feche-o e tente de novo. Se a foto não for enviada, a observação já existe: anexe a foto pela página da observação, sem publicar de novo. Se aparecer "Publicação indisponível", esta versão do iBirder ainda não foi registrada no iNaturalist.
 - **Qualquer outro problema:** use **Ajuda (?) > Copiar diagnóstico** e envie o texto ao suporte.
