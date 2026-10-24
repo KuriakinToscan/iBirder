@@ -60,6 +60,8 @@ from modules.step5_taxonomy.ebird_worker import EBirdWorker
 from core.config import carregar_config
 from ui.estado_identificacao import EstadoIdentificacao
 from ui.layouts import Paineis, obter_layout
+from ui.widgets.busca_especies import BuscaEspecies
+from ui.widgets.layout_fluxo import LayoutFluxo
 
 # GeoWorker migrado para o Orchestrator v0.4.2
 
@@ -684,6 +686,12 @@ class JanelaPrincipal(QMainWindow):
         # Cada sugestão é um link: clicar faz a busca manual daquela espécie
         self.lbl_candidatos.linkActivated.connect(self._buscar_candidato)
 
+        # Sugestões como botões (v1.4): um clique faz a busca manual daquela espécie
+        self.barra_candidatas = QWidget()
+        # Quebra linha em colunas estreitas
+        self.layout_candidatas = LayoutFluxo(self.barra_candidatas, espaco=StyleManager.SPACING_SM)
+        self.barra_candidatas.setVisible(False)
+
         self.lbl_nome_ingles = QLabel()
         StyleManager.definir_texto(self.lbl_nome_ingles, self._format_nome_ave("Nome em Inglês:", self.PLACEHOLDER_TEXT, is_placeholder=True))
         self.lbl_nome_ingles.setWordWrap(True)
@@ -698,7 +706,10 @@ class JanelaPrincipal(QMainWindow):
         self.input_especie = QLineEdit()
         self.input_especie.setPlaceholderText("pesquise ou digite")
         self.input_especie.setProperty("class", "sci-name-input")
-        self.input_especie.returnPressed.connect(self._realizar_busca_manual)
+        # Enter busca pela BuscaEspecies (ela distingue Enter no texto de Enter numa sugestão)
+        self.input_especie.setToolTip("Digite parte do nome científico ou do nome em inglês (Ctrl+K)")
+        # Sugestões do catálogo embarcado enquanto digita; escolher uma já faz a busca
+        self.busca_especies = BuscaEspecies(self.input_especie, self._realizar_busca_manual)
         
         self.btn_search = QPushButton()
         self.btn_search.setCursor(Qt.PointingHandCursor)
@@ -714,6 +725,7 @@ class JanelaPrincipal(QMainWindow):
         layout_res.addLayout(container_busca)
         layout_res.addWidget(self.lbl_certeza)
         layout_res.addWidget(self.lbl_candidatos)
+        layout_res.addWidget(self.barra_candidatas)
         layout_res.addWidget(self.lbl_nome_comum)
         layout_res.addWidget(self.lbl_nome_ingles)
 
@@ -923,6 +935,13 @@ class JanelaPrincipal(QMainWindow):
         # Atalhos (valem em todos os layouts)
         QShortcut(QKeySequence.Open, self, activated=self._abrir_seletor_arquivo)
         QShortcut(QKeySequence.Save, self, activated=self._atalho_gravar)
+        QShortcut(QKeySequence("Ctrl+K"), self, activated=self._atalho_buscar_especie)
+
+    def _atalho_buscar_especie(self):
+        """Ctrl+K: vai para o campo do nome científico, pronto para digitar."""
+        self._mostrar_widget(self.input_especie)
+        self.input_especie.setFocus(Qt.ShortcutFocusReason)
+        self.input_especie.selectAll()
 
     def _atalho_gravar(self):
         """Ctrl+S: o mesmo que o botão Gravar, só quando ele está liberado."""
@@ -1075,18 +1094,41 @@ class JanelaPrincipal(QMainWindow):
         self.input_especie.setText(nome_cientifico)
         self._realizar_busca_manual()
 
-    def _html_candidatos(self, titulo, candidatos, marcar_sem_registro=False):
-        """Lista de candidatos clicáveis (nome científico + confiança)."""
+    def _mostrar_candidatos(self, titulo, candidatos, marcar_sem_registro=False, aviso_html=""):
+        """
+        Sugestões como botões (até 3): nome científico e confiança; um clique faz a busca
+        manual. O rótulo acima mostra o aviso (se houver) e o título.
+        """
         from modules.step3_geography import listas_conservacao as listas
-        html = f'<div style="line-height: 150%; font-size: 12px; color: var(--texto);">{titulo}<br>'
+        html = aviso_html
+        if candidatos:
+            html += f'<div style="font-size: 12px; color: var(--texto);">{titulo}</div>'
+        StyleManager.definir_texto(self.lbl_candidatos, html)
+        self.lbl_candidatos.setVisible(bool(html))
+
+        self._limpar_candidatos()
         for cand in candidatos[:3]:
             nome = cand.get("nome_cientifico") or cand.get("label", "")
-            nota = ""
+            if not nome:
+                continue
+            botao = QPushButton(f"{nome}  {cand.get('confianca', 0.0)*100:.0f}%")
+            botao.setProperty("class", "chip")
+            botao.setCursor(Qt.PointingHandCursor)
+            dica = f"Pesquisar {nome}"
             if marcar_sem_registro and not listas.registrada_no_brasil(nome):
-                nota = ' <span style="color: var(--texto_suave);">(sem registro no Brasil)</span>'
-            html += (f'• <a href="{nome}" style="color: var(--link);"><i>{nome}</i></a> '
-                     f'({cand.get("confianca", 0.0)*100:.1f}%){nota}<br>')
-        return html + '</div>'
+                botao.setText(botao.text() + "  ·  sem registro no Brasil")
+                dica += " (sem registro de grau de pesquisa no Brasil no iNaturalist)"
+            botao.setToolTip(dica)
+            botao.clicked.connect(lambda _=False, n=nome: self._buscar_candidato(n))
+            self.layout_candidatas.addWidget(botao)
+        self.barra_candidatas.setVisible(self.layout_candidatas.count() > 0)
+
+    def _limpar_candidatos(self):
+        while self.layout_candidatas.count():
+            item = self.layout_candidatas.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        self.barra_candidatas.setVisible(False)
 
     def _realizar_busca_manual(self):
         texto = self.input_especie.text().strip()
@@ -1487,14 +1529,11 @@ class JanelaPrincipal(QMainWindow):
                 alternativas = dados.get("alternativas_brasil") or []
                 html = (f'<div style="font-size: 12px; color: var(--alerta_texto); background: var(--alerta_fundo); padding: 6px;">'
                         f'⚠ {aviso}</div>')
-                if alternativas:
-                    html += self._html_candidatos("<b>Candidatas com registro no Brasil</b> (clique para pesquisar):",
-                                                  alternativas)
-                StyleManager.definir_texto(self.lbl_candidatos, html)
-                self.lbl_candidatos.setVisible(True)
+                self._mostrar_candidatos("<b>Candidatas com registro no Brasil</b> (clique para pesquisar):",
+                                         alternativas, aviso_html=html)
                 self.status_bar.showMessage("Atenção: espécie sugerida sem registro no Brasil. Confira a identificação.", 15000)
             else:
-                self.lbl_candidatos.setVisible(False)
+                self._mostrar_candidatos("", [])
         else:
              self.input_especie.clear()
              self.input_especie.setProperty("class", "container-borda-cinza")
@@ -1503,15 +1542,10 @@ class JanelaPrincipal(QMainWindow):
              
              # Sugestões alternativas da IA local (clicáveis). Antes nunca apareciam:
              # a identificação não enviava os candidatos.
-             if top_candidates:
-                 from modules.step1_identity.id_worker import foto_no_brasil
-                 no_brasil = bool(foto_no_brasil(self.lat_atual, self.lon_atual))
-                 StyleManager.definir_texto(self.lbl_candidatos, self._html_candidatos(
-                     "<b>Sugestões alternativas</b> (clique para pesquisar):", top_candidates,
-                     marcar_sem_registro=no_brasil))
-                 self.lbl_candidatos.setVisible(True)
-             else:
-                 self.lbl_candidatos.setVisible(False)
+             from modules.step1_identity.id_worker import foto_no_brasil
+             no_brasil = bool(foto_no_brasil(self.lat_atual, self.lon_atual))
+             self._mostrar_candidatos("<b>Sugestões alternativas</b> (clique para pesquisar):",
+                                      top_candidates or [], marcar_sem_registro=no_brasil)
         
         if status_msg == "Baixa confiança":
             self.status_bar.showMessage("Identificação inconclusiva.")
@@ -1969,6 +2003,7 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_certeza.setVisible(False)
         StyleManager.definir_texto(self.lbl_candidatos, "")
         self.lbl_candidatos.setVisible(False)
+        self._limpar_candidatos()
         
         self.txt_etimologia.clear()
         self.txt_etimologia.setPlaceholderText(self.PLACEHOLDER_TEXT)

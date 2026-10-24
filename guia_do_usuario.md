@@ -33,10 +33,10 @@ A IA local analisa a ave e mostra o **nome científico** e a **Certeza** (por ex
 
 Se a certeza ficar **abaixo de 70%**, o iBirder consulta a nuvem, caso você tenha configurado uma chave (veja a seção 4). Se ainda assim não houver resultado confiável, a identificação aparece como **inconclusiva**. Nesse caso:
 
-- digite o nome científico no campo de **Busca Manual** e clique na lupa; ou
+- digite parte do nome científico ou do nome em inglês no campo **Nome Científico** (atalho **Ctrl+K**) e escolha uma das sugestões, ou digite o nome completo e pressione Enter; ou
 - use o botão **Pesquisar com Google Lens**: a página do Lens abre no navegador; arraste a foto do iBirder para ela. **Nesse caso, a foto é enviada ao Google.**
 
-Os **candidatos** sugeridos pela IA aparecem como links: clique em um deles para buscar as informações dessa espécie.
+Os **candidatos** sugeridos pela IA aparecem como botões, com a certeza de cada um: clique em um deles para buscar as informações dessa espécie.
 
 **Aviso de região:** se a foto foi tirada no Brasil e a IA sugerir uma espécie **sem registro no país** (por exemplo, uma ave da América do Norte), o iBirder tenta a nuvem e, sem ela, mostra um aviso em amarelo com os candidatos que ocorrem no Brasil. A verificação usa uma lista de cerca de 1.750 espécies com registro no Brasil (iNaturalist), já instalada.
 
@@ -132,6 +132,7 @@ Ao terminar, o número da observação é gravado na foto (*iBirder > Publicacao
 
 - **Ctrl+O:** abrir uma foto.
 - **Ctrl+S:** gravar os dados na fotografia (quando o botão Gravar está liberado).
+- **Ctrl+K:** ir para o campo **Nome Científico** e buscar uma espécie.
 
 ### Aparência
 
@@ -146,7 +147,9 @@ No mesmo quadro, **Layout** escolhe a arrumação da tela:
 - **Painel completo:** tudo visível numa grade de três colunas, com rolagem.
 - **Fluxo guiado:** uma etapa por vez. A barra no alto mostra **Foto › Identificação › Conferir › Gravar** e diz o que fazer em seguida; descrição, classificação, mapa e sons ficam em abas, sem rolar a janela.
 
-Os layouts **Ficha compacta** e **Mesa de trabalho** chegam nas próximas versões.
+- **Ficha compacta:** tudo numa tela, em três colunas (fotos; ficha da espécie; mapa e sons), cada coluna com rolagem própria.
+
+O layout **Mesa de trabalho** chega na próxima versão.
 
 Tema e layout mudam na hora, enquanto você escolhe. **Salvar** mantém a escolha; **Cancelar** volta ao que estava antes.
 

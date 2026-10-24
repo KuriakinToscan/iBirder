@@ -13,7 +13,8 @@ montar outro widget com os mesmos painéis, sem perder o que já está na tela.
 
 from dataclasses import dataclass, fields
 
-from PySide6.QtWidgets import QWidget
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QFrame, QScrollArea, QVBoxLayout, QWidget
 
 
 @dataclass
@@ -53,3 +54,25 @@ class Layout:
         `estado` (EstadoIdentificacao, opcional) serve aos layouts que mudam conforme a etapa.
         """
         raise NotImplementedError
+
+
+def coluna_rolavel(*widgets, margem=8, espaco=12):
+    """
+    Coluna de painéis com rolagem própria, para layouts em que a janela não rola
+    (Fluxo guiado, Ficha compacta). O fundo vem do tema (#area_rolagem).
+    """
+    rolagem = QScrollArea()
+    rolagem.setObjectName("area_rolagem")
+    rolagem.setWidgetResizable(True)
+    rolagem.setFrameShape(QFrame.NoFrame)
+    rolagem.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # só rola na vertical
+    conteudo = QWidget()
+    conteudo.setObjectName("container_rolagem")
+    layout = QVBoxLayout(conteudo)
+    layout.setContentsMargins(margem, margem, margem, margem)
+    layout.setSpacing(espaco)
+    for widget in widgets:
+        layout.addWidget(widget)
+    layout.addStretch()
+    rolagem.setWidget(conteudo)
+    return rolagem

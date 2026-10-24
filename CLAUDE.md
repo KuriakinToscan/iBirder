@@ -89,6 +89,9 @@ inclusive com Chrome headless).
   eles; um layout só os posiciona em `montar()` (cada painel uma vez). Trocar de layout reparenta os
   painéis (`JanelaPrincipal._aplicar_layout`), sem recriar. Escolha em `config.json` (`"layout"`).
   A etapa atual (sem foto, identificando, conferir, gravada...) fica em `ui/estado_identificacao.py`.
+- Busca de espécies (Ctrl+K): `core/catalogo_especies.py` (eBird embarcado + registradas no Brasil,
+  sem nome popular em português) e `ui/widgets/busca_especies.py`, que também trata o Enter do campo
+  (o Qt entrega o Enter ao campo antes de ativar a sugestão: não ligar `returnPressed` à busca).
 
 ## Testes
 
