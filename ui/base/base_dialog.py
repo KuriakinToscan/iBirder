@@ -25,7 +25,7 @@ class BaseDialog(QDialog):
     """
     Classe base para todos os diálogos secundários do iBirder.
     Aplica automaticamente o título, margens consistentes, ícone do aplicativo
-    e o QSS global via StyleManager.
+    e a barra de título no tema ativo (o QSS global vem do QApplication).
     
     Os diálogos filhos devem acessar o self.main_layout para adicionar seus widgets,
     em vez de sobrescrever o layout principal do QDialog.
@@ -34,8 +34,8 @@ class BaseDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(title)
         
-        # 1. Aplicando o Estilo Global Centralizado (v0.3.37)
-        self.setStyleSheet(StyleManager.get_global_stylesheet())
+        # 1. Estilo: o QSS global do tema ativo já vem do QApplication (troca de tema
+        #    sem reiniciar); um setStyleSheet aqui congelaria o tema do momento da abertura
         
         # 2. Configurando Icone Oficial Adaptativo (v0.3.43 / v0.3.44.1 - WinReg)
         if StyleManager.detect_dark_mode():

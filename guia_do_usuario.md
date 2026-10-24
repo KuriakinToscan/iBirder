@@ -106,7 +106,17 @@ Antes de renomear, o iBirder confere se o nome original foi mesmo gravado na fot
 
 - **Recarregar (↻):** limpa a análise atual.
 - **Ajuda (?):** abre um menu com **Manual do usuário**, **Verificar atualizações**, **Copiar diagnóstico** (informações técnicas para enviar ao suporte, sem as suas chaves de API) e **Abrir pasta de logs**.
-- **Configurações (⚙):** chaves de API da identificação em nuvem e o aviso de novas versões.
+- **Configurações (⚙):** aparência (tema), chaves de API da identificação em nuvem e o aviso de novas versões.
+
+### Aparência
+
+Em **Configurações (⚙) > Aparência**, escolha um dos três temas:
+
+- **Off-White:** o visual de sempre, cinza-grafite sobre fundo claro.
+- **Clean:** fundo branco, letras mais leves e verde-petróleo só nos botões principais.
+- **Clássico:** papel creme e títulos com serifa, como num guia de campo.
+
+O tema muda na hora, enquanto você escolhe. **Salvar** mantém a escolha; **Cancelar** volta ao tema anterior.
 
 ### Novas versões
 

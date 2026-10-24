@@ -38,7 +38,9 @@ def carregar_config():
         # Aviso de novas versões (core/verificacao_versao.py)
         "verificar_atualizacoes": True,
         "ultima_verificacao_versao": "",
-        "versao_ignorada": ""
+        "versao_ignorada": "",
+        # Tema visual (core/temas.py): "offwhite", "clean" ou "classico"
+        "tema": "offwhite"
     }
     
     if config_path.exists():

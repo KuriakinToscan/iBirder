@@ -26,6 +26,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QScrollArea
 
 from modules.step6_persistence.registro_ibirder import descrever_quando, resumo_legivel
 from ui.base.base_dialog import BaseDialog
+from core.style_manager import StyleManager
 
 
 class DialogoFotoProcessada(BaseDialog):
@@ -41,7 +42,7 @@ class DialogoFotoProcessada(BaseDialog):
         self.resize(560, 520)
 
         titulo = QLabel("Esta foto já foi processada pelo iBirder")
-        titulo.setStyleSheet("font-size: 16px; font-weight: bold; color: #111827;")
+        StyleManager.estilizar(titulo, "font-family: 'var(--fonte_titulo)'; font-size: 16px; font-weight: bold; color: var(--texto);")
         self.main_layout.addWidget(titulo)
 
         self.registro = registro
@@ -49,7 +50,7 @@ class DialogoFotoProcessada(BaseDialog):
         self.nome_original = registro.get("nome_original")
         self.cabecalho = QLabel()
         self.cabecalho.setWordWrap(True)
-        self.cabecalho.setStyleSheet("color: #374151;")
+        StyleManager.estilizar(self.cabecalho, "color: var(--texto_secundario);")
         self.main_layout.addWidget(self.cabecalho)
         self._atualizar_cabecalho(nome_arquivo)
 
@@ -77,11 +78,12 @@ class DialogoFotoProcessada(BaseDialog):
         if not corpo:
             corpo = "<i>Nenhum dado detalhado foi encontrado além da marca do iBirder.</i>"
 
-        lbl_dados = QLabel(f"<div style='line-height:140%; color:#374151;'>{corpo}</div>")
+        lbl_dados = QLabel()
+        StyleManager.definir_texto(lbl_dados, f"<div style='line-height:140%; color: var(--texto);'>{corpo}</div>")
         lbl_dados.setWordWrap(True)
         lbl_dados.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         lbl_dados.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        lbl_dados.setStyleSheet("background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 6px; padding: 10px;")
+        StyleManager.estilizar(lbl_dados, "background: var(--superficie); border: 1px solid var(--borda_suave); border-radius: 6px; padding: 10px;")
         rolagem = QScrollArea()
         rolagem.setWidgetResizable(True)
         rolagem.setWidget(lbl_dados)
@@ -90,7 +92,7 @@ class DialogoFotoProcessada(BaseDialog):
         pergunta = QLabel("Deseja processar a foto novamente? Os dados do iBirder gravados nela serão "
                           "substituídos pelos novos quando você usar \"Gravar Dados na Fotografia\".")
         pergunta.setWordWrap(True)
-        pergunta.setStyleSheet("color: #4B5563; font-size: 12px;")
+        StyleManager.estilizar(pergunta, "color: var(--texto_secundario); font-size: 12px;")
         self.main_layout.addWidget(pergunta)
 
         botoes = QHBoxLayout()
@@ -106,7 +108,7 @@ class DialogoFotoProcessada(BaseDialog):
             b.setMinimumHeight(34)
             b.setMinimumWidth(150)
             botoes.addWidget(b)
-        self.btn_processar.setStyleSheet("background-color: #374151; color: white; font-weight: bold; border-radius: 4px;")
+        self.btn_processar.setProperty("class", "primario")  # ação principal; cores do tema
         self.main_layout.addLayout(botoes)
 
     def _atualizar_cabecalho(self, nome_arquivo):
@@ -131,7 +133,7 @@ class DialogoFotoProcessada(BaseDialog):
         self._mostrar_resultado(f"Renomeação desfeita: {nomes}.")
 
     def _mostrar_resultado(self, texto, erro=False):
-        cor = ("#B91C1C", "#FEE2E2") if erro else ("#065F46", "#D1FAE5")
+        cor = ("erro_texto", "erro_fundo") if erro else ("sucesso_texto", "sucesso_fundo")
         self.lbl_resultado.setText(html.escape(texto))
-        self.lbl_resultado.setStyleSheet(f"color: {cor[0]}; background: {cor[1]}; padding: 8px; border-radius: 6px;")
+        StyleManager.estilizar(self.lbl_resultado, f"color: var(--{cor[0]}); background: var(--{cor[1]}); padding: 8px; border-radius: 6px;")
         self.lbl_resultado.setVisible(True)

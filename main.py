@@ -197,8 +197,7 @@ if __name__ == "__main__":
 
         logging.info("CHECKPOINT 6: Aplicando temas...")
         from core.style_manager import StyleManager
-        dark_mode = StyleManager.detect_dark_mode()
-        StyleManager.apply_theme(app, dark_mode=dark_mode)
+        StyleManager.apply_theme(app, tema=config.get("tema"))
 
         logging.info("CHECKPOINT 7: Criando Janela Principal...")
         from ui.janela_principal import JanelaPrincipal

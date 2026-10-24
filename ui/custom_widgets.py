@@ -28,6 +28,7 @@ import sys
 from pathlib import Path
 import tempfile
 from ui.dialogs.expanded_image_dialog import ExpandedImageDialog
+from core.style_manager import StyleManager
 
 class ImageCardWidget(QWidget):
     """
@@ -55,12 +56,9 @@ class ImageCardWidget(QWidget):
         # Drag State
         self.drag_start_pos = None
         
-        # Configuração de Estilo (v0.8.1 - Sync com StyleManager)
-        self.bg_color = QColor("#FFFFFF") # Branco puro como os cards
-        self.border_color = QColor("#D1D5DB")
-        self.text_color = QColor("#4B5563")
+        # Configuração de Estilo: fundo, borda e texto vêm do tema ativo (ver propriedades abaixo)
         self.overlay_bg_color = QColor(31, 41, 55, 180) # Cinza escuro semi-transparente
-        self.overlay_text_color = QColor("#FFFFFF")
+        self.overlay_text_color = QColor(Qt.white)  # sobre a faixa escura da foto, em qualquer tema
         
         # Layout & Simetria (Proporção 1:1 rigorosa)
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
@@ -94,6 +92,19 @@ class ImageCardWidget(QWidget):
             }
         """)
         self.btn_expand.clicked.connect(self._open_expanded_view)
+
+    # Cores lidas a cada pintura: a troca de tema vale sem recriar o card
+    @property
+    def bg_color(self):
+        return StyleManager.qcor("superficie")
+
+    @property
+    def border_color(self):
+        return StyleManager.qcor("borda")
+
+    @property
+    def text_color(self):
+        return StyleManager.qcor("texto_secundario")
 
     def _get_asset_path(self, filename):
         if getattr(sys, 'frozen', False):
@@ -261,7 +272,8 @@ class ImageCardWidget(QWidget):
         # 1. Fundo e Borda
         rect = self.rect().adjusted(1, 1, -1, -1)
         path = QPainterPath()
-        path.addRoundedRect(QRectF(rect), 12, 12)
+        raio = StyleManager.cor("raio")
+        path.addRoundedRect(QRectF(rect), raio, raio)
         
         painter.fillPath(path, self.bg_color)
         
@@ -290,7 +302,7 @@ class ImageCardWidget(QWidget):
                 painter.fillRect(r_overlay, self.overlay_bg_color)
                 
                 painter.setPen(self.overlay_text_color)
-                painter.setFont(QFont("Segoe UI", 9)) # Fonte um pouco maior para leitura
+                painter.setFont(QFont(StyleManager.cor("fonte"), 9)) # Fonte um pouco maior para leitura
                 
                 metrics = QFontMetrics(painter.font())
                 margin_x = 10
@@ -318,8 +330,8 @@ class ImageCardWidget(QWidget):
         
         else:
             # Placeholder
-            painter.setPen(QColor("#4B5563"))
-            font_placeholder = QFont("Segoe UI", 12)
+            painter.setPen(self.text_color)
+            font_placeholder = QFont(StyleManager.cor("fonte"), 12)
             font_placeholder.setItalic(True)
             painter.setFont(font_placeholder)
             painter.drawText(rect, Qt.AlignCenter, self.text_placeholder)
@@ -343,7 +355,7 @@ class VocalAuditCard(QWidget):
         # 0. Número de Ordem (v0.7.3)
         if self.ranking_index:
             self.lbl_ranking = QLabel(f"{self.ranking_index}.")
-            self.lbl_ranking.setStyleSheet("color: #9CA3AF; font-size: 11px; font-weight: bold; min-width: 15px;")
+            StyleManager.estilizar(self.lbl_ranking, "color: var(--texto_suave); font-size: 11px; font-weight: bold; min-width: 15px;")
             layout.addWidget(self.lbl_ranking)
         
         # 1. Ícone Responsivo (Botão Flat v0.7.3)
@@ -390,17 +402,17 @@ class VocalAuditCard(QWidget):
             texto_distancia = f"Registrado a {dist_str} km do local da fotografia."
         
         self.lbl_distancia = QLabel(texto_distancia)
-        self.lbl_distancia.setStyleSheet("color: #4B5563; font-size: 11px; font-weight: 500;")
+        StyleManager.estilizar(self.lbl_distancia, "color: var(--texto_secundario); font-size: 11px; font-weight: 500;")
         self.lbl_distancia.setWordWrap(True)
         
         layout.addWidget(self.lbl_distancia, stretch=1)
         
         # Estilo do Card (v1.6.21: Transparência e Simetria)
         self.setObjectName("vocal_audit_card")
-        self.setStyleSheet("""
+        StyleManager.estilizar(self, """
             QWidget#vocal_audit_card {
                 background-color: transparent; 
-                border-bottom: 1px solid #E5E7EB;
+                border-bottom: 1px solid var(--borda_suave);
             }
         """)
 

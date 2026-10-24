@@ -157,11 +157,25 @@ class JanelaPrincipal(QMainWindow):
             base_path = Path(__file__).parent.parent / 'assets'
         return str(base_path / nome_arquivo)
 
+    def _ao_mudar_tema(self, _id_tema):
+        """Troca de tema sem reiniciar: logo e barra de título (o resto o StyleManager refaz)."""
+        self._atualizar_logo()
+        StyleManager.setup_window_theme(self)
+
+    def _atualizar_logo(self):
+        """Mostra o logo do painel na cor do tema ativo."""
+        caminho_logo_painel = StyleManager.caminho_logo()
+        if os.path.exists(caminho_logo_painel):
+            self.lbl_logo.setPixmap(QIcon(caminho_logo_painel).pixmap(QSize(130, 130)))
+        else:
+            self.lbl_logo.setText("🐦")
+            self.lbl_logo.setFont(QFont("Segoe UI Emoji", 32))
+
     def _format_nome_ave(self, prefixo, valor, is_placeholder=False):
         """Formata o prefixo e o valor com o estilo exato do Nome Científico ou Placeholder."""
-        cor_valor = "#9CA3AF" if is_placeholder else "#1F2937"
-        span_prefixo = f"<span style=\"font-family: 'Segoe UI'; font-weight: bold; color: #4B5563; font-size: 11px;\">{prefixo}</span>"
-        span_valor = f"<span style=\"font-family: 'Segoe UI'; font-style: italic; font-weight: 500; color: {cor_valor}; font-size: 13px;\">{valor}</span>"
+        cor_valor = "var(--texto_suave)" if is_placeholder else "var(--texto)"
+        span_prefixo = f"<span style=\"font-family: 'var(--fonte)'; font-weight: bold; color: var(--texto_secundario); font-size: 11px;\">{prefixo}</span>"
+        span_valor = f"<span style=\"font-family: 'var(--fonte_titulo)'; font-style: italic; font-weight: 500; color: {cor_valor}; font-size: 13px;\">{valor}</span>"
         return f"{span_prefixo}&nbsp;&nbsp;{span_valor}"
 
     def _set_placeholder_style(self, label, active=True):
@@ -233,8 +247,7 @@ class JanelaPrincipal(QMainWindow):
         btn = getattr(self, "_btn_app_update_ota", None)
         if btn is None:
             btn = QPushButton()
-            btn.setStyleSheet("background-color: #008CBA; color: white; border-radius: 4px; "
-                              "padding: 2px 10px; font-weight: bold; font-size: 11px;")
+            btn.setObjectName("btn_status_novidade")  # estilo no QSS do tema
             btn.setCursor(Qt.PointingHandCursor)
             btn.setToolTip("Ver as novidades e baixar o instalador")
             btn.clicked.connect(lambda: self._mostrar_dialogo_nova_versao(self._info_nova_versao))
@@ -281,7 +294,7 @@ class JanelaPrincipal(QMainWindow):
     def _ao_update_disponivel(self, manifest_data):
         ver = manifest_data.get("version", "?")
         btn_update = QPushButton(f"Nova I.A. das Aves (v{ver}) Disponível! Clique para turbinar.")
-        btn_update.setStyleSheet("background-color: #27ae60; color: white; border-radius: 4px; padding: 2px 10px; font-weight: bold; font-size: 11px;")
+        btn_update.setObjectName("btn_status_novidade")  # estilo no QSS do tema
         btn_update.setCursor(Qt.PointingHandCursor)
         btn_update.clicked.connect(lambda: self._iniciar_download_update(manifest_data))
         
@@ -376,17 +389,17 @@ class JanelaPrincipal(QMainWindow):
         # UI Update: Nome Comum (v0.8.2)
         nc = dados.get("nome_comum", "")
         if nc and nc.lower() not in ["nome comum não encontrado", "não encontrado"]:
-            self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", nc))
+            StyleManager.definir_texto(self.lbl_nome_comum, self._format_nome_ave("Nome Comum:", nc))
         else:
-            self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", "Não encontrado"))
+            StyleManager.definir_texto(self.lbl_nome_comum, self._format_nome_ave("Nome Comum:", "Não encontrado"))
 
         # UI Update: Nome em Inglês (v0.8.5 - Agora via WikiAves)
         ni = dados.get("nome_ingles", "")
         if ni and ni.lower() not in ["desconhecido", "unknown"]:
-            self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", ni))
+            StyleManager.definir_texto(self.lbl_nome_ingles, self._format_nome_ave("Nome em Inglês:", ni))
         elif nc and self.PLACEHOLDER_TEXT in self.lbl_nome_ingles.text():
             # Não sobrescreve o nome em inglês já preenchido pela taxonomia eBird
-            self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", "Desconhecido"))
+            StyleManager.definir_texto(self.lbl_nome_ingles, self._format_nome_ave("Nome em Inglês:", "Desconhecido"))
 
         # Atualiza Campo Etimologia
         # Atualiza Campo Etimologia
@@ -475,7 +488,7 @@ class JanelaPrincipal(QMainWindow):
         if self.PLACEHOLDER_TEXT in self.lbl_nome_comum.text():
             ultimo = self.session_logger.buffer[-1] if self.session_logger.buffer else {}
             # Usa o nome popular do iNaturalist, se a taxonomia já o trouxe
-            self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", ultimo.get("nome_comum") or "Não encontrado"))
+            StyleManager.definir_texto(self.lbl_nome_comum, self._format_nome_ave("Nome Comum:", ultimo.get("nome_comum") or "Não encontrado"))
         self.txt_etimologia.setPlaceholderText(aviso)
         self.txt_descricao.setPlaceholderText(aviso)
         self.status_bar.showMessage("WikiAves indisponível. Demais dados carregados normalmente.", 8000)
@@ -513,11 +526,7 @@ class JanelaPrincipal(QMainWindow):
         super().resizeEvent(event)
 
     def _configurar_ui(self):
-        # 0. Carregar Fontes Customizadas
-        caminho_figtree = self._obter_caminho_asset("Figtree-VariableFont_wght.ttf")
-        if os.path.exists(caminho_figtree):
-            QFontDatabase.addApplicationFont(caminho_figtree)
-
+        # 0. Fontes embarcadas: registradas pelo StyleManager ao aplicar o primeiro tema
 
         # --- CARREGAMENTO DO ÍCONE DA JANELA (Dinâmico v0.6.5) ---
         StyleManager.set_app_icon(self)
@@ -525,13 +534,11 @@ class JanelaPrincipal(QMainWindow):
         # Container Principal com Scroll
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
-        # Garante fundo claro na área de scroll
-        self.scroll_area.setStyleSheet("QScrollArea { border: none; background-color: #F0F2F5; }")
+        # Fundo da área de rolagem vem do tema (QScrollArea#area_rolagem)
+        self.scroll_area.setObjectName("area_rolagem")
 
         widget_central = QWidget()
         widget_central.setObjectName("container_rolagem")
-        # Garante que o widget interno também tenha fundo claro, mas sem afetar filhos
-        widget_central.setStyleSheet("#container_rolagem { background-color: #F0F2F5; }")
         self.scroll_area.setWidget(widget_central)
         self.setCentralWidget(self.scroll_area)
 
@@ -548,15 +555,12 @@ class JanelaPrincipal(QMainWindow):
         layout_branding.setSpacing(StyleManager.SPACING_MD * 2)
         layout_branding.setAlignment(Qt.AlignLeft)
         
-        caminho_logo_painel = self._obter_caminho_asset("logo_ave.svg")
+        # Logo original, na cor do tema ativo (troca junto com o tema)
         lbl_logo = QLabel()
         lbl_logo.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        if os.path.exists(caminho_logo_painel):
-            pixmap_logo = QIcon(caminho_logo_painel).pixmap(QSize(130, 130))
-            lbl_logo.setPixmap(pixmap_logo)
-        else:
-            lbl_logo.setText("🐦")
-            lbl_logo.setFont(QFont("Segoe UI Emoji", 32))
+        self.lbl_logo = lbl_logo
+        self._atualizar_logo()
+        StyleManager.sinal_tema_alterado().connect(self._ao_mudar_tema)
         
         layout_branding.addWidget(lbl_logo)
         
@@ -614,7 +618,7 @@ class JanelaPrincipal(QMainWindow):
         self.btn_config.setFixedSize(40, 40)
         self.btn_config.setProperty("class", "icon-btn")
         self.btn_config.setCursor(Qt.PointingHandCursor)
-        self.btn_config.setToolTip("Configurações de API")
+        self.btn_config.setToolTip("Configurações: aparência e integrações")
         caminho_config = self._obter_caminho_asset("icon_config.svg")
         if os.path.exists(caminho_config):
             self.btn_config.setIcon(QIcon(caminho_config))
@@ -674,7 +678,8 @@ class JanelaPrincipal(QMainWindow):
         layout_res = QVBoxLayout(grupo_resultados)
         layout_res.setContentsMargins(12, 18, 12, 12)
         
-        self.lbl_nome_comum = QLabel(self._format_nome_ave("Nome Comum:", self.PLACEHOLDER_TEXT, is_placeholder=True))
+        self.lbl_nome_comum = QLabel()
+        StyleManager.definir_texto(self.lbl_nome_comum, self._format_nome_ave("Nome Comum:", self.PLACEHOLDER_TEXT, is_placeholder=True))
         self.lbl_nome_comum.setObjectName("lbl_nome_comum")
         self.lbl_nome_comum.setWordWrap(True)
         self.lbl_nome_comum.setTextFormat(Qt.RichText)
@@ -694,7 +699,8 @@ class JanelaPrincipal(QMainWindow):
         # Cada sugestão é um link: clicar faz a busca manual daquela espécie
         self.lbl_candidatos.linkActivated.connect(self._buscar_candidato)
 
-        self.lbl_nome_ingles = QLabel(self._format_nome_ave("Nome em Inglês:", self.PLACEHOLDER_TEXT, is_placeholder=True))
+        self.lbl_nome_ingles = QLabel()
+        StyleManager.definir_texto(self.lbl_nome_ingles, self._format_nome_ave("Nome em Inglês:", self.PLACEHOLDER_TEXT, is_placeholder=True))
         self.lbl_nome_ingles.setWordWrap(True)
         self.lbl_nome_ingles.setTextFormat(Qt.RichText)
         
@@ -749,7 +755,6 @@ class JanelaPrincipal(QMainWindow):
         
         self.frame_etimologia = QFrame()
         self.frame_etimologia.setObjectName("frame_etimologia")
-        self.frame_etimologia.setStyleSheet("QFrame#frame_etimologia { background-color: #F8F9FA; border-left: 4px solid #10B981; border-radius: 4px; padding: 10px; margin-top: 10px; }")
         layout_etim_sub = QVBoxLayout(self.frame_etimologia)
         self.lbl_etimologia_texto = QLabel("Carregando...")
         self.lbl_etimologia_texto.setWordWrap(True)
@@ -836,6 +841,7 @@ class JanelaPrincipal(QMainWindow):
         self.btn_nova.setCursor(Qt.PointingHandCursor)
         self.btn_nova.clicked.connect(self._ao_clicar_nova_identificacao)
         self.btn_gravar_exif = QPushButton("Gravar Dados na Fotografia")
+        self.btn_gravar_exif.setProperty("class", "primario")  # ação principal da tela
         self.btn_gravar_exif.setCursor(Qt.PointingHandCursor)
         self.btn_gravar_exif.setEnabled(False)
         self.btn_gravar_exif.clicked.connect(self._gravar_metadados_exif)
@@ -952,16 +958,17 @@ class JanelaPrincipal(QMainWindow):
                 
             self._bloqueio_palette = True
             try:
-                # Sincronia de Title Bar e Ícone v0.6.6 (Soberania Off-White)
+                # Sincronia de Title Bar e Ícone: o corpo mantém o tema escolhido no iBirder
                 # O corpo da janela ignora a mudança de paleta para evitar o bug de inversão.
                 dark_mode = StyleManager.detect_dark_mode()
                 
                 app = QApplication.instance()
-                logging.debug(f"Watchdog v0.6.6: Forçando Soberania Off-White. DarkMode: {dark_mode}")
+                logging.debug(f"Watchdog v0.6.6: reafirmando o tema do iBirder. DarkMode: {dark_mode}")
 
                 app = QApplication.instance()
                 if app:
-                    StyleManager.apply_theme(app, dark_mode=dark_mode)
+                    # Reafirma o tema escolhido (sem efeito se já estiver aplicado)
+                    StyleManager.apply_theme(app, tema=StyleManager.tema_atual().id)
                 
                 # Sincronia de Title Bar e Ícone
                 StyleManager.setup_window_theme(self)
@@ -1057,13 +1064,13 @@ class JanelaPrincipal(QMainWindow):
     def _html_candidatos(self, titulo, candidatos, marcar_sem_registro=False):
         """Lista de candidatos clicáveis (nome científico + confiança)."""
         from modules.step3_geography import listas_conservacao as listas
-        html = f'<div style="line-height: 150%; font-size: 12px; color: #374151;">{titulo}<br>'
+        html = f'<div style="line-height: 150%; font-size: 12px; color: var(--texto);">{titulo}<br>'
         for cand in candidatos[:3]:
             nome = cand.get("nome_cientifico") or cand.get("label", "")
             nota = ""
             if marcar_sem_registro and not listas.registrada_no_brasil(nome):
-                nota = ' <span style="color:#9CA3AF;">(sem registro no Brasil)</span>'
-            html += (f'• <a href="{nome}" style="color:#005fa8;"><i>{nome}</i></a> '
+                nota = ' <span style="color: var(--texto_suave);">(sem registro no Brasil)</span>'
+            html += (f'• <a href="{nome}" style="color: var(--link);"><i>{nome}</i></a> '
                      f'({cand.get("confianca", 0.0)*100:.1f}%){nota}<br>')
         return html + '</div>'
 
@@ -1098,7 +1105,7 @@ class JanelaPrincipal(QMainWindow):
 
         self.dados_identificacao_atual["nome_cientifico"] = sci_formatted
         self.especie_em_processamento = sci_formatted # Persistência Atômica v0.6.8
-        self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", ""))
+        StyleManager.definir_texto(self.lbl_nome_comum, self._format_nome_ave("Nome Comum:", ""))
         self.lbl_nome_comum.setVisible(True)
         self.txt_descricao.setHtml("<i>Identificado pelo usuário.</i>")
         self.txt_descricao.setVisible(True)
@@ -1135,50 +1142,50 @@ class JanelaPrincipal(QMainWindow):
         msg = QMessageBox(self)
         msg.setWindowTitle("iBirder - Pesquisa Visual")
         
-        msg.setStyleSheet("""
+        msg.setStyleSheet(StyleManager.render("""
             QMessageBox {
-                background-color: #F9FAFB;
+                background-color: var(--superficie_alt);
             }
             QLabel {
-                color: #1F2937;
+                color: var(--texto);
                 font-size: 13px;
             }
             QPushButton {
-                background-color: #374151;
-                color: white;
+                background-color: var(--destaque);
+                color: var(--texto_destaque);
                 border-radius: 6px;
                 padding: 6px 16px;
                 font-weight: bold;
-                border: 1px solid #1F2937;
+                border: 1px solid var(--destaque_hover);
             }
             QPushButton:hover {
-                background-color: #111827;
+                background-color: var(--destaque_hover);
             }
             QCheckBox {
                 background-color: transparent;
-                color: #4B5563;
+                color: var(--texto_secundario);
                 font-size: 11px;
                 margin-top: 10px;
             }
             QCheckBox::indicator {
-                border: 1px solid #9CA3AF;
-                background: white;
+                border: 1px solid var(--borda);
+                background: var(--superficie);
                 width: 14px;
                 height: 14px;
                 border-radius: 2px;
             }
             QCheckBox::indicator:checked {
-                background-color: #374151;
-                border-color: #374151;
+                background-color: var(--destaque);
+                border-color: var(--destaque);
             }
-        """)
+        """))
         
         msg.setText("O Google Lens foi aberto no seu navegador.")
-        msg.setInformativeText(
+        msg.setInformativeText(StyleManager.render(
             "Agora, <b>arraste a foto do iBirder</b> ou copie e cole (Ctrl+V) a imagem na página para identificar.<br><br>"
             "<i>(O caminho da imagem foi copiado para sua área de transferência)</i>"
-            "<br><br><span style='font-size: 10px; color: #6B7280;'>Nota: A imagem foi otimizada para garantir a compatibilidade com o Google.</span>"
-        )
+            "<br><br><span style='font-size: 10px; color: var(--texto_suave);'>Nota: A imagem foi otimizada para garantir a compatibilidade com o Google.</span>"
+        ))
         msg.setIcon(QMessageBox.Information)
         msg.addButton("Entendi", QMessageBox.AcceptRole)
         
@@ -1268,7 +1275,7 @@ class JanelaPrincipal(QMainWindow):
                 
             # Atualiza card geo
             self.lbl_geo_details.setVisible(True)
-            self.lbl_geo_details.setText(f"Lat: {lat:.4f}, Lon: {lon:.4f} (Processando...)")
+            StyleManager.definir_texto(self.lbl_geo_details, f"Lat: {lat:.4f}, Lon: {lon:.4f} (Processando...)")
             self.lbl_geo_details.setProperty("class", "container-borda-cinza-fill")
             self.lbl_geo_details.style().unpolish(self.lbl_geo_details)
             self.lbl_geo_details.style().polish(self.lbl_geo_details)
@@ -1287,7 +1294,7 @@ class JanelaPrincipal(QMainWindow):
                  # Se for uma NOVA imagem carregada sem GPS, mantemos o mapa no Brasil e ativamos o alerta (v1.6.26)
                  self.map_principal.update_map(-14.2350, -51.9253, zoom=4, force_hide_alert=False)
                  self.lbl_geo_details.setVisible(True)
-                 self.lbl_geo_details.setText("Localização não detectada na imagem.")
+                 StyleManager.definir_texto(self.lbl_geo_details, "Localização não detectada na imagem.")
                  self.lbl_geo_details.setProperty("class", "container-borda-cinza-fill")
                  self.lbl_geo_details.style().unpolish(self.lbl_geo_details)
                  self.lbl_geo_details.style().polish(self.lbl_geo_details)
@@ -1337,7 +1344,7 @@ class JanelaPrincipal(QMainWindow):
                 
                 # Atualizar card geográfico
                 self.lbl_geo_details.setVisible(True)
-                self.lbl_geo_details.setText(f"Lat: {lat:.4f}, Lon: {lon:.4f} (Manual)")
+                StyleManager.definir_texto(self.lbl_geo_details, f"Lat: {lat:.4f}, Lon: {lon:.4f} (Manual)")
                 self.lbl_geo_details.setProperty("class", "container-borda-cinza-fill")
                 self.lbl_geo_details.style().unpolish(self.lbl_geo_details)
                 self.lbl_geo_details.style().polish(self.lbl_geo_details)
@@ -1367,8 +1374,8 @@ class JanelaPrincipal(QMainWindow):
              msg.exec()
              return
 
-        self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", self.PLACEHOLDER_TEXT, is_placeholder=True))
-        self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", self.PLACEHOLDER_TEXT, is_placeholder=True))
+        StyleManager.definir_texto(self.lbl_nome_comum, self._format_nome_ave("Nome Comum:", self.PLACEHOLDER_TEXT, is_placeholder=True))
+        StyleManager.definir_texto(self.lbl_nome_ingles, self._format_nome_ave("Nome em Inglês:", self.PLACEHOLDER_TEXT, is_placeholder=True))
         
         self.txt_etimologia.clear()
         self.txt_etimologia.setPlaceholderText(self.PLACEHOLDER_TEXT)
@@ -1376,7 +1383,7 @@ class JanelaPrincipal(QMainWindow):
         self.txt_etimologia.setVisible(True)
         
         if hasattr(self, 'lbl_taxonomia_texto'):
-            self.lbl_taxonomia_texto.setText(self.PLACEHOLDER_TEXT)
+            StyleManager.definir_texto(self.lbl_taxonomia_texto, self.PLACEHOLDER_TEXT)
             self.lbl_taxonomia_texto.setProperty("class", "container-borda-cinza-fill lbl-placeholder")
             self.lbl_taxonomia_texto.setVisible(True)
         
@@ -1385,12 +1392,12 @@ class JanelaPrincipal(QMainWindow):
         self.input_especie.style().unpolish(self.input_especie)
         self.input_especie.style().polish(self.input_especie)
         
-        self.lbl_geo_details.setText(self.PLACEHOLDER_TEXT)
+        StyleManager.definir_texto(self.lbl_geo_details, self.PLACEHOLDER_TEXT)
         self.lbl_geo_details.setProperty("class", "container-borda-cinza-fill lbl-placeholder")
         self.lbl_geo_details.setVisible(True)
         
         if hasattr(self, 'lbl_conservacao_texto'):
-            self.lbl_conservacao_texto.setText(self.PLACEHOLDER_TEXT)
+            StyleManager.definir_texto(self.lbl_conservacao_texto, self.PLACEHOLDER_TEXT)
             self.lbl_conservacao_texto.setProperty("class", "container-borda-cinza-fill lbl-placeholder")
             self.lbl_conservacao_texto.setVisible(True)
             
@@ -1438,8 +1445,8 @@ class JanelaPrincipal(QMainWindow):
         
         # Exibição da Certeza (v1.1): Cor padronizada e metadados da IA dinâmico
         modelo_ia = dados.get("modelo_ia", "MobileNetV2 (Local)")
-        self.lbl_certeza.setText(f'<span style="color: #4B5563; font-weight: bold; font-size: 11px;">Certeza:</span>&nbsp;&nbsp;'
-                                 f'<span style="color: #4B5563; font-weight: 500; font-size: 13px;">{conf*100:.1f}% ({modelo_ia})</span>')
+        StyleManager.definir_texto(self.lbl_certeza, f'<span style="color: var(--texto_secundario); font-weight: bold; font-size: 11px;">Certeza:</span>&nbsp;&nbsp;'
+                                 f'<span style="color: var(--texto_secundario); font-weight: 500; font-size: 13px;">{conf*100:.1f}% ({modelo_ia})</span>')
         self.lbl_certeza.setVisible(True)
 
         if "Inconclusiva" not in status_msg and "Baixa" not in status_msg and sci:
@@ -1462,12 +1469,12 @@ class JanelaPrincipal(QMainWindow):
             if aviso:
                 # Espécie sugerida sem registro no Brasil e sem nuvem para confirmar
                 alternativas = dados.get("alternativas_brasil") or []
-                html = (f'<div style="font-size: 12px; color: #92400E; background: #FFFBEB; padding: 6px;">'
+                html = (f'<div style="font-size: 12px; color: var(--alerta_texto); background: var(--alerta_fundo); padding: 6px;">'
                         f'⚠ {aviso}</div>')
                 if alternativas:
                     html += self._html_candidatos("<b>Candidatas com registro no Brasil</b> (clique para pesquisar):",
                                                   alternativas)
-                self.lbl_candidatos.setText(html)
+                StyleManager.definir_texto(self.lbl_candidatos, html)
                 self.lbl_candidatos.setVisible(True)
                 self.status_bar.showMessage("Atenção: espécie sugerida sem registro no Brasil. Confira a identificação.", 15000)
             else:
@@ -1483,7 +1490,7 @@ class JanelaPrincipal(QMainWindow):
              if top_candidates:
                  from modules.step1_identity.id_worker import foto_no_brasil
                  no_brasil = bool(foto_no_brasil(self.lat_atual, self.lon_atual))
-                 self.lbl_candidatos.setText(self._html_candidatos(
+                 StyleManager.definir_texto(self.lbl_candidatos, self._html_candidatos(
                      "<b>Sugestões alternativas</b> (clique para pesquisar):", top_candidates,
                      marcar_sem_registro=no_brasil))
                  self.lbl_candidatos.setVisible(True)
@@ -1501,8 +1508,8 @@ class JanelaPrincipal(QMainWindow):
             self.card_ref.set_pixmap(None)
             self.card_ref.set_overlay_text(None)
             
-            self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", "Identificação Inconclusiva"))
-            self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", "---"))
+            StyleManager.definir_texto(self.lbl_nome_comum, self._format_nome_ave("Nome Comum:", "Identificação Inconclusiva"))
+            StyleManager.definir_texto(self.lbl_nome_ingles, self._format_nome_ave("Nome em Inglês:", "---"))
             self.btn_google_lens.setEnabled(True)
 
         else:
@@ -1523,8 +1530,8 @@ class JanelaPrincipal(QMainWindow):
     def _ao_erro_identificacao(self, erro_msg):
         self.status_bar.showMessage("Erro na identificação.")
         self.card_user.setAcceptDrops(True)
-        self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", erro_msg))
-        self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", erro_msg))
+        StyleManager.definir_texto(self.lbl_nome_comum, self._format_nome_ave("Nome Comum:", erro_msg))
+        StyleManager.definir_texto(self.lbl_nome_ingles, self._format_nome_ave("Nome em Inglês:", erro_msg))
         self.lbl_etimologia_texto.setText("Ocorreu um erro durante a identificação local.")
         
     # --- Áudio Player (v0.4.0) ---
@@ -1628,7 +1635,7 @@ class JanelaPrincipal(QMainWindow):
         if not hasattr(self, 'lbl_geo_details'):
              return
 
-        self.lbl_geo_details.setText("🔄 Analisando local e bioma...")
+        StyleManager.definir_texto(self.lbl_geo_details, "🔄 Analisando local e bioma...")
         self.lbl_geo_details.setVisible(True)
         
         self._limpar_painel_audio()
@@ -1689,7 +1696,7 @@ class JanelaPrincipal(QMainWindow):
         
         endemismo = cons_data.get("endemismo")
         if endemismo is None:
-            endemismo_str = '<span style="color: #9CA3AF; font-style: italic;">Consultando...</span>'
+            endemismo_str = '<span style="color: var(--texto_suave); font-style: italic;">Consultando...</span>'
         else:
             ocorrencia = cons_data.get("ocorrencia_brasil")
             # Ex.: "Não (Nativa)", "Não (Introduzida)"; "Sim" já significa endêmica
@@ -1706,7 +1713,7 @@ class JanelaPrincipal(QMainWindow):
         </div>
         """
         
-        self.lbl_geo_details.setText(texto_html)
+        StyleManager.definir_texto(self.lbl_geo_details, texto_html)
         self.lbl_geo_details.setVisible(True)
         self._set_placeholder_style(self.lbl_geo_details, active=False)
         self.lbl_geo_details.setTextInteractionFlags(Qt.TextSelectableByMouse)
@@ -1732,7 +1739,7 @@ class JanelaPrincipal(QMainWindow):
         for item in outras[:5]:
             lugar = item["lugar"]
             if item.get("url", "").startswith("http"):
-                lugar = f'<a href="{item["url"]}" style="color:#005fa8; text-decoration:none;">{lugar}</a>'
+                lugar = f'<a href="{item["url"]}" style="color: var(--link); text-decoration:none;">{lugar}</a>'
             destaque = " ★" if item.get("estado_da_foto") else ""
             linhas_outras += f"&nbsp;&nbsp;• {lugar}{destaque}: {item['categoria']}<br>"
         if len(outras) > 5:
@@ -1747,7 +1754,7 @@ class JanelaPrincipal(QMainWindow):
         {bloco_outras}
         </div>
         """
-        self.lbl_conservacao_texto.setText(texto_html)
+        StyleManager.definir_texto(self.lbl_conservacao_texto, texto_html)
         self.lbl_conservacao_texto.setWordWrap(True)
         self.lbl_conservacao_texto.setOpenExternalLinks(True)
         self._set_placeholder_style(self.lbl_conservacao_texto, active=False)
@@ -1785,12 +1792,12 @@ class JanelaPrincipal(QMainWindow):
         # Nome popular do iNaturalist, caso o WikiAves já tenha falhado
         nc = results.get("nome_comum")
         if nc and "Não encontrado" in self.lbl_nome_comum.text():
-            self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", nc))
+            StyleManager.definir_texto(self.lbl_nome_comum, self._format_nome_ave("Nome Comum:", nc))
 
         # Nome em inglês da taxonomia eBird, caso o WikiAves ainda não tenha preenchido
         ni = results.get("nome_ingles")
         if ni and ni != "Desconhecido" and self.PLACEHOLDER_TEXT in self.lbl_nome_ingles.text():
-            self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", ni))
+            StyleManager.definir_texto(self.lbl_nome_ingles, self._format_nome_ave("Nome em Inglês:", ni))
 
         if hasattr(self, 'lbl_taxonomia_texto'):
             ordem_vis = results.get('ordem') if (results.get('ordem') and results.get('ordem') != "Desconhecida") else self.dados_identificacao_atual.get("ordem")
@@ -1817,7 +1824,7 @@ class JanelaPrincipal(QMainWindow):
         <b>Gênero:</b> {genero}
         </div>
         """
-        self.lbl_taxonomia_texto.setText(texto_tax)
+        StyleManager.definir_texto(self.lbl_taxonomia_texto, texto_tax)
         self._set_placeholder_style(self.lbl_taxonomia_texto, active=False)
         self.lbl_taxonomia_texto.setVisible(True)
         self.lbl_taxonomia_texto.setTextInteractionFlags(Qt.TextSelectableByMouse)
@@ -1935,13 +1942,13 @@ class JanelaPrincipal(QMainWindow):
         self.input_especie.style().unpolish(self.input_especie)
         self.input_especie.style().polish(self.input_especie)
         
-        self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", "Aguardando identificação....", is_placeholder=True))
-        self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", "Aguardando identificação....", is_placeholder=True))
+        StyleManager.definir_texto(self.lbl_nome_comum, self._format_nome_ave("Nome Comum:", "Aguardando identificação....", is_placeholder=True))
+        StyleManager.definir_texto(self.lbl_nome_ingles, self._format_nome_ave("Nome em Inglês:", "Aguardando identificação....", is_placeholder=True))
         
         # Reset de Confiança e Candidatos (v0.8.7)
-        self.lbl_certeza.setText("")
+        StyleManager.definir_texto(self.lbl_certeza, "")
         self.lbl_certeza.setVisible(False)
-        self.lbl_candidatos.setText("")
+        StyleManager.definir_texto(self.lbl_candidatos, "")
         self.lbl_candidatos.setVisible(False)
         
         self.txt_etimologia.clear()
@@ -1954,16 +1961,16 @@ class JanelaPrincipal(QMainWindow):
             self.lbl_etimologia_texto.setText("Carregando...")
 
         if hasattr(self, 'lbl_taxonomia_texto'):
-            self.lbl_taxonomia_texto.setText(self.PLACEHOLDER_TEXT)
+            StyleManager.definir_texto(self.lbl_taxonomia_texto, self.PLACEHOLDER_TEXT)
             self._set_placeholder_style(self.lbl_taxonomia_texto, active=True)
             self.lbl_taxonomia_texto.setVisible(True)
         
-        self.lbl_geo_details.setText(self.PLACEHOLDER_TEXT)
+        StyleManager.definir_texto(self.lbl_geo_details, self.PLACEHOLDER_TEXT)
         self._set_placeholder_style(self.lbl_geo_details, active=True)
         self.lbl_geo_details.setVisible(True)
         
         if hasattr(self, 'lbl_conservacao_texto'):
-            self.lbl_conservacao_texto.setText(self.PLACEHOLDER_TEXT)
+            StyleManager.definir_texto(self.lbl_conservacao_texto, self.PLACEHOLDER_TEXT)
             self._set_placeholder_style(self.lbl_conservacao_texto, active=True)
             self.lbl_conservacao_texto.setVisible(True)
             

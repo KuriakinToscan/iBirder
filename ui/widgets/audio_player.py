@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (QHBoxLayout, QLabel, QPushButton, QSlider, QStyle
                                QToolButton, QVBoxLayout, QWidget)
 
 from core.paths import TEMP_DIR
+from core.style_manager import StyleManager
 
 
 def caminho_cache(url):
@@ -113,10 +114,10 @@ class PlayerAudio(QWidget):
         self.barra.sliderReleased.connect(self._soltar_barra)
 
         self.lbl_tempo = QLabel("0:00 / 0:00", self)
-        self.lbl_tempo.setStyleSheet("color: #4B5563; font-size: 11px;")
+        StyleManager.estilizar(self.lbl_tempo, "color: var(--texto_secundario); font-size: 11px;")
 
         self.lbl_status = QLabel("Carregando áudio...", self)
-        self.lbl_status.setStyleSheet("color: #6B7280; font-size: 11px;")
+        StyleManager.estilizar(self.lbl_status, "color: var(--texto_suave); font-size: 11px;")
         self.lbl_status.setAlignment(Qt.AlignCenter)
 
         self.btn_navegador = QPushButton("Abrir no navegador", self)
