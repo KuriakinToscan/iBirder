@@ -105,6 +105,7 @@ class JanelaPrincipal(QMainWindow):
         self.orchestrator.step5_ebird_concluido.connect(self._ao_concluir_ebird)
         self.orchestrator.update_available.connect(self._ao_update_disponivel)
         self.orchestrator.app_update_available.connect(self._ao_app_update_disponivel)
+        self.orchestrator.app_update_verificada.connect(self._ao_verificar_versao)
         
         self.setWindowTitle("iBirder")
         
@@ -224,20 +225,58 @@ class JanelaPrincipal(QMainWindow):
         
         # A busca de biologia via iNaturalist/WikiAves foi transferida para o Orchestrator
         
-    def _ao_app_update_disponivel(self, release_data):
-        ver = release_data.get("tag_name", "?")
-        url = release_data.get("html_url", "https://github.com/KuriakinToscan/iBirder/releases")
-        
-        btn_app_update = QPushButton(f"🚀 Nova Versão do iBirder Disponível! ({ver})")
-        btn_app_update.setStyleSheet("background-color: #008CBA; color: white; border-radius: 4px; padding: 2px 10px; font-weight: bold; font-size: 11px;")
-        btn_app_update.setCursor(Qt.PointingHandCursor)
-        
-        from PySide6.QtGui import QDesktopServices
-        from PySide6.QtCore import QUrl
-        btn_app_update.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(url)))
-        
-        self.statusBar().addWidget(btn_app_update)
-        self._btn_app_update_ota = btn_app_update
+    def _ao_app_update_disponivel(self, info):
+        """Nova versão do app: indicador na barra de status e diálogo com as novidades."""
+        from core.config import APP_VERSION
+        self._info_nova_versao = info
+        texto = f"Nova versão disponível: {info['tag']}"
+        btn = getattr(self, "_btn_app_update_ota", None)
+        if btn is None:
+            btn = QPushButton()
+            btn.setStyleSheet("background-color: #008CBA; color: white; border-radius: 4px; "
+                              "padding: 2px 10px; font-weight: bold; font-size: 11px;")
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setToolTip("Ver as novidades e baixar o instalador")
+            btn.clicked.connect(lambda: self._mostrar_dialogo_nova_versao(self._info_nova_versao))
+            self.statusBar().addPermanentWidget(btn)
+            self._btn_app_update_ota = btn
+        btn.setText(texto)
+        btn.setVisible(True)
+        logging.info(f"{texto} (atual: {APP_VERSION})")
+        # Pequeno atraso: não abrir por cima da janela que ainda está sendo montada
+        QTimer.singleShot(1500, lambda: self._mostrar_dialogo_nova_versao(info))
+
+    def _mostrar_dialogo_nova_versao(self, info):
+        if getattr(self, "_dialogo_versao_aberto", False) or not info:
+            return
+        from core.config import APP_VERSION
+        from ui.dialogs.nova_versao_dialog import DialogoNovaVersao
+        self._dialogo_versao_aberto = True
+        try:
+            dlg = DialogoNovaVersao(info, APP_VERSION, self)
+            dlg.exec()
+        finally:
+            self._dialogo_versao_aberto = False
+        if dlg.escolha == "ignorar":
+            self.orchestrator.ignorar_versao_app(info["versao"])
+            if getattr(self, "_btn_app_update_ota", None):
+                self._btn_app_update_ota.setVisible(False)
+
+    def _ao_verificar_versao(self, info, erro, manual):
+        """Resultado da verificação; só a manual (menu de ajuda) mostra 'sem novidades' ou erro."""
+        if not manual:
+            return
+        from core.config import APP_VERSION
+        from core.verificacao_versao import e_mais_nova
+        if erro:
+            DialogoAviso("Verificar atualizações",
+                         f"Não foi possível verificar se há nova versão: {erro}.\n\n"
+                         "Confira a conexão com a internet e tente de novo.", self, tipo="erro").exec()
+        elif not info or not e_mais_nova(info.get("versao"), APP_VERSION):
+            DialogoAviso("Verificar atualizações",
+                         f"Você já está usando a versão mais recente do iBirder ({APP_VERSION}).",
+                         self, tipo="info").exec()
+        # Se houver versão nova, o diálogo já foi aberto por _ao_app_update_disponivel
 
     def _ao_update_disponivel(self, manifest_data):
         ver = manifest_data.get("version", "?")
@@ -939,14 +978,20 @@ class JanelaPrincipal(QMainWindow):
         dialog.exec()
 
     def _abrir_menu_ajuda(self):
-        """Menu do botão de ajuda: manual, diagnóstico para suporte e pasta de logs."""
+        """Menu do botão de ajuda: manual, atualizações, diagnóstico para suporte e pasta de logs."""
         from PySide6.QtWidgets import QMenu
         menu = QMenu(self)
         menu.addAction("Manual do usuário", self._abrir_manual)
+        menu.addAction("Verificar atualizações", self._verificar_atualizacoes)
         menu.addSeparator()
         menu.addAction("Copiar diagnóstico", self._copiar_diagnostico)
         menu.addAction("Abrir pasta de logs", self._abrir_pasta_logs)
         menu.exec(self.btn_ajuda.mapToGlobal(self.btn_ajuda.rect().bottomLeft()))
+
+    def _verificar_atualizacoes(self):
+        """Verificação manual de nova versão (ignora o intervalo de 24 h e a versão ignorada)."""
+        self.statusBar().showMessage("Verificando se há nova versão do iBirder...", 5000)
+        self.orchestrator.verificar_atualizacao_app()
 
     def _copiar_diagnostico(self):
         """Copia versões, configuração (sem chaves) e o fim do log para enviar ao suporte."""

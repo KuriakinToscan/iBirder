@@ -105,8 +105,15 @@ Antes de renomear, o iBirder confere se o nome original foi mesmo gravado na fot
 ## 3. Botões do topo
 
 - **Recarregar (↻):** limpa a análise atual.
-- **Ajuda (?):** abre um menu com **Manual do usuário**, **Copiar diagnóstico** (informações técnicas para enviar ao suporte, sem as suas chaves de API) e **Abrir pasta de logs**.
-- **Configurações (⚙):** chaves de API da identificação em nuvem.
+- **Ajuda (?):** abre um menu com **Manual do usuário**, **Verificar atualizações**, **Copiar diagnóstico** (informações técnicas para enviar ao suporte, sem as suas chaves de API) e **Abrir pasta de logs**.
+- **Configurações (⚙):** chaves de API da identificação em nuvem e o aviso de novas versões.
+
+### Novas versões
+
+Ao abrir, o iBirder confere no GitHub, no máximo uma vez por dia, se há versão nova. Quando há, aparece uma janela com as novidades e os botões **Baixar instalador**, **Ver no GitHub**, **Lembrar depois** e **Ignorar esta versão**, e um aviso fica na barra inferior. Para atualizar, baixe e execute o instalador: suas configurações e chaves de API são mantidas.
+
+- Para conferir na hora, use **Ajuda (?) > Verificar atualizações**.
+- Para desligar o aviso, desmarque **"Avisar quando houver nova versão do iBirder"** na engrenagem (⚙).
 
 ---
 
@@ -126,6 +133,7 @@ Para configurar, clique na **engrenagem (⚙)** e depois em **"Como obter essas 
 - **As coordenadas:** são enviadas ao OpenStreetMap (Nominatim) para descobrir país, estado e município.
 - **O nome da espécie:** é enviado ao WikiAves, iNaturalist, GBIF e eBird para buscar as informações.
 - **Chaves de API:** ficam só no seu computador e nunca aparecem nos logs nem no diagnóstico.
+- **Novas versões:** a consulta ao GitHub informa só a versão do iBirder em uso (como em qualquer acesso à internet, o GitHub recebe o seu endereço IP). Pode ser desligada na engrenagem (⚙).
 
 ---
 
