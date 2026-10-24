@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QScrollArea, QTabWid
 
 from core.style_manager import StyleManager
 from ui import estado_identificacao as ei
-from ui.layouts.base import Layout, Paineis
+from ui.layouts.base import Layout, Paineis, coluna_rolavel as _aba
 
 ETAPAS_BARRA = ("Foto", "Identificação", "Conferir", "Gravar")
 
@@ -56,25 +56,6 @@ def _coluna(*widgets, espaco=StyleManager.SPACING_SM):
     for widget in widgets:
         layout.addWidget(widget)
     return coluna
-
-
-def _aba(*widgets):
-    """Página de aba com rolagem própria (a janela do Fluxo guiado não rola)."""
-    rolagem = QScrollArea()
-    rolagem.setObjectName("area_rolagem")
-    rolagem.setWidgetResizable(True)
-    rolagem.setFrameShape(QFrame.NoFrame)
-    conteudo = QWidget()
-    conteudo.setObjectName("container_rolagem")
-    layout = QVBoxLayout(conteudo)
-    layout.setContentsMargins(StyleManager.SPACING_SM, StyleManager.SPACING_SM,
-                              StyleManager.SPACING_SM, StyleManager.SPACING_SM)
-    layout.setSpacing(StyleManager.SPACING_MD)
-    for widget in widgets:
-        layout.addWidget(widget)
-    layout.addStretch()
-    rolagem.setWidget(conteudo)
-    return rolagem
 
 
 def _definir_classe(widget, classe):

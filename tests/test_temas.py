@@ -30,7 +30,7 @@ PARES_TEXTO = [
     ("texto_destaque", "destaque"), ("texto_destaque", "destaque_hover"),
     ("botao_texto", "botao_fundo"), ("botao_texto", "botao_hover"),
     ("secundario_texto", "secundario_fundo"),
-    ("link", "superficie"), ("link", "superficie_alt"),
+    ("link", "superficie"), ("link", "superficie_alt"), ("link", "selecao"),  # chips de sugestão
     ("alerta_texto", "alerta_fundo"), ("sucesso_texto", "sucesso_fundo"),
     ("erro_texto", "erro_fundo"), ("texto_barra_titulo", "barra_titulo"),
 ]

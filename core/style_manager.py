@@ -463,6 +463,19 @@ QSS_GLOBAL = """
         border: 1px solid var(--borda);
     }
     QPushButton.secundario:hover { background-color: var(--selecao); }
+    /* Sugestões de espécie (chips): nome científico em itálico, clique pesquisa */
+    QPushButton.chip {
+        background-color: var(--superficie_alt);
+        color: var(--link);
+        border: 1px solid var(--borda);
+        border-radius: 13px;
+        padding: 0px 12px;
+        font-style: italic;
+        font-weight: normal;
+        min-height: 26px;
+        max-height: 26px;
+    }
+    QPushButton.chip:hover { background-color: var(--selecao); border-color: var(--link); }
     QPushButton.primario:disabled, QPushButton.secundario:disabled {
         background-color: var(--borda_suave);
         color: var(--texto_suave);
