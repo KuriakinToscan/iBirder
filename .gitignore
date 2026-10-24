@@ -17,6 +17,7 @@ build/
 dist/
 dist_installer/
 *.spec
+!ibirder.spec
 
 # Project specific
 assets/proposals/

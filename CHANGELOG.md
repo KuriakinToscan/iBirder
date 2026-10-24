@@ -13,6 +13,9 @@
 - **Instalador menor**: o build exclui QML, bibliotecas Qt não usadas (3D, Charts, Quick Controls...), as DevTools e as traduções do navegador interno, exceto português e inglês (cerca de 150 MB a menos antes da compressão).
 - Ferramenta de manutenção `tools/atualizar_listas_conservacao.py`.
 
+### Correções
+- **Privacidade**: removidos de `assets/exiftool/` oito arquivos de depuração (`dump_*.txt`, `exif_part*.txt`, `exif_structured_final.md`) com os metadados completos de uma foto do autor (GPS, números de série da câmera e da lente, caminho do usuário no Windows). Não eram usados pelo código e iam para o instalador.
+
 ## v1.2
 
 ### Novidades
