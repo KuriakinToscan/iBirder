@@ -37,9 +37,15 @@ class Paineis:
     mapa: QWidget             # localização geográfica (Leaflet)
     geo: QWidget              # dados geográficos
     sons: QWidget             # vocalizações
+    fila: QWidget = None      # fila de fotos da pasta (só a Mesa de trabalho usa; ver PAINEIS_EXTRAS)
 
     def todos(self):
-        return [getattr(self, f.name) for f in fields(self)]
+        return [getattr(self, f.name) for f in fields(self) if getattr(self, f.name) is not None]
+
+
+# Painéis que só alguns layouts posicionam (os demais são de todos). Quem não usa um deles
+# não o mostra; a janela o guarda escondido até um layout que o use (Layout.paineis_extras).
+PAINEIS_EXTRAS = ("fila",)
 
 
 class Layout:
@@ -47,10 +53,12 @@ class Layout:
     id = ""
     nome = ""
     descricao = ""
+    paineis_extras = ()  # quais de PAINEIS_EXTRAS este layout posiciona
 
     def montar(self, paineis: Paineis, estado=None) -> QWidget:
         """
-        Cria o widget central com todos os painéis (cada um usado uma única vez).
+        Cria o widget central com todos os painéis (cada um usado uma única vez; dos
+        PAINEIS_EXTRAS, só os de `paineis_extras`).
         `estado` (EstadoIdentificacao, opcional) serve aos layouts que mudam conforme a etapa.
         """
         raise NotImplementedError

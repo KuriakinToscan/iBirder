@@ -59,9 +59,10 @@ from modules.step3_geography.iucn_worker import IUCNWorker
 from modules.step5_taxonomy.ebird_worker import EBirdWorker
 from core.config import carregar_config
 from ui.estado_identificacao import EstadoIdentificacao
-from ui.layouts import Paineis, obter_layout
+from ui.layouts import PAINEIS_EXTRAS, Paineis, obter_layout
 from ui.widgets.busca_especies import BuscaEspecies
 from ui.widgets.layout_fluxo import LayoutFluxo
+from ui.widgets.painel_fila import PainelFila
 
 # GeoWorker migrado para o Orchestrator v0.4.2
 
@@ -905,6 +906,10 @@ class JanelaPrincipal(QMainWindow):
         # Container inicia visível para manter simetria (v1.6.23)
         self.vocal_details_container.setVisible(True)
 
+        # Fila de fotos de uma pasta (só a Mesa de trabalho mostra)
+        self.painel_fila = PainelFila(self.estado)
+        self.painel_fila.abrir_foto.connect(self._carregar_imagem)
+
         # --- PAINÉIS PARA OS LAYOUTS (v1.4) ---
         self.paineis = Paineis(
             cabecalho=cabecalho,
@@ -924,6 +929,7 @@ class JanelaPrincipal(QMainWindow):
             mapa=self.grupo_mapa_card,
             geo=grupo_geo,
             sons=grupo_audio,
+            fila=self.painel_fila,
         )
         self.layout_atual = None
         self._aplicar_layout(carregar_config().get("layout"))
@@ -936,6 +942,12 @@ class JanelaPrincipal(QMainWindow):
         QShortcut(QKeySequence.Open, self, activated=self._abrir_seletor_arquivo)
         QShortcut(QKeySequence.Save, self, activated=self._atalho_gravar)
         QShortcut(QKeySequence("Ctrl+K"), self, activated=self._atalho_buscar_especie)
+        QShortcut(QKeySequence("Ctrl+Shift+O"), self, activated=self._atalho_abrir_pasta)
+
+    def _atalho_abrir_pasta(self):
+        """Ctrl+Shift+O: abre uma pasta na fila (só no layout que mostra a fila)."""
+        if self.painel_fila.isVisible():
+            self.painel_fila.escolher_pasta()
 
     def _atalho_buscar_especie(self):
         """Ctrl+K: vai para o campo do nome científico, pronto para digitar."""
@@ -958,6 +970,12 @@ class JanelaPrincipal(QMainWindow):
             return
         # montar() reparenta os painéis; só depois o widget antigo (já vazio) é descartado
         central = layout.montar(self.paineis, self.estado)
+        # Painel extra que o novo layout não usa: fica guardado (escondido) na janela,
+        # senão iria embora junto com o widget central antigo
+        for nome in PAINEIS_EXTRAS:
+            painel = getattr(self.paineis, nome)
+            if painel is not None and nome not in layout.paineis_extras:
+                painel.setParent(self)
         self.setCentralWidget(central)
         self.layout_atual = layout
         logging.info(f"Layout da janela principal: {layout.nome}")
@@ -2065,6 +2083,8 @@ class JanelaPrincipal(QMainWindow):
             try:
                 # Forçamos o processamento de eventos para garantir estabilidade da UI
                 QApplication.processEvents()
+                # Mesa de trabalho: a próxima foto da fila abre sozinha depois de gravar
+                avancar_fila = self.painel_fila.avanca_ao_gravar()
                 
                 manager = EXIFManager()
                 if manager.escrever_metadados_completos(self.caminho_imagem_atual, dados, selecionados):
@@ -2074,7 +2094,12 @@ class JanelaPrincipal(QMainWindow):
                         mensagem += "\n\n" + texto_nome
                         if not ok:
                             titulo = "Dados gravados (atenção ao nome)"
+                    nome_gravado = Path(self.caminho_imagem_atual).name
                     self.estado.gravada(self.caminho_imagem_atual)
+                    if avancar_fila and titulo == "Sucesso":
+                        # Sem aviso a cada foto: o painel da fila mostra a foto como gravada
+                        logging.info(f"Fila de fotos: {nome_gravado} gravada; abrindo a próxima")
+                        return
 
                     def show_success():
                         DialogoAviso(titulo, mensagem, self).exec()
@@ -2233,6 +2258,8 @@ class JanelaPrincipal(QMainWindow):
         # Aguarda (com limite) as threads em execução para não fechar com a thread ativa
         if hasattr(self, 'orchestrator'):
             self.orchestrator.encerrar()
+        if hasattr(self, 'painel_fila'):
+            self.painel_fila.encerrar()
         if getattr(self, "worker_publicacao", None) and self.worker_publicacao.isRunning():
             self.worker_publicacao.wait(3000)  # envio em andamento: espera um pouco antes de fechar
         if hasattr(self, 'session_logger'):

@@ -133,6 +133,7 @@ Ao terminar, o número da observação é gravado na foto (*iBirder > Publicacao
 - **Ctrl+O:** abrir uma foto.
 - **Ctrl+S:** gravar os dados na fotografia (quando o botão Gravar está liberado).
 - **Ctrl+K:** ir para o campo **Nome Científico** e buscar uma espécie.
+- **Ctrl+Shift+O:** abrir uma pasta na fila de fotos (layout **Mesa de trabalho**).
 
 ### Aparência
 
@@ -146,12 +147,20 @@ No mesmo quadro, **Layout** escolhe a arrumação da tela:
 
 - **Painel completo:** tudo visível numa grade de três colunas, com rolagem.
 - **Fluxo guiado:** uma etapa por vez. A barra no alto mostra **Foto › Identificação › Conferir › Gravar** e diz o que fazer em seguida; descrição, classificação, mapa e sons ficam em abas, sem rolar a janela.
-
 - **Ficha compacta:** tudo numa tela, em três colunas (fotos; ficha da espécie; mapa e sons), cada coluna com rolagem própria.
-
-O layout **Mesa de trabalho** chega na próxima versão.
+- **Mesa de trabalho:** para uma pasta inteira de fotos, como a de uma saída de campo (veja abaixo).
 
 Tema e layout mudam na hora, enquanto você escolhe. **Salvar** mantém a escolha; **Cancelar** volta ao que estava antes.
+
+### Mesa de trabalho: uma pasta em fila
+
+1. Escolha o layout **Mesa de trabalho** e clique em **Abrir pasta...** no painel **Fila de fotos** (ou **Ctrl+Shift+O**).
+2. O iBirder lista as fotos JPG e PNG da pasta (sem subpastas), com miniaturas, e confere quais já têm dados gravados pelo iBirder: essas aparecem como **✓ Já tinha registro** e ficam fora da fila.
+3. A primeira foto pendente abre sozinha. Confira a espécie e clique em **Gravar Dados na Fotografia** (**Ctrl+S**).
+4. Com **Ir para a próxima ao gravar** marcado, a próxima foto pendente abre logo depois da gravação, sem o aviso de sucesso a cada foto. A lista mostra cada foto como **✓ Gravada**, com a espécie e o novo nome, se ela foi renomeada.
+5. **Pular** deixa a foto para depois. Para voltar a qualquer foto, clique duas vezes nela na lista.
+
+> A identificação continua sendo feita uma foto por vez, a que está aberta: o iBirder não consulta o WikiAves em lote.
 
 ### Novas versões
 

@@ -7,19 +7,18 @@ Layouts da janela principal (v1.4). Tema (cores) e layout (arrumação) são esc
 independentes em Configurações > Aparência; a escolha fica em config.json ("layout").
 """
 
-from ui.layouts.base import Layout, Paineis
+from ui.layouts.base import PAINEIS_EXTRAS, Layout, Paineis
 from ui.layouts.completo import LayoutCompleto
 from ui.layouts.ficha import LayoutFicha
 from ui.layouts.guiado import LayoutGuiado
+from ui.layouts.mesa import LayoutMesa
 
 LAYOUT_PADRAO = "completo"
 
-LAYOUTS = {layout.id: layout for layout in (LayoutCompleto(), LayoutGuiado(), LayoutFicha())}
+LAYOUTS = {layout.id: layout for layout in (LayoutCompleto(), LayoutGuiado(), LayoutFicha(), LayoutMesa())}
 
 # Propostas do redesenho ainda em construção: aparecem desativadas nas Configurações
-LAYOUTS_PLANEJADOS = (
-    ("mesa", "Mesa de trabalho", "Uma pasta inteira em fila: grave e vá para a próxima foto."),
-)
+LAYOUTS_PLANEJADOS = ()
 
 
 def obter_layout(id_layout):
@@ -27,4 +26,4 @@ def obter_layout(id_layout):
     return LAYOUTS.get(id_layout or LAYOUT_PADRAO, LAYOUTS[LAYOUT_PADRAO])
 
 
-__all__ = ["Layout", "Paineis", "LAYOUTS", "LAYOUT_PADRAO", "LAYOUTS_PLANEJADOS", "obter_layout"]
+__all__ = ["Layout", "Paineis", "PAINEIS_EXTRAS", "LAYOUTS", "LAYOUT_PADRAO", "LAYOUTS_PLANEJADOS", "obter_layout"]
