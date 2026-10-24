@@ -10,7 +10,7 @@ como a ficha de campo de uma espécie.
     Foto       | Identificação (nome, certeza, sugestões) | Mapa
     Referência | Descrição, etimologia                    | Dados geográficos
     Lens Fonte | Taxonomia, conservação                   | Vocalizações
-    WikiAves eBird Google           Nova identificação   Gravar dados na fotografia
+    WikiAves eBird Google     Nova identificação   Publicar no iNaturalist   Gravar
 
 A janela não rola: cada coluna rola sozinha quando o conteúdo passa da altura.
 A busca rápida de espécies (Ctrl+K) leva direto ao campo do nome científico.
@@ -64,6 +64,7 @@ class LayoutFicha(Layout):
         acoes.addWidget(p.buscas)
         acoes.addStretch()
         acoes.addWidget(p.btn_nova)
+        acoes.addWidget(p.btn_publicar)
         acoes.addWidget(p.btn_gravar)
         mestre.addLayout(acoes)
         return raiz

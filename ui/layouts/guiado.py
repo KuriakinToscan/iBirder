@@ -10,7 +10,7 @@ Layout "Fluxo guiado" (proposta A do redesenho): uma etapa por vez.
     Foto | Referência          | Identificação (nome, certeza, sugestões)
     Lens | Abrir fonte         | WikiAves  eBird  Google
                                | [Descrição | Classificação | Local | Sons]
-    Nova identificação                         Gravar dados na fotografia
+    Nova identificação          Publicar no iNaturalist   Gravar dados na fotografia
 
 Sem foto aberta, só o card da foto aparece, grande e centralizado, com a dica
 "arraste uma foto ou Ctrl+O". A barra de etapas e a dica seguem o EstadoIdentificacao.
@@ -208,6 +208,7 @@ class LayoutGuiado(Layout):
         acoes = QHBoxLayout()
         acoes.addWidget(p.btn_nova)
         acoes.addStretch()
+        acoes.addWidget(p.btn_publicar)
         acoes.addWidget(p.btn_gravar)
         mestre.addLayout(acoes)
 
