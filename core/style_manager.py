@@ -561,6 +561,11 @@ QSS_GLOBAL = """
         background-color: var(--destaque);
         border: 1px solid var(--destaque);
     }
+    QCheckBox:disabled, QRadioButton:disabled { color: var(--texto_suave); }
+    QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {
+        background-color: var(--borda_suave);
+        border: 1px solid var(--borda_suave);
+    }
 
     /* Classes Abstratas para Widgets Customizados */
     .lbl-titulo-sessao { font-family: 'var(--fonte_titulo)'; font-weight: bold; color: var(--titulo_sessao); font-size: 11px; }

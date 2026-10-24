@@ -55,6 +55,9 @@ from modules.step3_geography.geo_analyst import GeoAnalyst
 from core.session_logger import SessionLogger
 from modules.step3_geography.iucn_worker import IUCNWorker
 from modules.step5_taxonomy.ebird_worker import EBirdWorker
+from core.config import carregar_config
+from ui.estado_identificacao import EstadoIdentificacao
+from ui.layouts import Paineis, obter_layout
 
 # GeoWorker migrado para o Orchestrator v0.4.2
 
@@ -88,6 +91,9 @@ class JanelaPrincipal(QMainWindow):
         # O Orchestrator gerencia a execução assíncrona para não travar a interface.
         from core.orchestrator import Orchestrator
         self.orchestrator = Orchestrator(self.session_logger, parent=self)
+
+        # Resumo da etapa atual (sem foto, identificando, conferir, gravada...) para os layouts
+        self.estado = EstadoIdentificacao(self)
         
         # Conexões de Sinais (Pipeline em Cascata)
         self.orchestrator.step1_identificacao_concluida.connect(self._ao_concluir_identificacao)
@@ -106,6 +112,7 @@ class JanelaPrincipal(QMainWindow):
         self.orchestrator.update_available.connect(self._ao_update_disponivel)
         self.orchestrator.app_update_available.connect(self._ao_app_update_disponivel)
         self.orchestrator.app_update_verificada.connect(self._ao_verificar_versao)
+        self.estado.conectar(self.orchestrator)
         
         self.setWindowTitle("iBirder")
         
@@ -531,23 +538,13 @@ class JanelaPrincipal(QMainWindow):
         # --- CARREGAMENTO DO ÍCONE DA JANELA (Dinâmico v0.6.5) ---
         StyleManager.set_app_icon(self)
 
-        # Container Principal com Scroll
-        self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(True)
-        # Fundo da área de rolagem vem do tema (QScrollArea#area_rolagem)
-        self.scroll_area.setObjectName("area_rolagem")
-
-        widget_central = QWidget()
-        widget_central.setObjectName("container_rolagem")
-        self.scroll_area.setWidget(widget_central)
-        self.setCentralWidget(self.scroll_area)
-
-        layout_mestre = QVBoxLayout(widget_central)
-        layout_mestre.setContentsMargins(StyleManager.SPACING_MD, StyleManager.SPACING_MD, StyleManager.SPACING_MD, StyleManager.SPACING_MD)
-        layout_mestre.setSpacing(StyleManager.SPACING_SM)
+        # Os painéis são criados aqui; quem os arruma na tela é o layout escolhido
+        # (ui/layouts/), montado no fim deste método por _aplicar_layout().
 
         # --- HEADER GLOBAL (Branding + Actions) ---
-        layout_header = QHBoxLayout()
+        cabecalho = QWidget()
+        layout_header = QHBoxLayout(cabecalho)
+        layout_header.setContentsMargins(0, 0, 0, 0)
         layout_header.setSpacing(StyleManager.SPACING_MD)
         
         # Branding 
@@ -631,33 +628,7 @@ class JanelaPrincipal(QMainWindow):
         layout_ajuda.addWidget(self.btn_config)
         # --- SOLDA CIRÚRGICA DE BRANDING PERDIDA NA FASE L ---
         layout_header.addLayout(layout_ajuda)
-        
-        # Adiciona o Frame do Header ao Layout Mestre
-        layout_mestre.addLayout(layout_header)
-        layout_mestre.addSpacing(StyleManager.SPACING_LG)
-        
-        # --- NOVO: GRID DE COLUNAS COM SIMETRIA E ALINHAMENTO HORIZONTAL (v1.6.15) ---
-        layout_cards_superiores = QGridLayout()
-        layout_cards_superiores.setSpacing(15)
-        
-        # OBRIGAR SIMETRIA: As colunas 0, 1 e 2 devem ter exato peso 1
-        layout_cards_superiores.setColumnStretch(0, 1)
-        layout_cards_superiores.setColumnStretch(1, 1)
-        layout_cards_superiores.setColumnStretch(2, 1)
-        
-        # LINHA 0: TÍTULOS
-        lbl_titulo_user = QLabel("Imagem Pesquisada")
-        lbl_titulo_user.setProperty("class", "lbl-titulo-sessao")
-        layout_cards_superiores.addWidget(lbl_titulo_user, 0, 0)
-        
-        lbl_titulo_ref = QLabel("Imagem Referência")
-        lbl_titulo_ref.setProperty("class", "lbl-titulo-sessao")
-        layout_cards_superiores.addWidget(lbl_titulo_ref, 0, 1)
 
-        lbl_titulo_res = QLabel("Resultados da Análise")
-        lbl_titulo_res.setProperty("class", "lbl-titulo-sessao")
-        layout_cards_superiores.addWidget(lbl_titulo_res, 0, 2)
-        
         # --- CRIAÇÃO DOS WIDGETS ---
         
         # 1. Cards de Imagem
@@ -827,7 +798,9 @@ class JanelaPrincipal(QMainWindow):
         self.btn_fonte.setEnabled(False)
         self.btn_fonte.clicked.connect(lambda: QDesktopServices.openUrl(self.btn_fonte.property("url_alvo")))
         
-        layout_buscas = QHBoxLayout()
+        barra_buscas = QWidget()
+        layout_buscas = QHBoxLayout(barra_buscas)
+        layout_buscas.setContentsMargins(0, 0, 0, 0)
         layout_buscas.setSpacing(10)
         self.btn_wiki = QPushButton("WikiAves"); self.btn_wiki.clicked.connect(self._buscar_wikiaves)
         self.btn_ebird = QPushButton("eBird"); self.btn_ebird.clicked.connect(self._buscar_ebird)
@@ -898,49 +871,54 @@ class JanelaPrincipal(QMainWindow):
         # Container inicia visível para manter simetria (v1.6.23)
         self.vocal_details_container.setVisible(True)
 
-        # --- ASSEMBLE GRID MESTRE (v1.6.15) ---
-        
-        # COLUNA DIREITA SUP (ID, ETI, TAX) - Agrupar p/ manter coladas
-        painel_direito_sup = QWidget()
-        layout_dir_v1 = QVBoxLayout(painel_direito_sup)
-        layout_dir_v1.setContentsMargins(0, 0, 0, 0)
-        layout_dir_v1.setSpacing(StyleManager.SPACING_MD)
-        layout_dir_v1.addWidget(grupo_resultados)
-        layout_dir_v1.addWidget(grupo_etimologia)
-        layout_dir_v1.addWidget(grupo_taxonomia)
-
-        # LINHA 1
-        layout_cards_superiores.addWidget(self.card_user, 1, 0)
-        layout_cards_superiores.addWidget(self.card_ref, 1, 1)
-        layout_cards_superiores.addWidget(painel_direito_sup, 1, 2)
-        
-        # LINHA 2: FILA HORIZONTAL DE BOTÕES 1
-        layout_cards_superiores.addWidget(self.btn_google_lens, 2, 0)
-        layout_cards_superiores.addWidget(self.btn_fonte, 2, 1)
-        layout_cards_superiores.addLayout(layout_buscas, 2, 2)
-        
-        # LINHA 3: DESCRIÇÃO E CONSERVAÇÃO
-        layout_cards_superiores.addWidget(self.painel_desc_container, 3, 0, 1, 2)
-        layout_cards_superiores.addWidget(grupo_conservacao, 3, 2)
-        
-        # LINHA 4: FILA HORIZONTAL DE BOTÕES 2
-        layout_cards_superiores.addWidget(self.btn_nova, 4, 0, 1, 2)
-        layout_cards_superiores.addWidget(self.btn_gravar_exif, 4, 2)
-        
-        # LINHA 5: MAPA E DETALHES FINAIS
-        layout_cards_superiores.addWidget(self.grupo_mapa_card, 5, 0, 2, 2) # Span map card across 2 rows
-        
-        painel_direito_inf = QWidget()
-        layout_dir_v2 = QVBoxLayout(painel_direito_inf); layout_dir_v2.setContentsMargins(0,0,0,0); layout_dir_v2.setSpacing(StyleManager.SPACING_MD)
-        layout_dir_v2.addWidget(grupo_geo); layout_dir_v2.addWidget(grupo_audio)
-        layout_cards_superiores.addWidget(painel_direito_inf, 5, 2)
-
-        layout_mestre.addLayout(layout_cards_superiores)
-        layout_mestre.addStretch()
+        # --- PAINÉIS PARA OS LAYOUTS (v1.4) ---
+        self.paineis = Paineis(
+            cabecalho=cabecalho,
+            foto=self.card_user,
+            referencia=self.card_ref,
+            identificacao=grupo_resultados,
+            etimologia=grupo_etimologia,
+            taxonomia=grupo_taxonomia,
+            conservacao=grupo_conservacao,
+            descricao=self.painel_desc_container,
+            btn_lens=self.btn_google_lens,
+            btn_fonte=self.btn_fonte,
+            buscas=barra_buscas,
+            btn_nova=self.btn_nova,
+            btn_gravar=self.btn_gravar_exif,
+            mapa=self.grupo_mapa_card,
+            geo=grupo_geo,
+            sons=grupo_audio,
+        )
+        self.layout_atual = None
+        self._aplicar_layout(carregar_config().get("layout"))
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("Pronto para uso (Local)")
+
+    def _aplicar_layout(self, id_layout):
+        """
+        Arruma os painéis no layout pedido (ui/layouts/). Pode ser chamado com a janela
+        aberta: os painéis passam para o novo widget central com o conteúdo intacto.
+        """
+        layout = obter_layout(id_layout)
+        if self.layout_atual is layout:
+            return
+        # montar() reparenta os painéis; só depois o widget antigo (já vazio) é descartado
+        central = layout.montar(self.paineis)
+        self.setCentralWidget(central)
+        self.layout_atual = layout
+        logging.info(f"Layout da janela principal: {layout.nome}")
+
+    def _mostrar_widget(self, widget):
+        """Rola até o widget, se o layout atual o coloca numa área de rolagem."""
+        pai = widget.parentWidget()
+        while pai is not None:
+            if isinstance(pai, QScrollArea):
+                pai.ensureWidgetVisible(widget)
+                return
+            pai = pai.parentWidget()
 
     def _aplicar_estilo(self):
         """Configura o estilo visual da janela via Sovereign Style (v0.6.3 / v0.8.0)."""
@@ -1105,6 +1083,7 @@ class JanelaPrincipal(QMainWindow):
 
         self.dados_identificacao_atual["nome_cientifico"] = sci_formatted
         self.especie_em_processamento = sci_formatted # Persistência Atômica v0.6.8
+        self.estado.especie_digitada(sci_formatted)
         StyleManager.definir_texto(self.lbl_nome_comum, self._format_nome_ave("Nome Comum:", ""))
         self.lbl_nome_comum.setVisible(True)
         self.txt_descricao.setHtml("<i>Identificado pelo usuário.</i>")
@@ -1412,6 +1391,7 @@ class JanelaPrincipal(QMainWindow):
         self.status_bar.showMessage("Iniciando IA Local...")
         
         self.card_user.setAcceptDrops(False) 
+        self.estado.foto_aberta(self.caminho_imagem_atual)
         
         try:
             self.orchestrator.update_location(self.lat_atual, self.lon_atual)
@@ -1660,7 +1640,7 @@ class JanelaPrincipal(QMainWindow):
                     
                     if hasattr(player, 'highlight'):
                         player.highlight()
-                    self.scroll_area.ensureWidgetVisible(player)
+                    self._mostrar_widget(player)
                     break
         
     def _ao_concluir_geo_analise(self, details):
@@ -1909,7 +1889,8 @@ class JanelaPrincipal(QMainWindow):
 
         if hasattr(self, 'session_logger'):
             self.session_logger.reset()
-            
+
+        self.estado.limpar(manter_foto=manter_imagem)
         self._limpar_painel_audio()
         
         if not manter_imagem:
@@ -2020,6 +2001,7 @@ class JanelaPrincipal(QMainWindow):
                         mensagem += "\n\n" + texto_nome
                         if not ok:
                             titulo = "Dados gravados (atenção ao nome)"
+                    self.estado.gravada(self.caminho_imagem_atual)
 
                     def show_success():
                         DialogoAviso(titulo, mensagem, self).exec()

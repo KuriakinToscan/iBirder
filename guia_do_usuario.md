@@ -116,7 +116,9 @@ Em **Configurações (⚙) > Aparência**, escolha um dos três temas:
 - **Clean:** fundo branco, letras mais leves e verde-petróleo só nos botões principais.
 - **Clássico:** papel creme e títulos com serifa, como num guia de campo.
 
-O tema muda na hora, enquanto você escolhe. **Salvar** mantém a escolha; **Cancelar** volta ao tema anterior.
+No mesmo quadro, **Layout** escolhe a arrumação da tela. Hoje há o **Painel completo** (tudo visível numa grade de três colunas); os layouts **Fluxo guiado**, **Ficha compacta** e **Mesa de trabalho** chegam nas próximas versões.
+
+Tema e layout mudam na hora, enquanto você escolhe. **Salvar** mantém a escolha; **Cancelar** volta ao que estava antes.
 
 ### Novas versões
 

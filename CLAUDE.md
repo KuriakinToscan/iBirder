@@ -57,6 +57,10 @@ inclusive com Chrome headless).
   modelo e renderizam de novo na troca de tema (sem reiniciar). `tests/test_temas.py` acusa `#RRGGBB`
   na `ui/` (exceto as cores de dado do mapa) e contraste de texto abaixo de 4,5:1.
 - Logos dos temas: `python tools/gerar_logos.py` (duotone do `assets/logo_ave.svg`).
+- Layouts (`ui/layouts/`): a janela cria os painéis uma vez (`Paineis`) e toda a lógica fala com
+  eles; um layout só os posiciona em `montar()` (cada painel uma vez). Trocar de layout reparenta os
+  painéis (`JanelaPrincipal._aplicar_layout`), sem recriar. Escolha em `config.json` (`"layout"`).
+  A etapa atual (sem foto, identificando, conferir, gravada...) fica em `ui/estado_identificacao.py`.
 
 ## Testes
 

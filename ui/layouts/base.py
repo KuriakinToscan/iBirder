@@ -1,0 +1,51 @@
+#  iBirder -  IA para Birdwatching
+#  Copyright (C) 2026  Kuriakin Humberto Toscan
+#  Licença GNU GPL v3 (veja main.py)
+
+"""
+Base dos layouts da janela principal (v1.4).
+
+A janela cria os painéis uma vez (cards de foto, identificação, taxonomia, mapa...) e
+toda a lógica continua falando com eles. Um layout só decide ONDE cada painel fica:
+`montar()` devolve o widget central com os painéis encaixados. Trocar de layout é
+montar outro widget com os mesmos painéis, sem perder o que já está na tela.
+"""
+
+from dataclasses import dataclass, fields
+
+from PySide6.QtWidgets import QWidget
+
+
+@dataclass
+class Paineis:
+    """Os blocos da janela principal que todo layout arruma."""
+    cabecalho: QWidget        # logo, slogan e botões (recarregar, ajuda, configurações)
+    foto: QWidget             # card da foto pesquisada (arrastar/clicar)
+    referencia: QWidget       # card da imagem de referência
+    identificacao: QWidget    # nome científico, certeza, candidatas, nomes comum e inglês
+    etimologia: QWidget
+    taxonomia: QWidget
+    conservacao: QWidget
+    descricao: QWidget        # descrição da espécie (WikiAves)
+    btn_lens: QWidget         # Pesquisar com Google Lens
+    btn_fonte: QWidget        # Abrir fonte da imagem de referência
+    buscas: QWidget           # WikiAves, eBird, Google
+    btn_nova: QWidget         # Nova identificação
+    btn_gravar: QWidget       # Gravar dados na fotografia (ação principal)
+    mapa: QWidget             # localização geográfica (Leaflet)
+    geo: QWidget              # dados geográficos
+    sons: QWidget             # vocalizações
+
+    def todos(self):
+        return [getattr(self, f.name) for f in fields(self)]
+
+
+class Layout:
+    """Um jeito de arrumar os painéis. Subclasses definem id, nome, descrição e montar()."""
+    id = ""
+    nome = ""
+    descricao = ""
+
+    def montar(self, paineis: Paineis) -> QWidget:
+        """Cria o widget central com todos os painéis (cada um usado uma única vez)."""
+        raise NotImplementedError
