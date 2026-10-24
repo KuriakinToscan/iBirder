@@ -11,16 +11,19 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QCursor
 from core.style_manager import StyleManager
 from core.temas import TEMAS, TEMA_PADRAO
+from ui.layouts import LAYOUTS, LAYOUT_PADRAO, LAYOUTS_PLANEJADOS
 
 class APISettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Configurações")
-        self.resize(520, 400)
+        self.resize(520, 520)
         
         self.config = carregar_config()
         # Tema salvo: a escolha é aplicada na hora (prévia) e desfeita se o diálogo for cancelado
         self._tema_salvo = self.config.get("tema") or TEMA_PADRAO
+        # Layout salvo: idem, aplicado na janela principal (parent) enquanto a pessoa escolhe
+        self._layout_salvo = self.config.get("layout") or LAYOUT_PADRAO
         
         self.init_ui()
         self.load_data()
@@ -28,9 +31,12 @@ class APISettingsDialog(QDialog):
     def init_ui(self):
         layout = QVBoxLayout(self)
 
-        # Aparência (v1.4): um botão por tema de core/temas.py
+        # Aparência (v1.4): um botão por tema de core/temas.py e um por layout de ui/layouts/
         grupo_tema = QGroupBox("Aparência")
         layout_tema = QVBoxLayout(grupo_tema)
+        lbl_cores = QLabel("Tema (cores e fontes)")
+        lbl_cores.setProperty("class", "lbl-titulo-sessao")
+        layout_tema.addWidget(lbl_cores)
         self.grupo_botoes_tema = QButtonGroup(self)
         self.botoes_tema = {}
         for tema in TEMAS.values():
@@ -41,7 +47,30 @@ class APISettingsDialog(QDialog):
             self.grupo_botoes_tema.addButton(botao)
             self.botoes_tema[tema.id] = botao
             layout_tema.addWidget(botao)
-        lbl_tema = QLabel("O tema é aplicado na hora, sem reiniciar o iBirder.")
+
+        lbl_arrumacao = QLabel("Layout (arrumação da tela)")
+        lbl_arrumacao.setProperty("class", "lbl-titulo-sessao")
+        layout_tema.addWidget(lbl_arrumacao)
+        self.grupo_botoes_layout = QButtonGroup(self)
+        self.botoes_layout = {}
+        for item in LAYOUTS.values():
+            botao = QRadioButton(item.nome)
+            botao.setToolTip(item.descricao)
+            botao.setCursor(Qt.PointingHandCursor)
+            botao.toggled.connect(lambda marcado, l=item.id: marcado and self._previa_layout(l))
+            self.grupo_botoes_layout.addButton(botao)
+            self.botoes_layout[item.id] = botao
+            layout_tema.addWidget(botao)
+        for id_layout, nome, descricao in LAYOUTS_PLANEJADOS:
+            if id_layout in LAYOUTS:
+                continue
+            botao = QRadioButton(f"{nome} (em breve)")
+            botao.setToolTip(descricao)
+            botao.setEnabled(False)
+            self.grupo_botoes_layout.addButton(botao)
+            layout_tema.addWidget(botao)
+
+        lbl_tema = QLabel("Tema e layout são aplicados na hora, sem reiniciar o iBirder.")
         lbl_tema.setProperty("class", "lbl-placeholder")
         layout_tema.addWidget(lbl_tema)
         layout.addWidget(grupo_tema)
@@ -166,6 +195,22 @@ class APISettingsDialog(QDialog):
         botao.blockSignals(True)  # marcar o tema salvo não é uma prévia
         botao.setChecked(True)
         botao.blockSignals(False)
+        botao = self.botoes_layout.get(self._layout_salvo) or self.botoes_layout[LAYOUT_PADRAO]
+        botao.blockSignals(True)
+        botao.setChecked(True)
+        botao.blockSignals(False)
+
+    def _layout_escolhido(self):
+        for id_layout, botao in self.botoes_layout.items():
+            if botao.isChecked():
+                return id_layout
+        return self._layout_salvo
+
+    def _previa_layout(self, id_layout):
+        """Arruma a janela principal no layout marcado, para a pessoa ver antes de salvar."""
+        janela = self.parent()
+        if janela is not None and hasattr(janela, "_aplicar_layout"):
+            janela._aplicar_layout(id_layout)
 
     def _tema_escolhido(self):
         for id_tema, botao in self.botoes_tema.items():
@@ -181,6 +226,8 @@ class APISettingsDialog(QDialog):
         # Cancelar (ou fechar no X) desfaz a prévia do tema
         if StyleManager.tema_atual().id != self._tema_salvo:
             StyleManager.apply_theme(QApplication.instance(), tema=self._tema_salvo)
+        if self._layout_escolhido() != self._layout_salvo:
+            self._previa_layout(self._layout_salvo)
         super().reject()
         
     def save_settings(self):
@@ -194,9 +241,11 @@ class APISettingsDialog(QDialog):
             "google_vision_api_key": self.config["google_vision_api_key"],
             "verificar_atualizacoes": self.chk_atualizacoes.isChecked(),
             "tema": self._tema_escolhido(),
+            "layout": self._layout_escolhido(),
         })
         self.config = atual
         salvar_config(self.config)
         self._tema_salvo = self.config["tema"]
+        self._layout_salvo = self.config["layout"]
         QMessageBox.information(self, "Sucesso", "Configurações salvas com sucesso.")
         self.accept()

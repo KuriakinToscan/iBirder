@@ -40,7 +40,9 @@ def carregar_config():
         "ultima_verificacao_versao": "",
         "versao_ignorada": "",
         # Tema visual (core/temas.py): "offwhite", "clean" ou "classico"
-        "tema": "offwhite"
+        "tema": "offwhite",
+        # Arrumação da janela principal (ui/layouts/)
+        "layout": "completo"
     }
     
     if config_path.exists():
