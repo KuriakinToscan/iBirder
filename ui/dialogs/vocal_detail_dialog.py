@@ -51,14 +51,14 @@ class VocalDetailDialog(BaseDialog):
         
         # 0.1 Créditos (v0.8.2 - Movido para baixo do player)
         self.lbl_creditos = QLabel("")
-        self.lbl_creditos.setStyleSheet("font-size: 11px; color: #4B5563; font-style: italic; margin-bottom: 5px;")
+        StyleManager.estilizar(self.lbl_creditos, "font-size: 11px; color: var(--texto_secundario); font-style: italic; margin-bottom: 5px;")
         self.lbl_creditos.setWordWrap(True)
         self.lbl_creditos.setAlignment(Qt.AlignCenter)
         self.main_layout.addWidget(self.lbl_creditos)
 
         # 1. Identificação do Registro
         lbl_instrucao = QLabel("Identificação do Registro:")
-        lbl_instrucao.setStyleSheet("font-weight: bold; color: #111827; margin-top: 5px;")
+        StyleManager.estilizar(lbl_instrucao, "font-weight: bold; color: var(--texto); margin-top: 5px;")
         self.main_layout.addWidget(lbl_instrucao)
         
         container_id = QHBoxLayout()
@@ -78,11 +78,11 @@ class VocalDetailDialog(BaseDialog):
         
         # 2. Localização do Registro (v0.8.2)
         lbl_loc_title = QLabel("Localização do Registro:")
-        lbl_loc_title.setStyleSheet("font-weight: bold; color: #111827; margin-top: 10px;")
+        StyleManager.estilizar(lbl_loc_title, "font-weight: bold; color: var(--texto); margin-top: 10px;")
         self.main_layout.addWidget(lbl_loc_title)
         
         self.lbl_localizacao = QLabel("Desconhecida")
-        self.lbl_localizacao.setStyleSheet("color: #374151; font-size: 11px; margin-bottom: 10px;")
+        StyleManager.estilizar(self.lbl_localizacao, "color: var(--texto_secundario); font-size: 11px; margin-bottom: 10px;")
         self.lbl_localizacao.setWordWrap(True)
         self.main_layout.addWidget(self.lbl_localizacao)
 
@@ -100,20 +100,21 @@ class VocalDetailDialog(BaseDialog):
         self.btn_fechar.clicked.connect(self.accept)
         self.btn_fechar.setFixedHeight(32)
         
-        # Estilo Padronizado (Grey-Dark Sovereign)
+        # Os dois botões em destaque, nas cores do tema
         estilo_btn = """
             QPushButton {
-                background-color: #374151;
-                color: white;
+                background-color: var(--destaque);
+                color: var(--texto_destaque);
+                border: none;
                 font-weight: bold;
                 border-radius: 4px;
             }
             QPushButton:hover {
-                background-color: #1F2937;
+                background-color: var(--destaque_hover);
             }
         """
-        self.btn_registro.setStyleSheet(estilo_btn)
-        self.btn_fechar.setStyleSheet(estilo_btn)
+        StyleManager.estilizar(self.btn_registro, estilo_btn)
+        StyleManager.estilizar(self.btn_fechar, estilo_btn)
         
         layout_botoes.addWidget(self.btn_registro)
         layout_botoes.addWidget(self.btn_fechar)

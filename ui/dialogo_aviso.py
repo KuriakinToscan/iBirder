@@ -19,6 +19,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
 from ui.base.base_dialog import BaseDialog
+from core.style_manager import StyleManager
 
 class DialogoAviso(BaseDialog):
     def __init__(self, titulo, mensagem, parent=None, tipo="info", botoes=None):
@@ -41,14 +42,14 @@ class DialogoAviso(BaseDialog):
         # Título
         lbl_titulo = QLabel(self.titulo)
         lbl_titulo.setAlignment(Qt.AlignLeft)
-        font_titulo = QFont("Segoe UI", 16, QFont.Bold)
+        font_titulo = QFont(StyleManager.cor("fonte_titulo"), 16, QFont.Bold)
         lbl_titulo.setFont(font_titulo)
         layout.addWidget(lbl_titulo)
         
         # Mensagem
         lbl_msg = QLabel(self.mensagem)
         lbl_msg.setWordWrap(True)
-        lbl_msg.setFont(QFont("Segoe UI", 11))
+        lbl_msg.setFont(QFont(StyleManager.cor("fonte"), 11))
         layout.addWidget(lbl_msg)
         
         layout.addStretch()
@@ -104,34 +105,34 @@ class DialogoAviso(BaseDialog):
         layout.addLayout(layout_botoes)
 
     def _aplicar_estilo(self):
-        # Estilo Estrito conforme REGRA 2 (#F8F9FA / #2C3E50)
-        self.setStyleSheet("""
+        # Cores do tema ativo (core/temas.py)
+        StyleManager.estilizar(self, """
             QDialog {
-                background-color: #F8F9FA;
+                background-color: var(--superficie_alt);
             }
             QLabel {
-                color: #2C3E50;
-                font-family: "Segoe UI";
+                color: var(--texto);
+                font-family: 'var(--fonte)';
             }
             QPushButton {
-                background-color: #FFFFFF;
-                border: 1px solid #D1D5DB;
+                background-color: var(--superficie);
+                border: 1px solid var(--borda);
                 border-radius: 6px;
-                color: #2C3E50;
+                color: var(--texto);
                 font-weight: 600;
                 font-size: 13px;
                 min-height: 40px;
             }
             QPushButton:hover {
-                background-color: #F3F4F6;
-                border-color: #9CA3AF;
+                background-color: var(--hover);
+                border-color: var(--texto_suave);
             }
             QPushButton[class="acao"] {
-                background-color: #374151; /* Dark Gray do App */
-                color: #FFFFFF;
+                background-color: var(--destaque);
+                color: var(--texto_destaque);
                 border: none;
             }
             QPushButton[class="acao"]:hover {
-                background-color: #1F2937;
+                background-color: var(--destaque_hover);
             }
         """)

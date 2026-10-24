@@ -25,6 +25,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QTextBrowser
 
 from core.verificacao_versao import descrever_data
 from ui.base.base_dialog import BaseDialog
+from core.style_manager import StyleManager
 
 
 class DialogoNovaVersao(BaseDialog):
@@ -41,7 +42,7 @@ class DialogoNovaVersao(BaseDialog):
         self.escolha = "depois"
 
         titulo = QLabel(f"Nova versão disponível: {html.escape(info['tag'])}")
-        titulo.setStyleSheet("font-size: 16px; font-weight: bold; color: #111827;")
+        StyleManager.estilizar(titulo, "font-family: 'var(--fonte_titulo)'; font-size: 16px; font-weight: bold; color: var(--texto);")
         self.main_layout.addWidget(titulo)
 
         data = descrever_data(info.get("data"))
@@ -50,19 +51,19 @@ class DialogoNovaVersao(BaseDialog):
             subtitulo += f" A {html.escape(info['tag'])} foi publicada em {data}."
         lbl_sub = QLabel(subtitulo)
         lbl_sub.setWordWrap(True)
-        lbl_sub.setStyleSheet("color: #374151;")
+        StyleManager.estilizar(lbl_sub, "color: var(--texto_secundario);")
         self.main_layout.addWidget(lbl_sub)
 
         notas = QTextBrowser()
         notas.setOpenExternalLinks(True)
         notas.setMarkdown(info.get("notas") or "_A Release não traz descrição das novidades._")
-        notas.setStyleSheet("background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 6px; padding: 6px;")
+        StyleManager.estilizar(notas, "background: var(--superficie); border: 1px solid var(--borda_suave); border-radius: 6px; padding: 6px;")
         self.main_layout.addWidget(notas, stretch=1)
 
         ajuda = QLabel("Para atualizar, baixe e execute o instalador: ele substitui a versão atual "
                        "e mantém suas configurações e chaves de API.")
         ajuda.setWordWrap(True)
-        ajuda.setStyleSheet("color: #4B5563; font-size: 12px;")
+        StyleManager.estilizar(ajuda, "color: var(--texto_secundario); font-size: 12px;")
         self.main_layout.addWidget(ajuda)
 
         botoes = QHBoxLayout()
@@ -84,8 +85,7 @@ class DialogoNovaVersao(BaseDialog):
         for b in (self.btn_ignorar, self.btn_depois, self.btn_pagina, self.btn_baixar):
             b.setCursor(Qt.PointingHandCursor)
             b.setMinimumHeight(34)
-        self.btn_baixar.setStyleSheet("background-color: #374151; color: white; font-weight: bold; "
-                                      "border-radius: 4px; padding: 0 14px;")
+        self.btn_baixar.setProperty("class", "primario")  # ação principal; cores do tema
         self.main_layout.addLayout(botoes)
 
         self.btn_ignorar.clicked.connect(lambda: self._fechar("ignorar"))

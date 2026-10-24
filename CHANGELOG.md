@@ -3,8 +3,13 @@
 ## Próxima versão (em desenvolvimento)
 
 ### Novidades
+- **Temas de aparência**: Off-White (o visual de sempre), Clean (fundo branco, fonte Figtree, verde-petróleo nas ações principais) e Clássico (papel creme, títulos com serifa Georgia, verde-musgo). A escolha fica em **Configurações (⚙) > Aparência**, é aplicada na hora, sem reiniciar, e cada tema usa o logo original recolorido. Toda cor da interface passou a vir de tokens (`core/temas.py`).
+- **Botão principal destacado**: **Gravar Dados na Fotografia**, **Salvar** e as ações principais dos diálogos usam a cor de destaque do tema; botões desativados ficam visualmente diferentes dos ativos.
 - **Aviso de novas versões**: ao abrir, o app consulta a última Release no GitHub (no máximo uma vez a cada 24 h) e, se houver versão nova, mostra as novidades com os botões **Baixar instalador** (link direto do `.exe`), **Ver no GitHub**, **Lembrar depois** e **Ignorar esta versão**, além de um aviso na barra de status. **Ajuda (?) > Verificar atualizações** consulta na hora, e o aviso pode ser desligado nas configurações (⚙). Antes, só aparecia um botão discreto na barra de status, a consulta era feita a cada abertura e as falhas não eram informadas.
 - **Instalador**: ao atualizar por cima, apaga a pasta `_internal` da versão anterior antes de copiar a nova (arquivos removidos não ficam para trás), fecha o iBirder se estiver aberto e fixa o `AppId` usado desde a v1.1. Configurações e chaves (`%APPDATA%\iBirder`) são mantidas.
+
+### Correções
+- Textos de nota e de espera ("Aguardando identificação…") passaram de cinza #9CA3AF para #6B7280: o contraste sobre o fundo branco subiu de 2,5:1 para 4,8:1 (mínimo WCAG AA: 4,5:1).
 
 ## v1.3
 

@@ -23,10 +23,7 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout,
                                QComboBox, QLineEdit)
 from PySide6.QtCore import Qt, QSettings
 from core import nome_arquivo
-try:
-    from core.style_manager import StyleManager
-except ImportError:
-    StyleManager = None
+from core.style_manager import StyleManager
 
 class ExifConfigDialog(QDialog):
     def __init__(self, parent=None, dados=None, tem_gps_nativo=False, caminho_imagem=None):
@@ -41,11 +38,11 @@ class ExifConfigDialog(QDialog):
         self.renomeacao = None
 
         self._setup_ui()
-        if StyleManager: StyleManager.setup_window_theme(self)
+        StyleManager.setup_window_theme(self)
 
     def _setup_ui(self):
         # O Fundo da janela usará a cor base do app
-        self.setStyleSheet("QDialog { background-color: #f7f7f9; }")
+        StyleManager.estilizar(self, "QDialog { background-color: var(--fundo); }")
         
         layout_principal = QVBoxLayout(self)
         layout_principal.setContentsMargins(20, 20, 20, 20)
@@ -62,7 +59,7 @@ class ExifConfigDialog(QDialog):
         # Card Central (Fundo Branco, Borda Suave, Sombra)
         card_central = QFrame()
         card_central.setProperty("class", "painel")
-        if StyleManager: StyleManager.apply_shadow(card_central)
+        StyleManager.apply_shadow(card_central)
         layout_card = QVBoxLayout(card_central)
         layout_card.setContentsMargins(15, 15, 15, 15)
 
@@ -101,18 +98,18 @@ class ExifConfigDialog(QDialog):
         # Estilo raw das checkboxes customizadas para leitura elegante
         check_style = """
             QCheckBox {
-                font-family: 'Segoe UI'; font-size: 14px; color: #374151;
+                font-family: 'var(--fonte)'; font-size: 14px; color: var(--texto);
             }
             QCheckBox::indicator {
                 width: 18px; height: 18px; border-radius: 4px;
-                border: 1px solid #9CA3AF;
-                background-color: white;
+                border: 1px solid var(--texto_suave);
+                background-color: var(--superficie);
             }
             QCheckBox::indicator:checked {
-                background-color: #1F2937;
-                border: 1px solid #1F2937;
+                background-color: var(--destaque);
+                border: 1px solid var(--destaque);
             }
-            QCheckBox:disabled { color: #9CA3AF; }
+            QCheckBox:disabled { color: var(--texto_suave); }
         """
 
         for texto_exibicao, chave_dict, default_checked in self.lista_opcoes:
@@ -132,7 +129,7 @@ class ExifConfigDialog(QDialog):
                     valor_atual = "Não disponíveis na sessão"
 
             cb = QCheckBox(f"{texto_exibicao}: {valor_atual}")
-            cb.setStyleSheet(check_style)
+            StyleManager.estilizar(cb, check_style)
             
             if chave_dict == "coord_gps":
                 if self.tem_gps_nativo:
@@ -169,7 +166,7 @@ class ExifConfigDialog(QDialog):
             lbl_aviso_gps.setProperty("class", "lbl-titulo-sessao")
             lbl_aviso_gps.style().unpolish(lbl_aviso_gps)
             lbl_aviso_gps.style().polish(lbl_aviso_gps)
-            lbl_aviso_gps.setStyleSheet("color: #B45309; font-size: 13px; background-color: #FEF3C7; padding: 10px; border-radius: 6px; border: 1px solid #FDE68A;")
+            StyleManager.estilizar(lbl_aviso_gps, "color: var(--alerta_texto); font-size: 13px; background-color: var(--alerta_fundo); padding: 10px; border-radius: 6px; border: 1px solid var(--alerta_borda);")
             layout_principal.addWidget(lbl_aviso_gps)
 
         # Botões Invertidos (Padrão Windows) - Cancelar esq, Gravar dir
@@ -181,12 +178,12 @@ class ExifConfigDialog(QDialog):
         btn_cancelar.setProperty("class", "btn-acao-alinhado")
         btn_cancelar.style().unpolish(btn_cancelar)
         btn_cancelar.style().polish(btn_cancelar)
-        btn_cancelar.setStyleSheet("background-color: transparent; border: 1px solid #9CA3AF; color: #4B5563;")
+        StyleManager.estilizar(btn_cancelar, "background-color: transparent; border: 1px solid var(--texto_suave); color: var(--texto_secundario);")
         btn_cancelar.clicked.connect(self.reject)
         
         btn_gravar = QPushButton("Gravar Dados na Fotografia")
         btn_gravar.setCursor(Qt.PointingHandCursor)
-        btn_gravar.setProperty("class", "btn-acao-alinhado")
+        btn_gravar.setProperty("class", "btn-acao-alinhado primario")
         btn_gravar.style().unpolish(btn_gravar)
         btn_gravar.style().polish(btn_gravar)
         btn_gravar.clicked.connect(self._confirmar_gravacao)
@@ -212,7 +209,7 @@ class ExifConfigDialog(QDialog):
         lay.setSpacing(8)
 
         self.cb_renomear = QCheckBox("Renomear o arquivo")
-        self.cb_renomear.setStyleSheet(check_style)
+        StyleManager.estilizar(self.cb_renomear, check_style)
         lay.addWidget(self.cb_renomear)
 
         linha_padrao = QHBoxLayout()
@@ -239,14 +236,14 @@ class ExifConfigDialog(QDialog):
         if self.irmaos:
             nomes = ", ".join(f.name for f in self.irmaos)
             self.cb_irmaos = QCheckBox(f"Renomear também: {nomes}")
-            self.cb_irmaos.setStyleSheet(check_style)
+            StyleManager.estilizar(self.cb_irmaos, check_style)
             self.cb_irmaos.setChecked(self.settings.value("renomear/irmaos", True, type=bool))
             lay.addWidget(self.cb_irmaos)
 
         aviso = QLabel("Usa o Lightroom? Renomeie pelo próprio Lightroom: fora dele, o catálogo "
                        "perde o vínculo com a foto.")
         aviso.setWordWrap(True)
-        aviso.setStyleSheet("font-size: 12px; color: #6B7280;")
+        StyleManager.estilizar(aviso, "font-size: 12px; color: var(--texto_suave);")
         lay.addWidget(aviso)
         layout_principal.addWidget(painel)
 
@@ -284,13 +281,13 @@ class ExifConfigDialog(QDialog):
         """Valida o nome e mostra o nome final (com sufixo, se já existir)."""
         if not self.cb_renomear.isChecked():
             self.lbl_previa.setText(f"Nome atual: {html.escape(self.caminho_imagem.name)}")
-            self.lbl_previa.setStyleSheet("font-size: 12px; color: #6B7280;")
+            StyleManager.estilizar(self.lbl_previa, "font-size: 12px; color: var(--texto_suave);")
             return None
         base = self.edit_nome.text()
         erro = nome_arquivo.validar_nome(base)
         if erro:
             self.lbl_previa.setText(f"⚠️ {html.escape(erro)}")
-            self.lbl_previa.setStyleSheet("font-size: 12px; color: #B91C1C;")
+            StyleManager.estilizar(self.lbl_previa, "font-size: 12px; color: var(--erro_texto);")
             return None
         irmaos = self.irmaos if (self.cb_irmaos and self.cb_irmaos.isChecked()) else []
         final = nome_arquivo.nome_livre(self.caminho_imagem, base, irmaos)
@@ -302,7 +299,7 @@ class ExifConfigDialog(QDialog):
         if self.sem_nome_especie:
             texto += "<br>⚠️ Sem nome comum: digite o nome ou escolha o padrão com o nome científico."
         self.lbl_previa.setText(texto)
-        self.lbl_previa.setStyleSheet("font-size: 12px; color: #374151;")
+        StyleManager.estilizar(self.lbl_previa, "font-size: 12px; color: var(--texto);")
         return base
 
     def _confirmar_gravacao(self):

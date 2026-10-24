@@ -20,6 +20,7 @@ from PySide6.QtWidgets import QDialog, QVBoxLayout, QPushButton, QApplication, Q
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QIcon, QCursor, QColor
 from ui.widgets.zoomable_view import ZoomableView
+from core.style_manager import StyleManager
 
 class ExpandedImageDialog(QDialog):
     """
@@ -41,11 +42,11 @@ class ExpandedImageDialog(QDialog):
         # Container (Moldura)
         self.container = QFrame()
         self.container.setObjectName("container_lightbox")
-        self.container.setStyleSheet("""
+        StyleManager.estilizar(self.container, """
             QFrame#container_lightbox {
-                background-color: #FFFFFF;
-                border: 1px solid #D1D5DB;
-                border-radius: 12px;
+                background-color: var(--superficie);
+                border: 1px solid var(--borda);
+                border-radius: var(--raio);
             }
         """)
         
