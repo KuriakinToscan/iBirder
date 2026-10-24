@@ -100,7 +100,14 @@ jobs:
           name: Instalador_iBirder_v${{ steps.versao.outputs.versao }}
           path: instalador
 
-      - name: Criar Release
+      # A Release pode já existir quando a tag foi criada pela tela do GitHub
+      # (Releases > Draft a new release): nesse caso só anexa o instalador.
+      - name: Criar Release ou anexar o instalador
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" instalador/*.exe --title "iBirder $GITHUB_REF_NAME" --generate-notes
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" instalador/*.exe --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" instalador/*.exe --title "iBirder $GITHUB_REF_NAME" --generate-notes
+          fi
