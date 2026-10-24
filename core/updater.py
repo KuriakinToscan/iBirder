@@ -169,56 +169,78 @@ class ModelDownloadWorker(QThread):
             self.error_occurred.emit(str(e))
 
 class AppUpdater(QObject):
-    app_update_available = Signal(dict) # Emite info sobre a nova versão do aplicativo
-    
+    """
+    Verifica se há versão nova do aplicativo (Releases do GitHub). Regras em
+    core/verificacao_versao.py.
+
+    Sinais:
+    - app_update_available(info): há versão nova a avisar (info de ler_release).
+    - verificacao_concluida(info, erro, manual): fim de qualquer consulta; info vazio se não
+      houver Release, erro vazio se a consulta funcionou.
+    """
+    app_update_available = Signal(dict)
+    verificacao_concluida = Signal(dict, str, bool)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         from core.config import APP_VERSION
         self.current_version = APP_VERSION
-        self.api_url = "https://api.github.com/repos/KuriakinToscan/iBirder/releases/latest"
-        
-    def check_for_updates(self):
-        """Inicia thread para checar a API de releases do GitHub."""
-        self.worker = AppCheckWorker(self.api_url, self.current_version)
-        self.worker.app_update_ready.connect(self._on_update_ready)
+        self.worker = None
+
+    def check_for_updates(self, manual=False):
+        """
+        Inicia a consulta em segundo plano. Automática (manual=False): respeita a opção
+        "verificar_atualizacoes" e o intervalo de 24 h. Retorna False se não consultou.
+        """
+        from core.config import carregar_config
+        from core.verificacao_versao import deve_verificar
+        if not manual and not deve_verificar(carregar_config()):
+            logging.info("Verificação de nova versão do app: desativada ou feita há menos de 24 h.")
+            return False
+        if self.worker is not None and self.worker.isRunning():
+            if manual:
+                self.worker.manual = True  # o resultado em andamento passa a ser mostrado
+            return True
+        self.worker = AppCheckWorker(manual=manual)
+        self.worker.resultado.connect(self._on_resultado)
         self.worker.start()
-        
-    def _on_update_ready(self, release_data):
-        if release_data:
-            logging.info(f"Nova versão do App encontrada: {release_data['tag_name']}")
-            self.app_update_available.emit(release_data)
+        return True
+
+    def _on_resultado(self, info, erro, manual):
+        from core.config import atualizar_config, carregar_config
+        from core.verificacao_versao import deve_avisar
+        from datetime import datetime, timezone
+        if erro:
+            logging.warning(f"Verificação de nova versão do app falhou: {erro}")
         else:
-            logging.info("O Aplicativo iBirder já está na última versão.")
+            # Só conta como verificada se a consulta funcionou (falha de rede tenta na próxima abertura)
+            atualizar_config(ultima_verificacao_versao=datetime.now(timezone.utc).isoformat(timespec="seconds"))
+            if deve_avisar(info, self.current_version, carregar_config(), manual=manual):
+                logging.info(f"Nova versão do app encontrada: {info['tag']} (atual: {self.current_version})")
+                self.app_update_available.emit(info)
+            else:
+                logging.info(f"Aplicativo na última versão ({self.current_version}) ou versão ignorada.")
+        self.verificacao_concluida.emit(info or {}, erro, manual)
+
+    def ignorar_versao(self, versao):
+        """Não avisar mais desta versão na verificação automática."""
+        from core.config import atualizar_config
+        atualizar_config(versao_ignorada=versao)
+        logging.info(f"Versão {versao} marcada como ignorada pelo usuário.")
+
 
 class AppCheckWorker(QThread):
-    app_update_ready = Signal(dict)
-    
-    def __init__(self, url, current_version, parent=None):
+    """Consulta a última Release fora da thread da interface."""
+    resultado = Signal(dict, str, bool)  # info (vazio se não houver Release), erro, manual
+
+    def __init__(self, manual=False, parent=None):
         super().__init__(parent)
-        self.url = url
-        self.current_version = current_version
-        
+        self.manual = manual
+
     def run(self):
-        import requests
-        from packaging import version
-        import re
-        
+        from core.verificacao_versao import consultar_ultima_release
         try:
-            # Headers para evitar rate limits não autenticados, se possível, ou apenas usar padrão.
-            headers = {"Accept": "application/vnd.github.v3+json"}
-            resp = requests.get(self.url, headers=headers, timeout=3.0)
-            if resp.status_code == 200:
-                remote_data = resp.json()
-                remote_tag = remote_data.get("tag_name", "0.0.0")
-                
-                # Remove o prefixo 'v' para comparar (ex: 'v1.1.2' -> '1.1.2')
-                remote_ver_str = re.sub(r'^[vV]', '', remote_tag)
-                local_ver_str = re.sub(r'^[vV]', '', self.current_version)
-                
-                if version.parse(remote_ver_str) > version.parse(local_ver_str):
-                    self.app_update_ready.emit(remote_data)
-                    return
+            info, erro = consultar_ultima_release() or {}, ""
         except Exception as e:
-            logging.debug(f"Check de update de App falhou silenciosamente: {e}")
-        
-        self.app_update_ready.emit({})
+            info, erro = {}, str(e)
+        self.resultado.emit(info, erro, self.manual)

@@ -1,5 +1,10 @@
 # Histórico de versões
 
+## Próxima versão (em desenvolvimento)
+
+### Novidades
+- **Aviso de novas versões**: ao abrir, o app consulta a última Release no GitHub (no máximo uma vez a cada 24 h) e, se houver versão nova, mostra as novidades com os botões **Baixar instalador** (link direto do `.exe`), **Ver no GitHub**, **Lembrar depois** e **Ignorar esta versão**, além de um aviso na barra de status. **Ajuda (?) > Verificar atualizações** consulta na hora, e o aviso pode ser desligado nas configurações (⚙). Antes, só aparecia um botão discreto na barra de status, a consulta era feita a cada abertura e as falhas não eram informadas.
+
 ## v1.3
 
 ### Novidades

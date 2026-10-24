@@ -34,7 +34,11 @@ def carregar_config():
         "lembrar_modo": False,
         "xc_api_key": "",
         "inat_api_token": "",
-        "google_vision_api_key": ""
+        "google_vision_api_key": "",
+        # Aviso de novas versões (core/verificacao_versao.py)
+        "verificar_atualizacoes": True,
+        "ultima_verificacao_versao": "",
+        "versao_ignorada": ""
     }
     
     if config_path.exists():
@@ -59,3 +63,11 @@ def salvar_config(config):
         atualizar_segredos(config)  # novas chaves passam a ser mascaradas nos logs
     except Exception as e:
         logging.error(f"Erro ao salvar config: {e}")
+
+
+def atualizar_config(**campos):
+    """Relê a configuração, altera só os campos indicados e salva (evita sobrescrever outros)."""
+    config = carregar_config()
+    config.update(campos)
+    salvar_config(config)
+    return config

@@ -58,8 +58,9 @@ class Orchestrator(QObject):
     desacoplamento das regras de negócio.
     """
     
-    # Emite aviso sobre atualização do app
+    # Emite aviso sobre atualização do app (info de core/verificacao_versao.ler_release)
     app_update_available = Signal(dict)
+    app_update_verificada = Signal(dict, str, bool)  # info, erro, manual
     
     # Sinais para atualizar a Janela Principal (View)
     update_available = Signal(dict) # Para OTA Updater
@@ -139,6 +140,7 @@ class Orchestrator(QObject):
         # OTA Updater (App Version)
         self.app_updater = AppUpdater(parent=self)
         self.app_updater.app_update_available.connect(self.app_update_available.emit)
+        self.app_updater.verificacao_concluida.connect(self.app_update_verificada.emit)
         self.app_updater.check_for_updates()
         
         # Exibe performance do boot técnico no log
@@ -200,7 +202,8 @@ class Orchestrator(QObject):
         """Chamado ao fechar o app: invalida resultados e aguarda as threads terminarem."""
         self._nova_geracao()
         workers = [self.id_worker, self.wiki_worker, self.iucn_worker, self.geo_worker,
-                   self.audio_worker, self.ebird_worker, self.conservation_worker] + self._workers_orfaos
+                   self.audio_worker, self.ebird_worker, self.conservation_worker,
+                   getattr(getattr(self, "app_updater", None), "worker", None)] + self._workers_orfaos
         for w in workers:
             try:
                 if w and w.isRunning():
@@ -215,6 +218,13 @@ class Orchestrator(QObject):
                     w.wait(max(0, int((prazo - time.monotonic()) * 1000)))
             except RuntimeError:
                 pass
+
+    def verificar_atualizacao_app(self):
+        """Verificação manual de nova versão (menu de ajuda): sempre consulta o GitHub."""
+        self.app_updater.check_for_updates(manual=True)
+
+    def ignorar_versao_app(self, versao):
+        self.app_updater.ignorar_versao(versao)
 
     def _on_update_detected(self, manifest_data):
         """Callback silencioso que a UI ou fluxo podem consultar depois."""

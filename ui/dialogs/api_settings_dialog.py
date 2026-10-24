@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (QApplication, QDialog, QVBoxLayout, QHBoxLayout, 
                                QLabel, QLineEdit, QPushButton, 
-                               QMessageBox, QFormLayout)
+                               QMessageBox, QFormLayout, QCheckBox)
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtCore import QUrl
 from core.config import carregar_config, salvar_config
@@ -13,7 +13,7 @@ class APISettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Configurações de API (Integrações)")
-        self.resize(500, 230)
+        self.resize(500, 260)
         
         self.config = carregar_config()
         
@@ -42,6 +42,10 @@ class APISettingsDialog(QDialog):
         self.lbl_help = QLabel('<a href="#help" style="color: #66b2ff;">Como obter essas chaves? (passo a passo)</a>')
         self.lbl_help.linkActivated.connect(self._show_help)
         layout.addWidget(self.lbl_help)
+
+        # Aviso de novas versões (core/verificacao_versao.py)
+        self.chk_atualizacoes = QCheckBox("Avisar quando houver nova versão do iBirder (verifica uma vez por dia)")
+        layout.addWidget(self.chk_atualizacoes)
         
         # Botoes
         btn_layout = QHBoxLayout()
@@ -128,11 +132,20 @@ class APISettingsDialog(QDialog):
     def load_data(self):
         self.input_inat.setText(self.config.get("inat_api_token", ""))
         self.input_google.setText(self.config.get("google_vision_api_key", ""))
+        self.chk_atualizacoes.setChecked(bool(self.config.get("verificar_atualizacoes", True)))
         
     def save_settings(self):
         from core.diagnostico_apis import normalizar_token_inat
         self.config["inat_api_token"] = normalizar_token_inat(self.input_inat.text())
         self.config["google_vision_api_key"] = self.input_google.text().strip()
+        # Relê antes de salvar: a verificação de versão pode ter gravado campos com o diálogo aberto
+        atual = carregar_config()
+        atual.update({
+            "inat_api_token": self.config["inat_api_token"],
+            "google_vision_api_key": self.config["google_vision_api_key"],
+            "verificar_atualizacoes": self.chk_atualizacoes.isChecked(),
+        })
+        self.config = atual
         salvar_config(self.config)
         QMessageBox.information(self, "Sucesso", "Configurações salvas com sucesso.")
         self.accept()
