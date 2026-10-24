@@ -218,7 +218,10 @@ class JanelaPrincipal(QMainWindow):
         self.txt_descricao.clear() # Reset descrição anterior
         self.txt_descricao.setPlaceholderText(self.CONSULTANDO_WIKIAVES)
         
-        # A espécie já está definida: etimologia e descrição dependem só do WikiAves
+        # A espécie já está definida: nome comum, etimologia e descrição dependem só do
+        # WikiAves (chamado antes da resposta dele, que chega depois pelo Orchestrator)
+        StyleManager.definir_texto(self.lbl_nome_comum, self._format_nome_ave(
+            "Nome Comum:", self.CONSULTANDO_WIKIAVES, is_placeholder=True))
         self.txt_etimologia.clear()
         self.txt_etimologia.setPlaceholderText(self.CONSULTANDO_WIKIAVES)
         self.lbl_titulo_etimologia.setVisible(True)
@@ -498,7 +501,8 @@ class JanelaPrincipal(QMainWindow):
         """WikiAves indisponível: libera os campos e a gravação com os dados das outras fontes."""
         logging.warning("WikiAves indisponível. Exibindo dados das demais fontes.")
         aviso = "Não disponível (WikiAves inacessível no momento)"
-        if self.PLACEHOLDER_TEXT in self.lbl_nome_comum.text():
+        if (self.PLACEHOLDER_TEXT in self.lbl_nome_comum.text()
+                or self.CONSULTANDO_WIKIAVES in self.lbl_nome_comum.text()):
             ultimo = self.session_logger.buffer[-1] if self.session_logger.buffer else {}
             # Usa o nome popular do iNaturalist, se a taxonomia já o trouxe
             StyleManager.definir_texto(self.lbl_nome_comum, self._format_nome_ave("Nome Comum:", ultimo.get("nome_comum") or "Não encontrado"))

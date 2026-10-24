@@ -10,7 +10,7 @@
 - **Instalador**: ao atualizar por cima, apaga a pasta `_internal` da versão anterior antes de copiar a nova (arquivos removidos não ficam para trás), fecha o iBirder se estiver aberto e fixa o `AppId` usado desde a v1.1. Configurações e chaves (`%APPDATA%\iBirder`) são mantidas.
 
 ### Correções
-- Etimologia e descrição mostram **"Consultando o WikiAves..."** depois que a espécie é identificada (antes ficava "Aguardando identificação....", como se a IA ainda estivesse trabalhando). Sem descrição no WikiAves, o campo passa a dizer "Descrição não disponível no WikiAves." em vez de ficar à espera.
+- Nome comum, etimologia e descrição mostram **"Consultando o WikiAves..."** depois que a espécie é identificada (antes ficava "Aguardando identificação....", como se a IA ainda estivesse trabalhando). Sem descrição no WikiAves, o campo passa a dizer "Descrição não disponível no WikiAves." em vez de ficar à espera.
 - Textos de nota e de espera ("Aguardando identificação…") passaram de cinza #9CA3AF para #6B7280: o contraste sobre o fundo branco subiu de 2,5:1 para 4,8:1 (mínimo WCAG AA: 4,5:1).
 
 ## v1.3
