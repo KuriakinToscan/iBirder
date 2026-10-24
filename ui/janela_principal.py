@@ -73,6 +73,8 @@ class JanelaPrincipal(QMainWindow):
     - Persistência de Sessão: Integrada ao SessionLogger para auditoria em tempo real.
     """
     PLACEHOLDER_TEXT = "Aguardando identificação...."
+    # Espécie já definida (IA ou busca manual), esperando a resposta do WikiAves
+    CONSULTANDO_WIKIAVES = "Consultando o WikiAves..."
 
     def __init__(self, nome_icone_janela="logo_ave.svg", modo_inicial="online", ai_status="READY", imagem_inicial=None):
         super().__init__()
@@ -214,10 +216,11 @@ class JanelaPrincipal(QMainWindow):
         # Não devemos resetar a localização aqui se ela veio da imagem carregada.
         
         self.txt_descricao.clear() # Reset descrição anterior
+        self.txt_descricao.setPlaceholderText(self.CONSULTANDO_WIKIAVES)
         
-        # Reset para estado "Aguardando"
+        # A espécie já está definida: etimologia e descrição dependem só do WikiAves
         self.txt_etimologia.clear()
-        self.txt_etimologia.setPlaceholderText(self.PLACEHOLDER_TEXT)
+        self.txt_etimologia.setPlaceholderText(self.CONSULTANDO_WIKIAVES)
         self.lbl_titulo_etimologia.setVisible(True)
         self.txt_etimologia.setVisible(True)
 
@@ -414,7 +417,7 @@ class JanelaPrincipal(QMainWindow):
             # Aplicação do padrão estético visual (line-height 150%) para o texto via HTML
             html_etimologia = f'<div style="line-height: 150%;">{etimologia_texto}</div>'
             self.txt_etimologia.setHtml(html_etimologia)
-        elif etimologia_texto == "Não encontrado":
+        else:
             self.txt_etimologia.setPlaceholderText("Etimologia não disponível.")
             self.txt_etimologia.clear()
 
@@ -424,6 +427,9 @@ class JanelaPrincipal(QMainWindow):
             self.txt_descricao.setVisible(True)
             self.lbl_titulo_etimologia.setVisible(True)
             self.txt_etimologia.setVisible(True)
+        elif not self.txt_descricao.toPlainText().strip():
+            # Sem descrição no WikiAves: não deixar "Consultando o WikiAves..." para sempre
+            self.txt_descricao.setPlaceholderText("Descrição não disponível no WikiAves.")
             
         # 🔹 Atualização de Taxonomia (WikiAves v1.6.2)
         # Se o WikiAves retornar taxonomia, já populamos o card para evitar sensação de "vazio"
