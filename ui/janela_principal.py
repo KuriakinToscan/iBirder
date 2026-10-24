@@ -26,9 +26,11 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QPushButton, QLabel, QFileDialog,
                              QScrollArea, QFrame, QGraphicsDropShadowEffect,
                              QMessageBox, QTextEdit, QLineEdit, QGroupBox, QGridLayout,
-                             QStatusBar, QSizePolicy, QCheckBox, QDialog)
+                             QStatusBar, QSizePolicy, QCheckBox, QDialog, QStackedWidget,
+                             QTabWidget)
 from PySide6.QtCore import Qt, QSize, QTimer, Slot, Signal, QThread, QSettings, QUrl, QMimeData
 from PySide6.QtGui import (QIcon, QPixmap, QColor, QFont, QDesktopServices, QPalette, QFontDatabase,
+    QKeySequence, QShortcut,
     QPainter, QDrag, QResizeEvent, QDragEnterEvent, QDropEvent
 )
 from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -789,6 +791,8 @@ class JanelaPrincipal(QMainWindow):
         layout_desc_v.addWidget(lbl_titulo_desc)
 
         self.txt_descricao = QTextEdit()
+        # Altura segue o texto (_ajustar_altura_descricao), como na etimologia: não estica
+        self.txt_descricao.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.txt_descricao.setReadOnly(True)
         self.txt_descricao.setPlaceholderText(self.PLACEHOLDER_TEXT)
         self.txt_descricao.setMinimumHeight(45) 
@@ -916,6 +920,15 @@ class JanelaPrincipal(QMainWindow):
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("Pronto para uso (Local)")
 
+        # Atalhos (valem em todos os layouts)
+        QShortcut(QKeySequence.Open, self, activated=self._abrir_seletor_arquivo)
+        QShortcut(QKeySequence.Save, self, activated=self._atalho_gravar)
+
+    def _atalho_gravar(self):
+        """Ctrl+S: o mesmo que o botão Gravar, só quando ele está liberado."""
+        if self.btn_gravar_exif.isEnabled() and self.btn_gravar_exif.isVisible():
+            self._gravar_metadados_exif()
+
     def _aplicar_layout(self, id_layout):
         """
         Arruma os painéis no layout pedido (ui/layouts/). Pode ser chamado com a janela
@@ -925,19 +938,23 @@ class JanelaPrincipal(QMainWindow):
         if self.layout_atual is layout:
             return
         # montar() reparenta os painéis; só depois o widget antigo (já vazio) é descartado
-        central = layout.montar(self.paineis)
+        central = layout.montar(self.paineis, self.estado)
         self.setCentralWidget(central)
         self.layout_atual = layout
         logging.info(f"Layout da janela principal: {layout.nome}")
 
     def _mostrar_widget(self, widget):
-        """Rola até o widget, se o layout atual o coloca numa área de rolagem."""
-        pai = widget.parentWidget()
+        """Deixa o widget à vista: abre a aba que o contém e rola até ele, se o layout tiver."""
+        filho, pai = widget, widget.parentWidget()
+        rolagem = None
         while pai is not None:
-            if isinstance(pai, QScrollArea):
-                pai.ensureWidgetVisible(widget)
-                return
-            pai = pai.parentWidget()
+            if isinstance(pai, QStackedWidget) and isinstance(pai.parentWidget(), QTabWidget):
+                pai.parentWidget().setCurrentWidget(filho)
+            if rolagem is None and isinstance(pai, QScrollArea):
+                rolagem = pai
+            filho, pai = pai, pai.parentWidget()
+        if rolagem is not None:
+            rolagem.ensureWidgetVisible(widget)
 
     def _aplicar_estilo(self):
         """Configura o estilo visual da janela via Sovereign Style (v0.6.3 / v0.8.0)."""

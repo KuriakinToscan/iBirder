@@ -47,6 +47,9 @@ class Layout:
     nome = ""
     descricao = ""
 
-    def montar(self, paineis: Paineis) -> QWidget:
-        """Cria o widget central com todos os painéis (cada um usado uma única vez)."""
+    def montar(self, paineis: Paineis, estado=None) -> QWidget:
+        """
+        Cria o widget central com todos os painéis (cada um usado uma única vez).
+        `estado` (EstadoIdentificacao, opcional) serve aos layouts que mudam conforme a etapa.
+        """
         raise NotImplementedError

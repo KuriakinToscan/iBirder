@@ -126,7 +126,12 @@ Ao terminar, o número da observação é gravado na foto (*iBirder > Publicacao
 
 - **Recarregar (↻):** limpa a análise atual.
 - **Ajuda (?):** abre um menu com **Manual do usuário**, **Verificar atualizações**, **Copiar diagnóstico** (informações técnicas para enviar ao suporte, sem as suas chaves de API) e **Abrir pasta de logs**.
-- **Configurações (⚙):** aparência (tema), chaves de API da identificação em nuvem e o aviso de novas versões.
+- **Configurações (⚙):** aparência (tema e layout), chaves de API da identificação em nuvem e o aviso de novas versões.
+
+### Atalhos de teclado
+
+- **Ctrl+O:** abrir uma foto.
+- **Ctrl+S:** gravar os dados na fotografia (quando o botão Gravar está liberado).
 
 ### Aparência
 
@@ -136,7 +141,12 @@ Em **Configurações (⚙) > Aparência**, escolha um dos três temas:
 - **Clean:** fundo branco, letras mais leves e verde-petróleo só nos botões principais.
 - **Clássico:** papel creme e títulos com serifa, como num guia de campo.
 
-No mesmo quadro, **Layout** escolhe a arrumação da tela. Hoje há o **Painel completo** (tudo visível numa grade de três colunas); os layouts **Fluxo guiado**, **Ficha compacta** e **Mesa de trabalho** chegam nas próximas versões.
+No mesmo quadro, **Layout** escolhe a arrumação da tela:
+
+- **Painel completo:** tudo visível numa grade de três colunas, com rolagem.
+- **Fluxo guiado:** uma etapa por vez. A barra no alto mostra **Foto › Identificação › Conferir › Gravar** e diz o que fazer em seguida; descrição, classificação, mapa e sons ficam em abas, sem rolar a janela.
+
+Os layouts **Ficha compacta** e **Mesa de trabalho** chegam nas próximas versões.
 
 Tema e layout mudam na hora, enquanto você escolhe. **Salvar** mantém a escolha; **Cancelar** volta ao que estava antes.
 

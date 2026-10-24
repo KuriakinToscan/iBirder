@@ -60,3 +60,31 @@ def test_trocar_layout_reaproveita_paineis(layout):
     primeiro.deleteLater()  # descartar o antigo não leva os painéis junto
     QApplication.sendPostedEvents(None, QEvent.DeferredDelete)
     assert paineis.identificacao.text() == "Turdus rufiventris"
+
+
+def test_fluxo_guiado_segue_a_etapa():
+    from ui import estado_identificacao as ei
+    from ui.layouts.guiado import LayoutGuiado
+
+    paineis = _paineis()
+    estado = ei.EstadoIdentificacao()
+    central = LayoutGuiado().montar(paineis, estado)
+    central.resize(1366, 700)
+    central.show()
+    barra = central.findChild(QLabel, "lbl_dica_etapa").parentWidget()
+
+    # Sem foto: só o card da foto aparece
+    assert not paineis.identificacao.isVisibleTo(central)
+    assert not paineis.referencia.isVisibleTo(central)
+    assert "Ctrl+O" in barra.lbl_dica.text()
+
+    estado.foto_aberta("ave.jpg")
+    estado.identificacao_concluida({"nome_cientifico": "Turdus rufiventris", "status_msg": "ok"})
+    assert paineis.identificacao.isVisibleTo(central) and paineis.referencia.isVisibleTo(central)
+    textos = [r.text() for r in barra.rotulos]
+    assert textos[0].startswith("✓") and textos[1].startswith("✓") and textos[2].startswith("3")
+    assert "etapa-ativa" in barra.rotulos[2].property("class")
+
+    estado.gravada()
+    assert all(r.text().startswith("✓") for r in barra.rotulos)
+    central.close()

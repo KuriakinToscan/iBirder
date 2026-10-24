@@ -567,6 +567,44 @@ QSS_GLOBAL = """
         border: 1px solid var(--borda_suave);
     }
 
+    /* Fluxo guiado: barra de etapas (ui/layouts/guiado.py) */
+    QLabel.etapa {
+        color: var(--texto_secundario);
+        font-family: 'var(--fonte_titulo)';
+        font-size: 13px;
+        padding: 4px 10px 6px 10px;
+        border-bottom: 3px solid var(--borda_suave);
+    }
+    QLabel.etapa-ativa { color: var(--destaque); font-weight: bold; border-bottom: 3px solid var(--destaque); }
+    QLabel.etapa-feita { color: var(--texto); border-bottom: 3px solid var(--enfase); }
+    QLabel.etapa-seta { color: var(--texto_suave); font-size: 14px; }
+    QLabel#lbl_dica_etapa { color: var(--texto_secundario); font-size: 12px; }
+
+    /* Abas (Fluxo guiado) */
+    QTabWidget::pane {
+        border: 1px solid var(--borda);
+        border-radius: var(--raio_botao);
+        background-color: var(--superficie);
+        top: -1px;
+    }
+    QTabBar::tab {
+        background-color: transparent;
+        color: var(--texto_secundario);
+        font-family: 'var(--fonte)';
+        padding: 6px 14px;
+        border: 1px solid transparent;
+        border-bottom: none;
+        margin-right: 2px;
+    }
+    QTabBar::tab:hover { color: var(--texto); background-color: var(--hover); }
+    QTabBar::tab:selected {
+        color: var(--texto);
+        font-weight: 600;
+        background-color: var(--superficie);
+        border: 1px solid var(--borda);
+        border-bottom: 2px solid var(--destaque);
+    }
+
     /* Classes Abstratas para Widgets Customizados */
     .lbl-titulo-sessao { font-family: 'var(--fonte_titulo)'; font-weight: bold; color: var(--titulo_sessao); font-size: 11px; }
     .container-borda-cinza { border: 1px solid var(--borda); border-radius: 6px; padding: 4px; color: var(--texto); }

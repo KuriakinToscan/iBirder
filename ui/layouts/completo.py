@@ -41,7 +41,7 @@ class LayoutCompleto(Layout):
     nome = "Painel completo"
     descricao = "A tela de sempre: tudo visível numa grade de três colunas, com rolagem."
 
-    def montar(self, p: Paineis) -> QWidget:
+    def montar(self, p: Paineis, estado=None) -> QWidget:
         # Fundo da área de rolagem vem do tema (QScrollArea#area_rolagem)
         rolagem = QScrollArea()
         rolagem.setObjectName("area_rolagem")

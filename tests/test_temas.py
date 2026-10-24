@@ -23,6 +23,7 @@ CORES_DE_DADO = {
 # (texto, fundo): pares que precisam de 4,5:1 (WCAG 2.1 AA para texto normal)
 PARES_TEXTO = [
     ("texto", "superficie"), ("texto", "superficie_alt"), ("texto", "fundo"),
+    ("texto_secundario", "fundo"), ("destaque", "fundo"),  # barra de etapas do Fluxo guiado
     ("texto_secundario", "superficie"), ("texto_secundario", "superficie_alt"),
     ("texto_suave", "superficie"), ("texto_suave", "superficie_alt"),
     ("titulo_sessao", "superficie"), ("titulo_sessao", "fundo"),

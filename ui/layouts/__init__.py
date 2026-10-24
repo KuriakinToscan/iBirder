@@ -9,14 +9,14 @@ independentes em Configurações > Aparência; a escolha fica em config.json ("l
 
 from ui.layouts.base import Layout, Paineis
 from ui.layouts.completo import LayoutCompleto
+from ui.layouts.guiado import LayoutGuiado
 
 LAYOUT_PADRAO = "completo"
 
-LAYOUTS = {layout.id: layout for layout in (LayoutCompleto(),)}
+LAYOUTS = {layout.id: layout for layout in (LayoutCompleto(), LayoutGuiado())}
 
 # Propostas do redesenho ainda em construção: aparecem desativadas nas Configurações
 LAYOUTS_PLANEJADOS = (
-    ("guiado", "Fluxo guiado", "Uma etapa por vez: foto, identificação, conferência e gravação."),
     ("ficha", "Ficha compacta", "Tudo numa tela só, sem rolagem, com busca rápida de espécies (Ctrl+K)."),
     ("mesa", "Mesa de trabalho", "Uma pasta inteira em fila: grave e vá para a próxima foto."),
 )
