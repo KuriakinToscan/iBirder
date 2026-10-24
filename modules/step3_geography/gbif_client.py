@@ -14,10 +14,16 @@
 #  Você deve ter recebido uma cópia da Licença Pública Geral GNU 
 #  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
 
-import requests
 import logging
+from core import http
+
+# Cache em memória: o mapa é redesenhado várias vezes por espécie e cada
+# consulta ao GBIF roda na thread da interface. Só resultados válidos ficam em cache.
+_taxon_key_cache = {}
 
 def get_gbif_taxon_key(scientific_name):
+    if scientific_name in _taxon_key_cache:
+        return _taxon_key_cache[scientific_name]
     logging.debug(f"Buscando GBIF Taxon Key para: {scientific_name}")
     url = "https://api.gbif.org/v1/species/match"
     # Strict matching helps avoid bad fuzzy matches.
@@ -30,7 +36,7 @@ def get_gbif_taxon_key(scientific_name):
     }
     
     try:
-        response = requests.get(url, params=params, timeout=5)
+        response = http.get(url, params=params, timeout=5)
         if response.status_code == 200:
             data = response.json()
             
@@ -42,6 +48,7 @@ def get_gbif_taxon_key(scientific_name):
             
             if key:
                 logging.debug(f"ID GBIF Encontrado: {key}")
+                _taxon_key_cache[scientific_name] = key
                 return key
             else:
                 logging.debug(f"Nenhum ID GBIF encontrado para {scientific_name}")

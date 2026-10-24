@@ -39,7 +39,7 @@ class APISettingsDialog(QDialog):
         layout.addLayout(form_layout)
         
         # Link de Ajuda
-        self.lbl_help = QLabel('<a href="#help" style="color: #66b2ff;">Como obter essas chaves?</a>')
+        self.lbl_help = QLabel('<a href="#help" style="color: #66b2ff;">Como obter essas chaves? (passo a passo)</a>')
         self.lbl_help.linkActivated.connect(self._show_help)
         layout.addWidget(self.lbl_help)
         
@@ -61,41 +61,45 @@ class APISettingsDialog(QDialog):
         self.btn_cancel.clicked.connect(self.reject)
         
     def test_keys(self):
-        inat_token = self.input_inat.text().strip()
+        from core.diagnostico_apis import normalizar_token_inat
+        inat_token = normalizar_token_inat(self.input_inat.text())
         google_key = self.input_google.text().strip()
-        
+        self.input_inat.setText(inat_token)
+
         if not inat_token and not google_key:
             QMessageBox.warning(self, "Aviso", "Por favor, insira ao menos uma chave para testar.")
             return
-            
-        import traceback
-        
+
         QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
         
         msg = []
         
-        try:
-            if inat_token:
-                headers = {"Authorization": inat_token if inat_token.startswith("Bearer") else f"Bearer {inat_token}"}
-                resp = requests.get("https://api.inaturalist.org/v1/users/me", headers=headers, timeout=5)
-                if resp.status_code == 200:
-                    msg.append("✅ iNaturalist: Sucesso! Token válido.")
-                else:
-                    msg.append(f"❌ iNaturalist: Falhou (Erro {resp.status_code}). Verifique seu Token.")
-                    
-            if google_key:
+        from core.diagnostico_apis import diagnosticar_google_vision, diagnosticar_inaturalist
+        from core import http
+
+        if inat_token:
+            try:
+                headers = {"Authorization": f"Bearer {inat_token}"}
+                resp = http.get_session().get("https://api.inaturalist.org/v1/users/me", headers=headers, timeout=10)
+                ok, texto = diagnosticar_inaturalist(resp.status_code)
+            except Exception as e:
+                ok, texto = False, f"Sem conexão com o iNaturalist ({e.__class__.__name__})."
+            msg.append(f"{'✅' if ok else '❌'} iNaturalist: {texto}")
+
+        if google_key:
+            try:
+                # Requisição vazia: valida a chave e o acesso à API sem consumir a cota gratuita
                 url = f"https://vision.googleapis.com/v1/images:annotate?key={google_key}"
-                payload = {"requests": []} # Payload vazio deve retornar 400 Bad Request se a key for válida, 403 se for inválida
-                resp = requests.post(url, json=payload, timeout=5)
-                # 400 Bad Request -> API Key is valid, but payload is bad. This means auth passed.
-                # 200 OK -> API Key is valid, but shouldn't happen with empty payload.
-                if resp.status_code in (200, 400):
-                    msg.append("✅ Google Vision: Sucesso! Chave válida.")
-                else:
-                    msg.append(f"❌ Google Vision: Falhou (Erro {resp.status_code}). Verifique sua Chave.")
-        except Exception as e:
-            msg.append(f"❌ Erro de Conexão: {str(e)}")
-            
+                resp = requests.post(url, json={"requests": []}, timeout=10)
+                try:
+                    corpo = resp.json()
+                except ValueError:
+                    corpo = {}
+                ok, texto = diagnosticar_google_vision(resp.status_code, corpo)
+            except Exception as e:
+                ok, texto = False, f"Sem conexão com o Google ({e.__class__.__name__})."
+            msg.append(f"{'✅' if ok else '❌'} Google Vision: {texto}")
+
         QApplication.restoreOverrideCursor()
         
         QMessageBox.information(self, "Resultado do Teste", "\n\n".join(msg))
@@ -126,7 +130,8 @@ class APISettingsDialog(QDialog):
         self.input_google.setText(self.config.get("google_vision_api_key", ""))
         
     def save_settings(self):
-        self.config["inat_api_token"] = self.input_inat.text().strip()
+        from core.diagnostico_apis import normalizar_token_inat
+        self.config["inat_api_token"] = normalizar_token_inat(self.input_inat.text())
         self.config["google_vision_api_key"] = self.input_google.text().strip()
         salvar_config(self.config)
         QMessageBox.information(self, "Sucesso", "Configurações salvas com sucesso.")

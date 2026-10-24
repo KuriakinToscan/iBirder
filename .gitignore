@@ -8,6 +8,7 @@ __pycache__/
 # Temporary Files
 temp/
 *.log
+logs/
 audit_*.txt
 config.json
 
@@ -16,9 +17,14 @@ build/
 dist/
 dist_installer/
 *.spec
+!ibirder.spec
 
 # Project specific
 assets/proposals/
 assets/Gemini_Generated_Image_*.jpg
 assets/logo_ave*_old.svg
 RULES.md
+
+# Saídas do teste manual do WikiAves
+tools/relatorio_wikiaves.txt
+tools/falhas_wikiaves/

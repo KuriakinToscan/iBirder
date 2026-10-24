@@ -14,16 +14,52 @@
 #  Você deve ter recebido uma cópia da Licença Pública Geral GNU 
 #  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
 
-import requests
+from core.taxon_service import get_taxon, PLACE_BRASIL
+from modules.step3_geography import listas_conservacao as listas
 import logging
 from PySide6.QtCore import QThread, Signal
 
+# Códigos numéricos de equivalência IUCN usados pelo iNaturalist em cada status regional
+CATEGORIA_POR_CODIGO_IUCN = {
+    5: "Dados Insuficientes", 10: "Pouco Preocupante", 20: "Quase Ameaçada", 30: "Vulnerável",
+    40: "Em Perigo", 50: "Criticamente em Perigo", 60: "Extinta na Natureza", 70: "Extinta",
+}
+
+
+def outras_avaliacoes(statuses, estado=None):
+    """
+    Avaliações regionais/nacionais do iNaturalist além da IUCN global: listas estaduais
+    brasileiras (ex.: Espírito Santo, 2019) e de outros países (Argentina, Uruguai...).
+    Ordem: estado da foto, demais estados do Brasil, outros países.
+    """
+    estado = (estado or "").strip().lower()
+    itens = []
+    for st in statuses or []:
+        lugar = st.get("place") or {}
+        if not lugar:
+            continue  # IUCN global: exibida separadamente
+        nome_lugar = lugar.get("display_name") or lugar.get("name") or "?"
+        brasil = lugar.get("id") == PLACE_BRASIL or nome_lugar.endswith(", BR") or nome_lugar == "Brazil"
+        categoria = CATEGORIA_POR_CODIGO_IUCN.get(st.get("iucn"))
+        itens.append({
+            "lugar": nome_lugar.replace(", BR", " (BR)"),
+            "categoria": categoria or str(st.get("status") or "?"),
+            "status_original": st.get("status"),
+            "autoridade": (st.get("authority") or "").strip(),
+            "url": st.get("url") or "",
+            "brasil": brasil,
+            "estado_da_foto": bool(estado) and nome_lugar.lower().startswith(estado),
+        })
+    itens.sort(key=lambda i: (not i["estado_da_foto"], not i["brasil"], i["lugar"]))
+    return itens
+
+
 class NationalConservationWorker(QThread):
     """
-    Worker especializado em consolidar dados de conservação:
-    1. JBRJ (Endemismo e Ocorrência)
-    2. ICMBio/SALVE (Status Nacional por Extenso)
-    3. CITES (Comércio Internacional)
+    Etapa 3C: conservação e ocorrência no Brasil.
+    1. Lista nacional (Portaria MMA nº 148/2022 / ICMBio) — tabela embarcada;
+    2. CITES (Checklist oficial) — tabela embarcada;
+    3. Endemismo/ocorrência no Brasil e outras avaliações regionais — iNaturalist (TaxonService).
     """
     finished = Signal(dict)
     error_occurred = Signal(str)
@@ -41,81 +77,48 @@ class NationalConservationWorker(QThread):
         "NE": "Não Avaliada"
     }
 
-    def __init__(self, scientific_name, country="Brazil", parent=None):
+    def __init__(self, scientific_name, country="Brazil", estado=None, parent=None):
         super().__init__(parent)
         self.scientific_name = scientific_name
         self.country = country or "Brazil"
+        self.estado = estado
 
     def run(self):
         logging.info(f"Iniciando análise de conservação nacional para: {self.scientific_name}")
-        
         results = {
-            "status_icmbio": "Não Avaliado",
-            "status_cites": "Não Listado",
-            "endemismo": "Não",
-            "msg_distribuicao": "Distribuição padrão",
-            "is_brazil": self.country.lower() in ["brazil", "brasil"]
+            "status_icmbio": "Não disponível",
+            "status_cites": "Não disponível",
+            "endemismo": "Não informado",
+            "ocorrencia_brasil": "Não informada",
+            "outras_avaliacoes": [],
+            "is_brazil": self.country.lower() in ["brazil", "brasil"],
         }
-
         try:
-            # 1. Busca CITES (Global)
-            self._fetch_cites_status(results)
+            taxon = None
+            try:
+                taxon = get_taxon(self.scientific_name)
+            except Exception as e:
+                logging.debug(f"iNaturalist indisponível para conservação: {e}")
 
-            # 2. Busca Específica Brasil (JBRJ + ICMBio/SALVE)
-            if results["is_brazil"]:
-                self._fetch_brazilian_data(results)
-            else:
-                results["status_icmbio"] = "Informação Não Disponível (Registro Internacional)"
-            
+            # 1 e 2. Listas oficiais embarcadas (funcionam sem internet)
+            inat_id = taxon.id if taxon else None
+            results["status_icmbio"] = listas.descrever_status_nacional(self.scientific_name, inat_id)
+            nacional = listas.status_nacional(self.scientific_name, inat_id)
+            results["categoria_icmbio"] = nacional["categoria_extenso"] if nacional else None
+            results["status_cites"] = listas.descrever_cites(self.scientific_name)
+
+            # 3. iNaturalist: endemismo e outras avaliações
+            if taxon and taxon.found:
+                ocorrencia = taxon.ocorrencia_brasil
+                results["endemismo"] = {"endemic": "Sim", "native": "Não", "introduced": "Não"}.get(ocorrencia, "Não informado")
+                results["ocorrencia_brasil"] = {"endemic": "Endêmica do Brasil", "native": "Nativa",
+                                                "introduced": "Introduzida"}.get(ocorrencia, "Não informada")
+                results["outras_avaliacoes"] = outras_avaliacoes(taxon.conservation_statuses, self.estado)
+
             self.finished.emit(results)
         except Exception as e:
             logging.error(f"Erro no ConservationWorker: {e}")
             self.error_occurred.emit(str(e))
-
-    def _fetch_cites_status(self, results):
-        """Busca status na API do Species+/CITES (Simulação/Fallback iNaturalist)."""
-        # Em v1.1 usamos o iNaturalist como proxy para CITES quando disponível
-        try:
-            url = "https://api.inaturalist.org/v1/taxa"
-            params = {"q": self.scientific_name}
-            resp = requests.get(url, params=params, timeout=5)
-            if resp.status_code == 200:
-                data = resp.json()
-                if data.get("results"):
-                    taxon = data["results"][0]
-                    # Algumas taxonomias no iNat marcam CITES em 'conservation_statuses'
-                    statuses = taxon.get("conservation_statuses", [])
-                    for s in statuses:
-                        if s.get("authority", "").upper() == "CITES":
-                            results["status_cites"] = f"Anexo {s.get('status')}"
-        except: pass
-
-    def _fetch_brazilian_data(self, results):
-        """Busca dados oficiais do catálogo brasileiro."""
-        try:
-            # Consulta ao Catálogo Taxonômico (JBRJ) - Simulado via API iNaturalist / Proxy
-            # No futuro, aqui consultaria o dataset oficial do Zenodo/JBRJ
-            url = "https://api.inaturalist.org/v1/taxa"
-            params = {
-                "q": self.scientific_name,
-                "place_id": 6857  # ID 6857 = Brasil
-            }
-            resp = requests.get(url, params=params, timeout=5)
-            if resp.status_code == 200:
-                data = resp.json()
-                if data.get("results"):
-                    taxon = data["results"][0]
-                    
-                    # 1. Endemismo
-                    if taxon.get("endemic"):
-                        results["endemismo"] = "Sim"
-                    
-                    # 2. Status ICMBio (SALVE)
-                    cs = taxon.get("conservation_status", {})
-                    if cs and cs.get("authority", "").lower() in ["icmbio", "brazil"]:
-                        sigla = cs.get("status", "NE").upper()
-                        results["status_icmbio"] = self.TRADUCAO_STATUS.get(sigla, sigla)
-        except: pass
 
     @staticmethod
     def traduzir_iucn(sigla):

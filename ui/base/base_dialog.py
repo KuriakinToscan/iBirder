@@ -56,8 +56,6 @@ class BaseDialog(QDialog):
         StyleManager.setup_window_theme(self)
 
     def _obter_caminho_asset(self, nome_arquivo):
-        if getattr(sys, 'frozen', False):
-            base_path = Path(sys._MEIPASS)
-        else:
-            base_path = Path(__file__).parent.parent.parent / 'assets'
-        return str(base_path / nome_arquivo)
+        # APP_DIR resolve dev e executável (antes, no executável, faltava a pasta assets)
+        from core.paths import APP_DIR
+        return str(APP_DIR / "assets" / nome_arquivo)

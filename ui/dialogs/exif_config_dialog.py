@@ -14,18 +14,22 @@
 #  Você deve ter recebido uma cópia da Licença Pública Geral GNU 
 #  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
 
+import html
 import os
+from pathlib import Path
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, 
                                QLabel, QPushButton, QCheckBox, 
-                               QScrollArea, QWidget, QMessageBox, QFrame)
-from PySide6.QtCore import Qt
+                               QScrollArea, QWidget, QMessageBox, QFrame,
+                               QComboBox, QLineEdit)
+from PySide6.QtCore import Qt, QSettings
+from core import nome_arquivo
 try:
     from core.style_manager import StyleManager
 except ImportError:
     StyleManager = None
 
 class ExifConfigDialog(QDialog):
-    def __init__(self, parent=None, dados=None, tem_gps_nativo=False):
+    def __init__(self, parent=None, dados=None, tem_gps_nativo=False, caminho_imagem=None):
         super().__init__(parent)
         self.setWindowTitle("Configurar Gravação de Dados na Fotografia")
         self.setMinimumWidth(480)
@@ -33,6 +37,8 @@ class ExifConfigDialog(QDialog):
         self.dados = dados or {}
         self.tem_gps_nativo = tem_gps_nativo
         self.opcoes_selecionadas = {}
+        self.caminho_imagem = Path(caminho_imagem) if caminho_imagem else None
+        self.renomeacao = None
 
         self._setup_ui()
         if StyleManager: StyleManager.setup_window_theme(self)
@@ -153,6 +159,9 @@ class ExifConfigDialog(QDialog):
         layout_card.addWidget(scroll)
         layout_principal.addWidget(card_central)
 
+        if self.caminho_imagem:
+            self._montar_secao_nome(layout_principal, check_style)
+
         # Resumo de Alerta usando CSS class
         if self.tem_gps_nativo:
             lbl_aviso_gps = QLabel("⚠️ A imagem original já possui coordenadas GPS. Elas foram protegidas contra sobrescrita manual.")
@@ -187,10 +196,135 @@ class ExifConfigDialog(QDialog):
         
         layout_principal.addLayout(layout_botoes)
 
+    # ------------------------------------------------------------ Renomear o arquivo (v1.3)
+
+    def _montar_secao_nome(self, layout_principal, check_style):
+        """Caixa 'Renomear o arquivo' com padrão, nome editável e prévia (NomeComum_aaaammdd)."""
+        self.settings = QSettings("iBirder", "App")
+        self.data_foto = nome_arquivo.data_captura(self.caminho_imagem)
+        self.irmaos = nome_arquivo.arquivos_irmaos(self.caminho_imagem)
+        self.extensao = self.caminho_imagem.suffix
+
+        painel = QFrame()
+        painel.setProperty("class", "painel")
+        lay = QVBoxLayout(painel)
+        lay.setContentsMargins(15, 12, 15, 12)
+        lay.setSpacing(8)
+
+        self.cb_renomear = QCheckBox("Renomear o arquivo")
+        self.cb_renomear.setStyleSheet(check_style)
+        lay.addWidget(self.cb_renomear)
+
+        linha_padrao = QHBoxLayout()
+        linha_padrao.addWidget(QLabel("Padrão:"))
+        self.combo_padrao = QComboBox()
+        for chave, rotulo in nome_arquivo.PADROES.items():
+            self.combo_padrao.addItem(rotulo, chave)
+        linha_padrao.addWidget(self.combo_padrao, stretch=1)
+        lay.addLayout(linha_padrao)
+
+        linha_nome = QHBoxLayout()
+        self.edit_nome = QLineEdit()
+        self.edit_nome.setMaxLength(nome_arquivo.TAMANHO_MAXIMO)
+        linha_nome.addWidget(self.edit_nome, stretch=1)
+        linha_nome.addWidget(QLabel(html.escape(self.extensao)))
+        lay.addLayout(linha_nome)
+
+        self.lbl_previa = QLabel()
+        self.lbl_previa.setWordWrap(True)
+        self.lbl_previa.setStyleSheet("font-size: 12px;")
+        lay.addWidget(self.lbl_previa)
+
+        self.cb_irmaos = None
+        if self.irmaos:
+            nomes = ", ".join(f.name for f in self.irmaos)
+            self.cb_irmaos = QCheckBox(f"Renomear também: {nomes}")
+            self.cb_irmaos.setStyleSheet(check_style)
+            self.cb_irmaos.setChecked(self.settings.value("renomear/irmaos", True, type=bool))
+            lay.addWidget(self.cb_irmaos)
+
+        aviso = QLabel("Usa o Lightroom? Renomeie pelo próprio Lightroom: fora dele, o catálogo "
+                       "perde o vínculo com a foto.")
+        aviso.setWordWrap(True)
+        aviso.setStyleSheet("font-size: 12px; color: #6B7280;")
+        lay.addWidget(aviso)
+        layout_principal.addWidget(painel)
+
+        padrao = self.settings.value("renomear/padrao", nome_arquivo.PADRAO_PADRAO)
+        indice = self.combo_padrao.findData(padrao)
+        self.combo_padrao.setCurrentIndex(max(indice, 0))
+        self.cb_renomear.setChecked(self.settings.value("renomear/ativo", False, type=bool))
+        if not (nome_arquivo.nome_comum(self.dados) or nome_arquivo.nome_cientifico(self.dados)):
+            # Sem espécie identificada não há o que sugerir
+            self.cb_renomear.setChecked(False)
+            self.cb_renomear.setEnabled(False)
+            self.cb_renomear.setText("Renomear o arquivo (indisponível: espécie não identificada)")
+
+        self.cb_renomear.toggled.connect(self._atualizar_secao_nome)
+        self.combo_padrao.currentIndexChanged.connect(self._aplicar_padrao)
+        self.edit_nome.textChanged.connect(self._atualizar_previa)
+        if self.cb_irmaos:
+            self.cb_irmaos.toggled.connect(self._atualizar_previa)
+        self._aplicar_padrao()
+
+    def _aplicar_padrao(self):
+        sugestao = nome_arquivo.sugerir_nome(self.dados, self.data_foto, self.combo_padrao.currentData())
+        self.sem_nome_especie = sugestao is None
+        self.edit_nome.setText(sugestao or self.caminho_imagem.stem)
+        self._atualizar_secao_nome()
+
+    def _atualizar_secao_nome(self):
+        ativo = self.cb_renomear.isChecked()
+        for w in (self.combo_padrao, self.edit_nome, self.cb_irmaos):
+            if w is not None:
+                w.setEnabled(ativo)
+        self._atualizar_previa()
+
+    def _atualizar_previa(self):
+        """Valida o nome e mostra o nome final (com sufixo, se já existir)."""
+        if not self.cb_renomear.isChecked():
+            self.lbl_previa.setText(f"Nome atual: {html.escape(self.caminho_imagem.name)}")
+            self.lbl_previa.setStyleSheet("font-size: 12px; color: #6B7280;")
+            return None
+        base = self.edit_nome.text()
+        erro = nome_arquivo.validar_nome(base)
+        if erro:
+            self.lbl_previa.setText(f"⚠️ {html.escape(erro)}")
+            self.lbl_previa.setStyleSheet("font-size: 12px; color: #B91C1C;")
+            return None
+        irmaos = self.irmaos if (self.cb_irmaos and self.cb_irmaos.isChecked()) else []
+        final = nome_arquivo.nome_livre(self.caminho_imagem, base, irmaos)
+        texto = f"Será salvo como: <b>{html.escape(final + self.extensao)}</b>"
+        if final != base:
+            texto += " (já existe um arquivo com esse nome)"
+        if self.data_foto is None:
+            texto += "<br>⚠️ A foto não tem data de captura: complete a data no nome, se quiser."
+        if self.sem_nome_especie:
+            texto += "<br>⚠️ Sem nome comum: digite o nome ou escolha o padrão com o nome científico."
+        self.lbl_previa.setText(texto)
+        self.lbl_previa.setStyleSheet("font-size: 12px; color: #374151;")
+        return base
+
     def _confirmar_gravacao(self):
+        self.renomeacao = None
+        if self.caminho_imagem and self.cb_renomear.isChecked():
+            base = self._atualizar_previa()
+            if base is None:
+                return  # nome inválido: a mensagem já está na tela
+            irmaos = self.irmaos if (self.cb_irmaos and self.cb_irmaos.isChecked()) else []
+            self.renomeacao = {"base": base, "irmaos": irmaos}
+        if self.caminho_imagem and self.cb_renomear.isEnabled():
+            self.settings.setValue("renomear/ativo", self.cb_renomear.isChecked())
+            self.settings.setValue("renomear/padrao", self.combo_padrao.currentData())
+            if self.cb_irmaos:
+                self.settings.setValue("renomear/irmaos", self.cb_irmaos.isChecked())
         for chave, cb in self.checkboxes.items():
             self.opcoes_selecionadas[chave] = cb.isChecked()
         self.accept()
+
+    def get_renomeacao(self):
+        """None (não renomear) ou {'base': nome sem extensão, 'irmaos': [Path, ...]}."""
+        return self.renomeacao
 
     def get_selected_fields(self):
         """Retorna o dicionário de campos selecionados pelo usuário (v0.8.8)."""

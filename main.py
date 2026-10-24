@@ -23,17 +23,15 @@ import os
 if getattr(sys, 'frozen', False):
     base_dir = sys._MEIPASS
     
-    # Python 3.8+ exige add_dll_directory para bibliotecas nativas (.pyd / .dll)
+    dirs_to_add = [
+        base_dir,
+        os.path.join(base_dir, 'PySide6'),
+        os.path.join(base_dir, 'shiboken6'),
+        os.path.join(base_dir, 'numpy.libs'),
+        os.path.join(base_dir, 'shapely.libs'),
+    ]
+    # Python 3.8+ exige add_dll_directory para bibliotecas nativas (.pyd / .dll) no Windows
     if hasattr(os, 'add_dll_directory'):
-        dirs_to_add = [
-            base_dir,
-            os.path.join(base_dir, 'PySide6'),
-            os.path.join(base_dir, 'shiboken6'),
-            os.path.join(base_dir, 'numpy.libs'),
-            os.path.join(base_dir, 'pandas.libs'),
-            os.path.join(base_dir, 'shapely.libs'),
-            os.path.join(base_dir, 'pyogrio.libs')
-        ]
         for d in dirs_to_add:
             if os.path.exists(d):
                 try: os.add_dll_directory(d)
@@ -78,25 +76,41 @@ if platform.system() == "Windows":
     except Exception:
         pass 
 
+# Pacote importável -> nome no pip (dependências essenciais do requirements.txt)
+DEPENDENCIAS_ESSENCIAIS = {
+    "PySide6": "PySide6", "PIL": "Pillow", "numpy": "numpy", "requests": "requests",
+    "ai_edge_litert": "ai-edge-litert", "selenium": "selenium", "bs4": "beautifulsoup4",
+    "lxml": "lxml", "geopy": "geopy", "shapely": "shapely",
+}
+
 def verificar_ambiente_virtual():
-    """Verifica se a pasta .venv existe no diretório do projeto (Apenas em desenvolvimento)."""
+    """
+    Em desenvolvimento, confere se as dependências estão instaladas no ambiente atual
+    (venv, uv ou conda). Antes exigia a pasta .venv no projeto, impedindo o uso em conda.
+    """
     if IS_FROZEN:
         return
 
-    venv_path = BASE_DIR / ".venv"
-    
-    if not venv_path.exists():
+    import importlib.util
+    faltando = [pip for modulo, pip in DEPENDENCIAS_ESSENCIAIS.items()
+                if importlib.util.find_spec(modulo) is None]
+    if faltando:
+        mensagem = ("Dependências ausentes no ambiente Python atual:\n  " + ", ".join(faltando) +
+                    "\n\nNa pasta do iBirder, execute:\n  pip install -r requirements.txt")
+        print(mensagem)
         app = QApplication.instance() or QApplication(sys.argv)
         from ui.dialogo_aviso import DialogoAviso
-        DialogoAviso(
-            "Erro de Ambiente", 
-            "Ambiente virtual não encontrado.\n\nCertifique-se de que a pasta .venv está presente na pasta do iBirder e execute o setup_ambiente.ps1.", 
-            tipo="erro"
-        ).exec()
+        DialogoAviso("Erro de Ambiente", mensagem, tipo="erro").exec()
         sys.exit(1)
 
 def exception_hook(exctype, value, tb):
     logging.critical("Exceção não tratada detectada:", exc_info=(exctype, value, tb))
+    # Copia o session.log para logs/ antes que o atexit o apague
+    try:
+        from core.logger import save_crash_log
+        save_crash_log()
+    except Exception:
+        pass
     sys.exit(1)
 
 sys.excepthook = exception_hook
@@ -135,11 +149,10 @@ if __name__ == "__main__":
         # 3. Inicialização de Logger e Diagnóstico
         from core.logger import setup_logger, save_crash_log, cleanup_session_log
         from core.utils import limpar_temp_inteligente
-        from core.config import carregar_config, salvar_config
+        from core.config import carregar_config, salvar_config, APP_VERSION
         
         setup_logger()
-        logging.info("[BOOT] Sistema de Logging iBirder inicializado em modo UTF-8")
-        logging.info(f"--- INICIANDO DIAGNÓSTICO iBirder v1.1 ---")
+        logging.info(f"--- INICIANDO DIAGNÓSTICO iBirder v{APP_VERSION} ---")
         logging.info(f"Frozen: {getattr(sys, 'frozen', False)} | SO: {os.name} | Plataforma: {sys.platform}")
         logging.info(f"Diretório Base (Data): {BASE_DIR}")
         
@@ -168,8 +181,10 @@ if __name__ == "__main__":
         if os.path.exists(icon_path):
             app.setWindowIcon(QIcon(icon_path))
         
-        logging.info("CHECKPOINT 4: Verificando ambiente virtual...")
-        verificar_ambiente_virtual()
+        SMOKE_TEST = "--smoke-test" in sys.argv
+        if not SMOKE_TEST:
+            logging.info("CHECKPOINT 4: Verificando ambiente virtual...")
+            verificar_ambiente_virtual()
         
         # Gestão de Pasta Temporária com atexit
         temp_dir = BASE_DIR / "temp"
@@ -187,11 +202,19 @@ if __name__ == "__main__":
 
         logging.info("CHECKPOINT 7: Criando Janela Principal...")
         from ui.janela_principal import JanelaPrincipal
-        caminho_inicial = sys.argv[1] if len(sys.argv) > 1 else None
+        # Opções (--smoke-test) não são caminhos de imagem
+        argumentos = [a for a in sys.argv[1:] if not a.startswith("--")]
+        caminho_inicial = argumentos[0] if argumentos else None
         janela = JanelaPrincipal(ai_status=AI_ENGINE_STATUS, imagem_inicial=caminho_inicial)
         
         logging.info("CHECKPOINT 8: Exibindo interface principal...")
         janela.show()
+
+        if SMOKE_TEST:
+            # Autoteste (CI): confere os componentes com a janela aberta e encerra
+            from PySide6.QtCore import QTimer
+            from core.autoteste import executar_smoke_test
+            QTimer.singleShot(3000, lambda: app.exit(executar_smoke_test(janela)))
 
         logging.info("Finalizado com sucesso. Entrando no loop Qt.")
         sys.exit(app.exec())
@@ -199,6 +222,12 @@ if __name__ == "__main__":
     except Exception as e:
         error_msg = f"ERRO FATAL NA INICIALIZAÇÃO:\n{str(e)}\n\n{traceback.format_exc()}"
         print(error_msg) # Força no console
+        logging.critical(error_msg)
+        try:
+            from core.logger import save_crash_log
+            save_crash_log()
+        except Exception:
+            pass
         
         # Salva o "log do desespero"
         location = salvar_log_desespero(error_msg)

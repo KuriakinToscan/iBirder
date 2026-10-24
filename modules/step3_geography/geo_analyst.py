@@ -20,6 +20,7 @@ import json
 import logging
 from geopy.geocoders import Nominatim
 from shapely.geometry import shape, Point
+from core.paths import APP_DIR
 
 class GeoAnalyst:
     _instance = None
@@ -43,12 +44,9 @@ class GeoAnalyst:
     def _load_biomes(self):
         logging.debug("Carregando arquivo de biomas (GeoJSON)...")
         try:
-            # Resolve o caminho para funcionar tanto em dev quanto no executável
-            if getattr(sys, 'frozen', False):
-                base = sys._MEIPASS
-            else:
-                base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            path = os.path.join(base, "Geo", "biomas.geojson")
+            # APP_DIR resolve dev (raiz do projeto) e executável (_MEIPASS).
+            # Antes, em dev, o caminho apontava para modules/Geo e os biomas nunca carregavam.
+            path = os.path.join(str(APP_DIR), "Geo", "biomas.geojson")
             if os.path.exists(path):
                 with open(path, 'r', encoding='utf-8') as f:
                     self.biomes_data = json.load(f)

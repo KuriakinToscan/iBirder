@@ -16,14 +16,8 @@
 
 from PySide6.QtCore import QThread, Signal
 import logging
-import urllib.parse
-try:
-    import requests
-except ImportError:
-    logging.critical("Biblioteca requests não instalada!")
-    requests = None
-import traceback
-from pathlib import Path
+from core import http
+from core.taxon_service import get_taxon
 
 class ReferenceImageWorker(QThread):
     # Alterado v0.8.8: Emite (caminho_imagem, creditos, url_fonte)
@@ -36,43 +30,18 @@ class ReferenceImageWorker(QThread):
         self.local_path = None # Adicionado v0.8.8
 
     def run(self):
-        if not requests:
-            self.search_failed.emit()
-            return
-            
         try:
             logging.info(f"Iniciando busca de imagem de referência para: {self.species_name}")
-            
-            # 1. API iNaturalist (v1/taxa)
-            # Docs: https://api.inaturalist.org/v1/docs/#!/Taxa/get_taxa
-            url = "https://api.inaturalist.org/v1/taxa"
-            params = {
-                'q': self.species_name,
-                'is_active': 'true',
-                'rank': 'species',
-                'per_page': 1
-            }
-            # Boa prática: User-Agent descritivo
-            headers = {
-                "User-Agent": "iBirder/1.1 (apenas uso pessoal didatico)"
-            }
-            
-            logging.debug(f"Consultando API iNaturalist: {url}")
-            resp = requests.get(url, params=params, headers=headers, timeout=10)
-            resp.raise_for_status()
-            
-            data = resp.json()
-            
-            # Verificação de Resultados
-            if not data.get('results'):
+
+            # 1. Taxon do iNaturalist (TaxonService: cache compartilhado com as outras etapas)
+            taxon = get_taxon(self.species_name)
+            if not taxon.found:
                 logging.debug("Espécie não encontrada no iNaturalist.")
                 self.search_failed.emit()
                 return
-            
-            result = data['results'][0]
-            default_photo = result.get('default_photo')
-            
-            if not default_photo: # Mantido o check para default_photo antes de tentar extrair img_url
+
+            default_photo = taxon.default_photo
+            if not default_photo:
                 logging.debug("Espécie encontrada, mas sem foto padrão.")
                 self.search_failed.emit()
                 return
@@ -81,30 +50,20 @@ class ReferenceImageWorker(QThread):
             img_url = default_photo.get('original_url') or default_photo.get('large_url') or default_photo.get('medium_url')
             if img_url and 'medium' in img_url:
                  img_url = img_url.replace('medium', 'original')
-                 
-            # Fallback para atribuição se não existir
-            attribution = default_photo.get('attribution', '(c) iNaturalist')
-            
-            # Limpeza v0.3.15: Remover info redundante de upload
-            if attribution and ", uploaded by" in attribution:
-                try:
-                    attribution = attribution.split(", uploaded by")[0]
-                except:
-                    pass
-            
             if not img_url:
                 self.search_failed.emit()
                 return
 
+            # Limpeza v0.3.15: Remover info redundante de upload
+            attribution = default_photo.get('attribution') or '(c) iNaturalist'
+            attribution = attribution.split(", uploaded by")[0]
+
             logging.debug(f"Imagem encontrada: {img_url}")
             logging.debug(f"Créditos: {attribution}")
 
-            # URL da Fonte (iNaturalist)
-            inat_id = result.get('id')
-            source_url = f"https://www.inaturalist.org/taxa/{inat_id}" if inat_id else ""
-
             # 2. Baixar Imagem
-            img_data = requests.get(img_url, headers=headers, timeout=10).content
+            resp = http.get(img_url, timeout=10)
+            resp.raise_for_status()
             
             from core.paths import TEMP_DIR
             TEMP_DIR.mkdir(parents=True, exist_ok=True)
@@ -112,9 +71,9 @@ class ReferenceImageWorker(QThread):
             self.local_path = str(save_path) # Adicionado v0.8.8
             
             with open(save_path, "wb") as f:
-                f.write(img_data)
+                f.write(resp.content)
                 
-            self.image_found.emit(self.local_path, attribution, source_url)
+            self.image_found.emit(self.local_path, attribution, taxon.url)
             logging.info("Busca de imagem de referência concluída.")
 
         except Exception as e:

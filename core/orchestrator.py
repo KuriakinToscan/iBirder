@@ -16,7 +16,7 @@
 
 import os
 import time
-from PySide6.QtCore import QObject, Signal, QThread
+from PySide6.QtCore import QObject, Signal, QThread, QTimer
 
 # Importações dos Workers das Etapas
 from modules.step1_identity.id_worker import LocalIdentificationWorker
@@ -27,7 +27,6 @@ from modules.step5_taxonomy.ebird_worker import EBirdWorker
 from modules.step3_geography.geo_analyst import GeoAnalyst
 from modules.step3_geography.conservation_worker import NationalConservationWorker
 import logging
-import requests
 from core.config import carregar_config
 
 # Etapa 6: Persistência (EXIF) - Placeholder para futura integração direta
@@ -107,6 +106,20 @@ class Orchestrator(QObject):
         
         # Travas de Redundância v0.8.9
         self._last_geo_run = {"sci_name": None, "lat": None, "lon": None}
+
+        # Controle de resultados atrasados (v1.2):
+        # - _geracao muda a cada nova foto/busca manual/reset; resultados de gerações
+        #   anteriores são descartados (evita misturar dados de duas aves).
+        # - _tokens[etapa] muda a cada novo worker da mesma etapa (ex.: nova localização),
+        #   descartando o resultado do worker substituído.
+        # - Workers substituídos ainda em execução ficam em _workers_orfaos até terminarem:
+        #   destruir uma QThread em execução derruba o aplicativo.
+        self._geracao = 0
+        self._tokens = {}
+        self._workers_orfaos = []
+        self._timer_orfaos = QTimer(self)
+        self._timer_orfaos.setInterval(2000)
+        self._timer_orfaos.timeout.connect(self._liberar_orfaos)
         
         # Inteligência Evolutiva (OTA Updater)
         import time
@@ -118,8 +131,10 @@ class Orchestrator(QObject):
         self.updater = ModelUpdater(parent=self)
         # Ao invés de jogar sinal direto para UI agora, armazenamos a informação silenciosamente
         self.updater.update_available.connect(self._on_update_detected)
-        # Disparo silencioso em background
-        self.updater.check_for_updates()
+        # Checagem desativada: o ModelDownloadWorker ainda não baixa modelos reais
+        # (apenas recopia os arquivos locais) e a troca em Program Files exige admin.
+        # Reativar quando houver manifesto real com SHA-256 e destino em %APPDATA%.
+        # self.updater.check_for_updates()
         
         # OTA Updater (App Version)
         self.app_updater = AppUpdater(parent=self)
@@ -129,6 +144,77 @@ class Orchestrator(QObject):
         # Exibe performance do boot técnico no log
         ota_ms = (time.time() - start_ota_time) * 1000
         logging.debug(f"Dispatch da Thread OTA (Updater) em {ota_ms:.2f} ms")
+
+    # --- Controle de workers e resultados atrasados ---
+
+    def _nova_geracao(self):
+        self._geracao += 1
+        logging.debug(f"Nova geração do pipeline: {self._geracao}")
+
+    def _trocar_worker(self, etapa, antigo):
+        """Invalida resultados pendentes da etapa e libera o worker anterior com segurança."""
+        self._tokens[etapa] = self._tokens.get(etapa, 0) + 1
+        self._descartar_worker(antigo)
+
+    def _conectar(self, etapa, sinal, slot):
+        """Conecta o sinal de um worker entregando o resultado só se ele ainda for atual."""
+        geracao, token = self._geracao, self._tokens.get(etapa, 0)
+
+        def entregar(*args):
+            if geracao != self._geracao or token != self._tokens.get(etapa, 0):
+                logging.debug(f"Resultado atrasado descartado: etapa {etapa} (geração {geracao}).")
+                return
+            slot(*args)
+
+        sinal.connect(entregar)
+
+    def _descartar_worker(self, worker):
+        if worker is None:
+            return
+        try:
+            if worker.isRunning():
+                worker.requestInterruption()
+                self._workers_orfaos.append(worker)
+                if not self._timer_orfaos.isActive():
+                    self._timer_orfaos.start()
+            else:
+                worker.deleteLater()
+        except RuntimeError:
+            pass  # objeto C++ já destruído
+
+    def _liberar_orfaos(self):
+        ainda_rodando = []
+        for w in self._workers_orfaos:
+            try:
+                if w.isRunning():
+                    ainda_rodando.append(w)
+                else:
+                    w.deleteLater()
+            except RuntimeError:
+                pass
+        self._workers_orfaos = ainda_rodando
+        if not ainda_rodando:
+            self._timer_orfaos.stop()
+
+    def encerrar(self, timeout_ms=3000):
+        """Chamado ao fechar o app: invalida resultados e aguarda as threads terminarem."""
+        self._nova_geracao()
+        workers = [self.id_worker, self.wiki_worker, self.iucn_worker, self.geo_worker,
+                   self.audio_worker, self.ebird_worker, self.conservation_worker] + self._workers_orfaos
+        for w in workers:
+            try:
+                if w and w.isRunning():
+                    w.requestInterruption()
+            except RuntimeError:
+                pass
+        # Limite total (não por thread) para o fechamento não demorar
+        prazo = time.monotonic() + timeout_ms / 1000
+        for w in workers:
+            try:
+                if w and w.isRunning():
+                    w.wait(max(0, int((prazo - time.monotonic()) * 1000)))
+            except RuntimeError:
+                pass
 
     def _on_update_detected(self, manifest_data):
         """Callback silencioso que a UI ou fluxo podem consultar depois."""
@@ -142,15 +228,16 @@ class Orchestrator(QObject):
         Este é o ponto de entrada principal do fluxo após o carregamento de uma foto.
         """
         logging.info(f"Iniciando identificação para: {image_path}")
-        if self.id_worker:
-            self.id_worker.deleteLater()
-            
+        self._nova_geracao()
+        self._trocar_worker("id", self.id_worker)
+
         self.id_worker = LocalIdentificationWorker(image_path, parent=self)
         self.id_worker.skip_model = skip_model
         self.id_worker.is_photo = is_photo
-        self.id_worker.finished.connect(self._on_step1_finished)
-        self.id_worker.error.connect(self._on_step1_error)
-        self.id_worker.progress_updated.connect(self.step1_progress_updated.emit)
+        self.id_worker.lat, self.id_worker.lon = self.current_lat, self.current_lon
+        self._conectar("id", self.id_worker.finished, self._on_step1_finished)
+        self._conectar("id", self.id_worker.error, self._on_step1_error)
+        self._conectar("id", self.id_worker.progress_updated, self.step1_progress_updated.emit)
         self.id_worker.start()
 
     def update_location(self, lat, lon):
@@ -162,20 +249,12 @@ class Orchestrator(QObject):
     def reset(self):
         """Interrompe todos os workers e limpa estado interno."""
         logging.info("Reset total solicitado. Interrompendo workers...")
-        
-        workers = [
-            self.id_worker, self.wiki_worker, self.iucn_worker, 
-            self.geo_worker, self.audio_worker, self.ebird_worker,
-            self.conservation_worker
-        ]
-        
-        for w in workers:
-            if w and w.isRunning():
-                try:
-                    w.requestInterruption()
-                    w.quit()
-                    # w.wait(500) # Optional wait
-                except: pass
+        # Resultados ainda pendentes passam a ser descartados ao chegar
+        self._nova_geracao()
+
+        for w in [self.id_worker, self.wiki_worker, self.iucn_worker, self.geo_worker,
+                  self.audio_worker, self.ebird_worker, self.conservation_worker]:
+            self._descartar_worker(w)
                 
         # Limpar referências
         self.id_worker = None
@@ -184,6 +263,7 @@ class Orchestrator(QObject):
         self.geo_worker = None
         self.audio_worker = None
         self.ebird_worker = None
+        self.conservation_worker = None
         
         self.current_lat = None
         self.current_lon = None
@@ -197,14 +277,26 @@ class Orchestrator(QObject):
         
     def start_cascade_from_step2(self, sci_name):
         """
-        Fluxo Linear Estrito: 2 (Biologia) -> 3 (Geografia) -> 4 (Vocalização) -> 5 (Taxonomia).
+        Dispara as etapas 2 a 5 a partir de um nome científico.
         Utilizado quando o usuário clica em uma espécie da lista de resultados 
         ou para re-identificação manual.
         """
         logging.info(f"Iniciando cascata para: {sci_name}")
+        self._nova_geracao()
+        self._iniciar_etapas_paralelas(sci_name)
+
+    def _iniciar_etapas_paralelas(self, sci_name):
+        """
+        Etapas independentes rodam ao mesmo tempo (v1.2):
+          2 (Biologia/WikiAves) | 3 (IUCN + Geo -> 4 Áudio -> ...) | 5 (Taxonomia)
+        Antes eram encadeadas (2 -> 3 -> 4 -> 5): a etapa mais lenta atrasava todas,
+        uma falha no WikiAves interrompia o resto e, sem GPS, a taxonomia nunca rodava.
+        Todas compartilham o mesmo taxon do iNaturalist via TaxonService.
+        """
         self._last_sci_name = sci_name
         self.start_step2_biology(sci_name)
-        # As etapas seguintes (3, 4 e 5) serão disparadas sequencialmente pelos callbacks.
+        self.start_step3_geography(sci_name)
+        self.start_step5_taxonomy(sci_name)
 
     def get_audio_data_by_id(self, audio_id):
         """Busca os dados completos de um áudio no cache central pelo ID (v1.0.0)."""
@@ -243,11 +335,9 @@ class Orchestrator(QObject):
                 del self._cache_audio[sci_name]
                 logging.debug(f"Cache de áudio para {sci_name} invalidado.")
 
-        # Interromper threads de áudio ativas
-        if self.audio_worker and self.audio_worker.isRunning():
-            self.audio_worker.requestInterruption()
-            self.audio_worker.quit()
-            logging.debug("Busca de áudio anterior interrompida.")
+        # Descarta a busca de áudio da localização anterior
+        self._trocar_worker("audio", self.audio_worker)
+        self.audio_worker = None
 
         if sci_name:
             self.start_step3_geography(sci_name)
@@ -289,14 +379,14 @@ class Orchestrator(QObject):
             return
 
         logging.info(f"Espécie validada. Iniciando cascata para: {nome_cientifico}")
-        self.start_step2_biology(nome_cientifico)
+        self._iniciar_etapas_paralelas(nome_cientifico)
             
     # --- Etapa 2 ---
     def start_step2_biology(self, sci_name):
-        if self.wiki_worker: self.wiki_worker.deleteLater()
+        self._trocar_worker("wiki", self.wiki_worker)
         self.wiki_worker = BuscadorWorker(sci_name, parent=self)
-        self.wiki_worker.info_found.connect(self._on_step2_finished)
-        self.wiki_worker.error_occurred.connect(self.step2_wiki_erro)
+        self._conectar("wiki", self.wiki_worker.info_found, self._on_step2_finished)
+        self._conectar("wiki", self.wiki_worker.error_occurred, lambda _msg: self.step2_wiki_erro.emit())
         self.wiki_worker.start()
         
     def _on_step2_finished(self, resultados):
@@ -307,44 +397,8 @@ class Orchestrator(QObject):
             self.session_logger.atualizar_ultimo_registro(resultados)
         self.step2_wiki_concluida.emit(resultados)
         
-        # CASCATA LINEAR CONTINUA: 2 -> 3
-        if self._last_sci_name:
-            self.start_step3_geography(self._last_sci_name)
-        
-        # Fallback IUCN via WikiAves
-        if getattr(self, "esperando_fallback_iucn", False):
-            status_wiki = resultados.get("status_conservacao")
-            if status_wiki and status_wiki != "Não encontrado":
-                logging.info(f"Aplicando Fallback de Conservação WikiAves: {status_wiki}")
-                self.step3_iucn_concluida.emit({
-                    "iucn_status": f"{status_wiki} (Fonte: WikiAves)",
-                    "geojson_path": None,
-                    "link_iucn": f"https://www.iucnredlist.org/search?query={resultados.get('original_scientific_name', '').replace(' ', '+')}&searchType=species"
-                })
-            else:
-                logging.warning("WikiAves não retornou status. Acionando Fallback iNaturalist.")
-                self._executar_fallback_inaturalist(resultados.get("original_scientific_name", ""))
-            self.esperando_fallback_iucn = False
-            
-    def _executar_fallback_inaturalist(self, sci_name):
-        fallback_res = {
-            "iucn_status": "Não Avaliado (Fallback Local)",
-            "geojson_path": None,
-            "link_iucn": f"https://www.iucnredlist.org/search?query={sci_name.replace(' ', '+')}&searchType=species"
-        }
-        try:
-            url = "https://api.inaturalist.org/v1/taxa"
-            params = {
-                "q": sci_name,
-                "is_active": "true",
-                "rank": "species"
-            }
-            resp = requests.get(url, params=params, timeout=3)
-            if resp.status_code == 200 and resp.json().get("results"):
-                cs = resp.json()["results"][0].get("conservation_status")
-                fallback_res["iucn_status"] = f"{cs.get('status', 'Não Avaliado').upper()} (via iNaturalist)" if cs else "Não Avaliado / Seguro (via iNaturalist)"
-        except Exception: pass
-        self._on_step3_finished(fallback_res)
+        if self.session_logger:
+            self.session_logger.flush()
 
     # --- Etapa 3 ---
     def start_step3_geography(self, sci_name):
@@ -359,31 +413,17 @@ class Orchestrator(QObject):
         self._last_geo_run = {"sci_name": sci_name, "lat": self.current_lat, "lon": self.current_lon}
         self._last_sci_name = sci_name
         
-        if self.iucn_worker:
-            try:
-                self.iucn_worker.finished.disconnect()
-                # Não deletamos imediatamente se estiver rodando para evitar crash
-                if not self.iucn_worker.isRunning():
-                    self.iucn_worker.deleteLater()
-            except: pass
-            
         # 3A. Busca de Status IUCN (Internacional)
+        self._trocar_worker("iucn", self.iucn_worker)
         self.iucn_worker = IUCNWorker(sci_name, parent=self)
-        self.iucn_worker.finished.connect(self._on_step3_finished)
+        self._conectar("iucn", self.iucn_worker.finished, self._on_step3_finished)
         self.iucn_worker.start()
 
         # 3B. GeoAnalyst (Nominatim/Biomas): Resolve endereço e contexto geográfico
         if self.current_lat and self.current_lon:
-            if self.geo_worker:
-                try:
-                    self.geo_worker.finished.disconnect()
-                    # Não deletamos imediatamente se estiver rodando v0.8.9
-                    if not self.geo_worker.isRunning():
-                        self.geo_worker.deleteLater()
-                except: pass
-                
+            self._trocar_worker("geo", self.geo_worker)
             self.geo_worker = GeoWorker(self.current_lat, self.current_lon, parent=self)
-            self.geo_worker.finished.connect(self._on_step3_geo_finished)
+            self._conectar("geo", self.geo_worker.finished, self._on_step3_geo_finished)
             self.geo_worker.start()
         else:
             logging.info("Lat/Lon ausentes. Etapa 3-Geo aguardando localização manual.")
@@ -425,17 +465,18 @@ class Orchestrator(QObject):
         
         # CASCATA LINEAR CONTINUA: 3A (IUCN) -> 3C (Conservação Nacional) (v1.6.5)
         # Identificamos o país a partir do último registro seguro
-        pais = "Brazil"
+        pais, estado = "Brazil", None
         if self.session_logger and self.session_logger.buffer:
             pais = self.session_logger.buffer[-1].get("pais", "Brazil")
-            
-        self.start_step3_conservation(self._last_sci_name, pais=pais)
+            estado = self.session_logger.buffer[-1].get("estado")
+
+        self.start_step3_conservation(self._last_sci_name, pais=pais, estado=estado)
 
     # --- Etapa 3C (v1.6.5) ---
-    def start_step3_conservation(self, sci_name, pais="Brazil"):
-        if self.conservation_worker: self.conservation_worker.deleteLater()
-        self.conservation_worker = NationalConservationWorker(sci_name, country=pais, parent=self)
-        self.conservation_worker.finished.connect(self._on_step3_conservation_finished)
+    def start_step3_conservation(self, sci_name, pais="Brazil", estado=None):
+        self._trocar_worker("conservacao", self.conservation_worker)
+        self.conservation_worker = NationalConservationWorker(sci_name, country=pais, estado=estado, parent=self)
+        self._conectar("conservacao", self.conservation_worker.finished, self._on_step3_conservation_finished)
         self.conservation_worker.start()
         
     def _on_step3_conservation_finished(self, results):
@@ -456,7 +497,7 @@ class Orchestrator(QObject):
             self.audio_processed.emit(audios) # Garantir plotagem no mapa em cache hit (v0.4.32)
             return
             
-        if self.audio_worker: self.audio_worker.deleteLater()
+        self._trocar_worker("audio", self.audio_worker)
         
         # Extrair dados regionais da caderneta de campo (SessionLogger) se disponíveis
         municipio = None
@@ -488,8 +529,8 @@ class Orchestrator(QObject):
         )
         
         # Conectar sinal com wrapper (lambda) para interceptar o save state
-        self.audio_worker.audio_found.connect(lambda audios: self._on_step4_finished_intercept(sci_name, audios))
-        self.audio_worker.search_failed.connect(lambda: self._on_step4_failed_intercept(sci_name))
+        self._conectar("audio", self.audio_worker.audio_found, lambda audios: self._on_step4_finished_intercept(sci_name, audios))
+        self._conectar("audio", self.audio_worker.search_failed, lambda: self._on_step4_failed_intercept(sci_name))
         self.audio_worker.start()
 
     def _on_step4_finished_intercept(self, sci_name, audios):
@@ -514,10 +555,8 @@ class Orchestrator(QObject):
             
         self.step4_audio_concluido.emit(audios)
         self.audio_processed.emit(audios) # Emitir para plotagem externa (v0.4.3)
-        
-        # CASCATA LINEAR CONTINUA: 4 -> 5
-        if sci_name:
-            self.start_step5_taxonomy(sci_name)
+        if self.session_logger:
+            self.session_logger.flush()
         
     def _on_step4_failed_intercept(self, sci_name):
         # Cache negative hit
@@ -530,10 +569,6 @@ class Orchestrator(QObject):
              
         self.step4_audio_erro.emit()
         
-        # CASCATA LINEAR CONTINUA mesmo em falha: 4 -> 5
-        if sci_name:
-            self.start_step5_taxonomy(sci_name)
-        
     # --- Etapa 5 ---
     def start_step5_taxonomy(self, sci_name):
         if sci_name in self.species_cache:
@@ -541,10 +576,10 @@ class Orchestrator(QObject):
             self._on_step5_finished(self.species_cache[sci_name])
             return
 
-        if self.ebird_worker: self.ebird_worker.deleteLater()
+        self._trocar_worker("taxonomia", self.ebird_worker)
         self.ebird_worker = EBirdWorker(sci_name, lat=self.current_lat, lon=self.current_lon, parent=self)
         # Necessitamos injetar sci_name param em Lambda para caching posterior
-        self.ebird_worker.finished.connect(lambda res: self._on_step5_finished(res, sci_name=sci_name))
+        self._conectar("taxonomia", self.ebird_worker.finished, lambda res: self._on_step5_finished(res, sci_name=sci_name))
         self.ebird_worker.start()
         
     def _on_step5_finished(self, results, sci_name=None):
@@ -564,6 +599,11 @@ class Orchestrator(QObject):
                 if valor and str(valor) not in ["", "Desconhecida", "Desconhecido", "N/A", "N/D"]:
                     tax_patch[chave] = valor
             
+            # Nome comum do iNaturalist só entra se o WikiAves (fonte preferida) ainda não preencheu
+            ultimo = self.session_logger.buffer[-1] if self.session_logger.buffer else {}
+            if results.get("nome_comum") and not ultimo.get("nome_comum"):
+                tax_patch["nome_comum"] = results["nome_comum"]
+
             if tax_patch:
                 self.session_logger.atualizar_ultimo_registro(tax_patch)
                 

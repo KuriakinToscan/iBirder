@@ -19,8 +19,8 @@ from pathlib import Path
 import logging
 
 class ModelManager:
-    # Google's "Birds V1" TFLite model (trained on iNaturalist)
-    # Using the official TF Hub URL for V1.3
+    # Google AIY Vision "Birds V1", versão 3 (MobileNetV2 quantizado, treinado com o iNaturalist).
+    # O modelo já vem em assets/models; o download só ocorre se os arquivos estiverem ausentes.
     URL_MODEL = "https://tfhub.dev/google/lite-model/aiy/vision/classifier/birds_V1/3?lite-format=tflite"
     URL_LABELS = "https://raw.githubusercontent.com/google-coral/test_data/master/inat_bird_labels.txt"
     
@@ -42,7 +42,7 @@ class ModelManager:
         """
         try:
             logging.info('Iniciando download de recursos do modelo...')
-            logging.debug('Baixando EfficientNet V1.3 oficial do TensorFlow Hub...')
+            logging.debug('Baixando o modelo Birds V1 (MobileNetV2) do TensorFlow Hub...')
             logging.debug(f'Pasta de destino: {self.assets_dir}')
             
             self._download_file(self.URL_MODEL, self.model_path, "Modelo IA", callback)

@@ -1,0 +1,106 @@
+# Testes + executável + instalador num Windows limpo.
+# - Todo push e pull request: roda os testes, gera o executável, faz o autoteste
+#   (--smoke-test) e o instalador, disponível em "Artifacts" na página da execução.
+# - Tag vX.Y (ex.: v1.2): além disso, publica o instalador como Release no GitHub.
+#   A tag precisa bater com APP_VERSION em core/config.py.
+name: Build Windows
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+    paths-ignore: ["**.md", "Geo/biomas.qmd"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller pytest
+
+      - name: Versão do app
+        id: versao
+        run: |
+          $v = python -c "from core.config import APP_VERSION; print(APP_VERSION)"
+          "versao=$v" >> $env:GITHUB_OUTPUT
+          Write-Host "APP_VERSION = $v"
+
+      - name: Testes (inclui mapa com QtWebEngine)
+        env:
+          IBIRDER_TESTES_GUI: "1"
+        run: python -m pytest -q tests
+
+      - name: Gerar executável (PyInstaller)
+        run: pyinstaller -y ibirder.spec
+
+      - name: Autoteste do executável (--smoke-test)
+        run: |
+          $proc = Start-Process -FilePath "dist\iBirder\iBirder.exe" -ArgumentList "--smoke-test" -Wait -PassThru
+          $log = Get-ChildItem "$env:APPDATA\iBirder\logs\sessao_*.log" -ErrorAction SilentlyContinue |
+                 Sort-Object LastWriteTime | Select-Object -Last 1
+          if ($log) { Get-Content $log.FullName | Select-String "SMOKE|CHECKPOINT|ERROR|CRITICAL" }
+          if ($proc.ExitCode -ne 0) { throw "Autoteste falhou (código $($proc.ExitCode))." }
+
+      - name: Gerar instalador (Inno Setup)
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          & $iscc "/DAppVersion=${{ steps.versao.outputs.versao }}" instalador_ibirder.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup falhou." }
+
+      - name: Publicar artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: Instalador_iBirder_v${{ steps.versao.outputs.versao }}
+          path: dist_installer/*.exe
+          retention-days: 30
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Conferir tag x APP_VERSION
+        id: versao
+        run: |
+          v=$(python3 -c "from core.config import APP_VERSION; print(APP_VERSION)")
+          if [ "${GITHUB_REF_NAME}" != "v$v" ]; then
+            echo "::error::A tag ${GITHUB_REF_NAME} não bate com APP_VERSION=$v em core/config.py"; exit 1
+          fi
+          echo "versao=$v" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: Instalador_iBirder_v${{ steps.versao.outputs.versao }}
+          path: instalador
+
+      - name: Criar Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" instalador/*.exe --title "iBirder $GITHUB_REF_NAME" --generate-notes

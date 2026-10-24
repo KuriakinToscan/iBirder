@@ -14,9 +14,11 @@
 #  Você deve ter recebido uma cópia da Licença Pública Geral GNU 
 #  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
 
+
 from PySide6.QtCore import QThread, Signal
 import logging
 from modules.step2_biology.wiki_scraper import BuscadorBlindado
+from modules.step5_taxonomy import ebird_taxonomy
 
 class BuscadorWorker(QThread):
     info_found = Signal(dict)
@@ -39,12 +41,13 @@ class BuscadorWorker(QThread):
             link = bot.buscar_link_wikiaves(self.scientific_name)
             
             if link:
-                dados = bot.extrair_dados_especie(link)
+                dados = bot.extrair_dados_especie(link, self.scientific_name)
                 dados['link_origem'] = link
                 
-                # Sincronização eBird v0.8.0 Heritage (v1.6.10)
-                # O robô busca o eBird via DuckDuckGo logo após o WikiAves para garantir 100% de precisão.
-                link_ebird = bot.buscar_link_ebird(self.scientific_name)
+                # Link eBird: taxonomia embarcada (instantâneo, sem internet);
+                # o buscador no navegador fica só para espécies ausentes da tabela.
+                ebird = ebird_taxonomy.buscar(self.scientific_name)
+                link_ebird = ebird["link"] if ebird else bot.buscar_link_ebird(self.scientific_name)
                 if link_ebird:
                     dados['link_ebird'] = link_ebird
                     logging.debug(f"Link eBird encontrado: {link_ebird}")
@@ -55,6 +58,7 @@ class BuscadorWorker(QThread):
                 self.error_occurred.emit("Espécie não encontrada no WikiAves.")
                 
         except Exception as e:
+            logging.error(f"Erro na busca do WikiAves: {e}")
             self.error_occurred.emit(str(e))
         finally:
             if bot:

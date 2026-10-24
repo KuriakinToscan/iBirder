@@ -38,7 +38,6 @@ from datetime import datetime
 # Importações do Core
 from modules.step3_geography.geo_utils import extract_lat_lon
 from modules.step1_identity.id_worker import LocalIdentificationWorker
-from modules.step1_identity.finder_ui import JanelaManual
 from ui.dialogo_aviso import DialogoAviso
 from modules.step1_identity.worker_referencia import ReferenceImageWorker
 from modules.step2_biology.wiki_worker import BuscadorWorker
@@ -48,7 +47,7 @@ from core.style_manager import StyleManager
 from ui.dialogs.exif_config_dialog import ExifConfigDialog
 from modules.step6_persistence.exif_manager import EXIFManager
 from ui.widgets.map_widget import MapWidget
-from ui.custom_widgets import ImageCardWidget, AudioPlayerWidget, VocalAuditCard
+from ui.custom_widgets import ImageCardWidget, VocalAuditCard
 from ui.dialogs.location_dialog import LocationDialog
 from ui.dialogs.vocal_detail_dialog import VocalDetailDialog
 from ui.dialogs.manual_dialog import ManualUsuarioDialog
@@ -95,6 +94,7 @@ class JanelaPrincipal(QMainWindow):
         self.orchestrator.step1_identificacao_erro.connect(self._ao_erro_identificacao)
         self.orchestrator.step1_progress_updated.connect(self._ao_progresso_identificacao)
         self.orchestrator.step2_wiki_concluida.connect(self._ao_receber_info_especie)
+        self.orchestrator.step2_wiki_erro.connect(self._ao_erro_wiki)
         self.orchestrator.step3_iucn_concluida.connect(self._ao_concluir_iucn)
         self.orchestrator.step3_geo_concluida.connect(self._ao_concluir_geo_analise)
         self.orchestrator.step3_conservacao_concluida.connect(self._ao_concluir_conservacao_nacional)
@@ -207,11 +207,14 @@ class JanelaPrincipal(QMainWindow):
                 old_worker_ref.search_failed.disconnect()
             except: pass
             
+            # Sem wait(): ele bloqueava a interface até o download anterior terminar.
+            # A busca antiga já está desconectada; fica guardada até a thread acabar.
+            self._refs_orfaos = [w for w in getattr(self, "_refs_orfaos", []) if w.isRunning()]
             if old_worker_ref.isRunning():
                 old_worker_ref.requestInterruption()
-                old_worker_ref.quit()
-                old_worker_ref.wait() # Bloqueia brevemente para garantir parada
-            old_worker_ref.deleteLater()
+                self._refs_orfaos.append(old_worker_ref)
+            else:
+                old_worker_ref.deleteLater()
 
         self.worker_referencia = ReferenceImageWorker(nome_cientifico, parent=self)
         self.worker_referencia.image_found.connect(self._ao_encontrar_imagem_referencia)
@@ -342,9 +345,9 @@ class JanelaPrincipal(QMainWindow):
         ni = dados.get("nome_ingles", "")
         if ni and ni.lower() not in ["desconhecido", "unknown"]:
             self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", ni))
-        else:
-            if nc:
-                self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", "Desconhecido"))
+        elif nc and self.PLACEHOLDER_TEXT in self.lbl_nome_ingles.text():
+            # Não sobrescreve o nome em inglês já preenchido pela taxonomia eBird
+            self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", "Desconhecido"))
 
         # Atualiza Campo Etimologia
         # Atualiza Campo Etimologia
@@ -426,6 +429,22 @@ class JanelaPrincipal(QMainWindow):
             logging.info("--- PROCESSO DE IDENTIFICAÇÃO FINALIZADO ---")
 
         
+    def _ao_erro_wiki(self):
+        """WikiAves indisponível: libera os campos e a gravação com os dados das outras fontes."""
+        logging.warning("WikiAves indisponível. Exibindo dados das demais fontes.")
+        aviso = "Não disponível (WikiAves inacessível no momento)"
+        if self.PLACEHOLDER_TEXT in self.lbl_nome_comum.text():
+            ultimo = self.session_logger.buffer[-1] if self.session_logger.buffer else {}
+            # Usa o nome popular do iNaturalist, se a taxonomia já o trouxe
+            self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", ultimo.get("nome_comum") or "Não encontrado"))
+        self.txt_etimologia.setPlaceholderText(aviso)
+        self.txt_descricao.setPlaceholderText(aviso)
+        self.status_bar.showMessage("WikiAves indisponível. Demais dados carregados normalmente.", 8000)
+        # Taxonomia, geografia e conservação continuam graváveis na foto
+        if hasattr(self, 'btn_gravar_exif') and self.session_logger.buffer:
+            self.btn_gravar_exif.setEnabled(True)
+            self.btn_gravar_exif.setVisible(True)
+
     def _ao_erro_api(self, erro_msg):
         logging.error(f"Erro na API (Info Espécie): {erro_msg}")
         self.lbl_etimologia_texto.setText(f"Erro ao buscar informações: {erro_msg}")
@@ -539,7 +558,7 @@ class JanelaPrincipal(QMainWindow):
         self.btn_ajuda.setFixedSize(40, 40)
         self.btn_ajuda.setProperty("class", "icon-btn")
         self.btn_ajuda.setCursor(Qt.PointingHandCursor)
-        self.btn_ajuda.setToolTip("Manual de Instruções")
+        self.btn_ajuda.setToolTip("Ajuda: manual e diagnóstico")
         caminho_help = self._obter_caminho_asset("icon_help.svg")
         if os.path.exists(caminho_help):
             self.btn_ajuda.setIcon(QIcon(caminho_help))
@@ -547,7 +566,7 @@ class JanelaPrincipal(QMainWindow):
         else:
              self.btn_ajuda.setText("?")
              self.btn_ajuda.setFont(QFont("Segoe UI", 16, QFont.Bold))
-        self.btn_ajuda.clicked.connect(self._abrir_manual)
+        self.btn_ajuda.clicked.connect(self._abrir_menu_ajuda)
         
         layout_ajuda.addWidget(self.btn_ajuda)
         
@@ -633,6 +652,8 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_candidatos.setTextFormat(Qt.RichText)
         self.lbl_candidatos.setVisible(False)
         self.lbl_candidatos.setProperty("class", "container-borda-cinza-fill")
+        # Cada sugestão é um link: clicar faz a busca manual daquela espécie
+        self.lbl_candidatos.linkActivated.connect(self._buscar_candidato)
 
         self.lbl_nome_ingles = QLabel(self._format_nome_ave("Nome em Inglês:", self.PLACEHOLDER_TEXT, is_placeholder=True))
         self.lbl_nome_ingles.setWordWrap(True)
@@ -917,6 +938,32 @@ class JanelaPrincipal(QMainWindow):
         dialog = ManualUsuarioDialog(self)
         dialog.exec()
 
+    def _abrir_menu_ajuda(self):
+        """Menu do botão de ajuda: manual, diagnóstico para suporte e pasta de logs."""
+        from PySide6.QtWidgets import QMenu
+        menu = QMenu(self)
+        menu.addAction("Manual do usuário", self._abrir_manual)
+        menu.addSeparator()
+        menu.addAction("Copiar diagnóstico", self._copiar_diagnostico)
+        menu.addAction("Abrir pasta de logs", self._abrir_pasta_logs)
+        menu.exec(self.btn_ajuda.mapToGlobal(self.btn_ajuda.rect().bottomLeft()))
+
+    def _copiar_diagnostico(self):
+        """Copia versões, configuração (sem chaves) e o fim do log para enviar ao suporte."""
+        from core.logger import gerar_diagnostico
+        QApplication.clipboard().setText(gerar_diagnostico())
+        DialogoAviso(
+            "Diagnóstico copiado",
+            "As informações de diagnóstico foram copiadas para a área de transferência.\n\n"
+            "Cole (Ctrl+V) em um e-mail ou mensagem para o suporte. "
+            "As chaves de API não são incluídas.",
+            self, tipo="info").exec()
+
+    def _abrir_pasta_logs(self):
+        from core.paths import LOGS_DIR
+        LOGS_DIR.mkdir(parents=True, exist_ok=True)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(LOGS_DIR)))
+
     def _obter_sciname_atual(self):
         return self.dados_identificacao_atual.get("nome_cientifico", "")
 
@@ -956,6 +1003,24 @@ class JanelaPrincipal(QMainWindow):
         if sciname and "Inconclusiva" not in sciname:
             url = f"https://www.google.com/search?q={urllib.parse.quote(sciname)}"
             QDesktopServices.openUrl(QUrl(url))
+
+    def _buscar_candidato(self, nome_cientifico):
+        """Clique em uma sugestão alternativa: busca manual da espécie."""
+        self.input_especie.setText(nome_cientifico)
+        self._realizar_busca_manual()
+
+    def _html_candidatos(self, titulo, candidatos, marcar_sem_registro=False):
+        """Lista de candidatos clicáveis (nome científico + confiança)."""
+        from modules.step3_geography import listas_conservacao as listas
+        html = f'<div style="line-height: 150%; font-size: 12px; color: #374151;">{titulo}<br>'
+        for cand in candidatos[:3]:
+            nome = cand.get("nome_cientifico") or cand.get("label", "")
+            nota = ""
+            if marcar_sem_registro and not listas.registrada_no_brasil(nome):
+                nota = ' <span style="color:#9CA3AF;">(sem registro no Brasil)</span>'
+            html += (f'• <a href="{nome}" style="color:#005fa8;"><i>{nome}</i></a> '
+                     f'({cand.get("confianca", 0.0)*100:.1f}%){nota}<br>')
+        return html + '</div>'
 
     def _realizar_busca_manual(self):
         texto = self.input_especie.text().strip()
@@ -1080,6 +1145,12 @@ class JanelaPrincipal(QMainWindow):
             settings.setValue("lens_dont_show_again", True)
 
     def _carregar_imagem(self, caminho: str):
+        # Foto já processada pelo iBirder: mostra o que foi gravado e quando, e pergunta
+        # (o caminho muda se o usuário desfizer a renomeação nesse aviso)
+        caminho = self._confirmar_reprocessamento(caminho)
+        if not caminho:
+            return
+
         self._resetar_interface() # Limpa tudo primeiro
 
         self.caminho_imagem_atual = caminho
@@ -1177,6 +1248,25 @@ class JanelaPrincipal(QMainWindow):
                  self.lbl_geo_details.style().polish(self.lbl_geo_details)
              
         self._identificar_ave()
+
+    def _confirmar_reprocessamento(self, caminho):
+        """
+        Caminho da foto a processar, ou None se ela já tem registro do iBirder e o usuário ignorou.
+        O caminho pode mudar se o usuário desfizer a renomeação no aviso.
+        """
+        from modules.step6_persistence.registro_ibirder import ler_registro
+        registro = ler_registro(caminho)
+        if not registro:
+            return caminho
+        logging.info(f"Foto já processada pelo iBirder: {Path(caminho).name} ({len(registro['tags'])} tags)")
+        from ui.dialogs.registro_dialog import DialogoFotoProcessada
+        dialogo = DialogoFotoProcessada(registro, Path(caminho).name, self, caminho=caminho)
+        processar = dialogo.exec()
+        caminho = str(dialogo.caminho)
+        if processar:
+            return caminho
+        self.status_bar.showMessage(f"Foto ignorada (já processada): {Path(caminho).name}", 8000)
+        return None
 
     def _ao_arrastar_pino(self, lat, lon):
         logging.info(f"Pino do mapa arrastado para: Lat {lat}, Lon {lon}")
@@ -1299,10 +1389,10 @@ class JanelaPrincipal(QMainWindow):
             
         conf = dados.get("confianca", 0.0)
         status_msg = dados.get("status_msg", "")
-        top_candidates = dados.get("top_candidates", [])
+        top_candidates = dados.get("top3") or dados.get("top_candidates", [])
         
         # Exibição da Certeza (v1.1): Cor padronizada e metadados da IA dinâmico
-        modelo_ia = dados.get("modelo_ia", "EfficientNet V1.3 (Local)")
+        modelo_ia = dados.get("modelo_ia", "MobileNetV2 (Local)")
         self.lbl_certeza.setText(f'<span style="color: #4B5563; font-weight: bold; font-size: 11px;">Certeza:</span>&nbsp;&nbsp;'
                                  f'<span style="color: #4B5563; font-weight: 500; font-size: 13px;">{conf*100:.1f}% ({modelo_ia})</span>')
         self.lbl_certeza.setVisible(True)
@@ -1323,23 +1413,34 @@ class JanelaPrincipal(QMainWindow):
             if self.dados_identificacao_atual:
                 self.dados_identificacao_atual["nome_cientifico"] = sci_formatted
             
-            self.lbl_candidatos.setVisible(False)
+            aviso = dados.get("aviso_ocorrencia")
+            if aviso:
+                # Espécie sugerida sem registro no Brasil e sem nuvem para confirmar
+                alternativas = dados.get("alternativas_brasil") or []
+                html = (f'<div style="font-size: 12px; color: #92400E; background: #FFFBEB; padding: 6px;">'
+                        f'⚠ {aviso}</div>')
+                if alternativas:
+                    html += self._html_candidatos("<b>Candidatas com registro no Brasil</b> (clique para pesquisar):",
+                                                  alternativas)
+                self.lbl_candidatos.setText(html)
+                self.lbl_candidatos.setVisible(True)
+                self.status_bar.showMessage("Atenção: espécie sugerida sem registro no Brasil. Confira a identificação.", 15000)
+            else:
+                self.lbl_candidatos.setVisible(False)
         else:
              self.input_especie.clear()
              self.input_especie.setProperty("class", "container-borda-cinza")
              self.input_especie.style().unpolish(self.input_especie)
              self.input_especie.style().polish(self.input_especie)
              
-             # Exibição de Candidatos Alternativos (v0.8.6)
+             # Sugestões alternativas da IA local (clicáveis). Antes nunca apareciam:
+             # a identificação não enviava os candidatos.
              if top_candidates:
-                 html_cand = '<div style="line-height: 140%; font-size: 12px; color: #374151;">'
-                 html_cand += '<b>Sugestões Alternativas:</b><br>'
-                 for i, cand in enumerate(top_candidates[:3]):
-                      nome_c = cand.get("label", "Desconhecido")
-                      c_conf = cand.get("confianca", 0.0)
-                      html_cand += f"• {nome_c} ({c_conf*100:.1f}%)<br>"
-                 html_cand += '</div>'
-                 self.lbl_candidatos.setText(html_cand)
+                 from modules.step1_identity.id_worker import foto_no_brasil
+                 no_brasil = bool(foto_no_brasil(self.lat_atual, self.lon_atual))
+                 self.lbl_candidatos.setText(self._html_candidatos(
+                     "<b>Sugestões alternativas</b> (clique para pesquisar):", top_candidates,
+                     marcar_sem_registro=no_brasil))
                  self.lbl_candidatos.setVisible(True)
              else:
                  self.lbl_candidatos.setVisible(False)
@@ -1360,7 +1461,8 @@ class JanelaPrincipal(QMainWindow):
             self.btn_google_lens.setEnabled(True)
 
         else:
-            self.status_bar.showMessage("Identificação concluída.")
+            if not dados.get("aviso_ocorrencia"):
+                self.status_bar.showMessage("Identificação concluída.")
             
             self.btn_wiki.setEnabled(True)
             self.btn_google.setEnabled(True)
@@ -1466,7 +1568,7 @@ class JanelaPrincipal(QMainWindow):
             "audio_lon": audio.get('lon'),
             "audio_distancia_km": audio.get('distancia'),
             "audio_link_web": audio.get('link_web', ''),
-            "audio_source": audio.get('fonte', 'Xeno-canto'),
+            "audio_source": audio.get('fonte', 'iNaturalist'),
             "audio_data_gravacao": audio.get('data', 'Desconhecida'),
             "audio_comentarios": audio.get('comentarios', '')
         }
@@ -1544,7 +1646,9 @@ class JanelaPrincipal(QMainWindow):
         if endemismo is None:
             endemismo_str = '<span style="color: #9CA3AF; font-style: italic;">Consultando...</span>'
         else:
-            endemismo_str = f"{endemismo}"
+            ocorrencia = cons_data.get("ocorrencia_brasil")
+            # Ex.: "Não (Nativa)", "Não (Introduzida)"; "Sim" já significa endêmica
+            endemismo_str = f"{endemismo} ({ocorrencia})" if endemismo == "Não" and ocorrencia else f"{endemismo}"
 
         texto_html = f"""
         <div style="line-height: 150%;">
@@ -1574,17 +1678,33 @@ class JanelaPrincipal(QMainWindow):
         iucn_raw = iucn_data.get("iucn_status", "Não Avaliado")
         iucn_ext = NationalConservationWorker.traduzir_iucn(iucn_raw)
         
-        icmbio = cons_data.get("status_icmbio", "Não Avaliado")
-        cites = cons_data.get("status_cites", "Não Listado")
+        icmbio = cons_data.get("status_icmbio", "Consultando...")
+        cites = cons_data.get("status_cites", "Consultando...")
+
+        # Outras avaliações do iNaturalist (listas estaduais e de outros países)
+        outras = cons_data.get("outras_avaliacoes") or []
+        linhas_outras = ""
+        for item in outras[:5]:
+            lugar = item["lugar"]
+            if item.get("url", "").startswith("http"):
+                lugar = f'<a href="{item["url"]}" style="color:#005fa8; text-decoration:none;">{lugar}</a>'
+            destaque = " ★" if item.get("estado_da_foto") else ""
+            linhas_outras += f"&nbsp;&nbsp;• {lugar}{destaque}: {item['categoria']}<br>"
+        if len(outras) > 5:
+            linhas_outras += f"&nbsp;&nbsp;<i>e mais {len(outras) - 5} lista(s)</i><br>"
+        bloco_outras = (f"<b>Outras avaliações (iNaturalist):</b><br>{linhas_outras}" if outras else "")
 
         texto_html = f"""
         <div style="line-height: 140%;">
         <b>IUCN (Global):</b> {iucn_ext}<br>
-        <b>ICMBio (Nacional):</b> {icmbio}<br>
-        <b>CITES:</b> {cites}
+        <b>Brasil (ICMBio/MMA 148/2022):</b> {icmbio}<br>
+        <b>CITES:</b> {cites}<br>
+        {bloco_outras}
         </div>
         """
         self.lbl_conservacao_texto.setText(texto_html)
+        self.lbl_conservacao_texto.setWordWrap(True)
+        self.lbl_conservacao_texto.setOpenExternalLinks(True)
         self._set_placeholder_style(self.lbl_conservacao_texto, active=False)
         self.lbl_conservacao_texto.setVisible(True)
 
@@ -1616,6 +1736,16 @@ class JanelaPrincipal(QMainWindow):
             if not self.dados_identificacao_atual:
                 self.dados_identificacao_atual = {}
             self.dados_identificacao_atual["link_ebird"] = link_ebird_final
+
+        # Nome popular do iNaturalist, caso o WikiAves já tenha falhado
+        nc = results.get("nome_comum")
+        if nc and "Não encontrado" in self.lbl_nome_comum.text():
+            self.lbl_nome_comum.setText(self._format_nome_ave("Nome Comum:", nc))
+
+        # Nome em inglês da taxonomia eBird, caso o WikiAves ainda não tenha preenchido
+        ni = results.get("nome_ingles")
+        if ni and ni != "Desconhecido" and self.PLACEHOLDER_TEXT in self.lbl_nome_ingles.text():
+            self.lbl_nome_ingles.setText(self._format_nome_ave("Nome em Inglês:", ni))
 
         if hasattr(self, 'lbl_taxonomia_texto'):
             ordem_vis = results.get('ordem') if (results.get('ordem') and results.get('ordem') != "Desconhecida") else self.dados_identificacao_atual.get("ordem")
@@ -1653,20 +1783,24 @@ class JanelaPrincipal(QMainWindow):
         iucn = getattr(self, 'last_iucn_data', {})
         cons = getattr(self, 'last_conservation_data', {})
         
-        # Mapeamento robusto para garantir que o diálogo EXIF e o EXIFManager encontrem os dados
+        # Só os valores que as etapas já trouxeram. Antes, valores padrão ("Brasil", "-",
+        # "Não Avaliado"...) sobrescreviam dados reais quando uma etapa terminava antes da outra,
+        # e o endemismo era lido de um campo inexistente (sempre "Não").
         dados_consolidados = {
             "latitude": self.lat_atual,
             "longitude": self.lon_atual,
-            "pais": geo.get("pais", "Brasil"),
-            "estado": geo.get("estado", "-"),
-            "municipio": geo.get("municipio", "-"),
-            "bioma": geo.get("bioma", "-"),
-            "endemismo": geo.get("endemico", "Não"),
-            "iucn_status": iucn.get("iucn_status", "Não Avaliado"),
-            "status_icmbio": cons.get("status_icmbio", "Não Avaliado"),
-            "status_cites": cons.get("status_cites", "Não Listado"),
+            "pais": geo.get("pais"),
+            "estado": geo.get("estado"),
+            "municipio": geo.get("municipio"),
+            "bioma": geo.get("bioma"),
+            "endemismo": cons.get("endemismo"),
+            "iucn_status": iucn.get("iucn_status"),
+            "status_icmbio": cons.get("status_icmbio"),
+            "categoria_icmbio": cons.get("categoria_icmbio"),
+            "status_cites": cons.get("status_cites"),
             "classe": "Aves"
         }
+        dados_consolidados = {k: v for k, v in dados_consolidados.items() if v is not None}
         
         if hasattr(self, 'session_logger'):
              self.session_logger.atualizar_ultimo_registro(dados_consolidados)
@@ -1816,9 +1950,11 @@ class JanelaPrincipal(QMainWindow):
                 tem_gps = True
 
         # 🔹 Restauração do Diálogo de Configuração (v0.8.4)
-        config_dialog = ExifConfigDialog(self, dados, tem_gps_nativo=tem_gps)
+        config_dialog = ExifConfigDialog(self, dados, tem_gps_nativo=tem_gps,
+                                         caminho_imagem=self.caminho_imagem_atual)
         if config_dialog.exec():
             selecionados = config_dialog.get_selected_fields()
+            renomeacao = config_dialog.get_renomeacao()
             
             try:
                 # Forçamos o processamento de eventos para garantir estabilidade da UI
@@ -1826,15 +1962,71 @@ class JanelaPrincipal(QMainWindow):
                 
                 manager = EXIFManager()
                 if manager.escrever_metadados_completos(self.caminho_imagem_atual, dados, selecionados):
+                    mensagem, titulo = "Dados gravados com sucesso na fotografia.", "Sucesso"
+                    if renomeacao:
+                        texto_nome, ok = self._renomear_foto(renomeacao)
+                        mensagem += "\n\n" + texto_nome
+                        if not ok:
+                            titulo = "Dados gravados (atenção ao nome)"
+
                     def show_success():
-                        msg = DialogoAviso("Sucesso", "Dados gravados com sucesso na fotografia.", self)
-                        msg.exec()
+                        DialogoAviso(titulo, mensagem, self).exec()
                     QTimer.singleShot(100, show_success)
             except Exception as e:
                 DialogoAviso("Erro", f"Falha na gravação: {e}", self, tipo="erro").exec()
 
+    def _renomear_foto(self, renomeacao):
+        """
+        Renomeia a foto depois da gravação (os dados já estão salvos mesmo se falhar).
+        Retorna (mensagem, sucesso).
+        """
+        from core import nome_arquivo
+        from modules.step6_persistence.registro_ibirder import ler_registro
+        antigo = Path(self.caminho_imagem_atual)
+
+        # Só renomeia se o nome original estiver confirmado na foto (lido de volta do arquivo)
+        registro = ler_registro(antigo)
+        if not registro or not registro.get("nome_original"):
+            logging.error(f"Nome original não confirmado em {antigo.name}; renomeação cancelada")
+            return ("O arquivo não foi renomeado: não foi possível confirmar o nome original "
+                    "gravado na foto. Os dados foram gravados normalmente."), False
+
+        # RAW renomeado junto: o nome original vai para o .xmp que o acompanha (criado se preciso)
+        irmaos = list(renomeacao["irmaos"])
+        manager = EXIFManager()
+        for raw in [f for f in irmaos if f.suffix.lower() in nome_arquivo.EXTENSOES_RAW]:
+            resultado = manager.gravar_nome_original_sidecar(raw)
+            if resultado is None:
+                return (f"O arquivo não foi renomeado: não foi possível gravar o nome original de "
+                        f"{raw.name} no arquivo .xmp. Os dados da foto foram gravados normalmente."), False
+            sidecar, _ = resultado
+            if sidecar not in irmaos:
+                irmaos.append(sidecar)
+
+        try:
+            novo, feitos, falhas = nome_arquivo.renomear(antigo, renomeacao["base"], irmaos)
+        except OSError as e:
+            logging.error(f"Falha ao renomear {antigo.name}: {e}")
+            return (f"Não foi possível renomear o arquivo ({e.strerror or e}). Os dados foram gravados; "
+                    "feche a foto em outros programas e tente de novo."), False
+        if not feitos:
+            return f"O arquivo já se chama {novo.name}.", True
+
+        self.caminho_imagem_atual = str(novo)
+        self.card_user.image_path = str(novo)
+        self.status_bar.showMessage(f"Arquivo renomeado: {antigo.name} → {novo.name}", 10000)
+        texto = f"Arquivo renomeado para {novo.name}."
+        if len(feitos) > 1:
+            texto += " Também renomeados: " + ", ".join(n.name for _, n in feitos[1:]) + "."
+        if falhas:
+            texto += " Não foi possível renomear: " + "; ".join(falhas) + "."
+        return texto, not falhas
+
 
     def closeEvent(self, event):
+        # Aguarda (com limite) as threads em execução para não fechar com a thread ativa
+        if hasattr(self, 'orchestrator'):
+            self.orchestrator.encerrar()
         if hasattr(self, 'session_logger'):
             self.session_logger.flush()
             self.session_logger.limpar_sessao()

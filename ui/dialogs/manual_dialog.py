@@ -199,7 +199,7 @@ class ManualUsuarioDialog(QDialog):
                 color: #92400E;
             }
 
-            ul { margin-bottom: 18px; padding-left: 25px; }
+            ul, ol { margin-bottom: 18px; padding-left: 25px; }
             li { margin-bottom: 10px; color: #4B5563; line-height: 1.6; }
             b, strong { color: #111827; font-weight: 700; }
             i, em { color: #64748B; }
@@ -229,11 +229,47 @@ class ManualUsuarioDialog(QDialog):
         """
 
         def process_inline(text):
+            # Código `assim` (antes do negrito/itálico para não interpretar * dentro do código)
+            text = re.sub(r'`([^`]+)`', r'<code style="background:#F3F4F6; padding:1px 4px;">\1</code>', text)
+            # Links [texto](https://...) — abertos no navegador (setOpenExternalLinks)
+            text = re.sub(r'\[([^\]]+)\]\((https?://[^)\s]+)\)', r'<a href="\2" style="color:#005fa8;">\1</a>', text)
             # Negrito
             text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
             # Itálico
             text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', text)
             return text
+
+        item_lista = re.compile(r'^(- |\d+\. )')
+
+        def render_bloco(linhas):
+            """Conteúdo de um card: parágrafos, listas e avisos (> ...)."""
+            partes = []
+            j = 0
+            while j < len(linhas):
+                l = linhas[j].strip()
+                if not l:
+                    j += 1
+                elif item_lista.match(l):
+                    tag = "ul" if l.startswith('- ') else "ol"
+                    itens = []
+                    while j < len(linhas) and item_lista.match(linhas[j].strip()):
+                        itens.append(f"<li>{process_inline(item_lista.sub('', linhas[j].strip(), count=1))}</li>")
+                        j += 1
+                    partes.append(f"<{tag}>{''.join(itens)}</{tag}>")
+                elif l.startswith('>'):
+                    texto = []
+                    while j < len(linhas) and linhas[j].strip().startswith('>'):
+                        texto.append(linhas[j].strip().lstrip('>').strip())
+                        j += 1
+                    partes.append(f"<div class='alerta'>{process_inline(' '.join(texto))}</div>")
+                else:
+                    texto = []
+                    while (j < len(linhas) and linhas[j].strip() and not item_lista.match(linhas[j].strip())
+                           and not linhas[j].strip().startswith('>')):
+                        texto.append(linhas[j].strip())
+                        j += 1
+                    partes.append(f"<p style='font-size: 13px; margin-bottom: 10px; color: #4B5563;'>{process_inline(' '.join(texto))}</p>")
+            return "".join(partes)
 
         lines = md.split('\n')
         html_output = [f"<html><head>{css}</head><body><div class='container'>"]
@@ -278,29 +314,19 @@ class ManualUsuarioDialog(QDialog):
                 if match:
                     num, title = match.groups()
                     i += 1
-                    content_segments = []
-                    curr_segment = ""
-                    while i < len(lines) and not lines[i].strip().startswith('#'):
-                        l = lines[i].strip()
-                        if not l:
-                            if curr_segment:
-                                content_segments.append(curr_segment)
-                                curr_segment = ""
-                        else:
-                            curr_segment += " " + l
+                    conteudo = []
+                    # O card vai até o próximo título ou separador
+                    while i < len(lines) and not lines[i].strip().startswith('#') and lines[i].strip() != '---':
+                        conteudo.append(lines[i])
                         i += 1
-                    if curr_segment:
-                        content_segments.append(curr_segment)
-                    
-                    p_tags = "".join([f"<p style='font-size: 13px; margin-bottom: 10px; color: #4B5563;'>{process_inline(s.strip())}</p>" for s in content_segments])
-                    
+
                     html_output.append(f"""
                     <div class="step-card">
                         <div class="step-header">
                             <span class="step-number">{num}</span>
                             <span class="step-title">{process_inline(title)}</span>
                         </div>
-                        {p_tags}
+                        {render_bloco(conteudo)}
                     </div>
                     """)
                     i -= 1
@@ -310,14 +336,14 @@ class ManualUsuarioDialog(QDialog):
                 html_output.append(f"<h3>{process_inline(line[4:].strip())}</h3>")
             
             # 5. Listas
-            elif line.strip() and (line.startswith('- ') or (line[0].isdigit() and line[1:3] == '. ')):
-                html_output.append("<ul>")
-                while i < len(lines) and (lines[i].strip().startswith('- ') or (lines[i].strip() and lines[i].strip()[0].isdigit() and lines[i].strip()[1:3] == '. ')):
+            elif item_lista.match(line):
+                numerada = not line.startswith('- ')
+                html_output.append("<ol>" if numerada else "<ul>")
+                while i < len(lines) and item_lista.match(lines[i].strip()):
                     l = lines[i].strip()
-                    prefix_len = 2 if l.startswith('- ') else 3
-                    html_output.append(f"<li>{process_inline(l[prefix_len:])}</li>")
+                    html_output.append(f"<li>{process_inline(item_lista.sub('', l, count=1))}</li>")
                     i += 1
-                html_output.append("</ul>")
+                html_output.append("</ol>" if numerada else "</ul>")
                 i -= 1
                 
             # 6. Boxes de Dica / Importante
@@ -338,6 +364,15 @@ class ManualUsuarioDialog(QDialog):
                 html_output.append(f"<div class='alerta'><b>Nota Importante:</b> {process_inline(content.strip())}</div>")
                 i -= 1
                 
+            # 6b. Citações comuns (> ...) viram caixa de aviso
+            elif line.startswith('>'):
+                content = ""
+                while i < len(lines) and lines[i].strip().startswith('>'):
+                    content += lines[i].strip().lstrip('>').strip() + " "
+                    i += 1
+                html_output.append(f"<div class='alerta'>{process_inline(content.strip())}</div>")
+                i -= 1
+
             # 7. HR e Parágrafos Normais
             elif line == '---':
                 html_output.append("<hr>")
@@ -347,14 +382,15 @@ class ManualUsuarioDialog(QDialog):
             i += 1
 
         # Rodapé com GitHub e Créditos
-        html_output.append("""
+        from core.config import APP_VERSION
+        html_output.append(f"""
             <div class="footer-info">
                 <b>iBirder — IA para Birdwatching</b><br>
                 <a href="https://github.com/KuriakinToscan/iBirder" class="github-link">github.com/KuriakinToscan/iBirder</a>
                 <div class="credits">
                     Desenvolvido por Kuriakin Toscan<br>
                     kuriakin.toscan@gmail.com<br>
-                    Versão 1.1 | © 2026 iBirder Project
+                    Versão {APP_VERSION} | © 2026 iBirder Project
                 </div>
             </div>
         """)

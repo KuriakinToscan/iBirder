@@ -19,7 +19,7 @@ import logging
 from core.paths import BASE_DIR
 
 CONFIG_FILE = "config.json"
-APP_VERSION = "1.1"
+APP_VERSION = "1.3"  # fonte única da versão (instalador, CI, interface, logs)
 
 def obter_caminho_config():
     """Retorna o caminho absoluto para o arquivo de configuração."""
@@ -55,5 +55,7 @@ def salvar_config(config):
     try:
         with open(config_path, "w") as f:
             json.dump(config, f, indent=4)
+        from core.logger import atualizar_segredos
+        atualizar_segredos(config)  # novas chaves passam a ser mascaradas nos logs
     except Exception as e:
         logging.error(f"Erro ao salvar config: {e}")

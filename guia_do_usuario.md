@@ -1,94 +1,139 @@
 # iBirder - Guia do Usuário
 
 ## Bem-vindo ao iBirder
-### Estação ornitológica inteligente para análise e catalogação de fotografias de aves.
+### Estação ornitológica para identificar, contextualizar e catalogar fotografias de aves.
 
-O **iBirder** é uma plataforma de ponta desenvolvida para converter fotografias em registros científicos rigorosos. O sistema automatiza a identificação de espécies e enriquece cada imagem com dados taxonômicos, status de conservação e distribuição geográfica, entregando uma análise biológica completa em instantes. Ao integrar essas informações diretamente aos metadados EXIF/XMP, o iBirder otimiza a organização e a catalogação de acervos fotográficos ornitológicos.
+O **iBirder** transforma uma fotografia de ave em um registro organizado. Ele sugere a espécie, reúne informações de bases científicas (WikiAves, iNaturalist, eBird, GBIF, IUCN), mostra o contexto geográfico do registro e grava tudo nos metadados da foto, prontos para o Lightroom, o digiKam ou o Windows Explorer.
 
-Priorizando a transparência e segurança, o **iBirder** é construído sobre tecnologias de **software livre** e adota uma arquitetura de inteligência artificial em cascata. O processamento primário e a gravação de metadados ocorrem de forma estritamente local (**Edge AI**), garantindo rapidez e privacidade. Suas fotografias originais são sempre avaliadas primeiro no seu próprio computador. Caso a Inteligência Artificial local tenha dúvidas (baixa confiança), o iBirder pode enviar, de forma opcional e segura, amostras redimensionadas da imagem para os supercomputadores da nuvem (como o iNaturalist ou Google Vision) para confirmar a identificação — *este recurso depende das chaves de API configuradas pelo usuário*. Além disso, o acesso à rede é utilizado para consultas em bibliotecas biológicas globais e carregamento de mapas, assegurando que o controle sobre os dados permaneça sempre em suas mãos.
+A identificação acontece **no seu computador**, com uma rede neural (**MobileNetV2**, modelo "Birds V1" do Google, treinado com fotos do **iNaturalist**). As demais informações vêm da internet. Quando a IA local fica em dúvida, o iBirder pode, **se você configurar uma chave**, pedir uma segunda opinião ao iNaturalist ou ao Google Vision.
 
-O iBirder utiliza a rede neural convolucional (CNN) **EfficientNet-V1.3** desenvolvida pelo Google Research, e foi escolhida devido ao seu equilíbrio entre precisão, leveza e eficiência. Esta IA é poderosa o suficiente para distinguir espécies muito parecidas, mas leve o suficiente para rodar no seu computador sem precisar de supercomputadores ou internet.
-
-
-O **modelo de identificação** foi treinado com a robusta base de dados do **iNaturalist Vision**, um dos sistemas de inteligência artificial mais respeitados no mundo científico por ser "treinado por humanos para ajudar humanos", aprendendo a reconhecer espécies a partir de milhões de registros do **iNaturalist** validados por especialistas e cientistas cidadãos ao redor do mundo. 
-Embora conte com essa escala global, o iBirder é otimizado para a avifauna brasileira, integrando-se ao **WikiAves** que é a maior plataforma de observação de aves do Brasil para oferecer o contexto biológico e etimológico específico da nossa biodiversidade.
----
-
-## 1. Fluxo de Trabalho
-
-### Captura e Diagnóstico de Arquivo
-O ciclo de identificação inicia-se com o carregamento da fotografia (via arraste ou seleção manual). Imediatamente, o iBirder realiza uma varredura nos metadados EXIF/XMP do arquivo para extrair as coordenadas geográficas (GPS), nome do autor e a data/hora original do registro. Se os dados de localização forem encontrados, o sistema projeta o ponto exato em um mapa global, estabelecendo o contexto geográfico para as fases seguintes. 
-Caso a imagem não possua dados de localização geográfica (coordenadas), o aplicativo sinaliza a ausência ao usuário, permitindo que você defina o local manualmente antes de prosseguir.
-O marcador de localização da imagem  no mapa global é arrastável para que você possa fazer manualmente o ajuste fino da localização.
-
-### Identificação por Visão Computacional
-Nesta fase, a **Inteligência Artificial (EfficientNet)** analisa os padrões morfológicos da ave,  como cores de plumagem, formato do bico e silhueta para identificar a espécie da ave fotografada. O processamento é realizado localmente e apresenta a sugestão da espécie identificada pala **IA**, acompanhada da indicação do nível de confiança estatística (%) desta identificação. Por padrão, foi estabelecido um limiar de confiança de 60%, e valores abaixo desse limiar resultam em identificação não conclusiva.
-Nestes casos, o usuário pode utilizar o campo de **Busca Manual** para informar o nome científico do animal ou usar a ferramenta **Google Lens**. 
-Ao clicar no botão do Google Lens, o aplicativo abre a página oficial de busca visual e copia automaticamente o caminho do arquivo para sua área de transferência. Basta arrastar a foto do iBirder ou colar (Ctrl+V) no navegador para obter uma identificação externa complementar. **Ao usar esta funcionalidade seu arquivo é remetido para processamento na nuvem do Google.**
-Imediatamente após a identificação da espécie, o sistema busca a validação taxonômica completa, recuperando dados de **Classe**,**Ordem**, **Família**, **Gênero** e **Nomenclatura (Nomes comuns em Português e Inglês)**. Essas informações são extraídas de bases científicas globais e nacionais como **WikiAves**, **iNaturalist** e **eBird**, garantindo que a identificação visual seja sustentada por uma classificação biológica precisa e rigorosa.
-
-### Análise Geográfica e Biomas
-Nesta etapa, o iBirder transforma o dado sobre a localização do registro fotográfico em contexto ecológico. O processo ocorre em quatro frentes:
-a.  **Geocodificação Reversa**: Utilizando a API **Nominatim (OpenStreetMap)**, as coordenadas extraídas da foto são convertidas em endereços estruturados (**País, Estado e Município**).
-b.  **Detecção de Biomas**: O sistema realiza um cruzamento geométrico local entre a localização do registro e polígonos geográficos dos biomas brasileiros, delimitados pelo IBGE. Isso permite identificar instantaneamente em qual **Bioma** (Ex: Mata Atlântica, Cerrado, Pantanal) a ave foi fotografada.
-c.  **Distribuição da Espécie (GBIF)**: O mapa projeta camadas de densidade histórica do **Global Biodiversity Information Facility**, mostrando áreas de ocorrência confirmada da ave em escala global através de polígonos de densidade (Hexbins).
-d.  **Verificação de Endemismo**: O iBirder realiza um cruzamento de dados com catálogos taxonômicos oficiais (como o **JBRJ** e **iNaturalist**) para verificar se a espécie é **endêmica** do Brasil. 
-
-### Enriquecimento de Dados e Sincronização
-Uma vez confirmada a espécie e o contexto geográfico, o iBirder inicia uma sequência de consultas a bases de dados biológicas. O sistema recupera a etimologia do nome científico, descrições morfológicas detalhadas extraídas do **WikiAves** e vocalizações de referência oriundas do **Xeno-Canto** e **iNaturalist**. 
-A seleção de vocalizações segue uma lógica de camadas concêntricas, tendo como referência a localização do registro fotográfico. O sistema prioriza registros de vocalizações feitas no mesmo Município, seguido pelo Estado, proximidade geográfica (raio de 150km), Território Nacional e, por fim, Global. São selecionados os 3 melhores áudios que combinam maior proximidade com o local do registro fotográfico e qualidade técnica da gravação da vocalização baseadas nas avaliações feitas pelos usuários da plataforma iNaturalist. 
-Todos estes dados são consolidados em tempo real na interface, permitindo que você valide a identificação visual através da conferência auditiva e da descrição da espécie, possibilitando que o usuário valide a identificação da espécie fotografada com maior segurança e acurácia.
-
-### Status de Conservação e Ameaças
-Nesta fase, o iBirder identifica o grau de vulnerabilidade da espécie através de uma tripla checagem em bancos de dados de conservação:
-1.  **IUCN Red List**: Consulta ao status global de ameaça (ex: Pouco Preocupante, Vulnerável, Em Perigo) da **União Internacional para a Conservação da Natureza**.
-2.  **ICMBio (Sistema SALVE)**: Para espécies em território brasileiro, o sistema cruza dados com a base na Lista Oficial da Fauna Brasileira Ameaçada de Extinção do **ICMBio**, fornecendo o status nacional detalhado e específico para a biodiversidade brasileira.
-3.  **Convenção CITES**: Verificação do enquadramento da espécie nos anexos da **CITES**, que regula o comércio internacional de espécies da flora e fauna selvagens em perigo.
-
-### Persistência Científica e Metadados
-A última fase do fluxo é a gravação das informações nos metadados do registro fotográfico original. Ao clicar em **"Gravar Dados na Fotografia"**, o iBirder utiliza o Software **ExifTool** para injetar as informações diretamente no arquivo original.
-As informações salvas incluem a taxonomia completa (nomes científico, comum e em inglês, além de classe, ordem, família e gênero), dados geográficos (país, estado, município e bioma), status de conservação (IUCN, ICMBio e CITES) e detalhes sobre o endemismo. 
-Ao clicar em "Gravar Dados na Fotografia", um diálogo de configuração é exibido, permitindo que você selecione individualmente quais campos deseja gravar. 
-É importante destacar que o sistema possui uma trava de segurança que detecta a presença de coordenadas de localização (GPS) originais da imagem; caso existam, elas são protegidas e não serão sobrescritas, garantindo a integridade dos dados geográficos primários capturados por sua câmera no momento do registro.
-
-Este processo de gravação segue padrões rigorosos de interoperabilidade:
-1.  **Darwin Core (DWC)**: Gravação da taxonomia completa (Classe, Ordem, Família, Gênero e Espécie) seguindo o padrão internacional de intercâmbio de dados biológicos.
-2.  **Keywords Hierárquicas (XMP-lr)**: Organização dos dados em "árvores" (ex: *iBirder > Taxonomia > Família > Thraupidae*). Isso permite que suas fotos sejam filtradas automaticamente em softwares profissionais de edição e gerenciamento de imagens.
-3.  **Segurança e Integridade**: O sistema utiliza codificação UTF-8 via *argfiles*, garantindo que nomes científicos e acentuações da língua portuguesa não sofram corrupção.
-
-O iBirder atua como o facilitador definitivo entre o momento do clique em campo e a organização final do seu acervo. Ao assumir o trabalho pesado de pesquisa taxonômica e preenchimento manual de metadados, a plataforma devolve ao fotógrafo o que ele tem de mais valioso: o tempo. É a ferramenta que remove as barreiras técnicas entre a fotografia e o dado científico, permitindo que você se concentre no que realmente importa — a observação das aves e a arte de fotografar — enquanto o sistema garante que cada registro esteja organizado, enriquecido e pronto para o futuro.
+> **Saiba o alcance da IA local:** ela reconhece **965 espécies de aves do mundo todo** (a maioria da América do Norte). Cerca de **230 delas ocorrem no Brasil**. Para as demais espécies, a sugestão local pode ser inconclusiva ou incorreta: confira sempre com a foto de referência, as vocalizações e a descrição, e use a **nuvem (iNaturalist)**, a **Busca Manual** ou o **Google Lens** quando necessário.
 
 ---
 
-## 2. Identificação em Nuvem (APIs v1.1)
+## 1. Requisitos
 
-A partir da versão 1.1, o iBirder conta com um poderoso sistema de identificação em cascata. Isso significa que, caso a Inteligência Artificial Local tenha dúvidas sobre a foto (Confiança < 70%), o aplicativo pode consultar os supercomputadores do **iNaturalist** ou do **Google Vision** automaticamente para tentar salvar a sua identificação.
+- **Windows 10 ou 11 (64 bits).**
+- **Google Chrome instalado:** usado, sem abrir janelas, para consultar o WikiAves.
+- **Internet:** necessária para mapas, WikiAves, vocalizações e dados de conservação. A identificação local e a gravação dos metadados funcionam sem internet.
 
-Para proteger a sua privacidade e evitar custos centralizados, o iBirder usa o modelo **Bring Your Own Key (Traga Sua Própria Chave)**. 
+---
 
-### 2.1 Configurando o iNaturalist (Recomendado)
+## 2. Passo a passo
 
-O iNaturalist possui o melhor modelo de identificação de biodiversidade do mundo. A API deles é restrita, mas pesquisadores e usuários avançados podem usar um token JWT (JSON Web Token) atrelado à própria conta.
+### [ETAPA 1] Abrir a fotografia
+Arraste a foto para a área **Imagem Pesquisada** ou clique em **Nova Identificação**. Também é possível usar **Abrir com > iBirder** no Windows Explorer.
 
-**Passo a passo para obter o Token:**
-1. Acesse o site do [iNaturalist](https://www.inaturalist.org) e faça login na sua conta.
-2. Abra uma nova aba no seu navegador e acesse a página de API para desenvolvedores: `https://www.inaturalist.org/users/api_token`
-3. Você verá uma página em branco contendo apenas um bloco de texto grande com várias letras e números.
-4. **Copie todo este texto**.
-5. Abra o **iBirder**, clique no ícone de **Engrenagem (⚙)** no canto superior direito.
-6. Cole o texto no campo **"Token iNaturalist"** e clique em Salvar.
+O iBirder lê os metadados da foto: **coordenadas GPS**, **autor** e **data/hora** do registro. Fotos verticais são analisadas na orientação correta.
 
-> **⚠️ Atenção:** O token do iNaturalist expira de tempos em tempos (geralmente a cada 24 horas). Se a identificação em nuvem parar de funcionar, basta repetir este processo.
+**Foto já processada:** se a foto já tiver dados gravados pelo iBirder, uma janela mostra **o que foi gravado** (espécie, local, conservação, comentário) e **quando** (data e versão do iBirder). Escolha **Processar novamente** para refazer a análise ou **Ignorar** para deixar a foto como está. Ao gravar de novo, os dados antigos do iBirder são substituídos, sem duplicar.
 
-### 2.2 Configurando o Google Cloud Vision (Avançado)
+### [ETAPA 2] Identificação da espécie
+A IA local analisa a ave e mostra o **nome científico** e a **Certeza** (por exemplo, `92.3% (MobileNetV2 (Local))`).
 
-Se o iNaturalist falhar, o Google Vision ajuda a identificar se é um pássaro específico, pato, gavião, etc.
+Se a certeza ficar **abaixo de 70%**, o iBirder consulta a nuvem, caso você tenha configurado uma chave (veja a seção 4). Se ainda assim não houver resultado confiável, a identificação aparece como **inconclusiva**. Nesse caso:
 
-**Passo a passo para obter a API Key:**
-1. Acesse o [Google Cloud Console](https://console.cloud.google.com/).
-2. Crie um novo projeto (ex: `iBirder-Vision`).
-3. Vá em **"APIs e Serviços"** > **"Biblioteca"** e Ative a **Cloud Vision API**.
-4. No menu lateral, vá em **"APIs e Serviços"** > **"Credenciais"**.
-5. Clique em **"+ Criar Credenciais"** e selecione **"Chave de API"**.
-6. **Copie esta chave**.
-7. Abra o **iBirder**, clique na **Engrenagem (⚙)**, cole a chave e clique em Salvar.
+- digite o nome científico no campo de **Busca Manual** e clique na lupa; ou
+- use o botão **Pesquisar com Google Lens**: a página do Lens abre no navegador; arraste a foto do iBirder para ela. **Nesse caso, a foto é enviada ao Google.**
+
+Os **candidatos** sugeridos pela IA aparecem como links: clique em um deles para buscar as informações dessa espécie.
+
+**Aviso de região:** se a foto foi tirada no Brasil e a IA sugerir uma espécie **sem registro no país** (por exemplo, uma ave da América do Norte), o iBirder tenta a nuvem e, sem ela, mostra um aviso em amarelo com os candidatos que ocorrem no Brasil. A verificação usa uma lista de cerca de 1.750 espécies com registro no Brasil (iNaturalist), já instalada.
+
+### [ETAPA 3] Localização e mapa
+Com GPS na foto, o pino vermelho marca o local no mapa. Sem GPS, aparece o aviso **"Sem dados de localização, indique manualmente aqui"**: clique nele e pesquise o local pelo nome.
+
+**Arraste o pino** para ajustar o local; os dados geográficos e as vocalizações são recalculados. No canto do mapa, escolha as camadas **Mapa** ou **Satélite** e ative **Dist. Geográfica (GBIF)** (densidade de registros da espécie) e **Vocalizações** (local das gravações).
+
+O card **Dados Geográficos** mostra país, estado e município (OpenStreetMap), o **bioma** (polígonos do IBGE, calculado no próprio computador) e se a espécie é **endêmica do Brasil**, nativa ou introduzida (iNaturalist).
+
+### [ETAPA 4] Informações da espécie
+Ao mesmo tempo, o iBirder busca:
+
+- **WikiAves:** nome popular, nome em inglês, etimologia e características. A busca usa o próprio WikiAves e confere o nome científico; espécies que não existem no WikiAves não recebem dados de outra ave.
+- **Taxonomia:** classe, ordem, família e gênero (iNaturalist), nome em inglês e link oficial do **eBird** (tabela com 11 mil espécies, já instalada).
+- **Imagem de referência:** foto da espécie no iNaturalist, com os créditos do autor.
+
+Se o WikiAves estiver indisponível, os campos mostram o aviso e as demais informações continuam normalmente.
+
+### [ETAPA 5] Vocalizações
+O iBirder seleciona **3 gravações do iNaturalist**, priorizando as mais próximas do local da foto: mesmo município, mesmo estado, até 150 km, Brasil e, por fim, outros países. Entre as próximas, ficam as mais bem avaliadas.
+
+Clique em uma vocalização para abrir os detalhes: o player toca gravações **M4A, MP3 e WAV**, e o botão **Abrir Registro** leva à observação original no iNaturalist.
+
+### [ETAPA 6] Conservação
+- **IUCN (global):** categoria da Lista Vermelha (via iNaturalist).
+- **Brasil (ICMBio/MMA):** lista oficial de espécies ameaçadas (**Portaria MMA nº 148/2022**), já instalada e consultada sem internet. Mostra a categoria (ex.: *Vulnerável (VU)*), "Não ameaçada" ou, quando só uma subespécie está na lista, qual é ela.
+- **CITES:** anexo da convenção sobre comércio internacional (*Anexo I*, *II* ou *III*), conforme o Checklist oficial da CITES, também já instalado.
+- **Outras avaliações (iNaturalist):** listas estaduais brasileiras e de outros países, com link para a fonte. A lista do **estado da foto** aparece primeiro, marcada com ★.
+
+As listas instaladas são atualizadas a cada nova versão do iBirder.
+
+### [ETAPA 7] Gravar na fotografia
+Clique em **Gravar Dados na Fotografia** e escolha os campos que deseja gravar. Só os campos marcados e com informação conhecida são gravados.
+
+O iBirder usa o **ExifTool** e grava:
+
+- **Darwin Core** (`dwc:scientificName`, `dwc:family`, `dwc:order`...), padrão internacional de dados de biodiversidade;
+- **palavras-chave hierárquicas** (ex.: *iBirder > Taxonomia > Family > Tyrannidae*), que viram filtros no Lightroom e no digiKam;
+- **título, descrição e palavras-chave** visíveis no Windows Explorer;
+- **coordenadas GPS**, apenas se a foto ainda não tiver GPS próprio;
+- **data da gravação e versão do iBirder**, usadas para avisar quando a foto for aberta de novo.
+
+**Renomear o arquivo (opcional):** marque **Renomear o arquivo** no mesmo diálogo. O nome sugerido segue o padrão **NomeComum_aaaammdd**, com o nome comum sem acentos e cada palavra começando com maiúscula, e a data de captura da foto:
+
+- *Sabiá-laranjeira*, foto de 16/10/2026 → `SabiaLaranjeira_20261016.jpg`
+- outra foto do mesmo dia → `SabiaLaranjeira_20261016_2.jpg` (o iBirder nunca sobrescreve um arquivo)
+
+Também há os padrões com a hora (`NomeComum_aaaammdd_hhmmss`) e com o nome científico (`NomeCientifico_aaaammdd`). O nome pode ser editado antes de gravar, e a prévia mostra o nome final. Se a foto não tiver data de captura, complete a data no nome. Arquivos RAW e `.xmp` com o mesmo nome da foto podem ser renomeados junto. O iBirder lembra a sua escolha para as próximas fotos.
+
+**O nome original nunca se perde.** Ele fica guardado:
+
+- nos **comentários** da foto ("Arquivo original: IMG_0042.jpg"), visíveis em *Propriedades > Detalhes* no Windows;
+- na palavra-chave *iBirder > Arquivo > NomeOriginal*, para buscar a foto pelo nome da câmera no Lightroom ou no digiKam;
+- no campo padrão de nome original (*Preserved File Name*) da foto e do `.xmp` do RAW, que o iBirder cria se não existir (o arquivo RAW em si nunca é alterado);
+- no histórico `renomeacoes.csv`, na pasta de logs (**Ajuda (?) > Abrir pasta de logs**), que abre no Excel.
+
+Antes de renomear, o iBirder confere se o nome original foi mesmo gravado na foto. Para **voltar ao nome original**, abra a foto no iBirder: o aviso de foto já processada mostra o botão **Desfazer renomeação**, que também volta o RAW e o `.xmp`.
+
+> **Usa o Lightroom?** Renomeie pelo próprio Lightroom: um arquivo renomeado fora dele aparece como "ausente" no catálogo.
+
+> **O arquivo original é alterado.** Mantenha um backup das suas fotos. O iBirder não altera o autor da foto nem os dados da câmera, e gravar duas vezes a mesma foto não duplica as palavras-chave.
+
+---
+
+## 3. Botões do topo
+
+- **Recarregar (↻):** limpa a análise atual.
+- **Ajuda (?):** abre um menu com **Manual do usuário**, **Copiar diagnóstico** (informações técnicas para enviar ao suporte, sem as suas chaves de API) e **Abrir pasta de logs**.
+- **Configurações (⚙):** chaves de API da identificação em nuvem.
+
+---
+
+## 4. Identificação em nuvem (opcional)
+
+Quando a IA local tem menos de 70% de certeza, o iBirder pode consultar o **iNaturalist** (recomendado, grátis) e o **Google Cloud Vision** (exige conta com faturamento no Google Cloud). Você usa as **suas próprias chaves**, e só uma cópia reduzida da foto (até 800 pixels, sem metadados) é enviada.
+
+Para configurar, clique na **engrenagem (⚙)** e depois em **"Como obter essas chaves? (passo a passo)"**. O botão **Testar Chaves** diz exatamente o que falta quando algo não está certo.
+
+> **DICA PRO:** no Brasil, configurar o iNaturalist faz bastante diferença, porque a IA local conhece só uma parte das espécies brasileiras.
+
+---
+
+## 5. Privacidade: o que sai do seu computador
+
+- **A foto:** só sai se você usar a identificação em nuvem (cópia reduzida, para o serviço configurado) ou o Google Lens.
+- **As coordenadas:** são enviadas ao OpenStreetMap (Nominatim) para descobrir país, estado e município.
+- **O nome da espécie:** é enviado ao WikiAves, iNaturalist, GBIF e eBird para buscar as informações.
+- **Chaves de API:** ficam só no seu computador e nunca aparecem nos logs nem no diagnóstico.
+
+---
+
+## 6. Solução de problemas
+
+- **"WikiAves inacessível no momento":** verifique se o Google Chrome está instalado e se há internet. As outras informações continuam disponíveis.
+- **Aviso "sem registro no Brasil":** confira os candidatos sugeridos ou use a Busca Manual; se a ave for realmente uma raridade (vagante), mantenha a identificação.
+- **Identificação inconclusiva em espécie comum:** a espécie pode não estar entre as que a IA local conhece. Use a Busca Manual ou configure o iNaturalist.
+- **Vocalização não toca:** a janela mostra o motivo e o botão **Abrir no navegador**.
+- **Erro ao testar as chaves:** siga a mensagem do botão **Testar Chaves** e o passo a passo da engrenagem (⚙).
+- **Qualquer outro problema:** use **Ajuda (?) > Copiar diagnóstico** e envie o texto ao suporte.

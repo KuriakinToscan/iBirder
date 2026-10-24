@@ -34,8 +34,8 @@ def otimizar_imagem(caminho_entrada: str, caminho_saida: str, max_tamanho: int =
             img = img.convert("RGB")
             
             # 2. Sanitizar (Strip EXIF) - Metadados ocultos podem ser pesados
-            clean_img = Image.new(img.mode, img.size)
-            clean_img.putdata(list(img.getdata()))
+            # frombytes copia só os pixels, sem o loop Python pixel a pixel do putdata
+            clean_img = Image.frombytes(img.mode, img.size, img.tobytes())
             
             # 3. Redimensionar (Max 800px)
             largura, altura = clean_img.size

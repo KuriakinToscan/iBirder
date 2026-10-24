@@ -1,12 +1,18 @@
+; Versão vem do build (ISCC /DAppVersion=x.y, lida de core/config.py);
+; o valor abaixo é só o padrão para compilação manual.
+#ifndef AppVersion
+  #define AppVersion "1.3"
+#endif
+
 [Setup]
 AppName=iBirder
-AppVersion=1.1
+AppVersion={#AppVersion}
 AppPublisher=Kuriakin Toscan
 AppPublisherURL=https://github.com/KuriakinToscan/iBirder
 DefaultDirName={autopf}\iBirder
 DefaultGroupName=iBirder
 OutputDir=dist_installer
-OutputBaseFilename=Instalador_iBirder_v1.1_FIX
+OutputBaseFilename=Instalador_iBirder_v{#AppVersion}
 Compression=lzma2/ultra64
 SolidCompression=yes
 ArchitecturesAllowed=x64
