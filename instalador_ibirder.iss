@@ -5,6 +5,9 @@
 #endif
 
 [Setup]
+; AppId fixo: é o valor que as versões 1.1 a 1.3 já usavam por padrão (= AppName). Não mudar,
+; senão a atualização por cima vira uma segunda instalação.
+AppId=iBirder
 AppName=iBirder
 AppVersion={#AppVersion}
 AppPublisher=Kuriakin Toscan
@@ -18,9 +21,17 @@ SolidCompression=yes
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 DisableDirPage=no
+; Fecha o iBirder aberto antes de substituir os arquivos (padrão do Inno Setup, explícito aqui)
+CloseApplications=yes
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+
+[InstallDelete]
+; Remove a versão anterior do programa antes de copiar a nova: arquivos que deixaram de existir
+; (ex.: bibliotecas Qt removidas na v1.3) não ficam para trás. Os dados do usuário ficam em
+; %APPDATA%\iBirder e não são tocados.
+Type: filesandordirs; Name: "{app}\_internal"
 
 [Files]
 Source: "dist\iBirder\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs

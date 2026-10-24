@@ -4,6 +4,7 @@
 
 ### Novidades
 - **Aviso de novas versões**: ao abrir, o app consulta a última Release no GitHub (no máximo uma vez a cada 24 h) e, se houver versão nova, mostra as novidades com os botões **Baixar instalador** (link direto do `.exe`), **Ver no GitHub**, **Lembrar depois** e **Ignorar esta versão**, além de um aviso na barra de status. **Ajuda (?) > Verificar atualizações** consulta na hora, e o aviso pode ser desligado nas configurações (⚙). Antes, só aparecia um botão discreto na barra de status, a consulta era feita a cada abertura e as falhas não eram informadas.
+- **Instalador**: ao atualizar por cima, apaga a pasta `_internal` da versão anterior antes de copiar a nova (arquivos removidos não ficam para trás), fecha o iBirder se estiver aberto e fixa o `AppId` usado desde a v1.1. Configurações e chaves (`%APPDATA%\iBirder`) são mantidas.
 
 ## v1.3
 
