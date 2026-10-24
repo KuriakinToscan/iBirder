@@ -14,7 +14,8 @@ pytest.importorskip("PySide6.QtWidgets")
 from PySide6.QtCore import QEvent  # noqa: E402
 from PySide6.QtWidgets import QApplication, QLabel  # noqa: E402
 
-from ui.layouts import LAYOUT_PADRAO, LAYOUTS, LAYOUTS_PLANEJADOS, Paineis, obter_layout  # noqa: E402
+from ui.layouts import (LAYOUT_PADRAO, LAYOUTS, LAYOUTS_PLANEJADOS, PAINEIS_EXTRAS,  # noqa: E402
+                        Paineis, obter_layout)
 
 
 def _paineis():
@@ -45,8 +46,14 @@ def test_registro():
 def test_layout_usa_todos_os_paineis(layout):
     paineis = _paineis()
     central = layout.montar(paineis)
-    faltando = [f.name for f in fields(Paineis) if not _contem(central, getattr(paineis, f.name))]
+    assert set(layout.paineis_extras) <= set(PAINEIS_EXTRAS)
+    esperados = [f.name for f in fields(Paineis)
+                 if f.name not in PAINEIS_EXTRAS or f.name in layout.paineis_extras]
+    faltando = [nome for nome in esperados if not _contem(central, getattr(paineis, nome))]
     assert not faltando, f"{layout.id} não posicionou: {faltando}"
+    sobrando = [nome for nome in PAINEIS_EXTRAS
+                if nome not in layout.paineis_extras and _contem(central, getattr(paineis, nome))]
+    assert not sobrando, f"{layout.id} posicionou painel que não declarou: {sobrando}"
 
 
 @pytest.mark.parametrize("layout", LAYOUTS.values(), ids=list(LAYOUTS))
@@ -55,7 +62,11 @@ def test_trocar_layout_reaproveita_paineis(layout):
     paineis.identificacao.setText("Turdus rufiventris")
     primeiro = layout.montar(paineis)
     segundo = obter_layout(LAYOUT_PADRAO).montar(paineis)
-    for painel in paineis.todos():
+    padrao = obter_layout(LAYOUT_PADRAO)
+    for f in fields(Paineis):
+        if f.name in PAINEIS_EXTRAS and f.name not in padrao.paineis_extras:
+            continue
+        painel = getattr(paineis, f.name)
         assert _contem(segundo, painel) and not _contem(primeiro, painel)
     primeiro.deleteLater()  # descartar o antigo não leva os painéis junto
     QApplication.sendPostedEvents(None, QEvent.DeferredDelete)

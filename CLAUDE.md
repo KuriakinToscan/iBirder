@@ -89,6 +89,11 @@ inclusive com Chrome headless).
   eles; um layout só os posiciona em `montar()` (cada painel uma vez). Trocar de layout reparenta os
   painéis (`JanelaPrincipal._aplicar_layout`), sem recriar. Escolha em `config.json` (`"layout"`).
   A etapa atual (sem foto, identificando, conferir, gravada...) fica em `ui/estado_identificacao.py`.
+  Painéis de `PAINEIS_EXTRAS` (hoje só a `fila`) entram só nos layouts que os declaram em
+  `paineis_extras`; nos outros, a janela os guarda escondidos (filhos da janela).
+- Mesa de trabalho: `core/fila_fotos.py` (fila sem Qt) e `ui/widgets/painel_fila.py`, que segue o
+  `EstadoIdentificacao` (foto aberta, gravada) e pede à janela para abrir a próxima. Não identificar
+  em lote: o WikiAves proíbe operações massificadas (termos, item 13.3).
 - Busca de espécies (Ctrl+K): `core/catalogo_especies.py` (eBird embarcado + registradas no Brasil,
   sem nome popular em português) e `ui/widgets/busca_especies.py`, que também trata o Enter do campo
   (o Qt entrega o Enter ao campo antes de ativar a sugestão: não ligar `returnPressed` à busca).
