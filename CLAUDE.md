@@ -49,6 +49,24 @@ inclusive com Chrome headless).
   consultadas por `modules/step3_geography/listas_conservacao.py`.
 - Subespécie da portaria só casa com subespécie no iNaturalist (nunca marcar a espécie inteira).
 
+## Postagem no iNaturalist e no WikiAves (planejada, issue #9; decisões de 24/10/2026)
+
+- **iNaturalist**: autenticação por **OAuth** (aplicativo registrado), não pelo JWT de 24 h usado na
+  identificação. API v1: `POST /observations` e depois `POST /observation_photos`. Requisitos de
+  registro do app e suporte a PKCE ainda não verificados.
+- Licenças padrão: **observação CC BY** e **foto CC BY-NC**. Só observações em CC0, CC BY ou CC BY-NC
+  vão para o GBIF. Geoprivacidade **aberta** por padrão, com sugestão de **ocultada** para espécies CR/EN/VU
+  da Portaria MMA 148/2022 ou do Anexo I da CITES (tabelas de `assets/conservacao/`). O usuário confirma
+  antes de cada envio, e o id da observação fica guardado para evitar duplicata.
+- **WikiAves** (Termos de Uso v02, 31/08/2021): o item 13.3 proíbe mineração de dados, bots e
+  "operações massificadas". **Não automatizar o envio.** O app só prepara foto, espécie, data e município,
+  mostra o checklist das regras (mídia própria; ave nativa pela lista do CBRO e em liberdade; sem
+  pessoa, borda ou assinatura) e abre a página de envio, e o usuário envia manualmente, logado na própria
+  conta. Nunca guardar a senha do WikiAves.
+- A leitura automatizada da etapa 2 foi mantida por decisão do mantenedor (uso não comercial, com
+  crédito; issue #10 fechada). Os textos wiki estão em CC BY-NC-SA 4.0 (item 12.6 dos termos).
+- O ambiente do Claude não alcança wikiaves.com.br: para ler páginas do site, pedir o texto ao usuário.
+
 ## Temas (v1.4)
 
 - Tokens em `core/temas.py` (Off-White, Clean, Clássico); escolha salva em `config.json` (`"tema"`).
