@@ -55,8 +55,9 @@ ROTULOS = {
     ("Conservacao", "IUCN"): "IUCN",
     ("Conservacao", "Brasil"): "Lista nacional (MMA)",
     ("Conservacao", "CITES"): "CITES",
+    ("Publicacao", "iNaturalist"): "Observação no iNaturalist",
 }
-SECOES = {"Taxonomia": "Espécie", "Geografia": "Local", "Conservacao": "Conservação"}
+SECOES = {"Taxonomia": "Espécie", "Geografia": "Local", "Conservacao": "Conservação", "Publicacao": "Publicação"}
 
 
 def _xmp_bruto(img):

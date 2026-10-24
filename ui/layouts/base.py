@@ -32,6 +32,7 @@ class Paineis:
     buscas: QWidget           # WikiAves, eBird, Google
     btn_nova: QWidget         # Nova identificação
     btn_gravar: QWidget       # Gravar dados na fotografia (ação principal)
+    btn_publicar: QWidget     # Publicar no iNaturalist (issue #9)
     mapa: QWidget             # localização geográfica (Leaflet)
     geo: QWidget              # dados geográficos
     sons: QWidget             # vocalizações

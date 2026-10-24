@@ -35,6 +35,11 @@ def carregar_config():
         "xc_api_key": "",
         "inat_api_token": "",
         "google_vision_api_key": "",
+        # Publicação no iNaturalist (core/inat_oauth.py, issue #9): token OAuth do login no
+        # navegador, ID do aplicativo (vazio = o embarcado) e licença padrão da observação
+        "inat_oauth_token": "",
+        "inat_app_id": "",
+        "inat_licenca_observacao": "CC-BY",
         # Aviso de novas versões (core/verificacao_versao.py)
         "verificar_atualizacoes": True,
         "ultima_verificacao_versao": "",

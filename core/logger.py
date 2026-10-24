@@ -58,7 +58,7 @@ def atualizar_segredos(cfg=None):
             from core.config import carregar_config
             cfg = carregar_config()
         _SEGREDOS.clear()
-        for campo in ("xc_api_key", "inat_api_token", "google_vision_api_key"):
+        for campo in ("xc_api_key", "inat_api_token", "google_vision_api_key", "inat_oauth_token"):
             valor = (cfg.get(campo) or "").strip()
             if len(valor) >= 8:
                 _SEGREDOS.add(valor)

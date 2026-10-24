@@ -119,6 +119,27 @@ class EXIFManager:
                      + ("" if existia else " (criado)"))
         return sidecar, not existia
 
+    def gravar_publicacao(self, caminho_imagem, servico, id_publicacao):
+        """
+        Grava na foto que ela foi publicada (iBirder|Publicacao|<serviço>|<id>), sem tocar no
+        resto do registro. Usado para avisar antes de publicar a mesma foto de novo.
+        """
+        tag = f"iBirder|Publicacao|{servico}|{id_publicacao}"
+        comandos = ["-charset", "filename=utf8"]
+        for grupo in ("XMP-lr", "XMP-mwg-rs"):
+            comandos += [f"-{grupo}:HierarchicalSubject-={tag}", f"-{grupo}:HierarchicalSubject+={tag}"]
+        try:
+            resultado = subprocess.run([self.exiftool_path, *comandos, "-overwrite_original", str(caminho_imagem)],
+                                       capture_output=True, text=True, encoding="utf-8")
+        except Exception as e:
+            logging.error(f"Falha ao gravar a publicação em {Path(caminho_imagem).name}: {e}")
+            return False
+        if resultado.returncode != 0:
+            logging.error(f"Erro ExifTool ao gravar a publicação: {resultado.stderr}")
+            return False
+        logging.info(f"Publicação {servico} {id_publicacao} registrada em {Path(caminho_imagem).name}")
+        return True
+
     def _verificar_gps_existente(self, caminho_imagem):
         """Retorna True se a imagem já possuir tags de GPS."""
         try:
@@ -163,8 +184,11 @@ class EXIFManager:
 
         # 0. Reprocessamento: remove o que o iBirder gravou antes (tags hierárquicas e as
         #    palavras-chave planas derivadas delas), para não acumular valores antigos.
+        #    O registro de publicação (iBirder|Publicacao|...) é mantido: a observação continua existindo.
         if registro_anterior:
             for tag in registro_anterior.get("tags", []):
+                if tag.startswith("iBirder|Publicacao|"):
+                    continue
                 for grupo in ("XMP-lr", "XMP-mwg-rs"):
                     cmds.append(f"-{grupo}:HierarchicalSubject-={tag}")
             antigos = registro_anterior.get("dados", {})
