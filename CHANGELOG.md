@@ -1,6 +1,6 @@
 # Histórico de versões
 
-## Próxima versão (em desenvolvimento)
+## v1.4
 
 ### Novidades
 - **Publicar no iNaturalist** (issue #9): botão **Publicar no iNaturalist** cria a observação na conta do usuário com a foto, a espécie, a data de captura e o local. Antes do envio, uma janela de conferência mostra tudo e permite escolher a localização pública (aberta, ocultada ou privada; ocultar é sugerido para espécies CR/EN/VU da Portaria MMA 148/2022 e do Anexo I da CITES), a licença da observação (padrão CC BY) e a descrição; o envio só é liberado depois de o usuário confirmar a conferência. O login é por OAuth com PKCE no navegador (a senha não passa pelo iBirder), e o número da observação é gravado na foto para evitar publicação duplicada. Requer o registro do aplicativo iBirder no iNaturalist.
