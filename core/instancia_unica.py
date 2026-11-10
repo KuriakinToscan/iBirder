@@ -31,6 +31,8 @@ from PySide6.QtCore import QObject
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 
 TEMPO_CONEXAO_MS = 500
+TEMPO_ENTREGA_MS = 3000
+FIM = b"\n"
 
 
 def nome_servidor() -> str:
@@ -51,10 +53,13 @@ def enviar_para_instancia_aberta(caminho: Optional[str], nome: Optional[str] = N
     socket.connectToServer(nome or nome_servidor())
     if not socket.waitForConnected(TEMPO_CONEXAO_MS):
         return False
-    socket.write((caminho or "").encode("utf-8"))
+    # Mensagem terminada em \n; o servidor fecha a conexão depois de ler. Esperar esse fechamento
+    # garante a entrega: no Windows (named pipe), dados pendentes se perdem se o cliente sair antes.
+    socket.write((caminho or "").encode("utf-8") + FIM)
     socket.flush()
     socket.waitForBytesWritten(TEMPO_CONEXAO_MS)
-    socket.disconnectFromServer()
+    if socket.state() != QLocalSocket.LocalSocketState.UnconnectedState:
+        socket.waitForDisconnected(TEMPO_ENTREGA_MS)
     logging.info("iBirder já estava aberto: foto entregue à janela existente.")
     return True
 
@@ -67,6 +72,7 @@ class ServidorInstancia(QObject):
         self._ao_receber = ao_receber
         self._nome = nome or nome_servidor()
         self._servidor = QLocalServer(self)
+        self._buffers = {}  # socket -> bytes recebidos até agora
         self._servidor.newConnection.connect(self._nova_conexao)
 
     def iniciar(self) -> bool:
@@ -78,21 +84,30 @@ class ServidorInstancia(QObject):
         return ok
 
     def _nova_conexao(self):
-        socket = self._servidor.nextPendingConnection()
-        if socket is None:
-            return
-        socket.readyRead.connect(lambda: None)  # mantém o buffer de leitura ativo
-        socket.disconnected.connect(lambda: self._ler(socket))
-        if socket.state() != QLocalSocket.LocalSocketState.ConnectedState:
-            self._ler(socket)
+        while self._servidor.hasPendingConnections():
+            socket = self._servidor.nextPendingConnection()
+            self._buffers[socket] = b""
+            socket.readyRead.connect(lambda s=socket: self._ler(s))
+            socket.disconnected.connect(lambda s=socket: self._encerrar(s))
+            if socket.bytesAvailable():
+                self._ler(socket)
 
     def _ler(self, socket):
-        if socket.property("lido"):
+        """Acumula até o \n do fim da mensagem, responde fechando a conexão e repassa o caminho."""
+        if socket not in self._buffers:
+            return  # mensagem já tratada
+        buffer = self._buffers[socket] + bytes(socket.readAll())
+        if FIM not in buffer:
+            self._buffers[socket] = buffer
             return
-        socket.setProperty("lido", True)
-        caminho = bytes(socket.readAll()).decode("utf-8", errors="replace").strip()
-        socket.deleteLater()
+        del self._buffers[socket]
+        caminho = buffer.split(FIM, 1)[0].decode("utf-8", errors="replace").strip()
+        socket.disconnectFromServer()
         try:
             self._ao_receber(caminho)
         except Exception:
             logging.error("Falha ao abrir a foto recebida de outra execução.", exc_info=True)
+
+    def _encerrar(self, socket):
+        self._buffers.pop(socket, None)
+        socket.deleteLater()
