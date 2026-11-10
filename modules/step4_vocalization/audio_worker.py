@@ -15,7 +15,6 @@
 #  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
 
 from PySide6.QtCore import QThread, Signal
-import os
 try:
     import requests
 except ImportError:
@@ -178,7 +177,7 @@ class AudioWorker(QThread):
                     try:
                         coords = loc.split(',')
                         obs_lat, obs_lon = float(coords[0]), float(coords[1])
-                    except: pass
+                    except (ValueError, IndexError): pass
 
                 for sound in obs.get('sounds', []):
                     if file_url := sound.get('file_url'):
@@ -213,4 +212,6 @@ class AudioWorker(QThread):
                         })
                         break
             return audios
-        except: return []
+        except Exception as e:
+            logging.warning(f"Vocalizações: falha ao ler a resposta ({e}).")
+            return []

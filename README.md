@@ -14,6 +14,15 @@ A identificação roda **no seu computador**. Quando a IA local fica em dúvida,
 - **Conservação**: IUCN, lista nacional (Portaria MMA 148/2022), CITES e avaliações estaduais e de outros países (iNaturalist).
 - **Metadados científicos**: Darwin Core, palavras-chave hierárquicas (Lightroom/digiKam) e campos do Windows, com escolha dos campos a gravar.
 
+## 🌟 Novidades na v1.4
+- **Temas de aparência**: Off-White (o visual de sempre), Clean e Clássico, escolhidos em **Configurações (⚙) > Aparência** e aplicados na hora, sem reiniciar.
+- **Quatro layouts da janela**: **Painel completo**, **Fluxo guiado** (uma etapa por vez), **Ficha compacta** (tudo numa tela) e **Mesa de trabalho**, com a fila das fotos de uma pasta e a opção de ir para a próxima foto ao gravar. A identificação continua uma foto por vez.
+- **Busca rápida de espécies (Ctrl+K)**: sugestões do catálogo embarcado do eBird enquanto você digita, com as aves registradas no Brasil primeiro. As sugestões da IA viram botões clicáveis.
+- **Atalhos**: **Ctrl+O** abre uma foto, **Ctrl+S** grava os dados e **Ctrl+Shift+O** abre uma pasta na Mesa de trabalho.
+- **Identificação sem deformar a foto**: a IA local recebe a foto com a proporção original, em vez de espremida num quadrado, e a foto é aberta já reduzida (menos memória e preparo mais rápido).
+- **Aviso de novas versões**: o app avisa quando sai uma versão nova, com link direto para o instalador.
+- **Publicar no iNaturalist** (pronto, ainda inativo): o código para enviar a observação com a foto já está no app, mas só funciona depois que o aplicativo iBirder for registrado no iNaturalist ([issue #13](https://github.com/KuriakinToscan/iBirder/issues/13)).
+
 ## 🌟 Novidades na v1.3
 - **Conservação completa**: lista nacional oficial (**Portaria MMA nº 148/2022**, ICMBio) e anexos da **CITES** embarcados, consultados sem internet. Novas **outras avaliações** do iNaturalist: listas estaduais (a do estado da foto em destaque) e de outros países.
 - **Foto já processada**: ao abrir uma foto que já tem dados do iBirder, o app mostra o que foi gravado e quando, e pergunta se deve processar novamente ou ignorar.
@@ -61,7 +70,7 @@ A identificação roda **no seu computador**. Quando a IA local fica em dúvida,
 
 ### Para usuários (Windows 10/11, 64 bits)
 1. Instale o **Google Chrome**, se ainda não tiver (usado para consultar o WikiAves).
-2. Baixe o instalador mais recente em [Releases](https://github.com/KuriakinToscan/iBirder/releases) e execute `Instalador_iBirder_v1.3.exe`.
+2. Baixe o instalador mais recente em [Releases](https://github.com/KuriakinToscan/iBirder/releases) e execute `Instalador_iBirder_v1.4.exe`.
 3. Abra uma foto arrastando-a para a janela, pelo botão **Nova Identificação** ou por **Abrir com > iBirder** no Windows Explorer.
 4. (Opcional) Configure a identificação em nuvem na **engrenagem (⚙)**. O passo a passo está em [manual_apis_nuvem.md](manual_apis_nuvem.md).
 
@@ -85,7 +94,7 @@ Também funciona em ambientes **conda** ou **venv**: basta `pip install -r requi
 
 ### Publicar uma versão
 1. Atualize `APP_VERSION` em `core/config.py` (única fonte da versão).
-2. Integre na `main` e crie a tag: `git tag v1.3` e `git push origin v1.3`.
+2. Integre na `main` e crie a tag: `git tag v1.4` e `git push origin v1.4`.
 3. O GitHub Actions testa, gera o instalador e cria a Release automaticamente. A tag precisa ser igual a `v` + `APP_VERSION`.
 
 ## ⚖️ Licença

@@ -17,34 +17,23 @@
 # ADVERTÊNCIA: Proibido adicionar barras de menu ou ferramentas tradicionais conforme RULES v1.1.
 import sys
 import os
-import json
 import logging
-import traceback
 import urllib.parse
 from pathlib import Path
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QPushButton, QLabel, QFileDialog,
-                             QScrollArea, QFrame, QGraphicsDropShadowEffect,
-                             QMessageBox, QTextEdit, QLineEdit, QGroupBox, QGridLayout,
-                             QStatusBar, QSizePolicy, QCheckBox, QDialog, QStackedWidget,
+                             QScrollArea, QFrame, QMessageBox, QTextEdit, QLineEdit, QStatusBar, QSizePolicy, QCheckBox, QStackedWidget,
                              QTabWidget)
-from PySide6.QtCore import Qt, QSize, QTimer, Slot, Signal, QThread, QSettings, QUrl, QMimeData
-from PySide6.QtGui import (QIcon, QPixmap, QColor, QFont, QDesktopServices, QPalette, QFontDatabase,
-    QKeySequence, QShortcut,
-    QPainter, QDrag, QResizeEvent, QDragEnterEvent, QDropEvent
+from PySide6.QtCore import Qt, QSize, QTimer, QSettings, QUrl
+from PySide6.QtGui import (QIcon, QFont, QDesktopServices, QKeySequence, QShortcut
 )
-from PySide6.QtWebEngineWidgets import QWebEngineView
 from PIL import Image, ExifTags
 from datetime import datetime
 
 # Importações do Core
 from modules.step3_geography.geo_utils import extract_lat_lon
-from modules.step1_identity.id_worker import LocalIdentificationWorker
 from ui.dialogo_aviso import DialogoAviso
 from modules.step1_identity.worker_referencia import ReferenceImageWorker
-from modules.step2_biology.wiki_worker import BuscadorWorker
-from modules.step4_vocalization.audio_worker import AudioWorker
-from core.logger import save_crash_log
 from core.style_manager import StyleManager
 from ui.dialogs.exif_config_dialog import ExifConfigDialog
 from modules.step6_persistence.exif_manager import EXIFManager
@@ -53,10 +42,7 @@ from ui.custom_widgets import ImageCardWidget, VocalAuditCard
 from ui.dialogs.location_dialog import LocationDialog
 from ui.dialogs.vocal_detail_dialog import VocalDetailDialog
 from ui.dialogs.manual_dialog import ManualUsuarioDialog
-from modules.step3_geography.geo_analyst import GeoAnalyst
 from core.session_logger import SessionLogger
-from modules.step3_geography.iucn_worker import IUCNWorker
-from modules.step5_taxonomy.ebird_worker import EBirdWorker
 from core.config import carregar_config
 from ui.estado_identificacao import EstadoIdentificacao
 from ui.layouts import PAINEIS_EXTRAS, Paineis, obter_layout
@@ -116,7 +102,6 @@ class JanelaPrincipal(QMainWindow):
         self.orchestrator.audio_processed.connect(self._plotar_pins_audio)
         self.orchestrator.limpar_painel_audio.connect(self._limpar_painel_audio)
         self.orchestrator.step5_ebird_concluido.connect(self._ao_concluir_ebird)
-        self.orchestrator.update_available.connect(self._ao_update_disponivel)
         self.orchestrator.app_update_available.connect(self._ao_app_update_disponivel)
         self.orchestrator.app_update_verificada.connect(self._ao_verificar_versao)
         self.estado.conectar(self.orchestrator)
@@ -238,7 +223,7 @@ class JanelaPrincipal(QMainWindow):
             try:
                 old_worker_ref.image_found.disconnect()
                 old_worker_ref.search_failed.disconnect()
-            except: pass
+            except (RuntimeError, TypeError): pass  # já desconectado ou destruído
             
             # Sem wait(): ele bloqueava a interface até o download anterior terminar.
             # A busca antiga já está desconectada; fica guardada até a thread acabar.
@@ -308,48 +293,6 @@ class JanelaPrincipal(QMainWindow):
                          f"Você já está usando a versão mais recente do iBirder ({APP_VERSION}).",
                          self, tipo="info").exec()
         # Se houver versão nova, o diálogo já foi aberto por _ao_app_update_disponivel
-
-    def _ao_update_disponivel(self, manifest_data):
-        ver = manifest_data.get("version", "?")
-        btn_update = QPushButton(f"Nova I.A. das Aves (v{ver}) Disponível! Clique para turbinar.")
-        btn_update.setObjectName("btn_status_novidade")  # estilo no QSS do tema
-        btn_update.setCursor(Qt.PointingHandCursor)
-        btn_update.clicked.connect(lambda: self._iniciar_download_update(manifest_data))
-        
-        self.statusBar().addWidget(btn_update)
-        self._btn_update_ota = btn_update
-
-    def _iniciar_download_update(self, manifest_data):
-        resposta = QMessageBox.question(
-            self,
-            "Turbinar Inteligência Artificial",
-            "Deseja ensinar centenas de novas espécies de aves ao iBirder?\n\n"
-            "Isso consumirá cerca de 3.5 MB de dados rápidos.\n"
-            "O aplicativo continuará funcionando normalmente durante o aprendizado.",
-            QMessageBox.Yes | QMessageBox.No
-        )
-        if resposta == QMessageBox.Yes:
-            if hasattr(self, '_btn_update_ota'):
-                self._btn_update_ota.deleteLater()
-            
-            self.statusBar().showMessage("Iniciando aprendizado da nova IA...", 5000)
-            
-            # Aciona o worker de download real (Fase B/C)
-            from core.updater import ModelDownloadWorker
-            self.download_worker = ModelDownloadWorker(manifest_data, parent=self)
-            self.download_worker.progress_updated.connect(self.statusBar().showMessage)
-            self.download_worker.download_complete.connect(self._ao_concluir_download_ota)
-            self.download_worker.error_occurred.connect(self._ao_erro_download_ota)
-            self.download_worker.start()
-            
-    def _ao_concluir_download_ota(self, info_dict):
-        from modules.step1_identity.id_worker import free_interpreter_cache
-        free_interpreter_cache()
-        self.statusBar().showMessage("Inteligência artificial turbinada com sucesso! O cérebro foi substituído silenciosamente.", 8000)
-        
-    def _ao_erro_download_ota(self, erro_msg):
-        self.statusBar().showMessage(f"Falha na atualização invisível: {erro_msg}", 8000)
-
 
     def _ao_encontrar_imagem_referencia(self, path, creditos, url_fonte=""):
         # set_image_path carrega o pixmap e prepara para drag
@@ -533,7 +476,6 @@ class JanelaPrincipal(QMainWindow):
     def _ajustar_altura_descricao(self):
         """Ajusta a altura do campo de descrição conforme o conteúdo."""
         doc_height = self.txt_descricao.document().size().height()
-        margins = self.txt_descricao.contentsMargins().top() + self.txt_descricao.contentsMargins().bottom() + 15
         self.txt_descricao.setFixedHeight(max(int(doc_height + 10), 45))
 
     def _ajustar_altura_etimologia(self):
@@ -1271,6 +1213,24 @@ class JanelaPrincipal(QMainWindow):
         if chk_dont_show.isChecked():
             settings.setValue("lens_dont_show_again", True)
 
+    def abrir_foto_externa(self, caminho: str):
+        """Foto enviada por outra execução ("Abrir com" com o app já aberto): traz a janela à frente e abre."""
+        if self.isMinimized():
+            self.showNormal()
+        self.raise_()
+        self.activateWindow()
+        if caminho and os.path.exists(caminho):
+            self._carregar_imagem(caminho)
+
+    def avisar_config_corrompido(self, copia):
+        """O config.json estava ilegível: foi guardado como cópia e o app voltou ao padrão."""
+        DialogoAviso("Configurações restauradas",
+                     "O arquivo de configurações estava danificado e não pôde ser lido. "
+                     f"Uma cópia foi guardada em:\n{copia}\n\n"
+                     "O iBirder voltou às configurações padrão. Informe de novo as chaves de API "
+                     "na engrenagem (⚙), se usar a identificação em nuvem.",
+                     self, tipo="erro").exec()
+
     def _carregar_imagem(self, caminho: str):
         # Foto já processada pelo iBirder: mostra o que foi gravado e quando, e pergunta
         # (o caminho muda se o usuário desfizer a renomeação nesse aviso)
@@ -1952,7 +1912,7 @@ class JanelaPrincipal(QMainWindow):
                     if hasattr(player, 'stop'): player.stop()
                     player.setParent(None)
                     player.deleteLater()
-                except: pass
+                except RuntimeError: pass  # objeto C++ já destruído
             self.active_audio_players = []
         
         if hasattr(self, 'lbl_audio_placeholder'):

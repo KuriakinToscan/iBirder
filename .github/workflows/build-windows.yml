@@ -1,5 +1,5 @@
 # Testes + executável + instalador num Windows limpo.
-# - Todo push e pull request: roda os testes, gera o executável, faz o autoteste
+# - Push na main, pull request e execução manual: checa o código (ruff), roda os testes, gera o executável, faz o autoteste
 #   (--smoke-test) e o instalador, disponível em "Artifacts" na página da execução.
 # - Tag vX.Y (ex.: v1.2): além disso, publica o instalador como Release no GitHub.
 #   A tag precisa bater com APP_VERSION em core/config.py.
@@ -7,7 +7,8 @@ name: Build Windows
 
 on:
   push:
-    branches: ["**"]
+    # Branches de trabalho rodam pelo pull_request (antes cada PR gerava dois builds iguais)
+    branches: ["main"]
     tags: ["v*"]
     paths-ignore: ["**.md", "Geo/biomas.qmd"]
   pull_request:
@@ -38,7 +39,10 @@ jobs:
       - name: Instalar dependências
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt pyinstaller pytest
+          pip install -r requirements.txt pyinstaller pytest ruff==0.16.9
+
+      - name: Checagem do código (ruff)
+        run: ruff check .
 
       - name: Versão do app
         id: versao

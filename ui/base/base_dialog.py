@@ -14,9 +14,7 @@
 #  Você deve ter recebido uma cópia da Licença Pública Geral GNU 
 #  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
 
-import sys
 import os
-from pathlib import Path
 from PySide6.QtWidgets import QDialog, QVBoxLayout
 from PySide6.QtGui import QIcon
 from core.style_manager import StyleManager

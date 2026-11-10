@@ -14,13 +14,11 @@
 #  Você deve ter recebido uma cópia da Licença Pública Geral GNU 
 #  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
 
-import os
 from PySide6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
+    QHBoxLayout, QLabel, QLineEdit, 
     QPushButton, QListWidget, QMessageBox, QListWidgetItem
 )
 from PySide6.QtCore import Qt, QThread, Signal, QTimer
-from PySide6.QtGui import QIcon
 from modules.step3_geography.geo_utils import search_location
 from ui.base.base_dialog import BaseDialog
 

@@ -49,17 +49,13 @@ if getattr(sys, 'frozen', False):
     os.environ['PATH'] = os.pathsep.join(clean_paths)
 # ----------------------------------------------------------------
 
-import subprocess
-import shutil
 import atexit
 import logging
-import json
 import traceback
 from pathlib import Path
 from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtGui import QIcon
 
-from pathlib import Path
 
 # IMPORTAÇÕES ESSENCIAIS (Sempre Seguras)
 # Definidas no escopo global para acesso por todas as funções
@@ -98,7 +94,7 @@ def verificar_ambiente_virtual():
         mensagem = ("Dependências ausentes no ambiente Python atual:\n  " + ", ".join(faltando) +
                     "\n\nNa pasta do iBirder, execute:\n  pip install -r requirements.txt")
         print(mensagem)
-        app = QApplication.instance() or QApplication(sys.argv)
+        _app = QApplication.instance() or QApplication(sys.argv)  # noqa: F841 (o diálogo precisa dela)
         from ui.dialogo_aviso import DialogoAviso
         DialogoAviso("Erro de Ambiente", mensagem, tipo="erro").exec()
         sys.exit(1)
@@ -129,9 +125,9 @@ def salvar_log_desespero(mensagem):
                 with open(p, "w", encoding='utf-8') as f:
                     f.write(mensagem)
                 return str(p)
-            except:
+            except OSError:
                 continue
-    except:
+    except Exception:
         pass
     return None
 
@@ -149,7 +145,7 @@ if __name__ == "__main__":
         # 3. Inicialização de Logger e Diagnóstico
         from core.logger import setup_logger, save_crash_log, cleanup_session_log
         from core.utils import limpar_temp_inteligente
-        from core.config import carregar_config, salvar_config, APP_VERSION
+        from core.config import carregar_config, APP_VERSION
         
         setup_logger()
         logging.info(f"--- INICIANDO DIAGNÓSTICO iBirder v{APP_VERSION} ---")
@@ -162,7 +158,7 @@ if __name__ == "__main__":
         global AI_ENGINE_STATUS
         AI_ENGINE_STATUS = 'READY'
         try:
-            from PIL import Image
+            from PIL import Image  # noqa: F401 (só confere se o Pillow está instalado)
             logging.info("PIL importado com sucesso.")
         except ImportError:
             AI_ENGINE_STATUS = 'RESTART_REQUIRED'
@@ -182,6 +178,16 @@ if __name__ == "__main__":
             app.setWindowIcon(QIcon(icon_path))
         
         SMOKE_TEST = "--smoke-test" in sys.argv
+        # Opções (--smoke-test) não são caminhos de imagem
+        argumentos = [a for a in sys.argv[1:] if not a.startswith("--")]
+        caminho_inicial = argumentos[0] if argumentos else None
+
+        # Instância única: com o iBirder já aberto, entrega a foto à janela existente e sai
+        if not SMOKE_TEST:
+            from core.instancia_unica import enviar_para_instancia_aberta
+            if enviar_para_instancia_aberta(caminho_inicial):
+                sys.exit(0)
+
         if not SMOKE_TEST:
             logging.info("CHECKPOINT 4: Verificando ambiente virtual...")
             verificar_ambiente_virtual()
@@ -201,13 +207,20 @@ if __name__ == "__main__":
 
         logging.info("CHECKPOINT 7: Criando Janela Principal...")
         from ui.janela_principal import JanelaPrincipal
-        # Opções (--smoke-test) não são caminhos de imagem
-        argumentos = [a for a in sys.argv[1:] if not a.startswith("--")]
-        caminho_inicial = argumentos[0] if argumentos else None
         janela = JanelaPrincipal(ai_status=AI_ENGINE_STATUS, imagem_inicial=caminho_inicial)
         
         logging.info("CHECKPOINT 8: Exibindo interface principal...")
         janela.show()
+
+        if not SMOKE_TEST:
+            from core.instancia_unica import ServidorInstancia
+            servidor_instancia = ServidorInstancia(janela.abrir_foto_externa, parent=app)
+            servidor_instancia.iniciar()
+
+        import core.config as modulo_config
+        if modulo_config.config_corrompido:
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(800, lambda: janela.avisar_config_corrompido(modulo_config.config_corrompido))
 
         if SMOKE_TEST:
             # Autoteste (CI): confere os componentes com a janela aberta e encerra
@@ -231,7 +244,7 @@ if __name__ == "__main__":
         # Salva o "log do desespero"
         location = salvar_log_desespero(error_msg)
         
-        msg_final = f"O iBirder encontrou um erro crítico e não pôde iniciar.\n\n"
+        msg_final = "O iBirder encontrou um erro crítico e não pôde iniciar.\n\n"
         if location:
             msg_final += f"Um relatório foi salvo em: {location}\n\n"
         msg_final += f"Erro: {str(e)}"
@@ -243,7 +256,7 @@ if __name__ == "__main__":
             try:
                 import ctypes
                 ctypes.windll.user32.MessageBoxW(0, msg_final, "Erro Fatal iBirder", 0x10)
-            except:
+            except Exception:
                 pass
             
         sys.exit(1)

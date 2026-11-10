@@ -2,8 +2,6 @@ from PySide6.QtWidgets import (QApplication, QDialog, QVBoxLayout, QHBoxLayout,
                                QLabel, QLineEdit, QPushButton, 
                                QMessageBox, QFormLayout, QCheckBox, QGroupBox,
                                QRadioButton, QButtonGroup)
-from PySide6.QtGui import QDesktopServices
-from PySide6.QtCore import QUrl
 from core.config import carregar_config, salvar_config
 from core.paths import APP_DIR
 import requests

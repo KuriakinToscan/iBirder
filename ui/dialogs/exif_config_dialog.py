@@ -15,11 +15,10 @@
 #  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
 
 import html
-import os
 from pathlib import Path
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, 
                                QLabel, QPushButton, QCheckBox, 
-                               QScrollArea, QWidget, QMessageBox, QFrame,
+                               QScrollArea, QWidget, QFrame,
                                QComboBox, QLineEdit)
 from PySide6.QtCore import Qt, QSettings
 from core import nome_arquivo

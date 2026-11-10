@@ -15,7 +15,6 @@
 #  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
 
 import os
-import sys
 import json
 import logging
 from geopy.geocoders import Nominatim
@@ -129,7 +128,7 @@ class GeoAnalyst:
                     "Não identificada"
                 )
                 
-                logging.debug(f"Endereço estruturado obtido.")
+                logging.debug("Endereço estruturado obtido.")
         except Exception as e:
             logging.error(f"Erro na API Nominatim: {e}")
 

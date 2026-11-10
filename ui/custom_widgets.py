@@ -14,15 +14,12 @@
 #  Você deve ter recebido uma cópia da Licença Pública Geral GNU 
 #  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
 
-from PySide6.QtWidgets import QWidget, QSizePolicy, QApplication, QPushButton, QHBoxLayout, QLabel, QVBoxLayout
-from PySide6.QtCore import Qt, QSize, QRectF, QMimeData, QUrl, QPoint, QTimer
+from PySide6.QtWidgets import QWidget, QSizePolicy, QApplication, QPushButton, QHBoxLayout, QLabel
+from PySide6.QtCore import Qt, QSize, QRectF, QMimeData, QUrl, QPoint
 from PySide6.QtGui import (
     QPainter, QPixmap, QColor, QFont, QPen, QPainterPath, 
     QFontMetrics, QDrag, QDragEnterEvent, QDropEvent, QIcon, QCursor
 )
-from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
-from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtWebEngineCore import QWebEnginePage
 import os
 import sys
 from pathlib import Path

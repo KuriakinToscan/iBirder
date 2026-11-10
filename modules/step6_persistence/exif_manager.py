@@ -151,7 +151,7 @@ class EXIFManager:
             )
             # ExifTool retorna algo como "GPS Latitude : 10 deg..."
             return "GPS Latitude" in resultado.stdout
-        except:
+        except Exception:
             return False
 
     # Valores que significam "sem informação" e nunca devem ir para a foto

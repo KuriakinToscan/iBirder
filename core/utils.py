@@ -17,9 +17,8 @@
 from pathlib import Path
 from PIL import Image
 import os
-import sys
 import logging
-from core.paths import BASE_DIR, IS_FROZEN
+from core.paths import BASE_DIR
 
 def otimizar_imagem(caminho_entrada: str, caminho_saida: str, max_tamanho: int = 800, qualidade: int = 65):
     """

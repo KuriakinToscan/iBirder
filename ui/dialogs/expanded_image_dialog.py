@@ -16,9 +16,9 @@
 
 import sys
 from pathlib import Path
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QPushButton, QApplication, QSizePolicy, QGraphicsDropShadowEffect, QFrame
-from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QIcon, QCursor, QColor
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QPushButton, QApplication, QGraphicsDropShadowEffect, QFrame
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QCursor, QColor
 from ui.widgets.zoomable_view import ZoomableView
 from core.style_manager import StyleManager
 
