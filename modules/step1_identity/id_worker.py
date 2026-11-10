@@ -18,7 +18,6 @@ import time
 import logging
 from PySide6.QtCore import QThread, Signal
 import numpy as np
-from PIL import Image, ImageOps
 import requests
 import base64
 import json
@@ -34,14 +33,10 @@ except ImportError:
         tflite = None
 
 from core.model_manager import ModelManager
+from modules.step1_identity.preprocessamento import jpeg_para_nuvem, preparar_para_modelo
 
 # Global Cache for TFLite Interpreter
 _interpreter_cache = None
-
-def abrir_imagem_rgb(image_path):
-    """Abre a imagem já rotacionada conforme a tag EXIF Orientation (fotos verticais de câmera/celular)."""
-    with Image.open(image_path) as img:
-        return ImageOps.exif_transpose(img).convert('RGB')
 
 def formatar_rotulo(rotulo):
     """'Haemorhous cassinii (Cassin's Finch)' -> 'Haemorhous cassinii' (subespécie cai para a espécie)."""
@@ -93,7 +88,7 @@ class LocalIdentificationWorker(QThread):
     Abaixo de 70% de confiança, consulta a nuvem (iNaturalist e/ou Google Vision) se houver chave.
     Gerencia:
     1. Download do modelo se ausente (ModelManager; normalmente já vem no instalador).
-    2. Pré-processamento (orientação EXIF, redimensionamento para 224x224).
+    2. Pré-processamento (orientação EXIF, redução com a proporção preservada e borda até 224x224).
     3. Inferência local, sem internet.
     4. Rollback para models_back caso um modelo novo falhe (atualização de modelo está desativada).
     """
@@ -156,13 +151,9 @@ class LocalIdentificationWorker(QThread):
             height = input_details[0]['shape'][1]
             width = input_details[0]['shape'][2]
             
-            # 3. Pré-processamento
-            # Carrega imagem original em memória (sem alterar arquivo)
-            img = abrir_imagem_rgb(self.image_path)
-            
-            # Redimensionamento de Alta Qualidade (LANCZOS)
-            # Crucial para manter detalhes de plumagem e bico ao reduzir para 224x224
-            img_resized = img.resize((width, height), Image.Resampling.LANCZOS)
+            # 3. Pré-processamento (preprocessamento.py): abre já reduzida, sem alterar o arquivo,
+            # e leva o lado maior a 224 px com borda neutra, sem deformar a ave
+            img_resized = preparar_para_modelo(self.image_path, width, height)
             
             # Check input type
             input_type = input_details[0]['dtype']
@@ -329,15 +320,9 @@ class LocalIdentificationWorker(QThread):
         headers = {"Authorization": f"Bearer {token}"}
         
         import io
-        
-        # Comprime a imagem em memória para não estourar limite da API (ex: 413 Entity Too Large)
-        img = abrir_imagem_rgb(image_path)
-        img.thumbnail((800, 800), Image.Resampling.LANCZOS)
-        img_bytes = io.BytesIO()
-        img.save(img_bytes, format="JPEG", quality=85)
-        img_bytes.seek(0)
-        
-        files = {"image": ("image.jpg", img_bytes, "image/jpeg")}
+
+        # Cópia reduzida (lado maior 1024 px, JPEG 85) para não estourar o limite da API (413)
+        files = {"image": ("image.jpg", io.BytesIO(jpeg_para_nuvem(image_path)), "image/jpeg")}
         response = requests.post(url, headers=headers, files=files, timeout=15)
             
         if response.status_code == 200:
@@ -364,12 +349,7 @@ class LocalIdentificationWorker(QThread):
     def _call_google_vision(self, image_path, api_key):
         url = f"https://vision.googleapis.com/v1/images:annotate?key={api_key}"
         
-        import io
-        img = abrir_imagem_rgb(image_path)
-        img.thumbnail((800, 800), Image.Resampling.LANCZOS)
-        img_bytes = io.BytesIO()
-        img.save(img_bytes, format="JPEG", quality=85)
-        base64_img = base64.b64encode(img_bytes.getvalue()).decode("utf-8")
+        base64_img = base64.b64encode(jpeg_para_nuvem(image_path)).decode("utf-8")
             
         payload = {
             "requests": [{

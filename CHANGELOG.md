@@ -17,6 +17,7 @@
 - **Instalador**: ao atualizar por cima, apaga a pasta `_internal` da versão anterior antes de copiar a nova (arquivos removidos não ficam para trás), fecha o iBirder se estiver aberto e fixa o `AppId` usado desde a v1.1. Configurações e chaves (`%APPDATA%\iBirder`) são mantidas.
 
 ### Correções
+- **Identificação sem deformar a foto**: antes, a foto inteira era espremida para 224x224 px (numa foto 3:2, a ave ficava achatada em 33% na horizontal). Agora o lado maior vai a 224 px e o restante do quadrado recebe borda cinza neutra, sem recorte. A foto também é aberta já reduzida (no JPEG, a própria decodificação reduz para no mínimo 896 px no lado maior): numa foto de 24 Mpx, cerca de 1,5 Mpx em memória em vez de 24 Mpx e preparo cerca de 2,8 vezes mais rápido no teste. A cópia enviada ao iNaturalist e ao Google Vision passou de 800 para 1024 px no lado maior, também com a proporção original (`modules/step1_identity/preprocessamento.py`).
 - Nome comum, etimologia e descrição mostram **"Consultando o WikiAves..."** depois que a espécie é identificada (antes ficava "Aguardando identificação....", como se a IA ainda estivesse trabalhando). Sem descrição no WikiAves, o campo passa a dizer "Descrição não disponível no WikiAves." em vez de ficar à espera.
 - Textos de nota e de espera ("Aguardando identificação…") passaram de cinza #9CA3AF para #6B7280: o contraste sobre o fundo branco subiu de 2,5:1 para 4,8:1 (mínimo WCAG AA: 4,5:1).
 
