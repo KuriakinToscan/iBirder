@@ -98,6 +98,18 @@ inclusive com Chrome headless).
   sem nome popular em português) e `ui/widgets/busca_especies.py`, que também trata o Enter do campo
   (o Qt entrega o Enter ao campo antes de ativar a sugestão: não ligar `returnPressed` à busca).
 
+## Robustez (v1.4)
+
+- Respostas da nuvem: `interpretar_resposta_inat` / `interpretar_resposta_google` (`id_worker.py`) só aceitam
+  nomes que `core/catalogo_especies.resolver_nome` reconhece (eBird embarcado; o iNat também aceita
+  `iconic_taxon_name == "Aves"`). Testes em `tests/test_cascata_nuvem.py`.
+- Pré-processamento sem recorte (`modules/step1_identity/preprocessamento.py`): JPEG aberto com `draft`
+  (lado maior >= 896 px), letterbox 224 px; nuvem com 1024 px, JPEG 85.
+- `config.json`: gravação atômica; JSON ilegível vira `config.json.corrompido` e a janela avisa.
+- Instância única por `QLocalServer` (`core/instancia_unica.py`), desligada no `--smoke-test`.
+- Interpretador LiteRT só com `_interpreter_lock`. Não há mais OTA de modelo.
+- CI roda `ruff check .` (regras em `ruff.toml`); rode antes de enviar.
+
 ## Testes
 
 - Offline: `python -m pytest tests` (sem rede, sem Chrome).

@@ -1,0 +1,7 @@
+# Checagem do CI (ruff check .): erros de sintaxe, nomes indefinidos, imports e variáveis
+# sem uso, e `except:` nu (que também captura KeyboardInterrupt e SystemExit).
+target-version = "py312"
+extend-exclude = ["build", "dist", "dist_installer", "assets"]
+
+[lint]
+select = ["E9", "F", "E722"]

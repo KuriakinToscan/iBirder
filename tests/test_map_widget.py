@@ -30,7 +30,7 @@ def test_pagina_base_embute_leaflet_e_api():
 def test_mapa_atualiza_sem_recarregar_e_entrega_eventos():
     from PySide6.QtCore import QEventLoop, QTimer
     from PySide6.QtWidgets import QApplication
-    app = QApplication.instance() or QApplication([])
+    QApplication.instance() or QApplication([])
     from modules.step3_geography import gbif_client
     gbif_client._taxon_key_cache.update({"Pitangus sulphuratus": 2482755, "Furnarius rufus": 2482491})
     from ui.widgets.map_widget import MapWidget

@@ -16,11 +16,11 @@
 
 import time
 import logging
+import threading
 from PySide6.QtCore import QThread, Signal
 import numpy as np
 import requests
 import base64
-import json
 from core.config import carregar_config
 
 try:
@@ -35,8 +35,11 @@ except ImportError:
 from core.model_manager import ModelManager
 from modules.step1_identity.preprocessamento import jpeg_para_nuvem, preparar_para_modelo
 
-# Global Cache for TFLite Interpreter
+# Interpretador LiteRT em cache (carregar custa alguns segundos). Não é thread-safe: um worker
+# substituído (troca de foto) pode continuar rodando enquanto o novo começa, então criação e
+# inferência passam pela trava.
 _interpreter_cache = None
+_interpreter_lock = threading.Lock()
 
 def formatar_rotulo(rotulo):
     """'Haemorhous cassinii (Cassin's Finch)' -> 'Haemorhous cassinii' (subespécie cai para a espécie)."""
@@ -71,14 +74,7 @@ def avaliar_ocorrencia(top3, lat, lon):
 
 
 def get_current_interpreter():
-    global _interpreter_cache
     return _interpreter_cache
-
-def free_interpreter_cache():
-    """Gatilho dinâmico invocado pelo Orchestrator pós Hot-Swap para resetar o Cérebro."""
-    global _interpreter_cache
-    _interpreter_cache = None
-    logging.debug("Cache do Interpretador limpo para recarga OTA.")
 
 class LocalIdentificationWorker(QThread):
     """
@@ -90,7 +86,6 @@ class LocalIdentificationWorker(QThread):
     1. Download do modelo se ausente (ModelManager; normalmente já vem no instalador).
     2. Pré-processamento (orientação EXIF, redução com a proporção preservada e borda até 224x224).
     3. Inferência local, sem internet.
-    4. Rollback para models_back caso um modelo novo falhe (atualização de modelo está desativada).
     """
     progress_updated = Signal(str)
     finished = Signal(dict)
@@ -129,16 +124,13 @@ class LocalIdentificationWorker(QThread):
             # 2. Carregar Modelo (Instanciação do Interpretador com Cache Global)
             # O interpretador é mantido em memória (cache) para evitar o custo de carregamento 
             # de 4-6 segundos em cada nova identificação.
-            start_time = time.time()
-            if _interpreter_cache is None:
-                self.progress_updated.emit("Carregando cérebro digital...")
-                _interpreter_cache = tflite.Interpreter(model_path=str(manager.model_path))
-                _interpreter_cache.allocate_tensors()
-                
-                # O teste de alocação de tensores já foi feito no allocate_tensors() acima. 
-                # Qualquer falha ali será capturada pelo except Exception.
-            
-            interpreter = _interpreter_cache
+            with _interpreter_lock:
+                if _interpreter_cache is None:
+                    self.progress_updated.emit("Carregando cérebro digital...")
+                    interpretador = tflite.Interpreter(model_path=str(manager.model_path))
+                    interpretador.allocate_tensors()  # falha aqui cai no except geral
+                    _interpreter_cache = interpretador
+                interpreter = _interpreter_cache
 
             # Get input and output tensors.
             input_details = interpreter.get_input_details()
@@ -167,29 +159,16 @@ class LocalIdentificationWorker(QThread):
             # Adiciona dimensão de batch (Exemplo: [1, 224, 224, 3])
             input_data = np.expand_dims(img_array, axis=0)
 
-            # 4. Inferência Assistida (Fase C: Robusta contra falhas de atualização)
-            try:
+            # 4. Inferência (set_tensor, invoke e get_tensor sob a mesma trava)
+            with _interpreter_lock:
                 start_infer_time = time.time()
                 interpreter.set_tensor(input_details[0]['index'], input_data)
                 interpreter.invoke()
-                infer_ms = (time.time() - start_infer_time) * 1000
-                logging.debug(f"Inferência local (iNaturalist Vision) bem-sucedida em {infer_ms:.2f}ms.")
-            except Exception as invoke_err:
-                logging.critical(f"Falha crítica de inferência: {invoke_err}.")
-                import shutil, os
-                backup_dir = manager.assets_dir.parent / "models_back"
-                if backup_dir.exists():
-                    logging.warning("Modelo incompatível ou corrompido detectado. Revertendo para cópia de segurança...")
-                    shutil.rmtree(manager.assets_dir)
-                    os.rename(backup_dir, manager.assets_dir)
-                    free_interpreter_cache()
-                    self.error.emit("Falha ao usar a nova Inteligência. O aplicativo retornou automaticamente para a Versão Estável anterior.")
-                    return
-                else:
-                    raise invoke_err
+                output_data = interpreter.get_tensor(output_details[0]['index'])
+            infer_ms = (time.time() - start_infer_time) * 1000
+            logging.debug(f"Inferência local bem-sucedida em {infer_ms:.2f}ms.")
 
             # Interpretar Resultados (Classificação)
-            output_data = interpreter.get_tensor(output_details[0]['index'])
             results = np.squeeze(output_data)
             
             if output_details[0]['dtype'] == np.uint8:
@@ -318,78 +297,107 @@ class LocalIdentificationWorker(QThread):
     def _call_inat_api(self, image_path, token):
         url = "https://api.inaturalist.org/v1/computervision/score_image"
         headers = {"Authorization": f"Bearer {token}"}
-        
+
         import io
 
         # Cópia reduzida (lado maior 1024 px, JPEG 85) para não estourar o limite da API (413)
         files = {"image": ("image.jpg", io.BytesIO(jpeg_para_nuvem(image_path)), "image/jpeg")}
         response = requests.post(url, headers=headers, files=files, timeout=15)
-            
+
         if response.status_code == 200:
-            data = response.json()
-            if "results" in data and len(data["results"]) > 0:
-                best_match = data["results"][0]
-                taxon = best_match.get("taxon", {})
-                nome_cientifico = taxon.get("name", "")
-                
-                # Se achou algo válido e é um nome científico (duas palavras)
-                if nome_cientifico and len(nome_cientifico.split()) >= 2:
-                    return {
-                        "nome_cientifico": nome_cientifico.capitalize(),
-                        "nome_comum": "",
-                        "descricao": "Identificado na nuvem (iNaturalist API).",
-                        "confianca": float(best_match.get("vision_score", 0)) / 100.0,
-                        "top3": [{"nome_cientifico": nome_cientifico.capitalize(), "confianca": 0.99}],
-                        "modelo_ia": "iNaturalist API (Nuvem)"
-                    }
-        else:
-            logging.error(f"Erro iNaturalist API ({response.status_code}): {response.text[:200]}")
+            return interpretar_resposta_inat(response.json())
+        logging.error(f"Erro iNaturalist API ({response.status_code}): {response.text[:200]}")
         return None
 
     def _call_google_vision(self, image_path, api_key):
         url = f"https://vision.googleapis.com/v1/images:annotate?key={api_key}"
-        
+
         base64_img = base64.b64encode(jpeg_para_nuvem(image_path)).decode("utf-8")
-            
+
         payload = {
             "requests": [{
                 "image": {"content": base64_img},
                 "features": [
-                    {"type": "WEB_DETECTION", "maxResults": 3},
-                    {"type": "LABEL_DETECTION", "maxResults": 5}
+                    {"type": "WEB_DETECTION", "maxResults": 10},
+                    {"type": "LABEL_DETECTION", "maxResults": 10}
                 ]
             }]
         }
-        
+
         response = requests.post(url, json=payload, timeout=10)
         if response.status_code == 200:
-            data = response.json()
-            responses = data.get("responses", [{}])[0]
-            
-            best_name = None
-            # Prioriza Web Detection entities que parecem nomes científicos
-            web_entities = responses.get("webDetection", {}).get("webEntities", [])
-            for entity in web_entities:
-                desc = entity.get("description", "")
-                if desc and len(desc.split()) == 2:
-                    best_name = desc
-                    break
-            
-            # Se não achou na Web Detection, pega a primeira Label
-            if not best_name:
-                labels = responses.get("labelAnnotations", [])
-                if labels:
-                    best_name = labels[0].get("description", "")
-            
-            if best_name:
-                return {
-                    "nome_cientifico": best_name.capitalize(),
-                    "nome_comum": "",
-                    "descricao": "Identificado na nuvem (Google Vision).",
-                    "confianca": 0.85, # Valor estático alto já que é o último fallback
-                    "top3": [{"nome_cientifico": best_name.capitalize(), "confianca": 0.85}],
-                    "modelo_ia": "Google Vision API (Nuvem)"
-                }
-        else:
-            logging.error(f"Erro Google Vision API ({response.status_code}): {response.text[:200]}")
+            return interpretar_resposta_google(response.json())
+        logging.error(f"Erro Google Vision API ({response.status_code}): {response.text[:200]}")
         return None
+
+
+# --- Respostas da nuvem (funções puras, testadas em tests/test_cascata_nuvem.py) ---
+
+# O Google Vision não devolve probabilidade de espécie: valor fixo, como antes da v1.4
+CONFIANCA_GOOGLE = 0.85
+
+
+def interpretar_resposta_inat(data):
+    """
+    Resultado da etapa 1 a partir da resposta do score_image do iNaturalist, ou None.
+    Só aceita espécie (ou subespécie, reduzida à espécie) de ave: táxon com
+    iconic_taxon_name "Aves" ou presente no catálogo eBird embarcado. O top-3 é o real,
+    com o vision_score de cada resultado.
+    """
+    from core.catalogo_especies import resolver_nome
+    candidatos = []
+    for resultado in (data or {}).get("results", []):
+        taxon = resultado.get("taxon") or {}
+        nome = (taxon.get("name") or "").strip()
+        if len(nome.split()) < 2:
+            continue  # gênero, família...: não é espécie
+        canonico = resolver_nome(nome)
+        if not canonico:
+            if taxon.get("iconic_taxon_name") != "Aves":
+                logging.debug(f"iNaturalist: '{nome}' descartado (não é ave do catálogo).")
+                continue
+            partes = nome.split()
+            canonico = f"{partes[0].capitalize()} {partes[1].lower()}"
+        if any(c["nome_cientifico"] == canonico for c in candidatos):
+            continue  # subespécies da mesma espécie
+        candidatos.append({"nome_cientifico": canonico,
+                           "confianca": float(resultado.get("vision_score", 0)) / 100.0})
+    if not candidatos:
+        return None
+    return {
+        "nome_cientifico": candidatos[0]["nome_cientifico"],
+        "nome_comum": "",
+        "descricao": "Identificado na nuvem (iNaturalist API).",
+        "confianca": candidatos[0]["confianca"],
+        "top3": candidatos[:3],
+        "modelo_ia": "iNaturalist API (Nuvem)"
+    }
+
+
+def interpretar_resposta_google(data):
+    """
+    Resultado da etapa 1 a partir da resposta do Google Vision, ou None.
+    Percorre as entidades web e depois os rótulos e só aceita o que o catálogo eBird
+    reconhece como espécie de ave (nome científico ou nome em inglês). Rótulos genéricos
+    como "Bird" ou "Beak" são descartados.
+    """
+    from core.catalogo_especies import resolver_nome
+    resposta = ((data or {}).get("responses") or [{}])[0]
+    textos = [e.get("description", "") for e in resposta.get("webDetection", {}).get("webEntities", [])]
+    textos += [r.get("description", "") for r in resposta.get("labelAnnotations", [])]
+    nomes = []
+    for texto in textos:
+        nome = resolver_nome(texto)
+        if nome and nome not in nomes:
+            nomes.append(nome)
+    if not nomes:
+        logging.info(f"Google Vision sem espécie reconhecível: {', '.join(t for t in textos if t)[:200]}")
+        return None
+    return {
+        "nome_cientifico": nomes[0],
+        "nome_comum": "",
+        "descricao": "Identificado na nuvem (Google Vision).",
+        "confianca": CONFIANCA_GOOGLE,
+        "top3": [{"nome_cientifico": n, "confianca": CONFIANCA_GOOGLE} for n in nomes[:3]],
+        "modelo_ia": "Google Vision API (Nuvem)"
+    }

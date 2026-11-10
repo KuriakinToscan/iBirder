@@ -18,7 +18,7 @@ from pathlib import Path
 import logging
 import platform
 
-from core.temas import TEMAS, TEMA_PADRAO, obter_tema, renderizar, barra_titulo_escura, cor_bgr
+from core.temas import TEMA_PADRAO, obter_tema, renderizar, barra_titulo_escura, cor_bgr
 
 # Propriedades dinâmicas que guardam o modelo (com var(--token)) de um widget,
 # para renderizá-lo de novo quando o tema muda
@@ -248,7 +248,6 @@ class StyleManager:
     def set_app_icon(window, dark_mode=None):
         """Aplica o ícone correto à janela conforme o tema (v0.6.5)."""
         from PySide6.QtGui import QIcon
-        from PySide6.QtCore import QSize
         import os
         import sys
 

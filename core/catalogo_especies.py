@@ -103,6 +103,36 @@ def buscar(texto, limite=12):
     return [a[3] for a in achados[:limite]]
 
 
+_indices = None
+
+
+def _indices_nomes():
+    """Dicionários nome científico (gênero + espécie) -> espécie e nome em inglês -> espécie."""
+    global _indices
+    if _indices is None:
+        por_cientifico, por_ingles = {}, {}
+        for especie in carregar():
+            por_cientifico.setdefault(_especie(especie["nome_cientifico"]), especie)
+            if especie["_ingles"]:
+                por_ingles.setdefault(especie["_ingles"], especie)
+        _indices = (por_cientifico, por_ingles)
+    return _indices
+
+
+def resolver_nome(nome):
+    """
+    Nome científico da espécie (grafia do catálogo) a partir de um nome científico, com ou sem
+    subespécie, ou de um nome em inglês do eBird. None se não for uma ave do catálogo
+    (ex.: "Bird", "Beak", "Wildlife"), para as respostas da nuvem não virarem "espécie".
+    """
+    alvo = _chave(nome)
+    if not alvo:
+        return None
+    por_cientifico, por_ingles = _indices_nomes()
+    especie = por_cientifico.get(" ".join(alvo.split()[:2])) or por_ingles.get(alvo)
+    return especie["nome_cientifico"] if especie else None
+
+
 def rotulo(especie):
     """Texto da sugestão: 'Turdus rufiventris — Rufous-bellied Thrush'."""
     if especie["nome_ingles"]:

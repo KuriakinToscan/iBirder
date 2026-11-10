@@ -41,7 +41,7 @@ def test_player_carrega_toca_e_para(monkeypatch, tmp_path):
     from PySide6.QtCore import QEventLoop, QTimer
     from PySide6.QtMultimedia import QMediaPlayer
     from PySide6.QtWidgets import QApplication
-    app = QApplication.instance() or QApplication([])
+    QApplication.instance() or QApplication([])
     monkeypatch.setattr(ap, "TEMP_DIR", tmp_path)
     url = "https://static.inaturalist.org/sounds/teste.wav?1"
     _gerar_wav(ap.caminho_cache(url))   # já "baixado": não acessa a rede
@@ -72,6 +72,6 @@ def test_player_carrega_toca_e_para(monkeypatch, tmp_path):
 
 def test_sem_url_mostra_erro():
     from PySide6.QtWidgets import QApplication
-    app = QApplication.instance() or QApplication([])
+    QApplication.instance() or QApplication([])
     p = ap.PlayerAudio("")
     assert not p.btn.isEnabled() and "não disponível" in p.lbl_status.text()

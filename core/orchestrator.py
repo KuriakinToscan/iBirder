@@ -14,7 +14,6 @@
 #  Você deve ter recebido uma cópia da Licença Pública Geral GNU 
 #  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
 
-import os
 import time
 from PySide6.QtCore import QObject, Signal, QThread, QTimer
 
@@ -27,7 +26,6 @@ from modules.step5_taxonomy.ebird_worker import EBirdWorker
 from modules.step3_geography.geo_analyst import GeoAnalyst
 from modules.step3_geography.conservation_worker import NationalConservationWorker
 import logging
-from core.config import carregar_config
 
 # Etapa 6: Persistência (EXIF) - Placeholder para futura integração direta
 # from modules.step6_persistence.exif_manager import EXIFManager
@@ -63,7 +61,6 @@ class Orchestrator(QObject):
     app_update_verificada = Signal(dict, str, bool)  # info, erro, manual
     
     # Sinais para atualizar a Janela Principal (View)
-    update_available = Signal(dict) # Para OTA Updater
     
     step1_identificacao_concluida = Signal(dict)
     step1_identificacao_erro = Signal(str)
@@ -122,22 +119,9 @@ class Orchestrator(QObject):
         self._timer_orfaos.setInterval(2000)
         self._timer_orfaos.timeout.connect(self._liberar_orfaos)
         
-        # Inteligência Evolutiva (OTA Updater)
-        import time
+        # Aviso de nova versão do app (Releases do GitHub)
         start_ota_time = time.time()
-        
-        self.new_ia_available = False
-        
-        from core.updater import ModelUpdater, AppUpdater
-        self.updater = ModelUpdater(parent=self)
-        # Ao invés de jogar sinal direto para UI agora, armazenamos a informação silenciosamente
-        self.updater.update_available.connect(self._on_update_detected)
-        # Checagem desativada: o ModelDownloadWorker ainda não baixa modelos reais
-        # (apenas recopia os arquivos locais) e a troca em Program Files exige admin.
-        # Reativar quando houver manifesto real com SHA-256 e destino em %APPDATA%.
-        # self.updater.check_for_updates()
-        
-        # OTA Updater (App Version)
+        from core.updater import AppUpdater
         self.app_updater = AppUpdater(parent=self)
         self.app_updater.app_update_available.connect(self.app_update_available.emit)
         self.app_updater.verificacao_concluida.connect(self.app_update_verificada.emit)
@@ -225,11 +209,6 @@ class Orchestrator(QObject):
 
     def ignorar_versao_app(self, versao):
         self.app_updater.ignorar_versao(versao)
-
-    def _on_update_detected(self, manifest_data):
-        """Callback silencioso que a UI ou fluxo podem consultar depois."""
-        self.new_ia_available = True
-        self.update_available.emit(manifest_data) # Opcional: mantemos emit dependendo de quem escuta, mas flagamos True
 
     def start_pipeline_identificacao(self, image_path, skip_model=False, is_photo=True):
         """
