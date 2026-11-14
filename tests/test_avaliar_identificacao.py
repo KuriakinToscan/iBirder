@@ -102,3 +102,35 @@ def test_ponta_a_ponta_com_o_modelo(tmp_path):
     assert "Cada modo x espremida" in texto
     assert "Fotos avaliadas: 2" in texto and "sem espécie conhecida): 1" in texto and "McNemar" in texto
     assert len(por_foto.read_text(encoding="utf-8-sig").strip().splitlines()) == 1 + 2 * len(av.MODOS)
+
+
+def test_bioclip_com_pesos_aleatorios(tmp_path):
+    """Caminho completo do modo BioCLIP sem baixar pesos (ViT-B-16 aleatório, mesma arquitetura)."""
+    pytest.importorskip("open_clip")
+    pytest.importorskip("PySide6.QtCore")
+    from PIL import Image
+    foto = tmp_path / "f.jpg"
+    Image.new("RGB", (900, 600), (90, 140, 60)).save(foto)
+    especies = ["Pitangus sulphuratus", "Turdus rufiventris", "Furnarius rufus"]
+    modelo = av.ModeloBioclip(especies, {"Pitangus sulphuratus": "Great Kiskadee"}, nome_modelo="ViT-B-16")
+    rankings = modelo.rankings(foto)
+    assert set(rankings) == set(av.MODOS_BIOCLIP)
+    for ranking in rankings.values():
+        assert sorted(nome for nome, _ in ranking) == sorted(especies)
+        assert sum(p for _, p in ranking) == pytest.approx(1.0, abs=1e-4)
+    assert modelo.tamanho_mb["bioclip-int8"] < modelo.tamanho_mb["bioclip"] / 2
+    assert modelo.fotos == 1 and modelo.tempo_s["bioclip"] > 0
+
+
+def test_candidatas_bioclip_grafia_do_catalogo():
+    pytest.importorskip("PySide6.QtCore")
+    especies, ingles = av.candidatas_bioclip()
+    assert len(especies) > 1500 and len(especies) == len(set(especies))
+    assert ingles.get("Pitangus sulphuratus") == "Great Kiskadee"
+
+
+def test_relatorio_com_custos():
+    resultados = [_r("a", 1, 0.9, modo=modo) for modo in av.MODOS + av.MODOS_BIOCLIP]
+    texto = av.montar_relatorio(resultados, {}, 0.9, 1.0, custos=[("BioCLIP INT8", 412.3, 88.1)])
+    assert "BioCLIP INT8" in texto and "412 ms" in texto and "88.1 MB" in texto
+    assert "Modo bioclip-misto" in texto

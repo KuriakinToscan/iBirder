@@ -16,6 +16,15 @@ compara estas variantes ("modos"):
   - "borda": proporção preservada e borda cinza até 224x224 (letterbox, só para comparação).
 e registra em que posição a espécie correta aparece no ranking de cada modo.
 
+Com --bioclip, compara também o BioCLIP (imageomics/bioclip, ViT-B/16, licença MIT), sem treino
+(zero-shot), entre as espécies registradas no Brasil e com a foto inteira esticada (sem recorte):
+  - "bioclip": textos "a photo of <nome científico>.";
+  - "bioclip-misto": nome científico e nome em inglês do eBird;
+  - "bioclip-int8": como "bioclip", com o codificador de imagem quantizado em INT8 (o tamanho que
+    caberia no app).
+Exige, só no ambiente de teste: pip install open_clip_torch torch torchvision (o primeiro uso
+baixa ~600 MB do Hugging Face). O relatório traz o tempo médio por foto e o tamanho do modelo.
+
 De onde vem a espécie correta (a "verdade"):
   - com --csv: planilha com as colunas "arquivo" e "especie" (nome científico ou nome em inglês do eBird);
   - sem --csv: o nome científico que o iBirder gravou na foto (iBirder|Taxonomia|ScientificName).
@@ -55,6 +64,8 @@ sys.path.insert(0, str(RAIZ))
 
 EXTENSOES = (".jpg", ".jpeg", ".png")
 REFERENCIA = "espremida"
+MODOS_BIOCLIP = ("bioclip", "bioclip-misto", "bioclip-int8")
+BIOCLIP_HUB = "hf-hub:imageomics/bioclip"
 MODOS = ("espremida", "espelho", "brasil", "espelho+brasil", "borda")
 LIMIARES = [round(0.30 + 0.05 * i, 2) for i in range(14)]  # 0,30 a 0,95
 SAIDA_RELATORIO = RAIZ / "tools" / "relatorio_avaliacao.txt"
@@ -217,6 +228,8 @@ class Modelo:
             linhas = [linha.strip() for linha in f if linha.strip()]
         self.rotulos = [formatar_rotulo(linha.split(",", 1)[1] if "," in linha else linha) for linha in linhas]
         self.especies = set(self.rotulos)
+        self.tempo_s, self.fotos = 0.0, 0  # só a rede, no modo do app (sem abrir a foto)
+        self.tamanho_mb = manager.model_path.stat().st_size / 1e6
 
     def imagem(self, caminho: Path, modo: str):
         """Entrada do modelo: "borda" (letterbox), "espremida" (esticada) ou "espelhada" (esticada e espelhada)."""
@@ -243,7 +256,11 @@ class Modelo:
 
     def rankings(self, caminho: Path, permitidas: Optional[set] = None) -> Dict[str, List[Tuple[str, float]]]:
         """Ranking de cada modo de ``MODOS`` (três inferências por foto)."""
-        esticada = self.probabilidades(self.imagem(caminho, "espremida"))
+        imagem = self.imagem(caminho, "espremida")
+        inicio = time.perf_counter()
+        esticada = self.probabilidades(imagem)
+        self.tempo_s += time.perf_counter() - inicio
+        self.fotos += 1
         media = (esticada + self.probabilidades(self.imagem(caminho, "espelhada"))) / 2
         borda = self.probabilidades(self.imagem(caminho, "borda"))
         return {
@@ -267,14 +284,118 @@ def especies_brasil() -> set:
     return especies_registradas_brasil()
 
 
+class ModeloBioclip:
+    """
+    BioCLIP zero-shot: compara o embedding da foto com o de um texto por espécie candidata.
+    A foto é aberta reduzida e esticada para 224x224 como no app (sem o recorte central padrão
+    do open_clip) e normalizada com a média e o desvio do CLIP.
+    """
+
+    def __init__(self, especies: Sequence[str], nomes_ingles: Optional[Dict[str, str]] = None,
+                 nome_modelo: str = BIOCLIP_HUB, pretrained: Optional[str] = None):
+        import copy
+        import open_clip
+        import torch
+        self.torch = torch
+        logging.info(f"Carregando o BioCLIP ({nome_modelo}); o primeiro uso baixa ~600 MB...")
+        self.modelo, _, _ = open_clip.create_model_and_transforms(nome_modelo, pretrained=pretrained)
+        self.modelo.eval()
+        tokenizador = open_clip.get_tokenizer(nome_modelo)
+        self.especies = list(especies)
+        self.conjunto = set(self.especies)
+        self.media = torch.tensor(open_clip.OPENAI_DATASET_MEAN).view(3, 1, 1)
+        self.desvio = torch.tensor(open_clip.OPENAI_DATASET_STD).view(3, 1, 1)
+        self.escala = float(self.modelo.logit_scale.exp())
+        nomes_ingles = nomes_ingles or {}
+        textos = {
+            "bioclip": [f"a photo of {sp}." for sp in self.especies],
+            "bioclip-misto": [f"a photo of {sp} with common name {nomes_ingles[sp]}." if nomes_ingles.get(sp)
+                              else f"a photo of {sp}." for sp in self.especies],
+        }
+        self.embeddings_texto = {modo: self._codificar_textos(tokenizador, lista) for modo, lista in textos.items()}
+        self.visual_int8 = torch.ao.quantization.quantize_dynamic(
+            copy.deepcopy(self.modelo.visual), {torch.nn.Linear}, dtype=torch.qint8)
+        self.tamanho_mb = {"bioclip": _tamanho_mb(self.modelo.visual), "bioclip-int8": _tamanho_mb(self.visual_int8)}
+        self.tempo_s = {"bioclip": 0.0, "bioclip-int8": 0.0}
+        self.fotos = 0
+
+    def _codificar_textos(self, tokenizador, textos: List[str], lote: int = 256):
+        torch = self.torch
+        partes = []
+        with torch.no_grad():
+            for i in range(0, len(textos), lote):
+                emb = self.modelo.encode_text(tokenizador(textos[i:i + lote]))
+                partes.append(emb / emb.norm(dim=-1, keepdim=True))
+        return torch.cat(partes)
+
+    def _tensor(self, caminho: Path):
+        import numpy as np
+        from modules.step1_identity.preprocessamento import abrir_reduzida, esticar
+        torch = self.torch
+        img = esticar(abrir_reduzida(caminho), 224, 224)
+        x = torch.from_numpy(np.asarray(img, dtype=np.float32) / 255.0).permute(2, 0, 1)
+        return ((x - self.media) / self.desvio).unsqueeze(0)
+
+    def _ranking(self, embedding, embeddings_texto) -> List[Tuple[str, float]]:
+        emb = embedding / embedding.norm(dim=-1, keepdim=True)
+        probabilidades = (self.escala * emb @ embeddings_texto.T).softmax(dim=-1).squeeze(0).tolist()
+        return sorted(zip(self.especies, probabilidades), key=lambda item: item[1], reverse=True)
+
+    def rankings(self, caminho: Path) -> Dict[str, List[Tuple[str, float]]]:
+        torch = self.torch
+        x = self._tensor(caminho)
+        with torch.no_grad():
+            inicio = time.perf_counter()
+            emb = self.modelo.encode_image(x)
+            self.tempo_s["bioclip"] += time.perf_counter() - inicio
+            inicio = time.perf_counter()
+            emb8 = self.visual_int8(x)
+            self.tempo_s["bioclip-int8"] += time.perf_counter() - inicio
+        self.fotos += 1
+        return {
+            "bioclip": self._ranking(emb, self.embeddings_texto["bioclip"]),
+            "bioclip-misto": self._ranking(emb, self.embeddings_texto["bioclip-misto"]),
+            "bioclip-int8": self._ranking(emb8, self.embeddings_texto["bioclip"]),
+        }
+
+
+def _tamanho_mb(modulo) -> float:
+    """Tamanho do state_dict serializado (aproxima o arquivo que iria para o app)."""
+    import io
+    import torch
+    buffer = io.BytesIO()
+    torch.save(modulo.state_dict(), buffer)
+    return buffer.tell() / 1e6
+
+
+def candidatas_bioclip() -> Tuple[List[str], Dict[str, str]]:
+    """
+    Espécies registradas no Brasil, na grafia do catálogo eBird quando houver (a mesma da espécie
+    correta), e o nome em inglês de cada uma.
+    """
+    from core.catalogo_especies import carregar
+    especies, ingles = [], {}
+    for item in carregar():
+        if item["no_brasil"]:
+            nome = " ".join(item["nome_cientifico"].split()[:2])
+            if nome not in ingles:
+                especies.append(nome)
+                ingles[nome] = item.get("nome_ingles", "")
+    return especies, ingles
+
+
 def avaliar_foto(modelo: Modelo, caminho: Path, verdade: str, guardar: int = 10,
-                 permitidas: Optional[set] = None) -> List[Resultado]:
+                 permitidas: Optional[set] = None, bioclip: Optional[ModeloBioclip] = None) -> List[Resultado]:
     resultados = []
-    for modo, ranking in modelo.rankings(caminho, permitidas).items():
-        nomes = [nome for nome, _ in ranking]
-        posicao = nomes.index(verdade) + 1 if verdade in nomes else None
-        resultados.append(Resultado(caminho.name, verdade, modo, ranking[:guardar], posicao,
-                                    verdade in modelo.especies))
+    rankings = [(modelo.rankings(caminho, permitidas), modelo.especies)]
+    if bioclip is not None:
+        rankings.append((bioclip.rankings(caminho), bioclip.conjunto))
+    for por_modo, conhecidas in rankings:
+        for modo, ranking in por_modo.items():
+            nomes = [nome for nome, _ in ranking]
+            posicao = nomes.index(verdade) + 1 if verdade in nomes else None
+            resultados.append(Resultado(caminho.name, verdade, modo, ranking[:guardar], posicao,
+                                        verdade in conhecidas))
     return resultados
 
 
@@ -293,6 +414,9 @@ DESCRICAO_MODOS = {
     "brasil": "só espécies do Brasil, o que o app usa",
     "espelho+brasil": "espelho e só Brasil",
     "borda": "letterbox, só comparação",
+    "bioclip": "BioCLIP zero-shot, nomes científicos, aves do Brasil",
+    "bioclip-misto": "BioCLIP zero-shot, nome científico + inglês",
+    "bioclip-int8": "BioCLIP zero-shot com imagem em INT8",
 }
 
 
@@ -324,11 +448,12 @@ def comparar_com_referencia(m: Metricas, ref: Metricas) -> Tuple[int, int, float
 
 
 def montar_relatorio(resultados: List[Resultado], ignoradas: Dict[str, int], precisao_alvo: float,
-                     duracao_s: float, limiar_atual: float = 0.30, fora_do_brasil: int = 0) -> str:
+                     duracao_s: float, limiar_atual: float = 0.30, fora_do_brasil: int = 0,
+                     custos: Optional[List[Tuple[str, float, float]]] = None) -> str:
     from core.config import APP_VERSION
     linhas = [f"Avaliação da IA local do iBirder (v{APP_VERSION}) - {time.strftime('%d/%m/%Y %H:%M')}",
               f"Duração: {duracao_s:.0f} s", ""]
-    modos = [modo for modo in MODOS if any(r.modo == modo for r in resultados)]
+    modos = [modo for modo in MODOS + MODOS_BIOCLIP if any(r.modo == modo for r in resultados)]
     por_modo = {modo: [r for r in resultados if r.modo == modo] for modo in modos}
     metricas = {modo: calcular_metricas(lista) for modo, lista in por_modo.items()}
     ref = metricas[REFERENCIA]
@@ -362,14 +487,24 @@ def montar_relatorio(resultados: List[Resultado], ignoradas: Dict[str, int], pre
         linhas.append(f"  {modo:<15} | {so_modo:17d} | {so_ref:23d} | {p:.3f}{marca}")
     linhas.append("")
 
-    for modo in (REFERENCIA, "brasil"):
+    if custos:
+        linhas += ["== Custo de cada modelo (CPU deste computador) ==",
+                   "  Modelo                    | Tempo médio por foto | Tamanho",]
+        for nome, tempo_ms, tamanho_mb in custos:
+            linhas.append(f"  {nome:<25} | {tempo_ms:17.0f} ms | {tamanho_mb:6.1f} MB")
+        linhas += ["  (Tempo só da rede, sem abrir a foto. Tamanho do BioCLIP: só o codificador de imagem.",
+                   "   O INT8 aqui é a quantização dinâmica do PyTorch, que deixa parte da atenção em FP32;",
+                   "   quantizado por inteiro (ONNX/LiteRT) o arquivo ficaria perto de 90 MB, estimativa.)", ""]
+
+    for modo in (REFERENCIA, "brasil", "bioclip", "bioclip-int8"):
         if modo in por_modo:
             linhas += _tabela_limiar(por_modo[modo], modo, n, precisao_alvo, limiar_atual)
     linhas += ["Observações:",
                "- IC95% de Wilson. Com poucas fotos o intervalo é largo: prefira 200+ fotos.",
                "- Espécie correta tirada do registro do iBirder só vale se você conferiu a identificação.",
                "- Espécies que o modelo não conhece nunca acertam: veja a linha 'só espécies conhecidas'.",
-               "- No modo 'brasil' a confiança é renormalizada entre as espécies do Brasil: tende a subir."]
+               "- No modo 'brasil' a confiança é renormalizada entre as espécies do Brasil: tende a subir.",
+               "- Nos modos BioCLIP, 'conhecida' = espécie entre as candidatas registradas no Brasil."]
     return "\n".join(linhas) + "\n"
 
 
@@ -396,6 +531,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                         help="antes de avaliar, baixa N fotos de aves do Brasil do iNaturalist (grau de "
                              "pesquisa, licença aberta) para a pasta (tools/amostra_inaturalist.py)")
     parser.add_argument("--limite", type=int, default=0, help="avaliar só as N primeiras fotos (teste rápido)")
+    parser.add_argument("--bioclip", action="store_true",
+                        help="comparar também o BioCLIP zero-shot (exige open_clip_torch e torch)")
     parser.add_argument("--relatorio", type=Path, default=SAIDA_RELATORIO)
     parser.add_argument("--saida-csv", type=Path, default=SAIDA_CSV)
     args = parser.parse_args(argv)
@@ -438,6 +575,18 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if not permitidas:
         logging.error("A lista de aves do Brasil (assets/conservacao) está vazia ou ausente.")
         return 2
+    bioclip = None
+    if args.bioclip:
+        try:
+            especies, ingles = candidatas_bioclip()
+            bioclip = ModeloBioclip(especies, ingles)
+        except ImportError:
+            logging.error("BioCLIP: instale no ambiente de teste: pip install open_clip_torch torch torchvision")
+            return 2
+        except Exception as e:
+            logging.error(f"Falha ao carregar o BioCLIP: {e}")
+            return 2
+        logging.info(f"BioCLIP pronto: {len(especies)} espécies candidatas.")
 
     inicio = time.time()
     resultados: List[Resultado] = []
@@ -449,7 +598,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             ignoradas["sem espécie conhecida"] += 1
             continue
         try:
-            resultados += avaliar_foto(modelo, foto, verdade, permitidas=permitidas)
+            resultados += avaliar_foto(modelo, foto, verdade, permitidas=permitidas, bioclip=bioclip)
         except Exception as e:
             ignoradas["erro de leitura"] += 1
             logging.warning(f"  {foto.name}: {e}")
@@ -462,8 +611,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 1
     from modules.step1_identity.id_worker import LIMIAR_SUGESTAO
     fora = sum(1 for r in resultados if r.modo == REFERENCIA and r.verdade.lower() not in permitidas)
+    custos = [("MobileNetV2 atual", 1000 * modelo.tempo_s / max(modelo.fotos, 1), modelo.tamanho_mb)]
+    if bioclip is not None:
+        for modo, nome in (("bioclip", "BioCLIP FP32"), ("bioclip-int8", "BioCLIP INT8")):
+            custos.append((nome, 1000 * bioclip.tempo_s[modo] / max(bioclip.fotos, 1), bioclip.tamanho_mb[modo]))
     relatorio = montar_relatorio(resultados, ignoradas, args.precisao_alvo, time.time() - inicio,
-                                 LIMIAR_SUGESTAO, fora_do_brasil=fora)
+                                 LIMIAR_SUGESTAO, fora_do_brasil=fora, custos=custos)
     # Com BOM: o "type" do PowerShell e o Bloco de Notas antigo leem os acentos certos
     args.relatorio.write_text(relatorio, encoding="utf-8-sig")
     gravar_csv(resultados, args.saida_csv)
