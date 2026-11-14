@@ -109,6 +109,9 @@ inclusive com Chrome headless).
 - Instância única por `QLocalServer` (`core/instancia_unica.py`), desligada no `--smoke-test`.
 - Interpretador LiteRT só com `_interpreter_lock`. Não há mais OTA de modelo.
 - CI roda `ruff check .` (regras em `ruff.toml`); rode antes de enviar.
+- Avaliação da IA: `python tools/avaliar_identificacao.py <pasta> [--csv especies.csv]` no `ibirder-teste`
+  (relatório em `tools/relatorio_avaliacao.txt`). O modelo NÃO conhece *Furnarius rufus* nem
+  *Turdus rufiventris*: separe as métricas "só espécies conhecidas".
 
 ## Testes
 

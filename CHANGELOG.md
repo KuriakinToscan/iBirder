@@ -1,5 +1,10 @@
 # Histórico de versões
 
+## Próxima versão (em desenvolvimento)
+
+### Novidades
+- **Avaliação da IA local** (`tools/avaliar_identificacao.py`, ferramenta de manutenção): roda o modelo em uma pasta de fotos de espécie conhecida (planilha `arquivo;especie` ou o nome gravado pelo iBirder) e relata o acerto top-1 e top-3 com intervalo de confiança de 95%, a comparação entre a foto com borda e a foto espremida (teste exato de McNemar) e a tabela de limiares de confiança. Nenhuma foto é alterada nem enviada.
+
 ## v1.4
 
 ### Novidades

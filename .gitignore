@@ -28,3 +28,7 @@ RULES.md
 # Saídas do teste manual do WikiAves
 tools/relatorio_wikiaves.txt
 tools/falhas_wikiaves/
+
+# Saídas da avaliação da IA (tools/avaliar_identificacao.py)
+tools/relatorio_avaliacao.txt
+tools/avaliacao_por_foto.csv
