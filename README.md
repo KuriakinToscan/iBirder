@@ -19,7 +19,7 @@ A identificação roda **no seu computador**. Quando a IA local fica em dúvida,
 - **Quatro layouts da janela**: **Painel completo**, **Fluxo guiado** (uma etapa por vez), **Ficha compacta** (tudo numa tela) e **Mesa de trabalho**, com a fila das fotos de uma pasta e a opção de ir para a próxima foto ao gravar. A identificação continua uma foto por vez.
 - **Busca rápida de espécies (Ctrl+K)**: sugestões do catálogo embarcado do eBird enquanto você digita, com as aves registradas no Brasil primeiro. As sugestões da IA viram botões clicáveis.
 - **Atalhos**: **Ctrl+O** abre uma foto, **Ctrl+S** grava os dados e **Ctrl+Shift+O** abre uma pasta na Mesa de trabalho.
-- **Identificação sem deformar a foto**: a IA local recebe a foto com a proporção original, em vez de espremida num quadrado, e a foto é aberta já reduzida (menos memória e preparo mais rápido).
+- **Foto aberta já reduzida**: menos memória e preparo mais rápido na identificação, e cópia de 1024 px com a proporção original para a nuvem.
 - **Aviso de novas versões**: o app avisa quando sai uma versão nova, com link direto para o instalador.
 - **Publicar no iNaturalist** (pronto, ainda inativo): o código para enviar a observação com a foto já está no app, mas só funciona depois que o aplicativo iBirder for registrado no iNaturalist ([issue #13](https://github.com/KuriakinToscan/iBirder/issues/13)).
 

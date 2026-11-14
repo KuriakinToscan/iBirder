@@ -76,6 +76,10 @@ def avaliar_ocorrencia(top3, lat, lon):
 def get_current_interpreter():
     return _interpreter_cache
 
+
+# Abaixo deste valor, a cascata consulta a nuvem. Calibrar com tools/avaliar_identificacao.py.
+LIMIAR_CONFIANCA = 0.70
+
 class LocalIdentificationWorker(QThread):
     """
     Motor de Identificação Local (Etapa 1).
@@ -95,7 +99,7 @@ class LocalIdentificationWorker(QThread):
         super().__init__(parent)
         self.image_path = image_path
         self._stopped = False
-        self.min_confidence = 0.70 # 70% threshold
+        self.min_confidence = LIMIAR_CONFIANCA
         # Coordenadas da foto (definidas pelo orquestrador) para a checagem de ocorrência
         self.lat = None
         self.lon = None

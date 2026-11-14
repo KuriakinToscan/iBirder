@@ -6,6 +6,9 @@
 - **Avaliação da IA local** (`tools/avaliar_identificacao.py`, ferramenta de manutenção): roda o modelo em uma pasta de fotos de espécie conhecida (planilha `arquivo;especie` ou o nome gravado pelo iBirder) e relata o acerto top-1 e top-3 com intervalo de confiança de 95%, a comparação entre a foto com borda e a foto espremida (teste exato de McNemar) e a tabela de limiares de confiança. Nenhuma foto é alterada nem enviada.
 - **Amostra do iNaturalist para a avaliação** (`tools/amostra_inaturalist.py`, ou `--baixar-inat N` na avaliação): baixa fotos de aves do Brasil em grau de pesquisa e licença aberta (CC0, CC BY, CC BY-NC), observadas desde 2023, no máximo 2 por espécie, com `especies.csv` e `creditos.csv` (observação, autor e licença).
 
+### Alterações
+- **IA local volta a receber a foto inteira esticada para 224x224 px** (sem recorte), em vez da borda cinza (letterbox) adotada na v1.4. Na avaliação com 200 fotos do iNaturalist de 110 espécies que o modelo conhece, esticar acertou a espécie na 1ª opção em 46,0% das fotos, contra 41,5% com borda (top-3: 63,5% contra 59,5%; 15 x 6 fotos discordantes, McNemar p = 0,078). A abertura reduzida e a cópia de 1024 px para a nuvem continuam preservando a proporção original. O relatório da avaliação traz a tabela de limiares dos dois modos e sai em UTF-8 com BOM (acentos certos no PowerShell).
+
 ## v1.4
 
 ### Novidades

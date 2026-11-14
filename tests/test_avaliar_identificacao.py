@@ -69,6 +69,8 @@ def test_ponta_a_ponta_com_o_modelo(tmp_path):
     relatorio, por_foto = tmp_path / "r.txt", tmp_path / "p.csv"
     codigo = av.main([str(pasta), "--csv", str(planilha), "--relatorio", str(relatorio), "--saida-csv", str(por_foto)])
     assert codigo == 0
-    texto = relatorio.read_text(encoding="utf-8")
+    assert relatorio.read_bytes().startswith(b"\xef\xbb\xbf")  # BOM: acentos certos no PowerShell
+    texto = relatorio.read_text(encoding="utf-8-sig")
+    assert "modo espremida: o que o app usa" in texto and "modo borda: só comparação" in texto
     assert "Fotos avaliadas: 2" in texto and "sem espécie conhecida): 1" in texto and "McNemar" in texto
     assert len(por_foto.read_text(encoding="utf-8-sig").strip().splitlines()) == 1 + 2 * 2

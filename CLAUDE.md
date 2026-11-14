@@ -104,7 +104,9 @@ inclusive com Chrome headless).
   nomes que `core/catalogo_especies.resolver_nome` reconhece (eBird embarcado; o iNat também aceita
   `iconic_taxon_name == "Aves"`). Testes em `tests/test_cascata_nuvem.py`.
 - Pré-processamento sem recorte (`modules/step1_identity/preprocessamento.py`): JPEG aberto com `draft`
-  (lado maior >= 896 px), letterbox 224 px; nuvem com 1024 px, JPEG 85.
+  (lado maior >= 896 px), depois **esticado** para 224x224 (sem borda: em 14/11/2026, 200 fotos de espécies
+  conhecidas, esticar 46,0% x letterbox 41,5% no top-1); nuvem com 1024 px, JPEG 85. Limiar da cascata em
+  `LIMIAR_CONFIANCA` (`id_worker.py`), calibrado pela tabela do modo "espremida" da avaliação.
 - `config.json`: gravação atômica; JSON ilegível vira `config.json.corrompido` e a janela avisa.
 - Instância única por `QLocalServer` (`core/instancia_unica.py`), desligada no `--smoke-test`.
 - Interpretador LiteRT só com `_interpreter_lock`. Não há mais OTA de modelo.

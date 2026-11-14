@@ -6,8 +6,8 @@
 Avaliação da IA local com fotos de espécie conhecida (sem abrir a interface do iBirder).
 
 Para cada foto, roda o modelo local duas vezes:
-  - "borda": proporção preservada e borda cinza até 224x224 (o que o app faz desde a v1.4);
-  - "espremida": a foto inteira deformada para 224x224 (como era até a v1.3).
+  - "borda": proporção preservada e borda cinza até 224x224 (letterbox, só para comparação);
+  - "espremida": a foto inteira esticada para 224x224, sem recorte (o que o app faz).
 e registra em que posição a espécie correta aparece no ranking do modelo.
 
 De onde vem a espécie correta (a "verdade"):
@@ -212,12 +212,11 @@ class Modelo:
         self.especies = set(self.rotulos)
 
     def imagem(self, caminho: Path, modo: str):
-        from PIL import Image
-        from modules.step1_identity.preprocessamento import abrir_reduzida, letterbox
+        from modules.step1_identity.preprocessamento import abrir_reduzida, esticar, letterbox
         img = abrir_reduzida(caminho)
         if modo == "borda":
             return letterbox(img, self.largura, self.altura)
-        return img.resize((self.largura, self.altura), Image.Resampling.LANCZOS)
+        return esticar(img, self.largura, self.altura)
 
     def ranking(self, caminho: Path, modo: str) -> List[Tuple[str, float]]:
         """Todas as espécies com a confiança, em ordem decrescente (como no app: a maior saída de cada espécie)."""
@@ -256,8 +255,28 @@ def _pct(acertos: int, n: int) -> str:
     return f"{100 * acertos / n:5.1f}% (IC95% {100 * baixo:.1f}-{100 * alto:.1f}%)"
 
 
+def _tabela_limiar(resultados: Sequence[Resultado], modo: str, n: int, precisao_alvo: float,
+                   limiar_atual: float) -> List[str]:
+    """Linhas da tabela de limiares de um modo, com o limiar atual marcado e o sugerido."""
+    tabela = analisar_limiares(resultados)
+    sugerido = limiar_sugerido(tabela, precisao_alvo)
+    titulo = "o que o app usa" if modo == "espremida" else "só comparação"
+    linhas = [f"== Limiar de confiança (modo {modo}: {titulo}) ==",
+              "  Abaixo do limiar o app consulta a nuvem. Aceitas = identificadas só com a IA local.",
+              "  Limiar | Aceitas        | Acerto entre as aceitas"]
+    for t, aceitas, acertos in tabela:
+        marca = "  <- atual" if abs(t - limiar_atual) < 1e-9 else ""
+        linhas.append(f"  {t:6.2f} | {aceitas:4d} ({100 * aceitas / max(n, 1):5.1f}%) | {_pct(acertos, aceitas)}{marca}")
+    linhas.append("")
+    if sugerido is None:
+        linhas.append(f"  Nenhum limiar atingiu {100 * precisao_alvo:.0f}% de acerto com 10 fotos ou mais.")
+    else:
+        linhas.append(f"  Menor limiar com acerto >= {100 * precisao_alvo:.0f}%: {sugerido:.2f}")
+    return linhas + [""]
+
+
 def montar_relatorio(resultados: List[Resultado], ignoradas: Dict[str, int], precisao_alvo: float,
-                     duracao_s: float) -> str:
+                     duracao_s: float, limiar_atual: float = 0.70) -> str:
     from core.config import APP_VERSION
     linhas = [f"Avaliação da IA local do iBirder (v{APP_VERSION}) - {time.strftime('%d/%m/%Y %H:%M')}",
               f"Duração: {duracao_s:.0f} s", ""]
@@ -290,20 +309,9 @@ def montar_relatorio(resultados: List[Resultado], ignoradas: Dict[str, int], pre
                f"  Teste exato de McNemar: p = {p:.3f} "
                + ("(diferença significativa a 5%)" if p < 0.05 else "(sem diferença significativa a 5%)"), ""]
 
-    tabela = analisar_limiares(por_modo["borda"])
-    sugerido = limiar_sugerido(tabela, precisao_alvo)
-    linhas += ["== Limiar de confiança (modo borda) ==",
-               "  Abaixo do limiar o app consulta a nuvem. Aceitas = identificadas só com a IA local.",
-               "  Limiar | Aceitas        | Acerto entre as aceitas"]
-    for t, aceitas, acertos in tabela:
-        marca = "  <- atual" if abs(t - 0.70) < 1e-9 else ""
-        linhas.append(f"  {t:6.2f} | {aceitas:4d} ({100 * aceitas / max(n, 1):5.1f}%) | {_pct(acertos, aceitas)}{marca}")
-    linhas.append("")
-    if sugerido is None:
-        linhas.append(f"  Nenhum limiar atingiu {100 * precisao_alvo:.0f}% de acerto com 10 fotos ou mais.")
-    else:
-        linhas.append(f"  Menor limiar com acerto >= {100 * precisao_alvo:.0f}%: {sugerido:.2f}")
-    linhas += ["", "Observações:",
+    for modo in ("espremida", "borda"):
+        linhas += _tabela_limiar(por_modo[modo], modo, n, precisao_alvo, limiar_atual)
+    linhas += ["Observações:",
                "- IC95% de Wilson. Com poucas fotos o intervalo é largo: prefira 200+ fotos.",
                "- Espécie correta tirada do registro do iBirder só vale se você conferiu a identificação.",
                "- Espécies que o modelo não conhece nunca acertam: veja a linha 'só espécies conhecidas'."]
@@ -389,8 +397,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if not resultados:
         logging.error("Nenhuma foto com espécie conhecida. Use --csv ou fotos gravadas pelo iBirder.")
         return 1
-    relatorio = montar_relatorio(resultados, ignoradas, args.precisao_alvo, time.time() - inicio)
-    args.relatorio.write_text(relatorio, encoding="utf-8")
+    from modules.step1_identity.id_worker import LIMIAR_CONFIANCA
+    relatorio = montar_relatorio(resultados, ignoradas, args.precisao_alvo, time.time() - inicio, LIMIAR_CONFIANCA)
+    # Com BOM: o "type" do PowerShell e o Bloco de Notas antigo leem os acentos certos
+    args.relatorio.write_text(relatorio, encoding="utf-8-sig")
     gravar_csv(resultados, args.saida_csv)
     print("\n" + relatorio)
     logging.info(f"Relatório: {args.relatorio}\nPor foto:  {args.saida_csv}")
