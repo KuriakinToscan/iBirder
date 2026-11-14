@@ -136,5 +136,11 @@ def registrada_no_brasil(nome, inat_id=None):
     return False
 
 
+def especies_registradas_brasil():
+    """Conjunto das espécies (gênero + espécie, em minúsculas) com registro no Brasil."""
+    return {_especie(linha["nome_cientifico"]) for linha in _ler("aves_registradas_brasil.csv")
+            if linha.get("nome_cientifico")}
+
+
 def total_registradas_brasil():
     return len(_ler("aves_registradas_brasil.csv"))

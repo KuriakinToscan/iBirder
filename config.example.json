@@ -12,6 +12,7 @@
     "mostrar_alerta_iucn": false,
     "mostrar_alerta_ebird": false,
     "verificar_atualizacoes": true,
+    "ia_sem_gps_brasil": true,
     "ultima_verificacao_versao": "",
     "versao_ignorada": "",
     "tema": "offwhite",

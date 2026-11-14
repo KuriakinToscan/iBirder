@@ -7,10 +7,11 @@ Avaliação da IA local com fotos de espécie conhecida (sem abrir a interface d
 
 Para cada foto, roda o modelo local três vezes (esticada, esticada e espelhada, com borda) e
 compara estas variantes ("modos"):
-  - "espremida": a foto inteira esticada para 224x224, sem recorte (o que o app faz; referência);
+  - "espremida": a foto inteira esticada para 224x224, sem recorte, com as 965 espécies (referência);
   - "espelho": média das probabilidades da foto esticada e da espelhada na horizontal (TTA);
   - "brasil": só as espécies com registro no Brasil (assets/conservacao/aves_registradas_brasil.csv),
-    com as probabilidades renormalizadas entre elas (prior geográfico simples);
+    com as probabilidades renormalizadas entre elas (prior geográfico simples; o que o app usa
+    para fotos do Brasil e, por padrão, sem GPS);
   - "espelho+brasil": as duas coisas juntas;
   - "borda": proporção preservada e borda cinza até 224x224 (letterbox, só para comparação).
 e registra em que posição a espécie correta aparece no ranking de cada modo.
@@ -55,7 +56,6 @@ sys.path.insert(0, str(RAIZ))
 EXTENSOES = (".jpg", ".jpeg", ".png")
 REFERENCIA = "espremida"
 MODOS = ("espremida", "espelho", "brasil", "espelho+brasil", "borda")
-CSV_BRASIL = RAIZ / "assets" / "conservacao" / "aves_registradas_brasil.csv"
 LIMIARES = [round(0.30 + 0.05 * i, 2) for i in range(14)]  # 0,30 a 0,95
 SAIDA_RELATORIO = RAIZ / "tools" / "relatorio_avaliacao.txt"
 SAIDA_CSV = RAIZ / "tools" / "avaliacao_por_foto.csv"
@@ -256,28 +256,15 @@ class Modelo:
 
 
 def ranking_por_especie(rotulos: Sequence[str], saida, permitidas: Optional[set] = None) -> List[Tuple[str, float]]:
-    """
-    Espécies em ordem decrescente de confiança (a maior saída de cada espécie, como no app).
-    Com ``permitidas``, só essas espécies entram, e as confianças são renormalizadas para somar 1
-    entre elas (o que sobra depois de descartar as espécies de fora).
-    """
-    por_especie: Dict[str, float] = {}
-    for rotulo, valor in zip(rotulos, saida):
-        if permitidas is not None and rotulo not in permitidas:
-            continue
-        por_especie[rotulo] = max(por_especie.get(rotulo, 0.0), float(valor))
-    if permitidas is not None:
-        total = sum(por_especie.values())
-        if total > 0:
-            por_especie = {nome: valor / total for nome, valor in por_especie.items()}
-    return sorted(por_especie.items(), key=lambda item: item[1], reverse=True)
+    """O mesmo ranking do app (id_worker.ranking_por_especie); ``permitidas`` em minúsculas."""
+    from modules.step1_identity.id_worker import ranking_por_especie as ranking_do_app
+    return ranking_do_app(rotulos, saida, permitidas)
 
 
-def especies_brasil(caminho: Path = CSV_BRASIL) -> set:
-    """Espécies (gênero + espécie) com registro de grau de pesquisa no Brasil, da lista embarcada."""
-    with open(caminho, encoding="utf-8-sig", newline="") as f:
-        return {" ".join(linha["nome_cientifico"].split()[:2]) for linha in csv.DictReader(f)
-                if linha.get("nome_cientifico")}
+def especies_brasil() -> set:
+    """Espécies (gênero + espécie, em minúsculas) com registro no Brasil, da lista embarcada."""
+    from modules.step3_geography.listas_conservacao import especies_registradas_brasil
+    return especies_registradas_brasil()
 
 
 def avaliar_foto(modelo: Modelo, caminho: Path, verdade: str, guardar: int = 10,
@@ -301,9 +288,9 @@ def _pct(acertos: int, n: int) -> str:
 
 
 DESCRICAO_MODOS = {
-    "espremida": "o que o app usa",
+    "espremida": "sem prior, como até a v1.4",
     "espelho": "média com a foto espelhada",
-    "brasil": "só espécies registradas no Brasil",
+    "brasil": "só espécies do Brasil, o que o app usa",
     "espelho+brasil": "espelho e só Brasil",
     "borda": "letterbox, só comparação",
 }
@@ -315,10 +302,11 @@ def _tabela_limiar(resultados: Sequence[Resultado], modo: str, n: int, precisao_
     tabela = analisar_limiares(resultados)
     sugerido = limiar_sugerido(tabela, precisao_alvo)
     linhas = [f"== Limiar de confiança (modo {modo}: {DESCRICAO_MODOS.get(modo, modo)}) ==",
-              "  Abaixo do limiar o app consulta a nuvem. Aceitas = identificadas só com a IA local.",
+              "  Aceitas = confiança do top-1 >= limiar. Com nuvem configurada o app sempre a consulta;",
+              "  sem nuvem, abaixo do piso marcado a identificação é inconclusiva.",
               "  Limiar | Aceitas        | Acerto entre as aceitas"]
     for t, aceitas, acertos in tabela:
-        marca = "  <- atual" if abs(t - limiar_atual) < 1e-9 else ""
+        marca = "  <- piso da sugestão offline" if abs(t - limiar_atual) < 1e-9 else ""
         linhas.append(f"  {t:6.2f} | {aceitas:4d} ({100 * aceitas / max(n, 1):5.1f}%) | {_pct(acertos, aceitas)}{marca}")
     linhas.append("")
     if sugerido is None:
@@ -336,7 +324,7 @@ def comparar_com_referencia(m: Metricas, ref: Metricas) -> Tuple[int, int, float
 
 
 def montar_relatorio(resultados: List[Resultado], ignoradas: Dict[str, int], precisao_alvo: float,
-                     duracao_s: float, limiar_atual: float = 0.70, fora_do_brasil: int = 0) -> str:
+                     duracao_s: float, limiar_atual: float = 0.30, fora_do_brasil: int = 0) -> str:
     from core.config import APP_VERSION
     linhas = [f"Avaliação da IA local do iBirder (v{APP_VERSION}) - {time.strftime('%d/%m/%Y %H:%M')}",
               f"Duração: {duracao_s:.0f} s", ""]
@@ -447,6 +435,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     except (OSError, KeyError) as e:
         logging.error(f"Não foi possível ler a lista de aves do Brasil: {e}")
         return 2
+    if not permitidas:
+        logging.error("A lista de aves do Brasil (assets/conservacao) está vazia ou ausente.")
+        return 2
 
     inicio = time.time()
     resultados: List[Resultado] = []
@@ -469,10 +460,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if not resultados:
         logging.error("Nenhuma foto com espécie conhecida. Use --csv ou fotos gravadas pelo iBirder.")
         return 1
-    from modules.step1_identity.id_worker import LIMIAR_CONFIANCA
-    fora = sum(1 for r in resultados if r.modo == REFERENCIA and r.verdade not in permitidas)
+    from modules.step1_identity.id_worker import LIMIAR_SUGESTAO
+    fora = sum(1 for r in resultados if r.modo == REFERENCIA and r.verdade.lower() not in permitidas)
     relatorio = montar_relatorio(resultados, ignoradas, args.precisao_alvo, time.time() - inicio,
-                                 LIMIAR_CONFIANCA, fora_do_brasil=fora)
+                                 LIMIAR_SUGESTAO, fora_do_brasil=fora)
     # Com BOM: o "type" do PowerShell e o Bloco de Notas antigo leem os acentos certos
     args.relatorio.write_text(relatorio, encoding="utf-8-sig")
     gravar_csv(resultados, args.saida_csv)

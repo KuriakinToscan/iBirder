@@ -1,9 +1,9 @@
 # Identificação na nuvem (opcional)
 
-O iBirder identifica a ave **no seu computador**, sem internet. Quando essa identificação fica com **menos de 70% de certeza**, o app pode pedir uma segunda opinião a um serviço na nuvem, usando **uma chave sua** (nada é enviado sem uma chave configurada).
+O iBirder identifica a ave **no seu computador**, sem internet. Com **uma chave sua** configurada, o app confirma toda identificação num serviço na nuvem (nada é enviado sem uma chave configurada). Sem chave, o resultado local aparece como sugestão para você conferir.
 
-- **O que é enviado:** só uma cópia reduzida da foto (até 800 pixels, sem os metadados). A foto original nunca sai do computador.
-- **Quando é usado:** apenas quando a IA local está em dúvida.
+- **O que é enviado:** só uma cópia reduzida da foto (até 1024 pixels, sem os metadados). A foto original nunca sai do computador.
+- **Quando é usado:** em toda identificação, quando há chave configurada. Em testes com 300 fotos de aves do Brasil, a IA local sozinha acertou poucas espécies, porque conhece só parte das aves do país.
 - **É obrigatório?** Não. Sem chaves, o iBirder funciona normalmente; nas fotos difíceis, você pode usar a **Busca Manual** ou o **Google Lens**.
 
 > **Por que vale a pena no Brasil:** a IA local reconhece 965 espécies de aves do mundo todo, mas só cerca de 230 delas ocorrem no Brasil. Para as demais, a consulta ao iNaturalist faz muita diferença.
@@ -98,4 +98,4 @@ O botão **Testar Chaves** diz exatamente o que falta:
 
 ## Como saber se está funcionando no dia a dia?
 
-Ao identificar uma foto difícil, observe a barra de status, na parte de baixo da janela. Aparecem mensagens como **"Confiança local baixa. Consultando iNaturalist (Nuvem)..."**. Quando a nuvem resolve, a linha **Certeza** mostra a fonte, por exemplo: `iNaturalist API (Nuvem)`.
+Ao identificar uma foto difícil, observe a barra de status, na parte de baixo da janela. Aparecem mensagens como **"Confirmando a espécie. Consultando iNaturalist (Nuvem)..."**. Quando a nuvem resolve, a linha **Certeza** mostra a fonte, por exemplo: `iNaturalist API (Nuvem)`.

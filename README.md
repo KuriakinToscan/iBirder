@@ -7,7 +7,7 @@ O **iBirder** é uma ferramenta de código aberto para observadores de aves, orn
 A identificação roda **no seu computador**. Quando a IA local fica em dúvida, o app pode consultar o iNaturalist ou o Google Vision, usando as **suas** chaves de API.
 
 ## ✨ Principais Recursos
-- **Identificação em cascata**: IA local primeiro (sem custo e sem internet). Abaixo de 70% de certeza, consulta o iNaturalist e, por fim, o Google Cloud Vision, se houver chaves configuradas.
+- **Identificação em cascata**: IA local primeiro (sem custo e sem internet), só com aves do Brasil para fotos daqui. Com chaves configuradas, a espécie é sempre confirmada no iNaturalist e, se preciso, no Google Cloud Vision; sem elas, o resultado local é uma sugestão para conferir.
 - **Privacidade (BYOK)**: a foto só sai do computador na consulta à nuvem (cópia reduzida) ou no Google Lens, por ação do usuário.
 - **Integração com o WikiAves**: nome popular, etimologia e características das espécies brasileiras.
 - **Contexto geográfico**: município, estado, bioma (IBGE), endemismo no Brasil, mapa de ocorrência (GBIF) e vocalizações próximas ao local da foto.

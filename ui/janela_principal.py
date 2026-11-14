@@ -1501,15 +1501,15 @@ class JanelaPrincipal(QMainWindow):
             if self.dados_identificacao_atual:
                 self.dados_identificacao_atual["nome_cientifico"] = sci_formatted
             
-            aviso = dados.get("aviso_ocorrencia")
+            aviso = dados.get("aviso_sugestao")
             if aviso:
-                # Espécie sugerida sem registro no Brasil e sem nuvem para confirmar
-                alternativas = dados.get("alternativas_brasil") or []
+                # Sugestão só da IA local (sem nuvem para confirmar): mostra as outras candidatas
+                alternativas = (top_candidates or [])[1:]
                 html = (f'<div style="font-size: 12px; color: var(--alerta_texto); background: var(--alerta_fundo); padding: 6px;">'
                         f'⚠ {aviso}</div>')
-                self._mostrar_candidatos("<b>Candidatas com registro no Brasil</b> (clique para pesquisar):",
+                self._mostrar_candidatos("<b>Outras candidatas</b> (clique para pesquisar):",
                                          alternativas, aviso_html=html)
-                self.status_bar.showMessage("Atenção: espécie sugerida sem registro no Brasil. Confira a identificação.", 15000)
+                self.status_bar.showMessage("Sugestão da IA local: confira a espécie.", 15000)
             else:
                 self._mostrar_candidatos("", [])
         else:
@@ -1541,7 +1541,7 @@ class JanelaPrincipal(QMainWindow):
             self.btn_google_lens.setEnabled(True)
 
         else:
-            if not dados.get("aviso_ocorrencia"):
+            if not dados.get("aviso_sugestao"):
                 self.status_bar.showMessage("Identificação concluída.")
             
             self.btn_wiki.setEnabled(True)

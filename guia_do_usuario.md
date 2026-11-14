@@ -31,14 +31,14 @@ O iBirder lê os metadados da foto: **coordenadas GPS**, **autor** e **data/hora
 ### [ETAPA 2] Identificação da espécie
 A IA local analisa a ave e mostra o **nome científico** e a **Certeza** (por exemplo, `92.3% (MobileNetV2 (Local))`).
 
-Se a certeza ficar **abaixo de 70%**, o iBirder consulta a nuvem, caso você tenha configurado uma chave (veja a seção 4). Se ainda assim não houver resultado confiável, a identificação aparece como **inconclusiva**. Nesse caso:
+Se você configurou uma chave da nuvem (veja a seção 4), o iBirder **sempre** confirma a espécie na nuvem, porque a certeza da IA local não basta para separar acerto de erro. Sem nuvem (ou sem internet), o resultado local aparece como **sugestão**, com um aviso em amarelo para você conferir, e as outras candidatas como botões. Se a certeza local ficar abaixo de 30%, a identificação aparece como **inconclusiva**. Nesse caso:
 
 - digite parte do nome científico ou do nome em inglês no campo **Nome Científico** (atalho **Ctrl+K**) e escolha uma das sugestões, ou digite o nome completo e pressione Enter; ou
 - use o botão **Pesquisar com Google Lens**: a página do Lens abre no navegador; arraste a foto do iBirder para ela. **Nesse caso, a foto é enviada ao Google.**
 
 Os **candidatos** sugeridos pela IA aparecem como botões, com a certeza de cada um: clique em um deles para buscar as informações dessa espécie.
 
-**Aviso de região:** se a foto foi tirada no Brasil e a IA sugerir uma espécie **sem registro no país** (por exemplo, uma ave da América do Norte), o iBirder tenta a nuvem e, sem ela, mostra um aviso em amarelo com os candidatos que ocorrem no Brasil. A verificação usa uma lista de cerca de 1.750 espécies com registro no Brasil (iNaturalist), já instalada.
+**Só aves do Brasil:** para fotos com GPS no Brasil, e para fotos sem GPS, a IA local considera só as espécies com registro no país (lista de cerca de 1.750 espécies do iNaturalist, já instalada). Isso aumentou o acerto da IA local de 48% para 59% nas espécies que ela conhece. Se você fotografa no exterior com uma câmera sem GPS, desmarque **Fotos sem GPS: considerar só aves do Brasil** em **Configurações (⚙)**.
 
 ### [ETAPA 3] Localização e mapa
 Com GPS na foto, o pino vermelho marca o local no mapa. Sem GPS, aparece o aviso **"Sem dados de localização, indique manualmente aqui"**: clique nele e pesquise o local pelo nome.
@@ -126,7 +126,7 @@ Ao terminar, o número da observação é gravado na foto (*iBirder > Publicacao
 
 - **Recarregar (↻):** limpa a análise atual.
 - **Ajuda (?):** abre um menu com **Manual do usuário**, **Verificar atualizações**, **Copiar diagnóstico** (informações técnicas para enviar ao suporte, sem as suas chaves de API) e **Abrir pasta de logs**.
-- **Configurações (⚙):** aparência (tema e layout), chaves de API da identificação em nuvem e o aviso de novas versões.
+- **Configurações (⚙):** aparência (tema e layout), fotos sem GPS (considerar só aves do Brasil), chaves de API da identificação em nuvem e o aviso de novas versões.
 
 ### Atalhos de teclado
 
@@ -173,7 +173,7 @@ Ao abrir, o iBirder confere no GitHub, no máximo uma vez por dia, se há versã
 
 ## 4. Identificação em nuvem (opcional)
 
-Quando a IA local tem menos de 70% de certeza, o iBirder pode consultar o **iNaturalist** (recomendado, grátis) e o **Google Cloud Vision** (exige conta com faturamento no Google Cloud). Você usa as **suas próprias chaves**, e só uma cópia reduzida da foto (até 800 pixels, sem metadados) é enviada.
+Com uma chave configurada, o iBirder confirma toda identificação no **iNaturalist** (recomendado, grátis) e, se preciso, no **Google Cloud Vision** (exige conta com faturamento no Google Cloud). Você usa as **suas próprias chaves**, e só uma cópia reduzida da foto (até 1024 pixels, sem metadados) é enviada.
 
 Para configurar, clique na **engrenagem (⚙)** e depois em **"Como obter essas chaves? (passo a passo)"**. O botão **Testar Chaves** diz exatamente o que falta quando algo não está certo.
 
@@ -195,7 +195,8 @@ Para configurar, clique na **engrenagem (⚙)** e depois em **"Como obter essas 
 ## 6. Solução de problemas
 
 - **"WikiAves inacessível no momento":** verifique se o Google Chrome está instalado e se há internet. As outras informações continuam disponíveis.
-- **Aviso "sem registro no Brasil":** confira os candidatos sugeridos ou use a Busca Manual; se a ave for realmente uma raridade (vagante), mantenha a identificação.
+- **Aviso "Sugestão da IA local":** confira a espécie com a foto de referência e as outras candidatas, ou configure o iNaturalist para a confirmação automática.
+- **Ave vagante ou foto do exterior sem GPS:** a IA local só sugere aves com registro no Brasil. Use a Busca Manual, ou desmarque a opção de fotos sem GPS em Configurações (⚙).
 - **Identificação inconclusiva em espécie comum:** a espécie pode não estar entre as que a IA local conhece. Use a Busca Manual ou configure o iNaturalist.
 - **Vocalização não toca:** a janela mostra o motivo e o botão **Abrir no navegador**.
 - **Erro ao testar as chaves:** siga a mensagem do botão **Testar Chaves** e o passo a passo da engrenagem (⚙).

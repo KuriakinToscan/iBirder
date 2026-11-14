@@ -58,37 +58,56 @@ def foto_no_brasil(lat, lon):
     return bioma != "Fora de área mapeada"
 
 
-def avaliar_ocorrencia(top3, lat, lon):
+def usar_prior_brasil(lat, lon, sem_gps_brasil=True):
     """
-    (fora_da_area, alternativas): fora_da_area é True quando a foto é do Brasil e a espécie
-    sugerida não tem registro no país; alternativas são os outros candidatos do top-3 que têm.
-    Sem coordenadas, nada é afirmado.
+    True se a IA local deve considerar só as aves com registro no Brasil: foto com GPS no Brasil,
+    ou foto sem GPS quando ``sem_gps_brasil`` (opção "ia_sem_gps_brasil" do config.json, padrão
+    ligada). Foto com GPS fora do Brasil usa as 965 espécies do modelo.
     """
-    if not top3 or not foto_no_brasil(lat, lon):
-        return False, []
-    from modules.step3_geography import listas_conservacao as listas
-    if listas.total_registradas_brasil() == 0 or listas.registrada_no_brasil(top3[0]["nome_cientifico"]):
-        return False, []
-    alternativas = [c for c in top3[1:] if listas.registrada_no_brasil(c["nome_cientifico"])]
-    return True, alternativas
+    no_brasil = foto_no_brasil(lat, lon)
+    return sem_gps_brasil if no_brasil is None else no_brasil
+
+
+def ranking_por_especie(rotulos, saida, permitidas=None):
+    """
+    [(espécie, confiança)] em ordem decrescente: a maior saída de cada espécie (rótulos de
+    subespécie caem na espécie). Com ``permitidas`` (gênero + espécie em minúsculas), só essas
+    entram e as confianças são renormalizadas para somar 1 entre elas. Em 14/11/2026 (200 fotos
+    do iNaturalist de espécies conhecidas pelo modelo), isso subiu o top-1 de 48,0% para 59,0%
+    (22 x 0 fotos discordantes; tools/avaliar_identificacao.py, modo "brasil").
+    """
+    por_especie = {}
+    for rotulo, valor in zip(rotulos, saida):
+        if permitidas is not None and rotulo.lower() not in permitidas:
+            continue
+        por_especie[rotulo] = max(por_especie.get(rotulo, 0.0), float(valor))
+    if permitidas is not None:
+        total = sum(por_especie.values())
+        if total > 0:
+            por_especie = {nome: valor / total for nome, valor in por_especie.items()}
+    return sorted(por_especie.items(), key=lambda item: item[1], reverse=True)
 
 
 def get_current_interpreter():
     return _interpreter_cache
 
 
-# Abaixo deste valor, a cascata consulta a nuvem. Calibrar com tools/avaliar_identificacao.py.
-LIMIAR_CONFIANCA = 0.70
+# A IA local não decide sozinha quando há nuvem configurada: na amostra geral de 14/11/2026
+# (300 fotos do iNaturalist no Brasil, 71% de espécies que o modelo não conhece), nenhum limiar
+# de confiança passou de 60% de acerto entre as fotos aceitas. Sem nuvem, abaixo deste piso a
+# identificação é inconclusiva; acima, vira uma sugestão para a pessoa conferir.
+LIMIAR_SUGESTAO = 0.30
 
 class LocalIdentificationWorker(QThread):
     """
     Motor de Identificação Local (Etapa 1).
     Modelo: Google AIY Vision "Birds V1" (MobileNetV2 quantizado, TFLite), treinado com fotos
     do iNaturalist; 965 espécies do mundo todo (cerca de 230 ocorrem no Brasil).
-    Abaixo de 70% de confiança, consulta a nuvem (iNaturalist e/ou Google Vision) se houver chave.
+    Com nuvem configurada (iNaturalist e/ou Google Vision), a nuvem é sempre consultada; sem ela,
+    o resultado local é uma sugestão a conferir (ou inconclusivo abaixo de ``LIMIAR_SUGESTAO``).
     Gerencia:
     1. Download do modelo se ausente (ModelManager; normalmente já vem no instalador).
-    2. Pré-processamento (orientação EXIF, redução com a proporção preservada e borda até 224x224).
+    2. Pré-processamento (orientação EXIF, redução e foto inteira esticada para 224x224).
     3. Inferência local, sem internet.
     """
     progress_updated = Signal(str)
@@ -99,8 +118,7 @@ class LocalIdentificationWorker(QThread):
         super().__init__(parent)
         self.image_path = image_path
         self._stopped = False
-        self.min_confidence = LIMIAR_CONFIANCA
-        # Coordenadas da foto (definidas pelo orquestrador) para a checagem de ocorrência
+        # Coordenadas da foto (definidas pelo orquestrador) para o prior Brasil
         self.lat = None
         self.lon = None
 
@@ -148,7 +166,7 @@ class LocalIdentificationWorker(QThread):
             width = input_details[0]['shape'][2]
             
             # 3. Pré-processamento (preprocessamento.py): abre já reduzida, sem alterar o arquivo,
-            # e leva o lado maior a 224 px com borda neutra, sem deformar a ave
+            # e estica a foto inteira para a entrada do modelo, sem recorte
             img_resized = preparar_para_modelo(self.image_path, width, height)
             
             # Check input type
@@ -178,66 +196,64 @@ class LocalIdentificationWorker(QThread):
             if output_details[0]['dtype'] == np.uint8:
                  results = results / 255.0
             
-            # Top-3 com nomes (rótulos na mesma ordem das saídas do modelo)
-            top_k = results.argsort()[-3:][::-1]
-            confidence = float(results[top_k[0]])
-            labels = self._load_labels(manager.labels_path)
-            if len(labels) <= int(top_k[0]):
-                self.error.emit(f"Erro: Índice {top_k[0]} fora dos limites ({len(labels)}).")
+            # Ranking por espécie (rótulos na mesma ordem das saídas do modelo), só com as aves
+            # do Brasil quando a foto é daqui (ou sem GPS, pela opção do config.json)
+            labels = [formatar_rotulo(rotulo) for rotulo in self._load_labels(manager.labels_path)]
+            if len(labels) != len(results):
+                self.error.emit(f"Erro: {len(labels)} rótulos para {len(results)} saídas do modelo.")
                 return
-            top3_results = [{"nome_cientifico": formatar_rotulo(labels[i]), "confianca": float(results[i])}
-                            for i in top_k]
+            config = carregar_config()
+            permitidas = None
+            if usar_prior_brasil(self.lat, self.lon, bool(config.get("ia_sem_gps_brasil", True))):
+                from modules.step3_geography import listas_conservacao as listas
+                permitidas = listas.especies_registradas_brasil() or None
+            ranking = ranking_por_especie(labels, results, permitidas)
+            top3_results = [{"nome_cientifico": nome, "confianca": conf} for nome, conf in ranking[:3]]
+            confidence = top3_results[0]["confianca"] if top3_results else 0.0
+            logging.info(f"IA local: {top3_results[0]['nome_cientifico'] if top3_results else '-'} "
+                         f"({confidence*100:.1f}%){' entre as aves do Brasil' if permitidas else ''}.")
 
-            # Plausibilidade regional: a IA local conhece só ~230 das ~1.760 aves com registro no
-            # Brasil e pode sugerir, com alta confiança, uma espécie que nunca ocorreu aqui.
-            fora_da_area, alternativas = avaliar_ocorrencia(top3_results, self.lat, self.lon)
-
-            if confidence < self.min_confidence or fora_da_area:
-                if fora_da_area:
-                    motivo = "Espécie sugerida sem registro no Brasil"
-                    logging.info(f"{top3_results[0]['nome_cientifico']} ({confidence*100:.1f}%) sem registro no Brasil. "
-                                 "Consultando a nuvem.")
-                else:
-                    motivo = "Confiança local baixa"
-                    logging.info(f"Confiança local ({confidence*100:.1f}%) abaixo de {self.min_confidence*100:.0f}%. "
-                                 "Iniciando cascata de IA (Nuvem).")
-                resultado_nuvem = self._consultar_nuvem(motivo)
+            # Com nuvem configurada, ela sempre decide (a confiança local não separa acerto de erro)
+            if self._nuvem_configurada(config):
+                resultado_nuvem = self._consultar_nuvem("Confirmando a espécie")
                 if resultado_nuvem:
                     self.finished.emit(resultado_nuvem)
                     return
 
-                if not fora_da_area:
-                    # Se falhou tudo ou não tem chaves, retorna inconclusivo
-                    logging.warning("Cascata esgotada. Retornando identificação Inconclusiva ao usuário.")
-                    self.finished.emit({
-                        "nome_cientifico": "Identificação Inconclusiva",
-                        "nome_comum": "",
-                        "descricao": "A foto pode estar pouco nítida ou a ave está muito distante.",
-                        "confianca": confidence,
-                        "top3": top3_results,
-                        "status_msg": "Baixa confiança"
-                    })
-                    return
+            if confidence < LIMIAR_SUGESTAO:
+                logging.warning("Sem nuvem e com confiança local baixa. Retornando identificação Inconclusiva.")
+                self.finished.emit({
+                    "nome_cientifico": "Identificação Inconclusiva",
+                    "nome_comum": "",
+                    "descricao": "A foto pode estar pouco nítida ou a ave está muito distante.",
+                    "confianca": confidence,
+                    "top3": top3_results,
+                    "status_msg": "Baixa confiança"
+                })
+                return
 
-            resultado = {
+            self.finished.emit({
                 "nome_cientifico": top3_results[0]["nome_cientifico"],
                 "nome_comum": "",
-                "descricao": "Identificado localmente (iNaturalist Vision).",
+                "descricao": "Sugestão da IA local (iNaturalist Vision), sem confirmação da nuvem.",
                 "confianca": confidence,
                 "top3": top3_results,
-                "modelo_ia": "MobileNetV2 (Local)"
-            }
-            if fora_da_area:
-                # Sem nuvem disponível: mantém a sugestão, mas avisa e aponta alternativas plausíveis
-                resultado["aviso_ocorrencia"] = (
-                    f"{top3_results[0]['nome_cientifico']} não tem registro no Brasil (iNaturalist). "
-                    "A IA local provavelmente não conhece esta ave: confira a identificação.")
-                resultado["alternativas_brasil"] = alternativas
-            self.finished.emit(resultado)
+                "modelo_ia": "MobileNetV2 (Local)",
+                "status_msg": "Sugestão local",
+                "aviso_sugestao": ("Sugestão da IA local, sem confirmação da nuvem: confira a espécie. "
+                                   "A IA local conhece só parte das aves do Brasil."),
+            })
 
         except Exception as e:
             logging.error("Erro fatal na análise de imagem:", exc_info=True)
             self.error.emit(f"Erro na análise: {str(e)}")
+
+    @staticmethod
+    def _nuvem_configurada(config):
+        """True se há token do iNaturalist ou chave do Google Vision no config.json."""
+        from core.diagnostico_apis import normalizar_token_inat
+        return bool(normalizar_token_inat(config.get("inat_api_token", ""))
+                    or config.get("google_vision_api_key", "").strip())
 
     def _consultar_nuvem(self, motivo):
         """Cascata de nuvem (iNaturalist e depois Google Vision) com as chaves do usuário."""

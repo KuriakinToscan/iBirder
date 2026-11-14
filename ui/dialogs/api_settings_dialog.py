@@ -73,6 +73,17 @@ class APISettingsDialog(QDialog):
         layout_tema.addWidget(lbl_tema)
         layout.addWidget(grupo_tema)
 
+        # Identificação (prior Brasil da IA local; modules/step1_identity/id_worker.py)
+        lbl_ident = QLabel("Identificação")
+        lbl_ident.setProperty("class", "lbl-titulo-sessao")
+        layout.addWidget(lbl_ident)
+        self.chk_sem_gps_brasil = QCheckBox("Fotos sem GPS: considerar só aves do Brasil")
+        self.chk_sem_gps_brasil.setToolTip(
+            "A IA local acerta mais quando considera só as aves com registro no Brasil.\n"
+            "Desmarque se você fotografa aves no exterior com uma câmera sem GPS.\n"
+            "Fotos com GPS seguem a localização, com esta opção marcada ou não.")
+        layout.addWidget(self.chk_sem_gps_brasil)
+
         lbl_apis = QLabel("Integrações em nuvem")
         lbl_apis.setProperty("class", "lbl-titulo-sessao")
         layout.addWidget(lbl_apis)
@@ -189,6 +200,7 @@ class APISettingsDialog(QDialog):
         self.input_inat.setText(self.config.get("inat_api_token", ""))
         self.input_google.setText(self.config.get("google_vision_api_key", ""))
         self.chk_atualizacoes.setChecked(bool(self.config.get("verificar_atualizacoes", True)))
+        self.chk_sem_gps_brasil.setChecked(bool(self.config.get("ia_sem_gps_brasil", True)))
         botao = self.botoes_tema.get(self._tema_salvo) or self.botoes_tema[TEMA_PADRAO]
         botao.blockSignals(True)  # marcar o tema salvo não é uma prévia
         botao.setChecked(True)
@@ -238,6 +250,7 @@ class APISettingsDialog(QDialog):
             "inat_api_token": self.config["inat_api_token"],
             "google_vision_api_key": self.config["google_vision_api_key"],
             "verificar_atualizacoes": self.chk_atualizacoes.isChecked(),
+            "ia_sem_gps_brasil": self.chk_sem_gps_brasil.isChecked(),
             "tema": self._tema_escolhido(),
             "layout": self._layout_escolhido(),
         })

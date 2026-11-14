@@ -42,14 +42,14 @@ def test_ranking_por_especie_com_prior():
     rotulos = ["Turdus rufiventris", "Turdus merula", "Turdus merula", "Pitangus sulphuratus"]
     saida = [0.2, 0.5, 0.1, 0.2]
     assert av.ranking_por_especie(rotulos, saida)[0] == ("Turdus merula", 0.5)
-    so_brasil = av.ranking_por_especie(rotulos, saida, {"Turdus rufiventris", "Pitangus sulphuratus"})
+    so_brasil = av.ranking_por_especie(rotulos, saida, {"turdus rufiventris", "pitangus sulphuratus"})
     assert [nome for nome, _ in so_brasil] == ["Turdus rufiventris", "Pitangus sulphuratus"]
     assert sum(valor for _, valor in so_brasil) == pytest.approx(1.0)
 
 
 def test_especies_brasil_embarcadas():
     especies = av.especies_brasil()
-    assert "Pitangus sulphuratus" in especies and "Turdus merula" not in especies
+    assert "pitangus sulphuratus" in especies and "turdus merula" not in especies
 
 
 def test_relatorio_compara_modos_com_a_referencia():
@@ -98,7 +98,7 @@ def test_ponta_a_ponta_com_o_modelo(tmp_path):
     assert codigo == 0
     assert relatorio.read_bytes().startswith(b"\xef\xbb\xbf")  # BOM: acentos certos no PowerShell
     texto = relatorio.read_text(encoding="utf-8-sig")
-    assert "modo espremida: o que o app usa" in texto and "Modo espelho+brasil" in texto
+    assert "modo brasil: só espécies do Brasil, o que o app usa" in texto and "Modo espelho+brasil" in texto
     assert "Cada modo x espremida" in texto
     assert "Fotos avaliadas: 2" in texto and "sem espécie conhecida): 1" in texto and "McNemar" in texto
     assert len(por_foto.read_text(encoding="utf-8-sig").strip().splitlines()) == 1 + 2 * len(av.MODOS)
