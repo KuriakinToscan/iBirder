@@ -44,6 +44,8 @@ POR_PAGINA = 200
 PAUSA_API_S = 1.1        # o iNaturalist pede no máximo ~60 requisições por minuto
 PAUSA_FOTO_S = 0.2
 USER_AGENT = "iBirder-avaliacao/1.0 (ferramenta de teste do app iBirder; GPL v3)"
+TENTATIVAS = 5           # o iNaturalist às vezes derruba a conexão ou responde 429/5xx
+ESPERA_INICIAL_S = 3.0   # espera dobra a cada nova tentativa: 3, 6, 12, 24 s
 
 
 def parametros_busca(desde: str, id_abaixo: Optional[int] = None) -> Dict[str, str]:
@@ -96,12 +98,38 @@ def selecionar(observacoes: Sequence[dict], por_especie: int, contagem: Dict[str
     return escolhidas
 
 
+def _deve_repetir(erro: Exception) -> bool:
+    """Falhas passageiras: conexão caída, tempo esgotado, 429 (limite) ou erro 5xx do servidor."""
+    import requests
+    if isinstance(erro, (requests.ConnectionError, requests.Timeout)):
+        return True
+    if isinstance(erro, requests.HTTPError) and erro.response is not None:
+        return erro.response.status_code == 429 or erro.response.status_code >= 500
+    return False
+
+
+def get_com_retentativa(sessao, url: str, params: Optional[Dict[str, str]] = None, timeout: int = 30):
+    """GET com novas tentativas e espera crescente nas falhas passageiras; repassa as demais."""
+    espera = ESPERA_INICIAL_S
+    for tentativa in range(1, TENTATIVAS + 1):
+        try:
+            resposta = sessao.get(url, params=params, timeout=timeout)
+            resposta.raise_for_status()
+            return resposta
+        except Exception as e:
+            if tentativa == TENTATIVAS or not _deve_repetir(e):
+                raise
+            logging.warning(f"  iNaturalist falhou ({e}); nova tentativa {tentativa + 1}/{TENTATIVAS} em {espera:.0f} s")
+            time.sleep(espera)
+            espera *= 2
+    raise RuntimeError("inalcançável")
+
+
 def paginas(sessao, desde: str, max_paginas: int) -> Iterator[List[dict]]:
     """Páginas de observações, da mais nova para a mais antiga."""
     id_abaixo = None
     for _ in range(max_paginas):
-        resposta = sessao.get(API, params=parametros_busca(desde, id_abaixo), timeout=30)
-        resposta.raise_for_status()
+        resposta = get_com_retentativa(sessao, API, params=parametros_busca(desde, id_abaixo))
         resultados = resposta.json().get("results") or []
         if not resultados:
             return
@@ -120,11 +148,16 @@ def baixar_amostra(pasta: Path, total: int = 300, por_especie: int = 2, desde: s
         sessao.headers["User-Agent"] = USER_AGENT
     contagem: Dict[str, int] = {}
     selecao: List[dict] = []
-    for pagina in paginas(sessao, desde, max_paginas):
-        selecao += selecionar(pagina, por_especie, contagem, filtro)
-        logging.info(f"  {len(selecao)} fotos selecionadas de {len(contagem)} espécies...")
-        if len(selecao) >= total:
-            break
+    try:
+        for pagina in paginas(sessao, desde, max_paginas):
+            selecao += selecionar(pagina, por_especie, contagem, filtro)
+            logging.info(f"  {len(selecao)} fotos selecionadas de {len(contagem)} espécies...")
+            if len(selecao) >= total:
+                break
+    except Exception as e:
+        if not selecao:
+            raise
+        logging.warning(f"  Busca interrompida ({e}); seguindo com as {len(selecao)} fotos já selecionadas.")
     selecao = selecao[:total]
 
     baixadas = []
@@ -132,8 +165,7 @@ def baixar_amostra(pasta: Path, total: int = 300, por_especie: int = 2, desde: s
         destino = pasta / f"inat_{item['id']}.jpg"
         if not destino.exists():
             try:
-                resposta = sessao.get(item["url"], timeout=30)
-                resposta.raise_for_status()
+                resposta = get_com_retentativa(sessao, item["url"])
                 destino.write_bytes(resposta.content)
                 time.sleep(PAUSA_FOTO_S)
             except Exception as e:
