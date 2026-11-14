@@ -20,8 +20,11 @@ Com --bioclip, compara também o BioCLIP (imageomics/bioclip, ViT-B/16, licença
 (zero-shot), entre as espécies registradas no Brasil e com a foto inteira esticada (sem recorte):
   - "bioclip": textos "a photo of <nome científico>.";
   - "bioclip-misto": nome científico e nome em inglês do eBird;
-  - "bioclip-int8": como "bioclip", com o codificador de imagem quantizado em INT8 (o tamanho que
-    caberia no app).
+  - "bioclip-fp16": como "bioclip-misto", com os pesos do codificador de imagem em FP16;
+  - "bioclip-int8": como "bioclip-misto", com as matrizes de peso em INT8 por canal de saída (só os
+    pesos; o resto em FP16), o formato que caberia no limite de 100 MB.
+As duas últimas simulam o arredondamento dos pesos (a conta roda em FP32): medem o acerto que o
+formato comprimido teria; o tamanho é o do arquivo nesse formato.
 Exige, só no ambiente de teste: pip install open_clip_torch torch torchvision (o primeiro uso
 baixa ~600 MB do Hugging Face). O relatório traz o tempo médio por foto e o tamanho do modelo.
 
@@ -64,7 +67,7 @@ sys.path.insert(0, str(RAIZ))
 
 EXTENSOES = (".jpg", ".jpeg", ".png")
 REFERENCIA = "espremida"
-MODOS_BIOCLIP = ("bioclip", "bioclip-misto", "bioclip-int8")
+MODOS_BIOCLIP = ("bioclip", "bioclip-misto", "bioclip-fp16", "bioclip-int8")
 BIOCLIP_HUB = "hf-hub:imageomics/bioclip"
 MODOS = ("espremida", "espelho", "brasil", "espelho+brasil", "borda")
 LIMIARES = [round(0.30 + 0.05 * i, 2) for i in range(14)]  # 0,30 a 0,95
@@ -313,10 +316,11 @@ class ModeloBioclip:
                               else f"a photo of {sp}." for sp in self.especies],
         }
         self.embeddings_texto = {modo: self._codificar_textos(tokenizador, lista) for modo, lista in textos.items()}
-        self.visual_int8 = torch.ao.quantization.quantize_dynamic(
-            copy.deepcopy(self.modelo.visual), {torch.nn.Linear}, dtype=torch.qint8)
-        self.tamanho_mb = {"bioclip": _tamanho_mb(self.modelo.visual), "bioclip-int8": _tamanho_mb(self.visual_int8)}
-        self.tempo_s = {"bioclip": 0.0, "bioclip-int8": 0.0}
+        self.visual_fp16, mb_fp16 = comprimir_pesos(copy.deepcopy(self.modelo.visual), "fp16")
+        self.visual_int8, mb_int8 = comprimir_pesos(copy.deepcopy(self.modelo.visual), "int8")
+        self.tamanho_mb = {"bioclip": _tamanho_mb(self.modelo.visual), "bioclip-fp16": mb_fp16,
+                           "bioclip-int8": mb_int8}
+        self.tempo_s = {"bioclip": 0.0}
         self.fotos = 0
 
     def _codificar_textos(self, tokenizador, textos: List[str], lote: int = 256):
@@ -348,15 +352,40 @@ class ModeloBioclip:
             inicio = time.perf_counter()
             emb = self.modelo.encode_image(x)
             self.tempo_s["bioclip"] += time.perf_counter() - inicio
-            inicio = time.perf_counter()
+            emb16 = self.visual_fp16(x)
             emb8 = self.visual_int8(x)
-            self.tempo_s["bioclip-int8"] += time.perf_counter() - inicio
         self.fotos += 1
         return {
             "bioclip": self._ranking(emb, self.embeddings_texto["bioclip"]),
             "bioclip-misto": self._ranking(emb, self.embeddings_texto["bioclip-misto"]),
-            "bioclip-int8": self._ranking(emb8, self.embeddings_texto["bioclip"]),
+            "bioclip-fp16": self._ranking(emb16, self.embeddings_texto["bioclip-misto"]),
+            "bioclip-int8": self._ranking(emb8, self.embeddings_texto["bioclip-misto"]),
         }
+
+
+def comprimir_pesos(modulo, formato: str):
+    """
+    Arredonda os pesos de ``modulo`` como se fossem guardados em ``formato`` e devolve
+    (módulo, tamanho em MB nesse formato):
+      - "fp16": todos os parâmetros em meia precisão (2 bytes);
+      - "int8": matrizes de peso (Linear, Conv e projeções da atenção) em INT8 simétrico por canal de
+        saída, com uma escala FP16 por canal; os demais parâmetros em FP16.
+    """
+    import torch
+    total_bytes = 0
+    with torch.no_grad():
+        for nome, parametro in modulo.named_parameters():
+            matriz = parametro.ndim >= 2 and nome.split(".")[-1].endswith("weight")
+            if formato == "int8" and matriz:
+                linhas = parametro.reshape(parametro.shape[0], -1)
+                escala = (linhas.abs().amax(dim=1, keepdim=True) / 127).clamp(min=1e-12)
+                quantizada = (linhas / escala).round().clamp(-127, 127) * escala
+                parametro.copy_(quantizada.reshape(parametro.shape))
+                total_bytes += parametro.numel() + 2 * parametro.shape[0]
+            else:
+                parametro.copy_(parametro.half().float())
+                total_bytes += 2 * parametro.numel()
+    return modulo, total_bytes / 1e6
 
 
 def _tamanho_mb(modulo) -> float:
@@ -416,7 +445,8 @@ DESCRICAO_MODOS = {
     "borda": "letterbox, só comparação",
     "bioclip": "BioCLIP zero-shot, nomes científicos, aves do Brasil",
     "bioclip-misto": "BioCLIP zero-shot, nome científico + inglês",
-    "bioclip-int8": "BioCLIP zero-shot com imagem em INT8",
+    "bioclip-fp16": "BioCLIP misto com pesos em FP16",
+    "bioclip-int8": "BioCLIP misto com pesos em INT8 por canal",
 }
 
 
@@ -492,11 +522,10 @@ def montar_relatorio(resultados: List[Resultado], ignoradas: Dict[str, int], pre
                    "  Modelo                    | Tempo médio por foto | Tamanho",]
         for nome, tempo_ms, tamanho_mb in custos:
             linhas.append(f"  {nome:<25} | {tempo_ms:17.0f} ms | {tamanho_mb:6.1f} MB")
-        linhas += ["  (Tempo só da rede, sem abrir a foto. Tamanho do BioCLIP: só o codificador de imagem.",
-                   "   O INT8 aqui é a quantização dinâmica do PyTorch, que deixa parte da atenção em FP32;",
-                   "   quantizado por inteiro (ONNX/LiteRT) o arquivo ficaria perto de 90 MB, estimativa.)", ""]
+        linhas += ["  (Tempo só da rede, sem abrir a foto, medido em FP32 para as três versões do BioCLIP.",
+                   "   Tamanho do BioCLIP: só o codificador de imagem, no formato de cada versão.)", ""]
 
-    for modo in (REFERENCIA, "brasil", "bioclip", "bioclip-int8"):
+    for modo in (REFERENCIA, "brasil", "bioclip-misto", "bioclip-int8"):
         if modo in por_modo:
             linhas += _tabela_limiar(por_modo[modo], modo, n, precisao_alvo, limiar_atual)
     linhas += ["Observações:",
@@ -613,8 +642,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     fora = sum(1 for r in resultados if r.modo == REFERENCIA and r.verdade.lower() not in permitidas)
     custos = [("MobileNetV2 atual", 1000 * modelo.tempo_s / max(modelo.fotos, 1), modelo.tamanho_mb)]
     if bioclip is not None:
-        for modo, nome in (("bioclip", "BioCLIP FP32"), ("bioclip-int8", "BioCLIP INT8")):
-            custos.append((nome, 1000 * bioclip.tempo_s[modo] / max(bioclip.fotos, 1), bioclip.tamanho_mb[modo]))
+        tempo_ms = 1000 * bioclip.tempo_s["bioclip"] / max(bioclip.fotos, 1)
+        for modo, nome in (("bioclip", "BioCLIP FP32"), ("bioclip-fp16", "BioCLIP FP16"),
+                           ("bioclip-int8", "BioCLIP INT8 por canal")):
+            custos.append((nome, tempo_ms, bioclip.tamanho_mb[modo]))
     relatorio = montar_relatorio(resultados, ignoradas, args.precisao_alvo, time.time() - inicio,
                                  LIMIAR_SUGESTAO, fora_do_brasil=fora, custos=custos)
     # Com BOM: o "type" do PowerShell e o Bloco de Notas antigo leem os acentos certos

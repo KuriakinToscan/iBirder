@@ -118,8 +118,21 @@ def test_bioclip_com_pesos_aleatorios(tmp_path):
     for ranking in rankings.values():
         assert sorted(nome for nome, _ in ranking) == sorted(especies)
         assert sum(p for _, p in ranking) == pytest.approx(1.0, abs=1e-4)
-    assert modelo.tamanho_mb["bioclip-int8"] < modelo.tamanho_mb["bioclip"] / 2
+    assert modelo.tamanho_mb["bioclip-int8"] < modelo.tamanho_mb["bioclip-fp16"] < modelo.tamanho_mb["bioclip"]
     assert modelo.fotos == 1 and modelo.tempo_s["bioclip"] > 0
+
+
+def test_comprimir_pesos_int8_por_canal():
+    torch = pytest.importorskip("torch")
+    camada = torch.nn.Linear(4, 3)
+    with torch.no_grad():
+        camada.weight.copy_(torch.tensor([[1.0, -0.5, 0.25, 0.0], [10.0, 5.0, -2.5, 1.0], [0.1, 0.2, 0.3, 0.4]]))
+    original = camada.weight.clone()
+    _, mb = av.comprimir_pesos(camada, "int8")
+    # Escala por linha: o maior valor de cada linha volta exato e o erro fica abaixo de meio passo
+    passo = original.abs().amax(dim=1, keepdim=True) / 127
+    assert torch.all((camada.weight - original).abs() <= passo / 2 + 1e-7)
+    assert mb == pytest.approx((12 + 2 * 3 + 2 * 3) / 1e6)
 
 
 def test_candidatas_bioclip_grafia_do_catalogo():
