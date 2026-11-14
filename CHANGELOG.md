@@ -4,6 +4,7 @@
 
 ### Novidades
 - **Avaliação da IA local** (`tools/avaliar_identificacao.py`, ferramenta de manutenção): roda o modelo em uma pasta de fotos de espécie conhecida (planilha `arquivo;especie` ou o nome gravado pelo iBirder) e relata o acerto top-1 e top-3 com intervalo de confiança de 95%, a comparação entre a foto com borda e a foto espremida (teste exato de McNemar) e a tabela de limiares de confiança. Nenhuma foto é alterada nem enviada.
+- **Amostra do iNaturalist para a avaliação** (`tools/amostra_inaturalist.py`, ou `--baixar-inat N` na avaliação): baixa fotos de aves do Brasil em grau de pesquisa e licença aberta (CC0, CC BY, CC BY-NC), observadas desde 2023, no máximo 2 por espécie, com `especies.csv` e `creditos.csv` (observação, autor e licença).
 
 ## v1.4
 

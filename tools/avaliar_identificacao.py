@@ -27,6 +27,7 @@ Uso (na pasta do iBirder, no ambiente conda "ibirder-teste"):
     python tools/avaliar_identificacao.py "D:\\Fotos\\Aves conferidas"
     python tools/avaliar_identificacao.py "D:\\Fotos" --recursivo
     python tools/avaliar_identificacao.py "D:\\Fotos" --csv especies.csv
+    python tools/avaliar_identificacao.py "D:\\amostra_inat" --baixar-inat 300   # amostra do iNaturalist
 
 Saídas (nada sai do computador; nenhuma foto é alterada):
     tools/relatorio_avaliacao.txt   resumo para enviar de volta
@@ -328,12 +329,23 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--csv", type=Path, help="planilha com as colunas 'arquivo' e 'especie'")
     parser.add_argument("--recursivo", action="store_true", help="incluir subpastas")
     parser.add_argument("--precisao-alvo", type=float, default=0.90, help="acerto mínimo do limiar sugerido (0-1)")
+    parser.add_argument("--baixar-inat", type=int, default=0, metavar="N",
+                        help="antes de avaliar, baixa N fotos de aves do Brasil do iNaturalist (grau de "
+                             "pesquisa, licença aberta) para a pasta (tools/amostra_inaturalist.py)")
     parser.add_argument("--limite", type=int, default=0, help="avaliar só as N primeiras fotos (teste rápido)")
     parser.add_argument("--relatorio", type=Path, default=SAIDA_RELATORIO)
     parser.add_argument("--saida-csv", type=Path, default=SAIDA_CSV)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
+    if args.baixar_inat:
+        from tools.amostra_inaturalist import baixar_amostra
+        logging.info(f"Baixando {args.baixar_inat} fotos do iNaturalist para {args.pasta}...")
+        try:
+            args.csv = baixar_amostra(args.pasta, total=args.baixar_inat)
+        except Exception as e:
+            logging.error(f"Falha ao baixar a amostra do iNaturalist: {e}")
+            return 2
     if not args.pasta.is_dir():
         logging.error(f"Pasta não encontrada: {args.pasta}")
         return 2
