@@ -5,10 +5,15 @@
 """
 Avaliação da IA local com fotos de espécie conhecida (sem abrir a interface do iBirder).
 
-Para cada foto, roda o modelo local duas vezes:
-  - "borda": proporção preservada e borda cinza até 224x224 (letterbox, só para comparação);
-  - "espremida": a foto inteira esticada para 224x224, sem recorte (o que o app faz).
-e registra em que posição a espécie correta aparece no ranking do modelo.
+Para cada foto, roda o modelo local três vezes (esticada, esticada e espelhada, com borda) e
+compara estas variantes ("modos"):
+  - "espremida": a foto inteira esticada para 224x224, sem recorte (o que o app faz; referência);
+  - "espelho": média das probabilidades da foto esticada e da espelhada na horizontal (TTA);
+  - "brasil": só as espécies com registro no Brasil (assets/conservacao/aves_registradas_brasil.csv),
+    com as probabilidades renormalizadas entre elas (prior geográfico simples);
+  - "espelho+brasil": as duas coisas juntas;
+  - "borda": proporção preservada e borda cinza até 224x224 (letterbox, só para comparação).
+e registra em que posição a espécie correta aparece no ranking de cada modo.
 
 De onde vem a espécie correta (a "verdade"):
   - com --csv: planilha com as colunas "arquivo" e "especie" (nome científico ou nome em inglês do eBird);
@@ -19,7 +24,7 @@ De onde vem a espécie correta (a "verdade"):
 Relatório:
   - acerto top-1 e top-3, com intervalo de confiança de 95% (Wilson), no total e só entre as
     espécies que o modelo conhece (965 espécies; ~230 ocorrem no Brasil);
-  - comparação borda x espremida nas mesmas fotos (teste exato de McNemar);
+  - cada modo contra a referência "espremida", nas mesmas fotos (teste exato de McNemar);
   - tabela de limiares de confiança: fração das fotos aceitas sem nuvem e acerto entre elas,
     com o menor limiar que atinge a precisão alvo (--precisao-alvo, padrão 0,90).
 
@@ -48,7 +53,9 @@ RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ))
 
 EXTENSOES = (".jpg", ".jpeg", ".png")
-MODOS = ("borda", "espremida")
+REFERENCIA = "espremida"
+MODOS = ("espremida", "espelho", "brasil", "espelho+brasil", "borda")
+CSV_BRASIL = RAIZ / "assets" / "conservacao" / "aves_registradas_brasil.csv"
 LIMIARES = [round(0.30 + 0.05 * i, 2) for i in range(14)]  # 0,30 a 0,95
 SAIDA_RELATORIO = RAIZ / "tools" / "relatorio_avaliacao.txt"
 SAIDA_CSV = RAIZ / "tools" / "avaliacao_por_foto.csv"
@@ -212,16 +219,19 @@ class Modelo:
         self.especies = set(self.rotulos)
 
     def imagem(self, caminho: Path, modo: str):
+        """Entrada do modelo: "borda" (letterbox), "espremida" (esticada) ou "espelhada" (esticada e espelhada)."""
+        from PIL import ImageOps
         from modules.step1_identity.preprocessamento import abrir_reduzida, esticar, letterbox
         img = abrir_reduzida(caminho)
         if modo == "borda":
             return letterbox(img, self.largura, self.altura)
-        return esticar(img, self.largura, self.altura)
+        esticada = esticar(img, self.largura, self.altura)
+        return ImageOps.mirror(esticada) if modo == "espelhada" else esticada
 
-    def ranking(self, caminho: Path, modo: str) -> List[Tuple[str, float]]:
-        """Todas as espécies com a confiança, em ordem decrescente (como no app: a maior saída de cada espécie)."""
+    def probabilidades(self, imagem):
+        """Vetor de probabilidades (uma por rótulo) para uma imagem já no tamanho da entrada."""
         import numpy as np
-        dados = np.array(self.imagem(caminho, modo), dtype=self.entrada["dtype"])
+        dados = np.array(imagem, dtype=self.entrada["dtype"])
         if self.entrada["dtype"] == np.float32:
             dados = (dados - 127.5) / 127.5
         self.interpretador.set_tensor(self.entrada["index"], np.expand_dims(dados, 0))
@@ -229,16 +239,51 @@ class Modelo:
         saida = np.squeeze(self.interpretador.get_tensor(self.saida["index"])).astype(np.float64)
         if self.saida["dtype"] == np.uint8:
             saida = saida / 255.0
-        por_especie: Dict[str, float] = {}
-        for rotulo, valor in zip(self.rotulos, saida):
-            por_especie[rotulo] = max(por_especie.get(rotulo, 0.0), float(valor))
-        return sorted(por_especie.items(), key=lambda item: item[1], reverse=True)
+        return saida
+
+    def rankings(self, caminho: Path, permitidas: Optional[set] = None) -> Dict[str, List[Tuple[str, float]]]:
+        """Ranking de cada modo de ``MODOS`` (três inferências por foto)."""
+        esticada = self.probabilidades(self.imagem(caminho, "espremida"))
+        media = (esticada + self.probabilidades(self.imagem(caminho, "espelhada"))) / 2
+        borda = self.probabilidades(self.imagem(caminho, "borda"))
+        return {
+            "espremida": ranking_por_especie(self.rotulos, esticada),
+            "espelho": ranking_por_especie(self.rotulos, media),
+            "brasil": ranking_por_especie(self.rotulos, esticada, permitidas),
+            "espelho+brasil": ranking_por_especie(self.rotulos, media, permitidas),
+            "borda": ranking_por_especie(self.rotulos, borda),
+        }
 
 
-def avaliar_foto(modelo: Modelo, caminho: Path, verdade: str, guardar: int = 10) -> List[Resultado]:
+def ranking_por_especie(rotulos: Sequence[str], saida, permitidas: Optional[set] = None) -> List[Tuple[str, float]]:
+    """
+    Espécies em ordem decrescente de confiança (a maior saída de cada espécie, como no app).
+    Com ``permitidas``, só essas espécies entram, e as confianças são renormalizadas para somar 1
+    entre elas (o que sobra depois de descartar as espécies de fora).
+    """
+    por_especie: Dict[str, float] = {}
+    for rotulo, valor in zip(rotulos, saida):
+        if permitidas is not None and rotulo not in permitidas:
+            continue
+        por_especie[rotulo] = max(por_especie.get(rotulo, 0.0), float(valor))
+    if permitidas is not None:
+        total = sum(por_especie.values())
+        if total > 0:
+            por_especie = {nome: valor / total for nome, valor in por_especie.items()}
+    return sorted(por_especie.items(), key=lambda item: item[1], reverse=True)
+
+
+def especies_brasil(caminho: Path = CSV_BRASIL) -> set:
+    """Espécies (gênero + espécie) com registro de grau de pesquisa no Brasil, da lista embarcada."""
+    with open(caminho, encoding="utf-8-sig", newline="") as f:
+        return {" ".join(linha["nome_cientifico"].split()[:2]) for linha in csv.DictReader(f)
+                if linha.get("nome_cientifico")}
+
+
+def avaliar_foto(modelo: Modelo, caminho: Path, verdade: str, guardar: int = 10,
+                 permitidas: Optional[set] = None) -> List[Resultado]:
     resultados = []
-    for modo in MODOS:
-        ranking = modelo.ranking(caminho, modo)
+    for modo, ranking in modelo.rankings(caminho, permitidas).items():
         nomes = [nome for nome, _ in ranking]
         posicao = nomes.index(verdade) + 1 if verdade in nomes else None
         resultados.append(Resultado(caminho.name, verdade, modo, ranking[:guardar], posicao,
@@ -255,13 +300,21 @@ def _pct(acertos: int, n: int) -> str:
     return f"{100 * acertos / n:5.1f}% (IC95% {100 * baixo:.1f}-{100 * alto:.1f}%)"
 
 
+DESCRICAO_MODOS = {
+    "espremida": "o que o app usa",
+    "espelho": "média com a foto espelhada",
+    "brasil": "só espécies registradas no Brasil",
+    "espelho+brasil": "espelho e só Brasil",
+    "borda": "letterbox, só comparação",
+}
+
+
 def _tabela_limiar(resultados: Sequence[Resultado], modo: str, n: int, precisao_alvo: float,
                    limiar_atual: float) -> List[str]:
     """Linhas da tabela de limiares de um modo, com o limiar atual marcado e o sugerido."""
     tabela = analisar_limiares(resultados)
     sugerido = limiar_sugerido(tabela, precisao_alvo)
-    titulo = "o que o app usa" if modo == "espremida" else "só comparação"
-    linhas = [f"== Limiar de confiança (modo {modo}: {titulo}) ==",
+    linhas = [f"== Limiar de confiança (modo {modo}: {DESCRICAO_MODOS.get(modo, modo)}) ==",
               "  Abaixo do limiar o app consulta a nuvem. Aceitas = identificadas só com a IA local.",
               "  Limiar | Aceitas        | Acerto entre as aceitas"]
     for t, aceitas, acertos in tabela:
@@ -275,46 +328,60 @@ def _tabela_limiar(resultados: Sequence[Resultado], modo: str, n: int, precisao_
     return linhas + [""]
 
 
+def comparar_com_referencia(m: Metricas, ref: Metricas) -> Tuple[int, int, float]:
+    """(fotos que só o modo acertou, fotos que só a referência acertou, valor-p de McNemar) no top-1."""
+    so_modo = sum(1 for k, ok in m.por_arquivo.items() if ok and not ref.por_arquivo.get(k))
+    so_ref = sum(1 for k, ok in ref.por_arquivo.items() if ok and not m.por_arquivo.get(k))
+    return so_modo, so_ref, mcnemar_exato(so_modo, so_ref)
+
+
 def montar_relatorio(resultados: List[Resultado], ignoradas: Dict[str, int], precisao_alvo: float,
-                     duracao_s: float, limiar_atual: float = 0.70) -> str:
+                     duracao_s: float, limiar_atual: float = 0.70, fora_do_brasil: int = 0) -> str:
     from core.config import APP_VERSION
     linhas = [f"Avaliação da IA local do iBirder (v{APP_VERSION}) - {time.strftime('%d/%m/%Y %H:%M')}",
               f"Duração: {duracao_s:.0f} s", ""]
-    por_modo = {modo: [r for r in resultados if r.modo == modo] for modo in MODOS}
+    modos = [modo for modo in MODOS if any(r.modo == modo for r in resultados)]
+    por_modo = {modo: [r for r in resultados if r.modo == modo] for modo in modos}
     metricas = {modo: calcular_metricas(lista) for modo, lista in por_modo.items()}
-    n = metricas["borda"].n
+    ref = metricas[REFERENCIA]
+    n = ref.n
     linhas.append(f"Fotos avaliadas: {n}")
     for motivo, quantidade in ignoradas.items():
         if quantidade:
             linhas.append(f"Fotos ignoradas ({motivo}): {quantidade}")
-    especies = {r.verdade for r in por_modo["borda"]}
-    linhas.append(f"Espécies diferentes: {len(especies)}; "
-                  f"conhecidas pelo modelo: {metricas['borda'].conhecidas} fotos de {n}")
+    especies = {r.verdade for r in por_modo[REFERENCIA]}
+    linhas.append(f"Espécies diferentes: {len(especies)}; conhecidas pelo modelo: {ref.conhecidas} fotos de {n}")
+    if fora_do_brasil:
+        linhas.append(f"Fotos cuja espécie correta não está na lista do Brasil (o modo 'brasil' nunca acerta): "
+                      f"{fora_do_brasil}")
     linhas.append("")
 
-    for modo in MODOS:
+    for modo in modos:
         m = metricas[modo]
-        linhas += [f"== Modo {modo} ==",
+        linhas += [f"== Modo {modo} ({DESCRICAO_MODOS.get(modo, modo)}) ==",
                    f"  Top-1, todas as fotos:            {_pct(m.top1, m.n)}",
                    f"  Top-3, todas as fotos:            {_pct(m.top3, m.n)}",
                    f"  Top-1, só espécies conhecidas:    {_pct(m.top1_conhecidas, m.conhecidas)}",
                    f"  Top-3, só espécies conhecidas:    {_pct(m.top3_conhecidas, m.conhecidas)}", ""]
 
-    a, b = metricas["borda"].por_arquivo, metricas["espremida"].por_arquivo
-    so_borda = sum(1 for k in a if a[k] and not b.get(k))
-    so_espremida = sum(1 for k in a if b.get(k) and not a[k])
-    p = mcnemar_exato(so_borda, so_espremida)
-    linhas += ["== Borda x espremida (top-1, mesmas fotos) ==",
-               f"  Só a borda acertou: {so_borda}; só a espremida acertou: {so_espremida}",
-               f"  Teste exato de McNemar: p = {p:.3f} "
-               + ("(diferença significativa a 5%)" if p < 0.05 else "(sem diferença significativa a 5%)"), ""]
+    linhas += [f"== Cada modo x {REFERENCIA} (top-1, mesmas fotos; teste exato de McNemar) ==",
+               "  Modo            | Só o modo acertou | Só a referência acertou | p"]
+    for modo in modos:
+        if modo == REFERENCIA:
+            continue
+        so_modo, so_ref, p = comparar_com_referencia(metricas[modo], ref)
+        marca = "  (significativo a 5%)" if p < 0.05 else ""
+        linhas.append(f"  {modo:<15} | {so_modo:17d} | {so_ref:23d} | {p:.3f}{marca}")
+    linhas.append("")
 
-    for modo in ("espremida", "borda"):
-        linhas += _tabela_limiar(por_modo[modo], modo, n, precisao_alvo, limiar_atual)
+    for modo in (REFERENCIA, "espelho+brasil"):
+        if modo in por_modo:
+            linhas += _tabela_limiar(por_modo[modo], modo, n, precisao_alvo, limiar_atual)
     linhas += ["Observações:",
                "- IC95% de Wilson. Com poucas fotos o intervalo é largo: prefira 200+ fotos.",
                "- Espécie correta tirada do registro do iBirder só vale se você conferiu a identificação.",
-               "- Espécies que o modelo não conhece nunca acertam: veja a linha 'só espécies conhecidas'."]
+               "- Espécies que o modelo não conhece nunca acertam: veja a linha 'só espécies conhecidas'.",
+               "- No modo 'brasil' a confiança é renormalizada entre as espécies do Brasil: tende a subir."]
     return "\n".join(linhas) + "\n"
 
 
@@ -375,6 +442,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     except Exception as e:
         logging.error(f"Falha ao carregar o modelo: {e}")
         return 2
+    try:
+        permitidas = especies_brasil()
+    except (OSError, KeyError) as e:
+        logging.error(f"Não foi possível ler a lista de aves do Brasil: {e}")
+        return 2
 
     inicio = time.time()
     resultados: List[Resultado] = []
@@ -386,7 +458,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             ignoradas["sem espécie conhecida"] += 1
             continue
         try:
-            resultados += avaliar_foto(modelo, foto, verdade)
+            resultados += avaliar_foto(modelo, foto, verdade, permitidas=permitidas)
         except Exception as e:
             ignoradas["erro de leitura"] += 1
             logging.warning(f"  {foto.name}: {e}")
@@ -398,7 +470,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         logging.error("Nenhuma foto com espécie conhecida. Use --csv ou fotos gravadas pelo iBirder.")
         return 1
     from modules.step1_identity.id_worker import LIMIAR_CONFIANCA
-    relatorio = montar_relatorio(resultados, ignoradas, args.precisao_alvo, time.time() - inicio, LIMIAR_CONFIANCA)
+    fora = sum(1 for r in resultados if r.modo == REFERENCIA and r.verdade not in permitidas)
+    relatorio = montar_relatorio(resultados, ignoradas, args.precisao_alvo, time.time() - inicio,
+                                 LIMIAR_CONFIANCA, fora_do_brasil=fora)
     # Com BOM: o "type" do PowerShell e o Bloco de Notas antigo leem os acentos certos
     args.relatorio.write_text(relatorio, encoding="utf-8-sig")
     gravar_csv(resultados, args.saida_csv)
