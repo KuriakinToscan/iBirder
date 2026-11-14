@@ -374,7 +374,7 @@ def montar_relatorio(resultados: List[Resultado], ignoradas: Dict[str, int], pre
         linhas.append(f"  {modo:<15} | {so_modo:17d} | {so_ref:23d} | {p:.3f}{marca}")
     linhas.append("")
 
-    for modo in (REFERENCIA, "espelho+brasil"):
+    for modo in (REFERENCIA, "brasil"):
         if modo in por_modo:
             linhas += _tabela_limiar(por_modo[modo], modo, n, precisao_alvo, limiar_atual)
     linhas += ["Observações:",
