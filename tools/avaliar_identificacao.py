@@ -28,6 +28,13 @@ formato comprimido teria; o tamanho é o do arquivo nesse formato.
 Exige, só no ambiente de teste: pip install open_clip_torch torch torchvision (o primeiro uso
 baixa ~600 MB do Hugging Face). O relatório traz o tempo médio por foto e o tamanho do modelo.
 
+Com --bioclip-litert <pasta>, roda o BioCLIP já convertido para LiteRT por
+tools/converter_bioclip_litert.py (só com o ai-edge-litert do app, sem torch), como o app rodaria:
+  - "litert-int8": pesos INT8 por canal, conta em FP32;
+  - "litert-int8d": INT8 dinâmico (ativações quantizadas na hora, mais rápido);
+  - "litert-fp32": só se a pasta tiver o .tflite FP32.
+Aqui o tempo e o tamanho são os reais do arquivo .tflite.
+
 De onde vem a espécie correta (a "verdade"):
   - com --csv: planilha com as colunas "arquivo" e "especie" (nome científico ou nome em inglês do eBird);
   - sem --csv: o nome científico que o iBirder gravou na foto (iBirder|Taxonomia|ScientificName).
@@ -68,6 +75,7 @@ sys.path.insert(0, str(RAIZ))
 EXTENSOES = (".jpg", ".jpeg", ".png")
 REFERENCIA = "espremida"
 MODOS_BIOCLIP = ("bioclip", "bioclip-misto", "bioclip-fp16", "bioclip-int8")
+MODOS_LITERT = ("litert-int8", "litert-int8d", "litert-fp32")
 BIOCLIP_HUB = "hf-hub:imageomics/bioclip"
 MODOS = ("espremida", "espelho", "brasil", "espelho+brasil", "borda")
 LIMIARES = [round(0.30 + 0.05 * i, 2) for i in range(14)]  # 0,30 a 0,95
@@ -309,11 +317,9 @@ class ModeloBioclip:
         self.media = torch.tensor(open_clip.OPENAI_DATASET_MEAN).view(3, 1, 1)
         self.desvio = torch.tensor(open_clip.OPENAI_DATASET_STD).view(3, 1, 1)
         self.escala = float(self.modelo.logit_scale.exp())
-        nomes_ingles = nomes_ingles or {}
         textos = {
-            "bioclip": [f"a photo of {sp}." for sp in self.especies],
-            "bioclip-misto": [f"a photo of {sp} with common name {nomes_ingles[sp]}." if nomes_ingles.get(sp)
-                              else f"a photo of {sp}." for sp in self.especies],
+            "bioclip": textos_bioclip(self.especies, nomes_ingles, misto=False),
+            "bioclip-misto": textos_bioclip(self.especies, nomes_ingles, misto=True),
         }
         self.embeddings_texto = {modo: self._codificar_textos(tokenizador, lista) for modo, lista in textos.items()}
         self.visual_fp16, mb_fp16 = comprimir_pesos(copy.deepcopy(self.modelo.visual), "fp16")
@@ -361,6 +367,90 @@ class ModeloBioclip:
             "bioclip-fp16": self._ranking(emb16, self.embeddings_texto["bioclip-misto"]),
             "bioclip-int8": self._ranking(emb8, self.embeddings_texto["bioclip-misto"]),
         }
+
+
+def textos_bioclip(especies: Sequence[str], nomes_ingles: Optional[Dict[str, str]] = None,
+                   misto: bool = True) -> List[str]:
+    """Texto de cada espécie para o BioCLIP: só o nome científico, ou com o nome em inglês (misto)."""
+    nomes_ingles = nomes_ingles or {}
+    if not misto:
+        return [f"a photo of {sp}." for sp in especies]
+    return [f"a photo of {sp} with common name {nomes_ingles[sp]}." if nomes_ingles.get(sp)
+            else f"a photo of {sp}." for sp in especies]
+
+
+class ModeloBioclipLitert:
+    """
+    BioCLIP convertido para LiteRT (tools/converter_bioclip_litert.py), rodado como no app:
+    foto inteira esticada para 224x224, RGB de 0 a 1 (a normalização está dentro do .tflite).
+    """
+
+    ARQUIVOS = {"litert-int8": "bioclip_imagem_int8.tflite", "litert-int8d": "bioclip_imagem_int8d.tflite",
+                "litert-fp32": "bioclip_imagem_fp32.tflite"}
+
+    def __init__(self, pasta: Path, threads: Optional[int] = None):
+        import json
+        import numpy as np
+        from modules.step1_identity.id_worker import tflite
+        if tflite is None:
+            raise RuntimeError("LiteRT (ai-edge-litert) não está instalado neste ambiente.")
+        pasta = Path(pasta)
+        info = json.loads((pasta / "bioclip_info.json").read_text(encoding="utf-8"))
+        self.escala = float(info["escala_logits"])
+        with open(pasta / "bioclip_especies.txt", encoding="utf-8") as f:
+            self.especies = [linha.strip() for linha in f if linha.strip()]
+        self.textos = np.load(pasta / "bioclip_textos.npy").astype(np.float32)
+        if self.textos.shape[0] != len(self.especies):
+            raise ValueError(f"bioclip_textos.npy tem {self.textos.shape[0]} linhas e bioclip_especies.txt "
+                             f"tem {len(self.especies)} espécies.")
+        self.conjunto = set(self.especies)
+        self.interpretadores = {}
+        self.tamanho_mb: Dict[str, float] = {}
+        for modo, nome in self.ARQUIVOS.items():
+            caminho = pasta / nome
+            if not caminho.is_file():
+                continue
+            interpretador = tflite.Interpreter(model_path=str(caminho), num_threads=threads)
+            interpretador.allocate_tensors()
+            self.interpretadores[modo] = (interpretador, interpretador.get_input_details()[0],
+                                          interpretador.get_output_details()[0])
+            self.tamanho_mb[modo] = caminho.stat().st_size / 1e6
+        if not self.interpretadores:
+            raise FileNotFoundError(f"Nenhum bioclip_imagem_*.tflite em {pasta}.")
+        self.tempo_s = {modo: 0.0 for modo in self.interpretadores}
+        self.fotos = 0
+
+    @staticmethod
+    def entrada(caminho: Path):
+        """Foto aberta reduzida, esticada para 224x224, float32 [1,224,224,3] de 0 a 1."""
+        import numpy as np
+        from modules.step1_identity.preprocessamento import abrir_reduzida, esticar
+        img = esticar(abrir_reduzida(caminho), 224, 224)
+        return np.expand_dims(np.asarray(img, dtype=np.float32) / 255.0, 0)
+
+    def ranking(self, embedding) -> List[Tuple[str, float]]:
+        """Softmax de escala * cosseno entre a foto e cada espécie, do maior para o menor."""
+        import numpy as np
+        emb = embedding.reshape(-1).astype(np.float32)
+        emb = emb / max(float(np.linalg.norm(emb)), 1e-12)
+        logits = self.escala * (self.textos @ emb)
+        prob = np.exp(logits - logits.max())
+        prob /= prob.sum()
+        ordem = np.argsort(-prob)
+        return [(self.especies[i], float(prob[i])) for i in ordem]
+
+    def rankings(self, caminho: Path) -> Dict[str, List[Tuple[str, float]]]:
+        x = self.entrada(caminho)
+        resultado = {}
+        for modo, (interpretador, entrada, saida) in self.interpretadores.items():
+            inicio = time.perf_counter()
+            interpretador.set_tensor(entrada["index"], x)
+            interpretador.invoke()
+            emb = interpretador.get_tensor(saida["index"])
+            self.tempo_s[modo] += time.perf_counter() - inicio
+            resultado[modo] = self.ranking(emb)
+        self.fotos += 1
+        return resultado
 
 
 def comprimir_pesos(modulo, formato: str):
@@ -414,11 +504,14 @@ def candidatas_bioclip() -> Tuple[List[str], Dict[str, str]]:
 
 
 def avaliar_foto(modelo: Modelo, caminho: Path, verdade: str, guardar: int = 10,
-                 permitidas: Optional[set] = None, bioclip: Optional[ModeloBioclip] = None) -> List[Resultado]:
+                 permitidas: Optional[set] = None, bioclip: Optional[ModeloBioclip] = None,
+                 litert: Optional[ModeloBioclipLitert] = None) -> List[Resultado]:
     resultados = []
     rankings = [(modelo.rankings(caminho, permitidas), modelo.especies)]
     if bioclip is not None:
         rankings.append((bioclip.rankings(caminho), bioclip.conjunto))
+    if litert is not None:
+        rankings.append((litert.rankings(caminho), litert.conjunto))
     for por_modo, conhecidas in rankings:
         for modo, ranking in por_modo.items():
             nomes = [nome for nome, _ in ranking]
@@ -447,6 +540,9 @@ DESCRICAO_MODOS = {
     "bioclip-misto": "BioCLIP zero-shot, nome científico + inglês",
     "bioclip-fp16": "BioCLIP misto com pesos em FP16",
     "bioclip-int8": "BioCLIP misto com pesos em INT8 por canal",
+    "litert-int8": "BioCLIP em LiteRT, pesos INT8, conta em FP32",
+    "litert-int8d": "BioCLIP em LiteRT, INT8 dinâmico",
+    "litert-fp32": "BioCLIP em LiteRT, FP32",
 }
 
 
@@ -483,7 +579,7 @@ def montar_relatorio(resultados: List[Resultado], ignoradas: Dict[str, int], pre
     from core.config import APP_VERSION
     linhas = [f"Avaliação da IA local do iBirder (v{APP_VERSION}) - {time.strftime('%d/%m/%Y %H:%M')}",
               f"Duração: {duracao_s:.0f} s", ""]
-    modos = [modo for modo in MODOS + MODOS_BIOCLIP if any(r.modo == modo for r in resultados)]
+    modos = [modo for modo in MODOS + MODOS_BIOCLIP + MODOS_LITERT if any(r.modo == modo for r in resultados)]
     por_modo = {modo: [r for r in resultados if r.modo == modo] for modo in modos}
     metricas = {modo: calcular_metricas(lista) for modo, lista in por_modo.items()}
     ref = metricas[REFERENCIA]
@@ -517,15 +613,27 @@ def montar_relatorio(resultados: List[Resultado], ignoradas: Dict[str, int], pre
         linhas.append(f"  {modo:<15} | {so_modo:17d} | {so_ref:23d} | {p:.3f}{marca}")
     linhas.append("")
 
+    # O LiteRT deve reproduzir o BioCLIP do PyTorch: compara nas mesmas fotos quando os dois rodaram
+    litert = [modo for modo in MODOS_LITERT if modo in metricas]
+    if litert and "bioclip-misto" in metricas:
+        linhas += ["== LiteRT x bioclip-misto (PyTorch FP32; top-1, mesmas fotos; McNemar) ==",
+                   "  Modo            | Só o LiteRT acertou | Só o PyTorch acertou | p"]
+        for modo in litert:
+            so_modo, so_ref, p = comparar_com_referencia(metricas[modo], metricas["bioclip-misto"])
+            marca = "  (significativo a 5%)" if p < 0.05 else ""
+            linhas.append(f"  {modo:<15} | {so_modo:19d} | {so_ref:20d} | {p:.3f}{marca}")
+        linhas.append("")
+
     if custos:
         linhas += ["== Custo de cada modelo (CPU deste computador) ==",
                    "  Modelo                    | Tempo médio por foto | Tamanho",]
         for nome, tempo_ms, tamanho_mb in custos:
             linhas.append(f"  {nome:<25} | {tempo_ms:17.0f} ms | {tamanho_mb:6.1f} MB")
-        linhas += ["  (Tempo só da rede, sem abrir a foto, medido em FP32 para as três versões do BioCLIP.",
-                   "   Tamanho do BioCLIP: só o codificador de imagem, no formato de cada versão.)", ""]
+        linhas += ["  (Tempo só da rede, sem abrir a foto. BioCLIP PyTorch: medido em FP32 para as três versões,",
+                   "   tamanho do codificador de imagem no formato de cada versão. BioCLIP LiteRT: tempo e",
+                   "   tamanho reais do arquivo .tflite.)", ""]
 
-    for modo in (REFERENCIA, "brasil", "bioclip-misto", "bioclip-int8"):
+    for modo in (REFERENCIA, "brasil", "bioclip-misto", "bioclip-int8", "litert-int8", "litert-int8d"):
         if modo in por_modo:
             linhas += _tabela_limiar(por_modo[modo], modo, n, precisao_alvo, limiar_atual)
     linhas += ["Observações:",
@@ -562,6 +670,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--limite", type=int, default=0, help="avaliar só as N primeiras fotos (teste rápido)")
     parser.add_argument("--bioclip", action="store_true",
                         help="comparar também o BioCLIP zero-shot (exige open_clip_torch e torch)")
+    parser.add_argument("--bioclip-litert", type=Path, metavar="PASTA",
+                        help="rodar o BioCLIP convertido para LiteRT (pasta gerada por "
+                             "tools/converter_bioclip_litert.py); não exige torch")
     parser.add_argument("--relatorio", type=Path, default=SAIDA_RELATORIO)
     parser.add_argument("--saida-csv", type=Path, default=SAIDA_CSV)
     args = parser.parse_args(argv)
@@ -616,6 +727,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             logging.error(f"Falha ao carregar o BioCLIP: {e}")
             return 2
         logging.info(f"BioCLIP pronto: {len(especies)} espécies candidatas.")
+    litert = None
+    if args.bioclip_litert:
+        try:
+            litert = ModeloBioclipLitert(args.bioclip_litert)
+        except Exception as e:
+            logging.error(f"Falha ao carregar o BioCLIP LiteRT de {args.bioclip_litert}: {e}")
+            return 2
+        logging.info(f"BioCLIP LiteRT pronto: {', '.join(litert.interpretadores)}; "
+                     f"{len(litert.especies)} espécies candidatas.")
 
     inicio = time.time()
     resultados: List[Resultado] = []
@@ -627,7 +747,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             ignoradas["sem espécie conhecida"] += 1
             continue
         try:
-            resultados += avaliar_foto(modelo, foto, verdade, permitidas=permitidas, bioclip=bioclip)
+            resultados += avaliar_foto(modelo, foto, verdade, permitidas=permitidas, bioclip=bioclip,
+                                       litert=litert)
         except Exception as e:
             ignoradas["erro de leitura"] += 1
             logging.warning(f"  {foto.name}: {e}")
@@ -646,6 +767,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         for modo, nome in (("bioclip", "BioCLIP FP32"), ("bioclip-fp16", "BioCLIP FP16"),
                            ("bioclip-int8", "BioCLIP INT8 por canal")):
             custos.append((nome, tempo_ms, bioclip.tamanho_mb[modo]))
+    if litert is not None:
+        nomes = {"litert-int8": "LiteRT INT8 (só pesos)", "litert-int8d": "LiteRT INT8 dinâmico",
+                 "litert-fp32": "LiteRT FP32"}
+        for modo in litert.interpretadores:
+            custos.append((nomes[modo], 1000 * litert.tempo_s[modo] / max(litert.fotos, 1), litert.tamanho_mb[modo]))
     relatorio = montar_relatorio(resultados, ignoradas, args.precisao_alvo, time.time() - inicio,
                                  LIMIAR_SUGESTAO, fora_do_brasil=fora, custos=custos)
     # Com BOM: o "type" do PowerShell e o Bloco de Notas antigo leem os acentos certos

@@ -115,7 +115,11 @@ inclusive com Chrome headless).
 - Interpretador LiteRT só com `_interpreter_lock`. Não há mais OTA de modelo.
 - CI roda `ruff check .` (regras em `ruff.toml`); rode antes de enviar.
 - Avaliação da IA: `python tools/avaliar_identificacao.py <pasta> [--csv especies.csv]` no `ibirder-teste`
-  (relatório em `tools/relatorio_avaliacao.txt`). O modelo NÃO conhece *Furnarius rufus* nem
+  (relatório em `tools/relatorio_avaliacao.txt`).
+  BioCLIP em LiteRT: `tools/converter_bioclip_litert.py` só roda em Linux (litert-torch) e o Hugging Face é
+  bloqueado no servidor do Claude: converter pelo workflow "Converter BioCLIP" (artifact `bioclip-litert`) e avaliar
+  no Windows com `--bioclip-litert <pasta>`. Medido em 14/11/2026 (PyTorch, INT8 simulado): amostra geral 47,3% x 16,3%
+  do app; espécies conhecidas 60,5% x 59,0%. O MobileNetV2 atual NÃO conhece *Furnarius rufus* nem
   *Turdus rufiventris*: separe as métricas "só espécies conhecidas".
 
 ## Testes

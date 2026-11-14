@@ -147,3 +147,55 @@ def test_relatorio_com_custos():
     texto = av.montar_relatorio(resultados, {}, 0.9, 1.0, custos=[("BioCLIP INT8", 412.3, 88.1)])
     assert "BioCLIP INT8" in texto and "412 ms" in texto and "88.1 MB" in texto
     assert "Modo bioclip-misto" in texto
+
+
+def test_textos_bioclip():
+    especies = ["Pitangus sulphuratus", "Furnarius rufus"]
+    ingles = {"Pitangus sulphuratus": "Great Kiskadee"}
+    assert av.textos_bioclip(especies, ingles, misto=False) == ["a photo of Pitangus sulphuratus.",
+                                                                "a photo of Furnarius rufus."]
+    assert av.textos_bioclip(especies, ingles) == [
+        "a photo of Pitangus sulphuratus with common name Great Kiskadee.", "a photo of Furnarius rufus."]
+
+
+def test_ranking_litert_softmax_do_cosseno():
+    np = pytest.importorskip("numpy")
+    modelo = av.ModeloBioclipLitert.__new__(av.ModeloBioclipLitert)
+    modelo.especies = ["A a", "B b", "C c"]
+    modelo.textos = np.eye(3, 4, dtype=np.float32)
+    modelo.escala = 100.0
+    ranking = modelo.ranking(np.array([[0.0, 3.0, 0.1, 0.0]], dtype=np.float32))  # norma qualquer
+    assert ranking[0][0] == "B b"
+    assert sum(p for _, p in ranking) == pytest.approx(1.0)
+    assert ranking[0][1] > 0.99
+
+
+def test_relatorio_com_litert_compara_com_pytorch():
+    resultados = [_r("a", 1, 0.9, modo=modo) for modo in av.MODOS + ("bioclip-misto",) + av.MODOS_LITERT[:2]]
+    texto = av.montar_relatorio(resultados, {}, 0.9, 1.0, custos=[("LiteRT INT8 dinâmico", 21.0, 88.0)])
+    assert "LiteRT x bioclip-misto" in texto and "Modo litert-int8d" in texto
+    assert "modo litert-int8:" in texto and "21 ms" in texto
+
+
+def test_converter_e_avaliar_litert(tmp_path):
+    """Conversão real (ViT-B-16 aleatório) e leitura pelo avaliador. Só Linux/macOS, com litert-torch."""
+    pytest.importorskip("litert_torch")
+    pytest.importorskip("open_clip")
+    pytest.importorskip("PySide6.QtCore")
+    from PIL import Image
+    from tools import converter_bioclip_litert as conv
+    especies = ["Pitangus sulphuratus", "Turdus rufiventris", "Furnarius rufus"]
+    pasta = tmp_path / "bioclip"
+    info = conv.converter(pasta, "ViT-B-16", candidatas=(especies, {"Pitangus sulphuratus": "Great Kiskadee"}))
+    assert set(info["arquivos"]) == {"int8", "int8d"} and info["especies"] == 3
+    assert not (pasta / "bioclip_imagem_fp32.tflite").exists()
+    assert all(c >= conv.COSSENO_MINIMO for c in info["cosseno_minimo_tflite_x_pytorch"].values())
+    assert all(a["mb"] < 100 for a in info["arquivos"].values())
+    foto = tmp_path / "f.jpg"
+    Image.new("RGB", (900, 600), (90, 140, 60)).save(foto)
+    modelo = av.ModeloBioclipLitert(pasta)
+    rankings = modelo.rankings(foto)
+    assert set(rankings) == {"litert-int8", "litert-int8d"}
+    for ranking in rankings.values():
+        assert sorted(nome for nome, _ in ranking) == sorted(especies)
+    assert modelo.fotos == 1 and all(t > 0 for t in modelo.tempo_s.values())

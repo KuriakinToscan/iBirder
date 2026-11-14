@@ -1,0 +1,48 @@
+# Converte o BioCLIP (imageomics/bioclip, licença MIT) para LiteRT com pesos INT8
+# (tools/converter_bioclip_litert.py). O conversor litert-torch só existe para Linux/macOS, por isso
+# roda aqui e não no Windows. O resultado fica em "Artifacts" na página da execução
+# (bioclip-litert, ~180 MB): descompacte numa pasta e avalie no Windows com
+#   python tools\avaliar_identificacao.py <fotos> --csv <planilha> --bioclip-litert <pasta>
+# Roda manualmente (Actions > Converter BioCLIP > Run workflow) ou quando a ferramenta muda.
+name: Converter BioCLIP
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "tools/converter_bioclip_litert.py"
+      - ".github/workflows/converter-bioclip.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bioclip-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  converter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar o conversor (torch só CPU)
+        run: |
+          python -m pip install --upgrade pip
+          pip install "torch>=2.4,<2.15" torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install "torch>=2.4,<2.15" open_clip_torch litert-torch==0.10.0
+
+      - name: Converter
+        run: python tools/converter_bioclip_litert.py --saida bioclip_litert
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bioclip-litert
+          path: bioclip_litert/
+          retention-days: 30
+          compression-level: 0
