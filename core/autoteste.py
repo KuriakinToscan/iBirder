@@ -90,11 +90,11 @@ def _conservacao():
 
 
 def _guia():
-    json.loads((APP_DIR / "assets" / "models" / "model_meta.json").read_text(encoding="utf-8"))
-    for arquivo in ("guia_do_usuario.md", "manual_apis_nuvem.md"):
+    json.loads((APP_DIR / "assets" / "models" / "bioclip_modelo.json").read_text(encoding="utf-8"))
+    for arquivo in ("guia_do_usuario.md", "manual_apis_nuvem.md", "assets/models/LICENCA_BIOCLIP.txt"):
         if not (APP_DIR / arquivo).exists():
             raise FileNotFoundError(arquivo)
-    return "manuais e metadados presentes"
+    return "manuais, manifesto e licença do modelo presentes"
 
 
 def _mapa(janela):

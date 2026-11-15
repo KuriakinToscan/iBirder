@@ -53,7 +53,7 @@ def _descartar(destino):
     nome = partes[-1]
     if partes[:2] == ['assets', 'models']:
         if len(partes) == 3:
-            return nome != 'bioclip_modelo.json'
+            return nome not in ('bioclip_modelo.json', 'LICENCA_BIOCLIP.txt')
         return not (len(partes) == 4 and partes[2] == 'bioclip' and nome in ARQUIVOS_BIOCLIP)
     if 'PySide6' not in partes:
         return False
