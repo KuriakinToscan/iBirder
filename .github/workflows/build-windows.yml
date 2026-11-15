@@ -56,6 +56,9 @@ jobs:
           IBIRDER_TESTES_GUI: "1"
         run: python -m pytest -q tests
 
+      - name: Baixar e conferir o modelo de IA (BioCLIP, Release do modelo)
+        run: python -m core.model_manager
+
       - name: Gerar executável (PyInstaller)
         run: pyinstaller -y ibirder.spec
 

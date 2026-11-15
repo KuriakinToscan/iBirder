@@ -44,9 +44,17 @@ QT_NAO_USADOS = re.compile(
 IDIOMAS_MANTIDOS = ('en-US.pak', 'pt-BR.pak', '_pt_BR.qm', '_en.qm')
 
 
+# IA local: só o BioCLIP do manifesto (o MobileNetV2 fica no repositório como referência da avaliação)
+ARQUIVOS_BIOCLIP = ('bioclip_imagem_int8d.tflite', 'bioclip_textos.npy', 'bioclip_especies.txt', 'bioclip_info.json')
+
+
 def _descartar(destino):
     partes = destino.replace('\\', '/').split('/')
     nome = partes[-1]
+    if partes[:2] == ['assets', 'models']:
+        if len(partes) == 3:
+            return nome != 'bioclip_modelo.json'
+        return not (len(partes) == 4 and partes[2] == 'bioclip' and nome in ARQUIVOS_BIOCLIP)
     if 'PySide6' not in partes:
         return False
     if 'qml' in partes:                                   # nenhum QML no app
@@ -63,7 +71,10 @@ def _descartar(destino):
 antes = len(a.binaries) + len(a.datas)
 a.binaries = [x for x in a.binaries if not _descartar(x[0])]
 a.datas = [x for x in a.datas if not _descartar(x[0])]
-print(f"[ibirder.spec] {antes - len(a.binaries) - len(a.datas)} arquivos Qt não usados removidos")
+print(f"[ibirder.spec] {antes - len(a.binaries) - len(a.datas)} arquivos não usados removidos (Qt e modelos)")
+_faltando = [n for n in ARQUIVOS_BIOCLIP if not any(d[0].replace('\\', '/') == f'assets/models/bioclip/{n}' for d in a.datas)]
+if _faltando:
+    raise SystemExit(f"[ibirder.spec] BioCLIP ausente: {_faltando}. Rode antes: python -m core.model_manager")
 
 pyz = PYZ(a.pure)
 

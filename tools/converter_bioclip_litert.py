@@ -15,8 +15,8 @@ Arquivos gerados na pasta de saída:
   bioclip_imagem_int8.tflite    pesos INT8 por canal, conta em FP32 ("só pesos")
   bioclip_imagem_int8d.tflite   pesos INT8 por canal, ativações quantizadas na hora (INT8 dinâmico)
   bioclip_imagem_fp32.tflite    só com --manter-fp32 (referência, ~345 MB)
-  bioclip_textos.npy            embedding (FP16, normalizado) de cada espécie candidata
-  bioclip_especies.txt          as espécies candidatas, na ordem das linhas de bioclip_textos.npy
+  bioclip_textos.npy            embedding (FP16, normalizado) de cada espécie do catálogo (~11 mil)
+  bioclip_especies.txt          "nome científico<TAB>1|0" (1 = registro no Brasil), na ordem dos textos
   bioclip_info.json             escala dos logits, entrada, versões, checagem numérica e SHA-256
 
 Entrada de cada .tflite: float32 [1, 224, 224, 3] (RGB de 0 a 1, foto inteira esticada, sem recorte);
@@ -149,15 +149,17 @@ def _versoes() -> Dict[str, str]:
 
 def converter(saida: Path, nome_modelo: str = BIOCLIP_HUB, pretrained: Optional[str] = None,
               formatos: Sequence[str] = FORMATOS, manter_fp32: bool = False,
-              candidatas: Optional[Tuple[List[str], Dict[str, str]]] = None) -> Dict:
+              candidatas: Optional[Tuple[List[str], Dict[str, str], List[bool]]] = None) -> Dict:
     """
     Gera os arquivos descritos no cabeçalho em ``saida`` e devolve o conteúdo de bioclip_info.json.
-    ``candidatas`` (espécies, nomes em inglês) é para os testes; o padrão são as aves do Brasil.
+    ``candidatas`` (espécies, nomes em inglês, registro no Brasil) é para os testes; o padrão é o
+    catálogo inteiro (eBird + Brasil): o app usa só as do Brasil para fotos daqui e todas para as de fora.
     Levanta RuntimeError se algum .tflite divergir do PyTorch (cosseno < COSSENO_MINIMO).
     """
     import numpy as np
     import open_clip
-    from tools.avaliar_identificacao import candidatas_bioclip, textos_bioclip
+    from modules.step1_identity.bioclip import gravar_especies
+    from tools.avaliar_identificacao import candidatas_mundo, textos_bioclip
 
     saida.mkdir(parents=True, exist_ok=True)
     logging.info(f"Carregando {nome_modelo}...")
@@ -165,11 +167,11 @@ def converter(saida: Path, nome_modelo: str = BIOCLIP_HUB, pretrained: Optional[
     modelo.eval()
     tokenizador = open_clip.get_tokenizer(nome_modelo)
 
-    especies, ingles = candidatas if candidatas is not None else candidatas_bioclip()
+    especies, ingles, brasil = candidatas if candidatas is not None else candidatas_mundo()
     logging.info(f"Codificando os textos de {len(especies)} espécies...")
     textos = codificar_textos(modelo, tokenizador, textos_bioclip(especies, ingles, misto=True))
     np.save(saida / "bioclip_textos.npy", textos.astype(np.float16))
-    (saida / "bioclip_especies.txt").write_text("\n".join(especies) + "\n", encoding="utf-8")
+    gravar_especies(saida / "bioclip_especies.txt", especies, brasil)
 
     codificador = criar_codificador(modelo.visual, open_clip.OPENAI_DATASET_MEAN, open_clip.OPENAI_DATASET_STD)
     gerador = np.random.default_rng(0)
@@ -204,6 +206,7 @@ def converter(saida: Path, nome_modelo: str = BIOCLIP_HUB, pretrained: Optional[
         "escala_logits": float(modelo.logit_scale.detach().exp().item()),
         "textos": "a photo of <nome científico> with common name <nome em inglês do eBird>.",
         "especies": len(especies),
+        "especies_brasil": int(sum(brasil)),
         "cosseno_minimo_tflite_x_pytorch": checagem,
         "arquivos": {f: {"arquivo": c.name, "mb": round(c.stat().st_size / 1e6, 1), "sha256": sha256(c)}
                      for f, c in arquivos.items()},

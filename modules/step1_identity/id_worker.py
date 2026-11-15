@@ -18,7 +18,6 @@ import time
 import logging
 import threading
 from PySide6.QtCore import QThread, Signal
-import numpy as np
 import requests
 import base64
 from core.config import carregar_config
@@ -33,15 +32,37 @@ except ImportError:
         tflite = None
 
 from core.model_manager import ModelManager
+from modules.step1_identity.bioclip import TAMANHO_ENTRADA, ClassificadorBioclip
 from modules.step1_identity.preprocessamento import jpeg_para_nuvem, preparar_para_modelo
 
-# Interpretador LiteRT em cache (carregar custa alguns segundos). Não é thread-safe: um worker
-# substituído (troca de foto) pode continuar rodando enquanto o novo começa, então criação e
-# inferência passam pela trava.
-_interpreter_cache = None
+# Classificador (BioCLIP em LiteRT) em cache: carregar custa alguns segundos. O interpretador não é
+# thread-safe: um worker substituído (troca de foto) pode continuar rodando enquanto o novo começa,
+# então criação e inferência passam pela trava.
+_classificador_cache = None
 _interpreter_lock = threading.Lock()
+MODELO_IA = "BioCLIP (Local)"
 
-def formatar_rotulo(rotulo):
+
+def carregar_classificador(progresso=None):
+    """
+    O ClassificadorBioclip em cache; na primeira vez baixa o modelo se faltar (quem roda pelo ZIP;
+    o instalador já o traz). None se o download falhar.
+    """
+    global _classificador_cache
+    with _interpreter_lock:
+        if _classificador_cache is None:
+            manager = ModelManager()
+            if not manager.check_resources():
+                if progresso:
+                    progresso("Baixando o modelo de IA (~90 MB, só na 1ª vez)...")
+                if not manager.download_resources(callback=progresso):
+                    return None
+            if progresso:
+                progresso("Carregando cérebro digital...")
+            _classificador_cache = ClassificadorBioclip(manager.bioclip_dir, tflite.Interpreter)
+        return _classificador_cache
+
+def formatar_rotulo(rotulo):  # rótulos do MobileNetV2 (referência da avaliação)
     """'Haemorhous cassinii (Cassin's Finch)' -> 'Haemorhous cassinii' (subespécie cai para a espécie)."""
     partes = rotulo.split('(')[0].strip().split()
     return f"{partes[0].capitalize()} {partes[1].lower()}" if len(partes) >= 2 else " ".join(partes).capitalize()
@@ -62,7 +83,7 @@ def usar_prior_brasil(lat, lon, sem_gps_brasil=True):
     """
     True se a IA local deve considerar só as aves com registro no Brasil: foto com GPS no Brasil,
     ou foto sem GPS quando ``sem_gps_brasil`` (opção "ia_sem_gps_brasil" do config.json, padrão
-    ligada). Foto com GPS fora do Brasil usa as 965 espécies do modelo.
+    ligada). Foto com GPS fora do Brasil usa todas as ~11 mil espécies do catálogo.
     """
     no_brasil = foto_no_brasil(lat, lon)
     return sem_gps_brasil if no_brasil is None else no_brasil
@@ -70,6 +91,7 @@ def usar_prior_brasil(lat, lon, sem_gps_brasil=True):
 
 def ranking_por_especie(rotulos, saida, permitidas=None):
     """
+    Só para o MobileNetV2 (referência da avaliação, até a v1.4).
     [(espécie, confiança)] em ordem decrescente: a maior saída de cada espécie (rótulos de
     subespécie caem na espécie). Com ``permitidas`` (gênero + espécie em minúsculas), só essas
     entram e as confianças são renormalizadas para somar 1 entre elas. Em 14/11/2026 (200 fotos
@@ -88,27 +110,24 @@ def ranking_por_especie(rotulos, saida, permitidas=None):
     return sorted(por_especie.items(), key=lambda item: item[1], reverse=True)
 
 
-def get_current_interpreter():
-    return _interpreter_cache
-
-
 # A IA local não decide sozinha quando há nuvem configurada: na amostra geral de 14/11/2026
-# (300 fotos do iNaturalist no Brasil, 71% de espécies que o modelo não conhece), nenhum limiar
-# de confiança passou de 60% de acerto entre as fotos aceitas. Sem nuvem, abaixo deste piso a
-# identificação é inconclusiva; acima, vira uma sugestão para a pessoa conferir.
+# (300 fotos do iNaturalist no Brasil), o BioCLIP acertou 46,7% e, mesmo com confiança >= 0,95,
+# 85% (abaixo dos 90% pedidos). Sem nuvem, abaixo deste piso a identificação é inconclusiva;
+# acima, vira uma sugestão para a pessoa conferir.
 LIMIAR_SUGESTAO = 0.30
 
 class LocalIdentificationWorker(QThread):
     """
     Motor de Identificação Local (Etapa 1).
-    Modelo: Google AIY Vision "Birds V1" (MobileNetV2 quantizado, TFLite), treinado com fotos
-    do iNaturalist; 965 espécies do mundo todo (cerca de 230 ocorrem no Brasil).
+    Modelo: BioCLIP (imageomics/bioclip, licença MIT) em LiteRT INT8 dinâmico, sem treino para o
+    iBirder (zero-shot): compara a foto com o texto de cada espécie (modules/step1_identity/bioclip.py).
+    Candidatas: as ~1.760 aves do Brasil ou, com GPS fora do país, as ~11 mil do catálogo.
     Com nuvem configurada (iNaturalist e/ou Google Vision), a nuvem é sempre consultada; sem ela,
     o resultado local é uma sugestão a conferir (ou inconclusivo abaixo de ``LIMIAR_SUGESTAO``).
     Gerencia:
     1. Download do modelo se ausente (ModelManager; normalmente já vem no instalador).
     2. Pré-processamento (orientação EXIF, redução e foto inteira esticada para 224x224).
-    3. Inferência local, sem internet.
+    3. Inferência local, sem internet (~0,1 s por foto).
     """
     progress_updated = Signal(str)
     finished = Signal(dict)
@@ -123,97 +142,42 @@ class LocalIdentificationWorker(QThread):
         self.lon = None
 
     def run(self):
-        global _interpreter_cache
         if not tflite:
-             self.error.emit("TFLite Runtime não está instalado. Reinicie o app.")
-             return
+            self.error.emit("TFLite Runtime não está instalado. Reinicie o app.")
+            return
 
         try:
-            # 1. Verificar Recursos
             self.progress_updated.emit("Verificando Inteligência Artificial...")
-            manager = ModelManager()
-            
-            if not manager.check_resources():
-                self.progress_updated.emit("Baixando modelo IA (apenas na 1ª vez)...")
-                sucesso = manager.download_resources(callback=self._emit_download_progress)
-                if not sucesso:
-                    self.error.emit("Falha ao baixar modelo de IA.")
-                    return
-
+            classificador = carregar_classificador(self._emit_download_progress)
+            if classificador is None:
+                self.error.emit("Falha ao baixar o modelo de IA. Confira a internet e tente de novo.")
+                return
             if self._stopped:
                 return
 
-            # 2. Carregar Modelo (Instanciação do Interpretador com Cache Global)
-            # O interpretador é mantido em memória (cache) para evitar o custo de carregamento 
-            # de 4-6 segundos em cada nova identificação.
-            with _interpreter_lock:
-                if _interpreter_cache is None:
-                    self.progress_updated.emit("Carregando cérebro digital...")
-                    interpretador = tflite.Interpreter(model_path=str(manager.model_path))
-                    interpretador.allocate_tensors()  # falha aqui cai no except geral
-                    _interpreter_cache = interpretador
-                interpreter = _interpreter_cache
-
-            # Get input and output tensors.
-            input_details = interpreter.get_input_details()
-            output_details = interpreter.get_output_details()
-
-            # 3. Processar Imagem
+            # Pré-processamento (preprocessamento.py): abre já reduzida, sem alterar o arquivo,
+            # e estica a foto inteira para 224x224, sem recorte
             self.progress_updated.emit("Analisando imagem...")
-            
-            # Check expected shape
-            height = input_details[0]['shape'][1]
-            width = input_details[0]['shape'][2]
-            
-            # 3. Pré-processamento (preprocessamento.py): abre já reduzida, sem alterar o arquivo,
-            # e estica a foto inteira para a entrada do modelo, sem recorte
-            img_resized = preparar_para_modelo(self.image_path, width, height)
-            
-            # Check input type
-            input_type = input_details[0]['dtype']
-            img_array = np.array(img_resized, dtype=input_type) # Use img_resized here
-            
-            # Normalization
-            if input_type == np.float32:
-                 # Normalização padrão se for float (-1 a 1)
-                 img_array = (np.float32(img_array) - 127.5) / 127.5
+            entrada = classificador.preparar(
+                preparar_para_modelo(self.image_path, TAMANHO_ENTRADA, TAMANHO_ENTRADA))
 
-            # Adiciona dimensão de batch (Exemplo: [1, 224, 224, 3])
-            input_data = np.expand_dims(img_array, axis=0)
-
-            # 4. Inferência (set_tensor, invoke e get_tensor sob a mesma trava)
+            # Inferência sob a trava (o interpretador LiteRT não é thread-safe)
             with _interpreter_lock:
-                start_infer_time = time.time()
-                interpreter.set_tensor(input_details[0]['index'], input_data)
-                interpreter.invoke()
-                output_data = interpreter.get_tensor(output_details[0]['index'])
-            infer_ms = (time.time() - start_infer_time) * 1000
-            logging.debug(f"Inferência local bem-sucedida em {infer_ms:.2f}ms.")
+                inicio = time.time()
+                emb = classificador.embedding(entrada)
+            logging.debug(f"Inferência local (BioCLIP) em {(time.time() - inicio) * 1000:.0f} ms.")
 
-            # Interpretar Resultados (Classificação)
-            results = np.squeeze(output_data)
-            
-            if output_details[0]['dtype'] == np.uint8:
-                 results = results / 255.0
-            
-            # Ranking por espécie (rótulos na mesma ordem das saídas do modelo), só com as aves
-            # do Brasil quando a foto é daqui (ou sem GPS, pela opção do config.json)
-            labels = [formatar_rotulo(rotulo) for rotulo in self._load_labels(manager.labels_path)]
-            if len(labels) != len(results):
-                self.error.emit(f"Erro: {len(labels)} rótulos para {len(results)} saídas do modelo.")
-                return
+            # Candidatas: aves do Brasil para fotos daqui (ou sem GPS, pela opção do config.json);
+            # todas as espécies do catálogo para fotos com GPS fora do Brasil
             config = carregar_config()
-            permitidas = None
-            if usar_prior_brasil(self.lat, self.lon, bool(config.get("ia_sem_gps_brasil", True))):
-                from modules.step3_geography import listas_conservacao as listas
-                permitidas = listas.especies_registradas_brasil() or None
-            ranking = ranking_por_especie(labels, results, permitidas)
+            so_brasil = usar_prior_brasil(self.lat, self.lon, bool(config.get("ia_sem_gps_brasil", True)))
+            ranking = classificador.ranking(emb, so_brasil=so_brasil)
             top3_results = [{"nome_cientifico": nome, "confianca": conf} for nome, conf in ranking[:3]]
             confidence = top3_results[0]["confianca"] if top3_results else 0.0
             logging.info(f"IA local: {top3_results[0]['nome_cientifico'] if top3_results else '-'} "
-                         f"({confidence*100:.1f}%){' entre as aves do Brasil' if permitidas else ''}.")
+                         f"({confidence*100:.1f}%) entre {'as aves do Brasil' if so_brasil else 'todas as espécies'}.")
 
-            # Com nuvem configurada, ela sempre decide (a confiança local não separa acerto de erro)
+            # Com nuvem configurada, ela sempre decide (a confiança local não basta para dispensá-la)
             if self._nuvem_configurada(config):
                 resultado_nuvem = self._consultar_nuvem("Confirmando a espécie")
                 if resultado_nuvem:
@@ -235,13 +199,13 @@ class LocalIdentificationWorker(QThread):
             self.finished.emit({
                 "nome_cientifico": top3_results[0]["nome_cientifico"],
                 "nome_comum": "",
-                "descricao": "Sugestão da IA local (iNaturalist Vision), sem confirmação da nuvem.",
+                "descricao": "Sugestão da IA local (BioCLIP), sem confirmação da nuvem.",
                 "confianca": confidence,
                 "top3": top3_results,
-                "modelo_ia": "MobileNetV2 (Local)",
+                "modelo_ia": MODELO_IA,
                 "status_msg": "Sugestão local",
-                "aviso_sugestao": ("Sugestão da IA local, sem confirmação da nuvem: confira a espécie. "
-                                   "A IA local conhece só parte das aves do Brasil."),
+                "aviso_sugestao": ("Sugestão da IA local, sem confirmação da nuvem: confira a espécie "
+                                   "(a IA local acerta cerca de metade das fotos)."),
             })
 
         except Exception as e:
@@ -292,24 +256,6 @@ class LocalIdentificationWorker(QThread):
     def _emit_download_progress(self, msg):
         if not self._stopped:
             self.progress_updated.emit(msg)
-
-    def _load_labels(self, path):
-        """Lê o TXT de labels (suporta formato 'id,nome' ou apenas 'nome')."""
-        labels = []
-        # Uma linha por classe, na mesma ordem das 965 saídas do modelo (sem classe "background").
-        
-        try:
-            with open(path, 'r', encoding='utf-8') as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        # Se tiver virgula (ex: 0,Passer domesticus), pega a parte do nome
-                        name = line.split(',', 1)[1].strip() if ',' in line else line
-                        labels.append(name)
-        except Exception as e:
-            logging.error(f"Erro ao ler labels: {e}")
-            
-        return labels
 
     def stop(self):
         self._stopped = True

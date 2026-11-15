@@ -158,23 +158,21 @@ def test_textos_bioclip():
         "a photo of Pitangus sulphuratus with common name Great Kiskadee.", "a photo of Furnarius rufus."]
 
 
-def test_ranking_litert_softmax_do_cosseno():
-    np = pytest.importorskip("numpy")
-    modelo = av.ModeloBioclipLitert.__new__(av.ModeloBioclipLitert)
-    modelo.especies = ["A a", "B b", "C c"]
-    modelo.textos = np.eye(3, 4, dtype=np.float32)
-    modelo.escala = 100.0
-    ranking = modelo.ranking(np.array([[0.0, 3.0, 0.1, 0.0]], dtype=np.float32))  # norma qualquer
-    assert ranking[0][0] == "B b"
-    assert sum(p for _, p in ranking) == pytest.approx(1.0)
-    assert ranking[0][1] > 0.99
-
-
 def test_relatorio_com_litert_compara_com_pytorch():
-    resultados = [_r("a", 1, 0.9, modo=modo) for modo in av.MODOS + ("bioclip-misto",) + av.MODOS_LITERT[:2]]
+    resultados = [_r("a", 1, 0.9, modo=modo) for modo in av.MODOS + ("bioclip-misto",) + av.MODOS_LITERT[:3]]
     texto = av.montar_relatorio(resultados, {}, 0.9, 1.0, custos=[("LiteRT INT8 dinâmico", 21.0, 88.0)])
     assert "LiteRT x bioclip-misto" in texto and "Modo litert-int8d" in texto
-    assert "modo litert-int8:" in texto and "21 ms" in texto
+    assert "modo litert-int8:" in texto and "21 ms" in texto and "Modo litert-mundo" in texto
+
+
+def test_candidatas_mundo():
+    pytest.importorskip("PySide6.QtCore")
+    especies, ingles, brasil = av.candidatas_mundo()
+    assert len(especies) > 10000 and len(especies) == len(set(especies)) == len(brasil)
+    assert 1500 < sum(brasil) < 2000
+    i = especies.index("Pitangus sulphuratus")
+    assert brasil[i] and ingles["Pitangus sulphuratus"] == "Great Kiskadee"
+    assert not brasil[especies.index("Turdus merula")]
 
 
 def test_converter_e_avaliar_litert(tmp_path):
@@ -184,18 +182,19 @@ def test_converter_e_avaliar_litert(tmp_path):
     pytest.importorskip("PySide6.QtCore")
     from PIL import Image
     from tools import converter_bioclip_litert as conv
-    especies = ["Pitangus sulphuratus", "Turdus rufiventris", "Furnarius rufus"]
+    especies = ["Pitangus sulphuratus", "Turdus merula", "Turdus rufiventris", "Furnarius rufus"]
     pasta = tmp_path / "bioclip"
-    info = conv.converter(pasta, "ViT-B-16", candidatas=(especies, {"Pitangus sulphuratus": "Great Kiskadee"}))
-    assert set(info["arquivos"]) == {"int8", "int8d"} and info["especies"] == 3
+    info = conv.converter(pasta, "ViT-B-16", candidatas=(especies, {"Pitangus sulphuratus": "Great Kiskadee"},
+                                                         [True, False, True, True]))
+    assert set(info["arquivos"]) == {"int8", "int8d"} and info["especies"] == 4 and info["especies_brasil"] == 3
     assert not (pasta / "bioclip_imagem_fp32.tflite").exists()
     assert all(c >= conv.COSSENO_MINIMO for c in info["cosseno_minimo_tflite_x_pytorch"].values())
     assert all(a["mb"] < 100 for a in info["arquivos"].values())
     foto = tmp_path / "f.jpg"
     Image.new("RGB", (900, 600), (90, 140, 60)).save(foto)
-    modelo = av.ModeloBioclipLitert(pasta)
+    modelo = av.ModeloBioclipLitert(pasta, threads=2)
     rankings = modelo.rankings(foto)
-    assert set(rankings) == {"litert-int8", "litert-int8d"}
-    for ranking in rankings.values():
-        assert sorted(nome for nome, _ in ranking) == sorted(especies)
-    assert modelo.fotos == 1 and all(t > 0 for t in modelo.tempo_s.values())
+    assert set(rankings) == {"litert-int8", "litert-int8d", "litert-mundo"}
+    assert sorted(nome for nome, _ in rankings["litert-int8d"]) == sorted(set(especies) - {"Turdus merula"})
+    assert sorted(nome for nome, _ in rankings["litert-mundo"]) == sorted(especies)
+    assert modelo.fotos == 1 and all(t > 0 for t in modelo.tempo_s.values()) and modelo.threads == 2

@@ -32,16 +32,21 @@ from core.paths import APP_DIR
 
 
 def _modelo():
+    from core.model_manager import ModelManager
+    from modules.step1_identity.bioclip import ClassificadorBioclip
     from modules.step1_identity.id_worker import tflite
     if tflite is None:
         raise RuntimeError("runtime TFLite (ai-edge-litert) ausente")
-    interp = tflite.Interpreter(model_path=str(APP_DIR / "assets" / "models" / "inat_vision_small.tflite"))
-    interp.allocate_tensors()
-    rotulos = (APP_DIR / "assets" / "models" / "inat_labels.txt").read_text(encoding="utf-8").splitlines()
-    saida = interp.get_output_details()[0]["shape"][-1]
-    if saida != len([r for r in rotulos if r.strip()]):
-        raise RuntimeError(f"modelo com {saida} saídas e {len(rotulos)} rótulos")
-    return f"{saida} espécies"
+    gerente = ModelManager()
+    if not gerente.check_resources():
+        raise RuntimeError(f"BioCLIP ausente ou incompleto em {gerente.bioclip_dir}")
+    classificador = ClassificadorBioclip(gerente.bioclip_dir, tflite.Interpreter)
+    import numpy as np
+    emb = classificador.embedding(np.full((1, 224, 224, 3), 0.5, dtype=np.float32))
+    ranking = classificador.ranking(emb, so_brasil=True)
+    if len(ranking) != len(classificador.indices_brasil) or len(ranking) < 1500:
+        raise RuntimeError(f"ranking com {len(ranking)} espécies do Brasil")
+    return f"BioCLIP, {len(classificador.especies)} espécies ({len(ranking)} do Brasil)"
 
 
 def _exiftool():

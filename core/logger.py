@@ -171,8 +171,10 @@ def gerar_diagnostico(linhas_log=300):
     ]
     try:
         import json
-        meta = json.loads((APP_DIR / "assets" / "models" / "model_meta.json").read_text(encoding="utf-8"))
-        partes.append(f"Modelo de IA: {meta.get('model_type')} v{meta.get('version')}")
+        meta = json.loads((APP_DIR / "assets" / "models" / "bioclip_modelo.json").read_text(encoding="utf-8"))
+        presente = all((APP_DIR / "assets" / "models" / "bioclip" / nome).is_file() for nome in meta["arquivos"])
+        partes.append(f"Modelo de IA: {meta.get('modelo')} ({meta.get('release')}), "
+                      f"{'instalado' if presente else 'AUSENTE (baixa na 1ª identificação)'}")
     except Exception as e:
         partes.append(f"Modelo de IA: metadados indisponíveis ({e})")
     try:

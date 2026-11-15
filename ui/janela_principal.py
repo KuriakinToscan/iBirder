@@ -1480,7 +1480,7 @@ class JanelaPrincipal(QMainWindow):
         top_candidates = dados.get("top3") or dados.get("top_candidates", [])
         
         # Exibição da Certeza (v1.1): Cor padronizada e metadados da IA dinâmico
-        modelo_ia = dados.get("modelo_ia", "MobileNetV2 (Local)")
+        modelo_ia = dados.get("modelo_ia", "BioCLIP (Local)")
         StyleManager.definir_texto(self.lbl_certeza, f'<span style="color: var(--texto_secundario); font-weight: bold; font-size: 11px;">Certeza:</span>&nbsp;&nbsp;'
                                  f'<span style="color: var(--texto_secundario); font-weight: 500; font-size: 13px;">{conf*100:.1f}% ({modelo_ia})</span>')
         self.lbl_certeza.setVisible(True)

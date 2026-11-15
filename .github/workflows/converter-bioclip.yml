@@ -4,6 +4,9 @@
 # (bioclip-litert, ~180 MB): descompacte numa pasta e avalie no Windows com
 #   python tools\avaliar_identificacao.py <fotos> --csv <planilha> --bioclip-litert <pasta>
 # Roda manualmente (Actions > Converter BioCLIP > Run workflow) ou quando a ferramenta muda.
+# Publica também os arquivos do app (sem o INT8 "só pesos") na Release de pré-lançamento
+# MODELO_RELEASE, se ela ainda não existir: uma Release de modelo nunca é sobrescrita, porque
+# assets/models/bioclip_modelo.json guarda o SHA-256 de cada arquivo. Modelo novo = MODELO_RELEASE novo.
 name: Converter BioCLIP
 
 on:
@@ -14,7 +17,10 @@ on:
       - ".github/workflows/converter-bioclip.yml"
 
 permissions:
-  contents: read
+  contents: write
+
+env:
+  MODELO_RELEASE: modelo-bioclip-1
 
 concurrency:
   group: bioclip-${{ github.ref }}
@@ -46,3 +52,28 @@ jobs:
           path: bioclip_litert/
           retention-days: 30
           compression-level: 0
+
+      - name: Publicar a Release do modelo (só se ainda não existir)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$MODELO_RELEASE" > /dev/null 2>&1; then
+            echo "Release $MODELO_RELEASE já existe: nada publicado (troque MODELO_RELEASE para um modelo novo)."
+            exit 0
+          fi
+          cd bioclip_litert
+          gh release create "$MODELO_RELEASE" bioclip_imagem_int8d.tflite bioclip_textos.npy \
+            bioclip_especies.txt bioclip_info.json --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title "Modelo de IA: BioCLIP INT8 ($MODELO_RELEASE)" \
+            --notes "Arquivos da IA local do iBirder (BioCLIP, imageomics/bioclip, licença MIT, convertido para LiteRT INT8 dinâmico por tools/converter_bioclip_litert.py). Não é uma versão do app: o instalador já traz estes arquivos."
+          python - <<'PY'
+          import hashlib, json, os, pathlib
+          arquivos = {}
+          for nome in ("bioclip_imagem_int8d.tflite", "bioclip_textos.npy", "bioclip_especies.txt", "bioclip_info.json"):
+              dados = pathlib.Path(nome).read_bytes()
+              arquivos[nome] = {"bytes": len(dados), "sha256": hashlib.sha256(dados).hexdigest()}
+          rel = os.environ["MODELO_RELEASE"]
+          print(json.dumps({"modelo": "BioCLIP INT8 dinâmico", "release": rel,
+                            "url_base": f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/releases/download/{rel}/",
+                            "arquivos": arquivos}, indent=2, ensure_ascii=False))
+          PY

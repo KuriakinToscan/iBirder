@@ -1,4 +1,4 @@
-"""IA local com prior Brasil e nuvem sempre consultada (id_worker; avaliação de 14/11/2026)."""
+"""IA local (BioCLIP) com aves do Brasil e nuvem sempre consultada (id_worker; avaliação de 14/11/2026)."""
 import pytest
 
 pytest.importorskip("PySide6.QtCore")
@@ -42,9 +42,34 @@ def foto(tmp_path):
     return caminho
 
 
-def _rodar(foto, monkeypatch, config, nuvem=None):
+class ClassificadorFalso:
+    """Faz o papel do BioCLIP (sem arquivo de modelo): registra a lista de candidatas pedida."""
+
+    BRASIL = [("Pitangus sulphuratus", 0.6), ("Turdus rufiventris", 0.3), ("Furnarius rufus", 0.1)]
+    MUNDO = [("Turdus merula", 0.7), ("Pitangus sulphuratus", 0.2), ("Erithacus rubecula", 0.1)]
+
+    def __init__(self):
+        self.pedidos = []
+
+    @staticmethod
+    def preparar(imagem):
+        import numpy as np
+        assert imagem.size == (224, 224)
+        return np.zeros((1, 224, 224, 3), dtype=np.float32)
+
+    def embedding(self, entrada):
+        return entrada.reshape(-1)[:4]
+
+    def ranking(self, emb, so_brasil=True):
+        self.pedidos.append(so_brasil)
+        return list(self.BRASIL if so_brasil else self.MUNDO)
+
+
+def _rodar(foto, monkeypatch, config, nuvem=None, lat=None, lon=None, classificador="falso"):
     pytest.importorskip("ai_edge_litert")
     monkeypatch.setattr(id_worker, "carregar_config", lambda: dict(config))
+    falso = ClassificadorFalso() if classificador == "falso" else classificador
+    monkeypatch.setattr(id_worker, "carregar_classificador", lambda progresso=None: falso)
     chamadas = []
 
     def consultar(self, motivo):
@@ -53,34 +78,49 @@ def _rodar(foto, monkeypatch, config, nuvem=None):
 
     monkeypatch.setattr(id_worker.LocalIdentificationWorker, "_consultar_nuvem", consultar)
     worker = id_worker.LocalIdentificationWorker(str(foto))
+    worker.lat, worker.lon = lat, lon
     resultados, erros = [], []
     worker.finished.connect(resultados.append)
     worker.error.connect(erros.append)
     worker.run()  # na mesma thread: os sinais chegam direto
-    assert not erros
-    return resultados[0], chamadas
+    return (resultados[0] if resultados else None), chamadas, erros, falso
 
 
 def test_com_nuvem_configurada_a_nuvem_sempre_decide(foto, monkeypatch):
     nuvem = {"nome_cientifico": "Pitangus sulphuratus", "confianca": 0.95, "modelo_ia": "iNaturalist"}
-    resultado, chamadas = _rodar(foto, monkeypatch, {"google_vision_api_key": "chave"}, nuvem)
-    assert resultado == nuvem and chamadas == ["Confirmando a espécie"]
+    resultado, chamadas, erros, _ = _rodar(foto, monkeypatch, {"google_vision_api_key": "chave"}, nuvem)
+    assert not erros and resultado == nuvem and chamadas == ["Confirmando a espécie"]
 
 
 def test_sem_nuvem_vira_sugestao_com_aves_do_brasil(foto, monkeypatch):
-    from modules.step3_geography import listas_conservacao as listas
-    monkeypatch.setattr(id_worker, "LIMIAR_SUGESTAO", 0.0)
-    resultado, chamadas = _rodar(foto, monkeypatch, {})
-    assert chamadas == []
+    resultado, chamadas, erros, falso = _rodar(foto, monkeypatch, {})
+    assert not erros and chamadas == [] and falso.pedidos == [True]
     assert resultado["status_msg"] == "Sugestão local" and "confira" in resultado["aviso_sugestao"]
-    assert all(listas.registrada_no_brasil(c["nome_cientifico"]) for c in resultado["top3"])
+    assert resultado["nome_cientifico"] == "Pitangus sulphuratus" and resultado["modelo_ia"] == "BioCLIP (Local)"
+    assert [c["nome_cientifico"] for c in resultado["top3"]] == [n for n, _ in ClassificadorFalso.BRASIL]
+
+
+def test_gps_fora_do_brasil_usa_todas_as_especies(foto, monkeypatch):
+    pytest.importorskip("shapely")
+    resultado, _, erros, falso = _rodar(foto, monkeypatch, {}, lat=LISBOA[0], lon=LISBOA[1])
+    assert not erros and falso.pedidos == [False] and resultado["nome_cientifico"] == "Turdus merula"
+
+
+def test_sem_gps_com_opcao_desligada_usa_todas_as_especies(foto, monkeypatch):
+    _, _, erros, falso = _rodar(foto, monkeypatch, {"ia_sem_gps_brasil": False})
+    assert not erros and falso.pedidos == [False]
 
 
 def test_sem_nuvem_e_confianca_baixa_e_inconclusiva(foto, monkeypatch):
-    monkeypatch.setattr(id_worker, "LIMIAR_SUGESTAO", 1.01)
-    resultado, _ = _rodar(foto, monkeypatch, {"ia_sem_gps_brasil": False})
-    assert resultado["nome_cientifico"] == "Identificação Inconclusiva"
+    monkeypatch.setattr(id_worker, "LIMIAR_SUGESTAO", 0.95)
+    resultado, _, erros, _ = _rodar(foto, monkeypatch, {})
+    assert not erros and resultado["nome_cientifico"] == "Identificação Inconclusiva"
     assert resultado["status_msg"] == "Baixa confiança"
+
+
+def test_falha_no_download_do_modelo_vira_erro(foto, monkeypatch):
+    resultado, _, erros, _ = _rodar(foto, monkeypatch, {}, classificador=None)
+    assert resultado is None and erros and "baixar o modelo" in erros[0]
 
 
 def test_opcao_sem_gps_nas_configuracoes(monkeypatch):
