@@ -44,7 +44,7 @@ A identificação roda **no seu computador**. Quando a IA local fica em dúvida,
 - **Build automático**: testes, autoteste do executável e instalador gerados pelo GitHub Actions.
 
 ## ⚠️ Limitações conhecidas
-- A IA local reconhece **965 espécies do mundo todo**, das quais cerca de **230 ocorrem no Brasil**. Para as demais, a identificação local pode ser inconclusiva ou errada: use a nuvem (iNaturalist), a Busca Manual ou o Google Lens.
+- A IA local considera as cerca de **1.760 aves com registro no Brasil** (e, para fotos com GPS no exterior, ~11 mil espécies do mundo). Numa amostra de 300 fotos do iNaturalist no Brasil, ela acertou a espécie na 1ª opção em **47%** das fotos: confira sempre, e use a nuvem (iNaturalist), a Busca Manual ou o Google Lens quando necessário.
 - As listas embarcadas (MMA, CITES, ocorrência no Brasil) refletem a data da versão; são atualizadas com `tools/atualizar_listas_conservacao.py`.
 - O token do iNaturalist expira em cerca de 24 horas.
 
@@ -54,7 +54,7 @@ A identificação roda **no seu computador**. Quando a IA local fica em dúvida,
   - WikiAves (planejado): assistente que prepara os dados e abre a página de envio. O envio é manual, porque os Termos de Uso do WikiAves proíbem automação.
 
 ## 🛠️ Tecnologias e Fontes
-- **IA local**: **MobileNetV2** quantizada (modelo "Birds V1" do Google AIY Vision, treinado com o iNaturalist), executada com o **LiteRT** (TensorFlow Lite).
+- **IA local**: **BioCLIP** (Imageomics, ViT-B/16 treinado com o TreeOfLife-10M), usado sem treino adicional (zero-shot) e convertido para **LiteRT** (TensorFlow Lite) com pesos INT8 (88 MB).
 - **Interface**: **Python 3.12** e **PySide6** (Qt 6).
 - **Mapas e geografia**: **Leaflet** (embarcado), **OpenStreetMap**, **Nominatim** e polígonos de biomas do **IBGE**.
 - **Fontes de dados**:
@@ -98,7 +98,7 @@ Também funciona em ambientes **conda** ou **venv**: basta `pip install -r requi
 3. O GitHub Actions testa, gera o instalador e cria a Release automaticamente. A tag precisa ser igual a `v` + `APP_VERSION`.
 
 ## ⚖️ Licença
-Este software é distribuído sob a licença **GNU GPL v3**. Componentes de terceiros: ExifTool (Artistic/GPL), Leaflet (BSD-2), PySide6/Qt (LGPL), modelo Birds V1 do Google (Apache 2.0).
+Este software é distribuído sob a licença **GNU GPL v3**. Componentes de terceiros: ExifTool (Artistic/GPL), Leaflet (BSD-2), PySide6/Qt (LGPL), modelo BioCLIP da Imageomics (MIT; aviso em `assets/models/LICENCA_BIOCLIP.txt`) e, só na ferramenta de avaliação, modelo Birds V1 do Google (Apache 2.0).
 
 ---
 *Desenvolvido por Kuriakin Toscan | 2026*

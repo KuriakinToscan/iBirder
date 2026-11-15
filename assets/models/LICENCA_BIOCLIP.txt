@@ -1,0 +1,27 @@
+Modelo de IA local do iBirder: BioCLIP (imageomics/bioclip, https://huggingface.co/imageomics/bioclip)
+Codificador de imagem convertido para LiteRT com pesos INT8 por tools/converter_bioclip_litert.py.
+Os arquivos ficam em assets/models/bioclip/ (Release "modelo-bioclip-N" do repositório do iBirder).
+
+O cartão do modelo no Hugging Face (conferido em 15/11/2026) declara a licença MIT, sem linha de
+copyright própria; organização: Imageomics Institute. Autores: Samuel Stevens, Jiaman Wu, Matthew J.
+Thompson, Elizabeth G. Campolongo, Chan Hee Song, David Edward Carlyn, Li Dong, Wasila M. Dahdul,
+Charles Stewart, Tanya Berger-Wolf, Wei-Lun Chao e Yu Su. O cartão pede que produtos derivados sejam
+de código aberto (o iBirder é GPL v3). Texto da licença MIT:
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+associated documentation files (the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge, publish, distribute,
+sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or
+substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES
+OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Citação pedida pelos autores (cartão do modelo): Stevens, S. et al. "BioCLIP: A Vision Foundation
+Model for the Tree of Life".

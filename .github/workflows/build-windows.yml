@@ -51,13 +51,13 @@ jobs:
           "versao=$v" >> $env:GITHUB_OUTPUT
           Write-Host "APP_VERSION = $v"
 
+      - name: Baixar e conferir o modelo de IA (BioCLIP, Release do modelo)
+        run: python -m core.model_manager
+
       - name: Testes (inclui mapa com QtWebEngine)
         env:
           IBIRDER_TESTES_GUI: "1"
         run: python -m pytest -q tests
-
-      - name: Baixar e conferir o modelo de IA (BioCLIP, Release do modelo)
-        run: python -m core.model_manager
 
       - name: Gerar executável (PyInstaller)
         run: pyinstaller -y ibirder.spec

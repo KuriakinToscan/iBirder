@@ -5,9 +5,9 @@
 
 O **iBirder** transforma uma fotografia de ave em um registro organizado. Ele sugere a espécie, reúne informações de bases científicas (WikiAves, iNaturalist, eBird, GBIF, IUCN), mostra o contexto geográfico do registro e grava tudo nos metadados da foto, prontos para o Lightroom, o digiKam ou o Windows Explorer.
 
-A identificação acontece **no seu computador**, com uma rede neural (**MobileNetV2**, modelo "Birds V1" do Google, treinado com fotos do **iNaturalist**). As demais informações vêm da internet. Quando a IA local fica em dúvida, o iBirder pode, **se você configurar uma chave**, pedir uma segunda opinião ao iNaturalist ou ao Google Vision.
+A identificação acontece **no seu computador**, com uma rede neural (**BioCLIP**, da Imageomics, treinada com milhões de fotos de seres vivos). As demais informações vêm da internet. Quando a IA local fica em dúvida, o iBirder pode, **se você configurar uma chave**, pedir uma segunda opinião ao iNaturalist ou ao Google Vision.
 
-> **Saiba o alcance da IA local:** ela reconhece **965 espécies de aves do mundo todo** (a maioria da América do Norte). Cerca de **230 delas ocorrem no Brasil**. Para as demais espécies, a sugestão local pode ser inconclusiva ou incorreta: confira sempre com a foto de referência, as vocalizações e a descrição, e use a **nuvem (iNaturalist)**, a **Busca Manual** ou o **Google Lens** quando necessário.
+> **Saiba o alcance da IA local:** ela considera as cerca de **1.760 aves com registro no Brasil** e, em testes com fotos do iNaturalist, acertou a espécie na 1ª opção em **cerca de metade** das fotos. Confira sempre com a foto de referência, as vocalizações e a descrição, e use a **nuvem (iNaturalist)**, a **Busca Manual** ou o **Google Lens** quando necessário.
 
 ---
 
@@ -29,7 +29,7 @@ O iBirder lê os metadados da foto: **coordenadas GPS**, **autor** e **data/hora
 **Foto já processada:** se a foto já tiver dados gravados pelo iBirder, uma janela mostra **o que foi gravado** (espécie, local, conservação, comentário) e **quando** (data e versão do iBirder). Escolha **Processar novamente** para refazer a análise ou **Ignorar** para deixar a foto como está. Ao gravar de novo, os dados antigos do iBirder são substituídos, sem duplicar.
 
 ### [ETAPA 2] Identificação da espécie
-A IA local analisa a ave e mostra o **nome científico** e a **Certeza** (por exemplo, `92.3% (MobileNetV2 (Local))`).
+A IA local analisa a ave e mostra o **nome científico** e a **Certeza** (por exemplo, `92.3% (BioCLIP (Local))`). Se você roda o iBirder pelo código-fonte, a primeira identificação baixa o modelo (cerca de 90 MB); o instalador já o traz.
 
 Se você configurou uma chave da nuvem (veja a seção 4), o iBirder **sempre** confirma a espécie na nuvem, porque a certeza da IA local não basta para separar acerto de erro. Sem nuvem (ou sem internet), o resultado local aparece como **sugestão**, com um aviso em amarelo para você conferir, e as outras candidatas como botões. Se a certeza local ficar abaixo de 30%, a identificação aparece como **inconclusiva**. Nesse caso:
 
@@ -38,7 +38,7 @@ Se você configurou uma chave da nuvem (veja a seção 4), o iBirder **sempre** 
 
 Os **candidatos** sugeridos pela IA aparecem como botões, com a certeza de cada um: clique em um deles para buscar as informações dessa espécie.
 
-**Só aves do Brasil:** para fotos com GPS no Brasil, e para fotos sem GPS, a IA local considera só as espécies com registro no país (lista de cerca de 1.750 espécies do iNaturalist, já instalada). Isso aumentou o acerto da IA local de 48% para 59% nas espécies que ela conhece. Se você fotografa no exterior com uma câmera sem GPS, desmarque **Fotos sem GPS: considerar só aves do Brasil** em **Configurações (⚙)**.
+**Aves do Brasil ou do mundo:** para fotos com GPS no Brasil, e para fotos sem GPS, a IA local considera só as espécies com registro no país (cerca de 1.760, lista do iNaturalist já instalada). Para fotos com GPS no exterior, ela considera as cerca de 11 mil espécies do mundo. Se você fotografa no exterior com uma câmera sem GPS, desmarque **Fotos sem GPS: considerar só aves do Brasil** em **Configurações (⚙)**.
 
 ### [ETAPA 3] Localização e mapa
 Com GPS na foto, o pino vermelho marca o local no mapa. Sem GPS, aparece o aviso **"Sem dados de localização, indique manualmente aqui"**: clique nele e pesquise o local pelo nome.
@@ -177,7 +177,7 @@ Com uma chave configurada, o iBirder confirma toda identificação no **iNatural
 
 Para configurar, clique na **engrenagem (⚙)** e depois em **"Como obter essas chaves? (passo a passo)"**. O botão **Testar Chaves** diz exatamente o que falta quando algo não está certo.
 
-> **DICA PRO:** no Brasil, configurar o iNaturalist faz bastante diferença, porque a IA local conhece só uma parte das espécies brasileiras.
+> **DICA PRO:** no Brasil, configurar o iNaturalist faz bastante diferença, porque a IA local acerta cerca de metade das fotos e a nuvem confirma a espécie.
 
 ---
 
@@ -197,7 +197,7 @@ Para configurar, clique na **engrenagem (⚙)** e depois em **"Como obter essas 
 - **"WikiAves inacessível no momento":** verifique se o Google Chrome está instalado e se há internet. As outras informações continuam disponíveis.
 - **Aviso "Sugestão da IA local":** confira a espécie com a foto de referência e as outras candidatas, ou configure o iNaturalist para a confirmação automática.
 - **Ave vagante ou foto do exterior sem GPS:** a IA local só sugere aves com registro no Brasil. Use a Busca Manual, ou desmarque a opção de fotos sem GPS em Configurações (⚙).
-- **Identificação inconclusiva em espécie comum:** a espécie pode não estar entre as que a IA local conhece. Use a Busca Manual ou configure o iNaturalist.
+- **Identificação inconclusiva em espécie comum:** a foto pode estar distante, escura ou com a ave encoberta. Use a Busca Manual ou configure o iNaturalist.
 - **Vocalização não toca:** a janela mostra o motivo e o botão **Abrir no navegador**.
 - **Erro ao testar as chaves:** siga a mensagem do botão **Testar Chaves** e o passo a passo da engrenagem (⚙).
 - **Publicação no iNaturalist:** "porta 8913 ocupada" significa que outro programa usa a porta do retorno da autorização: feche-o e tente de novo. Se a foto não for enviada, a observação já existe: anexe a foto pela página da observação, sem publicar de novo. Se aparecer "Publicação indisponível", esta versão do iBirder ainda não foi registrada no iNaturalist.

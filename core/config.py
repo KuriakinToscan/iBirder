@@ -20,7 +20,7 @@ import os
 from core.paths import BASE_DIR
 
 CONFIG_FILE = "config.json"
-APP_VERSION = "1.4"  # fonte única da versão (instalador, CI, interface, logs)
+APP_VERSION = "1.5"  # fonte única da versão (instalador, CI, interface, logs)
 
 def obter_caminho_config():
     """Retorna o caminho absoluto para o arquivo de configuração."""

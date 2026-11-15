@@ -3,7 +3,8 @@
 #  Licença GNU GPL v3 (veja main.py)
 
 """
-Baixa uma amostra de fotos de aves do Brasil do iNaturalist para avaliar a IA local.
+Baixa uma amostra de fotos de aves do Brasil (ou de outro lugar, com --lugar) do iNaturalist
+para avaliar a IA local.
 
 Critérios da amostra (API v1 do iNaturalist, sem login):
   - lugar Brasil (place_id 6878), grupo Aves, espécie (rank=species), não cativa;
@@ -38,6 +39,7 @@ RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ))
 
 API = "https://api.inaturalist.org/v1/observations"
+API_LUGARES = "https://api.inaturalist.org/v1/places/autocomplete"
 PLACE_BRASIL = 6878
 LICENCAS = "cc0,cc-by,cc-by-nc"
 POR_PAGINA = 200
@@ -48,10 +50,10 @@ TENTATIVAS = 5           # o iNaturalist às vezes derruba a conexão ou respond
 ESPERA_INICIAL_S = 3.0   # espera dobra a cada nova tentativa: 3, 6, 12, 24 s
 
 
-def parametros_busca(desde: str, id_abaixo: Optional[int] = None) -> Dict[str, str]:
+def parametros_busca(desde: str, id_abaixo: Optional[int] = None, lugar: int = PLACE_BRASIL) -> Dict[str, str]:
     """Parâmetros da consulta de observações (paginação por id decrescente, sem limite de página)."""
     params = {
-        "place_id": str(PLACE_BRASIL), "iconic_taxa": "Aves", "quality_grade": "research",
+        "place_id": str(lugar), "iconic_taxa": "Aves", "quality_grade": "research",
         "rank": "species", "photos": "true", "captive": "false", "photo_license": LICENCAS,
         "d1": desde, "per_page": str(POR_PAGINA), "order_by": "id", "order": "desc",
     }
@@ -125,11 +127,24 @@ def get_com_retentativa(sessao, url: str, params: Optional[Dict[str, str]] = Non
     raise RuntimeError("inalcançável")
 
 
-def paginas(sessao, desde: str, max_paginas: int) -> Iterator[List[dict]]:
+def resolver_lugar(sessao, lugar: str) -> int:
+    """place_id do iNaturalist: o número, ou o primeiro lugar que a busca por nome encontrar."""
+    if str(lugar).strip().isdigit():
+        return int(lugar)
+    resposta = get_com_retentativa(sessao, API_LUGARES, params={"q": lugar, "per_page": "1"})
+    resultados = resposta.json().get("results") or []
+    if not resultados:
+        raise ValueError(f"Lugar não encontrado no iNaturalist: {lugar!r}")
+    logging.info(f"Lugar: {resultados[0].get('display_name') or resultados[0].get('name')} "
+                 f"(place_id {resultados[0]['id']})")
+    return int(resultados[0]["id"])
+
+
+def paginas(sessao, desde: str, max_paginas: int, lugar: int = PLACE_BRASIL) -> Iterator[List[dict]]:
     """Páginas de observações, da mais nova para a mais antiga."""
     id_abaixo = None
     for _ in range(max_paginas):
-        resposta = get_com_retentativa(sessao, API, params=parametros_busca(desde, id_abaixo))
+        resposta = get_com_retentativa(sessao, API, params=parametros_busca(desde, id_abaixo, lugar))
         resultados = resposta.json().get("results") or []
         if not resultados:
             return
@@ -139,8 +154,9 @@ def paginas(sessao, desde: str, max_paginas: int) -> Iterator[List[dict]]:
 
 
 def baixar_amostra(pasta: Path, total: int = 300, por_especie: int = 2, desde: str = "2023-01-01",
-                   max_paginas: int = 60, filtro: Optional[Callable[[str], bool]] = None, sessao=None) -> Path:
-    """Baixa a amostra em ``pasta`` e retorna o caminho do especies.csv."""
+                   max_paginas: int = 60, filtro: Optional[Callable[[str], bool]] = None, sessao=None,
+                   lugar="6878") -> Path:
+    """Baixa a amostra em ``pasta`` e retorna o caminho do especies.csv. ``lugar``: place_id ou nome."""
     import requests
     pasta.mkdir(parents=True, exist_ok=True)
     if sessao is None:
@@ -148,8 +164,9 @@ def baixar_amostra(pasta: Path, total: int = 300, por_especie: int = 2, desde: s
         sessao.headers["User-Agent"] = USER_AGENT
     contagem: Dict[str, int] = {}
     selecao: List[dict] = []
+    place_id = resolver_lugar(sessao, lugar)
     try:
-        for pagina in paginas(sessao, desde, max_paginas):
+        for pagina in paginas(sessao, desde, max_paginas, place_id):
             selecao += selecionar(pagina, por_especie, contagem, filtro)
             logging.info(f"  {len(selecao)} fotos selecionadas de {len(contagem)} espécies...")
             if len(selecao) >= total:
@@ -196,6 +213,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--total", type=int, default=300, help="número de fotos (padrão 300)")
     parser.add_argument("--por-especie", type=int, default=2, help="máximo de fotos por espécie (padrão 2)")
     parser.add_argument("--desde", default="2023-01-01", help="data mínima da observação (AAAA-MM-DD)")
+    parser.add_argument("--lugar", default=str(PLACE_BRASIL),
+                        help="place_id do iNaturalist ou nome do lugar (padrão: Brasil, 6878); ex.: --lugar Portugal")
     parser.add_argument("--so-conhecidas", action="store_true",
                         help="só espécies que a IA local conhece (mede a qualidade do modelo, não a cobertura)")
     args = parser.parse_args(argv)
@@ -204,7 +223,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.so_conhecidas:
         filtro = especies_do_modelo().__contains__
     try:
-        baixar_amostra(args.pasta, args.total, args.por_especie, args.desde, filtro=filtro)
+        baixar_amostra(args.pasta, args.total, args.por_especie, args.desde, filtro=filtro, lugar=args.lugar)
     except Exception as e:
         logging.error(f"Falha ao baixar a amostra do iNaturalist: {e}")
         return 1

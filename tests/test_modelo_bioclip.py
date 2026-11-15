@@ -95,3 +95,19 @@ def test_manifesto_do_repositorio():
                                       bioclip.ARQUIVO_INFO}
     assert all(len(a["sha256"]) == 64 and a["bytes"] > 0 for a in dados["arquivos"].values())
     assert dados["arquivos"][bioclip.ARQUIVO_MODELO]["bytes"] < 100e6
+
+
+def test_modelo_real_quando_baixado():
+    """Com o BioCLIP baixado (CI: python -m core.model_manager antes dos testes), roda uma foto."""
+    from core.model_manager import ModelManager
+    tflite = pytest.importorskip("ai_edge_litert.interpreter")
+    gerente = ModelManager()
+    if not gerente.check_resources():
+        pytest.skip("BioCLIP não baixado (python -m core.model_manager)")
+    from PIL import Image
+    c = bioclip.ClassificadorBioclip(gerente.bioclip_dir, tflite.Interpreter, threads=2)
+    emb = c.embedding(c.preparar(Image.new("RGB", (224, 224), (90, 140, 60))))
+    assert emb.shape == (512,) and abs(float(np.linalg.norm(emb)) - 1) < 1e-4
+    brasil, mundo = c.ranking(emb), c.ranking(emb, so_brasil=False)
+    assert len(brasil) == len(c.indices_brasil) > 1500 and len(mundo) == len(c.especies) > 10000
+    assert "Pitangus sulphuratus" in dict(brasil) and "Turdus merula" not in dict(brasil)

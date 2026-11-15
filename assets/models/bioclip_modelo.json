@@ -1,0 +1,11 @@
+{
+  "modelo": "BioCLIP INT8 dinâmico",
+  "release": "modelo-bioclip-1",
+  "url_base": "https://github.com/KuriakinToscan/iBirder/releases/download/modelo-bioclip-1/",
+  "arquivos": {
+    "bioclip_imagem_int8d.tflite": {"bytes": 88223936, "sha256": "b9d1da7ea42b917ccea0de2e52b78644aa294629a5f8d142fd08c54423be6018"},
+    "bioclip_textos.npy": {"bytes": 11436160, "sha256": "0dec20dbd81ca33cb4837e24c4e894ad08aa8cf8caf60ac7bec8625c4bb997e6"},
+    "bioclip_especies.txt": {"bytes": 247732, "sha256": "133cd76642ccc28abdf9209bc45dab4a8a109eb40a0b3b50aad8ef7e9808f258"},
+    "bioclip_info.json": {"bytes": 1097, "sha256": "424b7d1de537a35abb6f96535e3f4d6e76f2744c6c1f7fc776946ae87465e381"}
+  }
+}

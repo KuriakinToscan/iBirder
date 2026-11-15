@@ -134,3 +134,22 @@ def test_erro_definitivo_nao_e_repetido(monkeypatch):
     with pytest.raises(requests.HTTPError):
         am.get_com_retentativa(_Sessao404(), "https://x")
     assert len(chamadas) == 1
+
+
+def test_parametros_busca_outro_lugar_e_resolver_lugar():
+    assert am.parametros_busca("2023-01-01", lugar=7122)["place_id"] == "7122"
+    assert am.resolver_lugar(None, "6878") == 6878
+
+    class Resposta:
+        def json(self):
+            return {"results": [{"id": 7122, "display_name": "Portugal"}]}
+
+    class Sessao:
+        def get(self, url, params=None, timeout=30):
+            assert url == am.API_LUGARES and params["q"] == "Portugal"
+            r = Resposta()
+            r.status_code = 200
+            r.raise_for_status = lambda: None
+            return r
+
+    assert am.resolver_lugar(Sessao(), "Portugal") == 7122

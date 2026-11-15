@@ -32,7 +32,15 @@ inclusive com Chrome headless).
 
 ## Dados e fontes (verificados em 16/10/2026)
 
-- Modelo local: MobileNetV2 "Birds V1" (Google AIY), 965 espécies; só ~230 ocorrem no Brasil.
+- Modelo local (v1.5): BioCLIP (imageomics/bioclip, MIT) em LiteRT INT8 dinâmico, zero-shot
+  (`modules/step1_identity/bioclip.py`): embedding da foto x textos de 11.168 espécies (catálogo eBird +
+  Brasil; 1.759 marcadas do Brasil). Arquivos na Release de pré-lançamento `modelo-bioclip-1`, descritos
+  (bytes + SHA-256) em `assets/models/bioclip_modelo.json`; `python -m core.model_manager` baixa e confere
+  (build do instalador; pelo ZIP, a 1ª identificação baixa). Release de modelo nunca é sobrescrita:
+  modelo novo = `MODELO_RELEASE` novo no workflow "Converter BioCLIP" + manifesto novo.
+  Núcleos: `threads_padrao()` (metade dos lógicos, 1 a 4; 4 núcleos aqui: 59 ms com 1, 21 ms com 4).
+- MobileNetV2 "Birds V1" (até a v1.4; 965 espécies, ~230 no Brasil): só referência da avaliação,
+  fora do instalador (`ibirder.spec`).
 - iNaturalist: lugar Brasil = `place_id` 6878 (6857 é o Reino Unido). Endemismo vem de
   `establishment_means` no detalhe do táxon com `preferred_place_id=6878`.
 - O iNaturalist não tem a lista nacional (ICMBio) nem os anexos da CITES: desde a v1.3 elas vêm
@@ -112,13 +120,16 @@ inclusive com Chrome headless).
   abaixo de `LIMIAR_SUGESTAO` (0,30). Calibrar limiar só com um modelo novo.
 - `config.json`: gravação atômica; JSON ilegível vira `config.json.corrompido` e a janela avisa.
 - Instância única por `QLocalServer` (`core/instancia_unica.py`), desligada no `--smoke-test`.
-- Interpretador LiteRT só com `_interpreter_lock`. Não há mais OTA de modelo.
+- Interpretador LiteRT só com `_interpreter_lock` (`carregar_classificador` em `id_worker.py`). Não há OTA
+  de modelo além do download conferido do manifesto. Testes do worker usam um classificador falso;
+  `tests/test_modelo_bioclip.py` roda o modelo real quando ele está baixado (o CI baixa antes dos testes).
 - CI roda `ruff check .` (regras em `ruff.toml`); rode antes de enviar.
 - Avaliação da IA: `python tools/avaliar_identificacao.py <pasta> [--csv especies.csv]` no `ibirder-teste`
   (relatório em `tools/relatorio_avaliacao.txt`).
   BioCLIP em LiteRT: `tools/converter_bioclip_litert.py` só roda em Linux (litert-torch) e o Hugging Face é
   bloqueado no servidor do Claude: converter pelo workflow "Converter BioCLIP" (artifact `bioclip-litert`) e avaliar
-  no Windows com `--bioclip-litert <pasta>`. Medido em 14/11/2026 (PyTorch, INT8 simulado): amostra geral 47,3% x 16,3%
+  no Windows com `--bioclip-litert <pasta>` (a pasta do app, `assets\models\bioclip`, serve: dá os modos
+  `litert-int8d` e `litert-mundo`). Amostra de fora do Brasil: `tools/amostra_inaturalist.py --lugar <nome|place_id>`. Medido em 14/11/2026 (PyTorch, INT8 simulado): amostra geral 47,3% x 16,3%
   do app; espécies conhecidas 60,5% x 59,0%. O MobileNetV2 atual NÃO conhece *Furnarius rufus* nem
   *Turdus rufiventris*: separe as métricas "só espécies conhecidas".
 
