@@ -49,7 +49,7 @@ from ui.layouts import PAINEIS_EXTRAS, Paineis, obter_layout
 from ui.widgets.busca_especies import BuscaEspecies
 from ui.widgets.layout_fluxo import LayoutFluxo
 from ui.widgets.cartao_candidata import PainelCartoes
-from ui.widgets.componentes_layout import SecaoRecolhivel
+from ui.widgets.componentes_layout import Gaveta, SecaoRecolhivel
 from ui.widgets.painel_fila import PainelFila
 
 # GeoWorker migrado para o Orchestrator v0.4.2
@@ -943,6 +943,8 @@ class JanelaPrincipal(QMainWindow):
         while pai is not None:
             if isinstance(pai, SecaoRecolhivel) and not pai.esta_aberta():
                 pai.abrir()  # seção fechada do inspetor (Mesa de luz)
+            if isinstance(pai, Gaveta) and not pai.esta_aberta():
+                pai.abrir()  # gaveta fechada (Quadro da sessão)
             if isinstance(pai, QStackedWidget):
                 if isinstance(pai.parentWidget(), QTabWidget):
                     pai.parentWidget().setCurrentWidget(filho)

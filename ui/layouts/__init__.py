@@ -14,6 +14,7 @@ from ui.layouts.ficha import LayoutFicha
 from ui.layouts.guiado import LayoutGuiado
 from ui.layouts.mesa import LayoutMesa
 from ui.layouts.mesa_luz import LayoutMesaLuz
+from ui.layouts.quadro import LayoutQuadro
 from ui.layouts.trilha import LayoutTrilha
 
 # Padrão de quem instala agora (v1.6). Quem atualiza mantém o layout salvo; um config.json
@@ -21,12 +22,12 @@ from ui.layouts.trilha import LayoutTrilha
 LAYOUT_PADRAO = "trilha"
 
 LAYOUTS = {layout.id: layout for layout in (LayoutCompleto(), LayoutGuiado(), LayoutFicha(), LayoutMesa(),
-                                         LayoutTrilha(), LayoutCartoes(), LayoutMesaLuz())}
+                                         LayoutTrilha(), LayoutCartoes(), LayoutMesaLuz(),
+                                         LayoutQuadro())}
 
 # Layouts da v1.6 ainda em construção (plano de 17/11/2026): aparecem desativados, com
 # miniatura, nas Configurações. Cada um sai daqui quando entra em LAYOUTS.
 LAYOUTS_PLANEJADOS = (
-    ("quadro", "Quadro da sessão", "A pasta da saída de campo em colunas: na fila, conferindo agora, gravadas e puladas."),
     ("foco", "Foco", "A foto ocupa a janela; resultado e ficha flutuam sobre ela. Bom para o teclado."),
 )
 

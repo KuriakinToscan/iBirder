@@ -481,6 +481,13 @@ QSS_GLOBAL = """
     QFrame#mesa_luz_palco { background-color: var(--superficie_alt); border: 1px solid var(--borda); border-radius: var(--raio); }
     QFrame#mesa_luz_inspetor { background-color: transparent; border: none; }
 
+    /* Quadro da sessão (ui/layouts/quadro.py; vista "colunas" da fila) */
+    QFrame#quadro_coluna { background-color: var(--superficie_alt); border: 1px solid var(--borda_suave); border-radius: var(--raio); }
+    QLabel#quadro_titulo_coluna { color: var(--texto); font-weight: 600; font-size: 13px; padding: 2px 4px; }
+    QListWidget#quadro_lista { background-color: transparent; border: none; }
+    QLabel#quadro_gaveta_titulo { color: var(--texto); font-weight: 600; font-size: 14px; }
+    QLabel#quadro_rotulo_recentes { color: var(--texto_secundario); font-size: 11px; }
+
     /* Trilha (ui/layouts/trilha.py) */
     QFrame#trilha_lateral { background-color: var(--superficie); border: none; border-right: 1px solid var(--borda); }
     QLabel#trilha_rotulo { color: var(--texto_secundario); font-size: 11px; font-weight: 600; letter-spacing: 1px; }

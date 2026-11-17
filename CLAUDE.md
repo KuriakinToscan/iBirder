@@ -118,6 +118,10 @@ inclusive com Chrome headless).
   `GrupoSecoes`), referência e Lens em `Sobreposicao`. Setas ← → por `QShortcut` (contexto WidgetWithChildren; o
   `QLineEdit` fica com as setas pelo ShortcutOverride) chamam `PainelFila.abrir_vizinha`. Não pôr tamanho fixo em
   painel compartilhado (ex.: `referencia`): limitar o contêiner, senão o limite vaza para os outros layouts.
+- Quadro da sessão (`ui/layouts/quadro.py`): fila na vista "colunas" (listas por coluna refeitas a partir da lista
+  principal, `ff.colunas`/`resumo_sessao`), gaveta (`Gaveta`) sobre o quadro com abas Conferir/Ficha. Pastas recentes
+  em QSettings `fila/recentes` (não no config.json, que o diálogo regrava inteiro). Ativar a foto já aberta emite
+  `PainelFila.atual_ativada` e não reabre. `tests/conftest.py` desvia o QSettings do painel para um .ini temporário.
 - Mesa de trabalho: `core/fila_fotos.py` (fila sem Qt) e `ui/widgets/painel_fila.py`, que segue o
   `EstadoIdentificacao` (foto aberta, gravada) e pede à janela para abrir a próxima. Não identificar
   em lote: o WikiAves proíbe operações massificadas (termos, item 13.3).

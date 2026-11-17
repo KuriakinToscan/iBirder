@@ -46,6 +46,7 @@ VISTAS = {
     "lista": (TAMANHO_MINIATURA, True),
     "tira": (88, False),
     "grade": (132, False),
+    "colunas": (88, False),  # quadro da sessão: Na fila, Conferindo agora, Gravadas, Puladas
 }
 VISTA_PADRAO = "lista"
 ALTURA_TIRA = 132
@@ -97,6 +98,7 @@ class PainelFila(QFrame):
     """Lista das fotos da pasta; pede à janela para abrir uma foto com `abrir_foto`."""
 
     abrir_foto = Signal(str)
+    atual_ativada = Signal()  # clique na foto que já está aberta (não abre de novo)
 
     def __init__(self, estado=None, parent=None):
         super().__init__(parent)
@@ -153,11 +155,53 @@ class PainelFila(QFrame):
         self.lista.itemActivated.connect(self._ao_ativar_item)
         layout.addWidget(self.lista, 1)
 
+        # Quadro da sessão (vista "colunas"): uma lista por coluna, a partir da lista principal
+        self._quadro = QWidget()
+        self._quadro.setObjectName("quadro_colunas")
+        layout_quadro = QHBoxLayout(self._quadro)
+        layout_quadro.setContentsMargins(0, 0, 0, 0)
+        layout_quadro.setSpacing(StyleManager.SPACING_MD)
+        self.colunas_quadro = {}
+        self._titulos_quadro = {}
+        for coluna in ff.COLUNAS:
+            caixa = QFrame()
+            caixa.setObjectName("quadro_coluna")
+            layout_caixa = QVBoxLayout(caixa)
+            layout_caixa.setContentsMargins(StyleManager.SPACING_SM, StyleManager.SPACING_SM,
+                                            StyleManager.SPACING_SM, StyleManager.SPACING_SM)
+            titulo_coluna = QLabel(ff.TITULOS_COLUNAS[coluna])
+            titulo_coluna.setObjectName("quadro_titulo_coluna")
+            layout_caixa.addWidget(titulo_coluna)
+            lista_coluna = QListWidget()
+            lista_coluna.setObjectName("quadro_lista")
+            lista_coluna.setViewMode(QListView.IconMode)
+            lista_coluna.setMovement(QListView.Static)
+            lista_coluna.setResizeMode(QListView.Adjust)
+            lista_coluna.setWrapping(True)
+            lista_coluna.setIconSize(QSize(VISTAS["colunas"][0], VISTAS["colunas"][0]))
+            lista_coluna.setGridSize(QSize(VISTAS["colunas"][0] + 32, VISTAS["colunas"][0] + 48))
+            lista_coluna.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+            lista_coluna.itemActivated.connect(self._ao_ativar_item_quadro)
+            layout_caixa.addWidget(lista_coluna, 1)
+            layout_quadro.addWidget(caixa, 2 if coluna == ff.NA_FILA else 1)
+            self.colunas_quadro[coluna] = lista_coluna
+            self._titulos_quadro[coluna] = titulo_coluna
+        self._quadro.hide()
+        layout.addWidget(self._quadro, 1)
+        self._quadro_pendente = False
+
         self._bloco_rodape = QWidget()
         layout_rodape = QVBoxLayout(self._bloco_rodape)
         layout_rodape.setContentsMargins(0, 0, 0, 0)
         layout_rodape.setSpacing(StyleManager.SPACING_SM)
         layout.addWidget(self._bloco_rodape)
+        # Pastas abertas antes (só na vista "colunas", como "sessões anteriores")
+        self._recentes = QWidget()
+        self._layout_recentes = QHBoxLayout(self._recentes)
+        self._layout_recentes.setContentsMargins(0, 0, 0, 0)
+        self._layout_recentes.setSpacing(StyleManager.SPACING_SM)
+        self._recentes.hide()
+        layout_rodape.addWidget(self._recentes)
         self.cb_avancar = QCheckBox("Ir para a próxima ao gravar")
         self.cb_avancar.setChecked(self.settings.value("fila/avancar", True, type=bool))
         self.cb_avancar.toggled.connect(lambda v: self.settings.setValue("fila/avancar", v))
@@ -188,7 +232,16 @@ class PainelFila(QFrame):
         self.setMinimumSize(0, 0)
         self.setMaximumSize(16777215, 16777215)
         lista.setIconSize(QSize(lado, lado))
-        if vista == "lista":
+        colunas = vista == "colunas"
+        self.lista.setVisible(not colunas)
+        self._quadro.setVisible(colunas)
+        self._recentes.setVisible(colunas)
+        if colunas:
+            self._layout.setDirection(QBoxLayout.TopToBottom)
+            self._bloco_cabecalho.setMaximumWidth(16777215)
+            self._bloco_rodape.setMaximumWidth(16777215)
+            self._montar_recentes()
+        elif vista == "lista":
             self._layout.setDirection(QBoxLayout.TopToBottom)
             lista.setViewMode(QListView.ListMode)
             lista.setFlow(QListView.TopToBottom)
@@ -198,7 +251,7 @@ class PainelFila(QFrame):
             lista.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
             self._bloco_cabecalho.setMaximumWidth(16777215)
             self._bloco_rodape.setMaximumWidth(16777215)
-        else:
+        elif not colunas:
             tira = vista == "tira"
             self._layout.setDirection(QBoxLayout.LeftToRight if tira else QBoxLayout.TopToBottom)
             lista.setViewMode(QListView.IconMode)
@@ -217,6 +270,7 @@ class PainelFila(QFrame):
         self.lbl_pasta.setVisible(vista != "tira" or not self.fila.itens)
         for i in range(len(self.fila)):
             self._atualizar_item(i)
+        self._agendar_quadro()
 
     # --- Pasta ---
 
@@ -232,6 +286,7 @@ class PainelFila(QFrame):
         self.fila = ff.FilaFotos(pasta, caminhos)
         self.fila.atual = self.fila.indice_de(self._caminho_aberto)
         self.settings.setValue("last_folder", str(pasta))
+        self._registrar_recente(pasta)
         self.lista.clear()
         for item in self.fila.itens:
             QListWidgetItem(self.lista)
@@ -312,7 +367,19 @@ class PainelFila(QFrame):
         self.ir_para_proxima()
 
     def _ao_ativar_item(self, item_lista):
-        self._abrir(self.lista.row(item_lista))
+        self._ativar(self.lista.row(item_lista))
+
+    def _ao_ativar_item_quadro(self, item_lista):
+        self._ativar(item_lista.data(Qt.UserRole))
+
+    def _ativar(self, indice):
+        """Clique duplo/Enter numa foto: a já aberta não é aberta de novo (nada de nova consulta)."""
+        if indice is None or not 0 <= indice < len(self.fila.itens):
+            return
+        if indice == self.fila.atual:
+            self.atual_ativada.emit()
+            return
+        self._abrir(indice)
 
     def _abrir(self, indice):
         item = self.fila.itens[indice]
@@ -336,6 +403,7 @@ class PainelFila(QFrame):
 
     def _ao_mudar_estado(self):
         estado = self._estado
+        self._agendar_quadro()  # "Conferindo agora" mostra a espécie sugerida
         if estado.etapa == ei.IDENTIFICANDO and estado.caminho != self._caminho_aberto:
             self._definir_atual(estado.caminho)
         elif estado.etapa == ei.SEM_FOTO and self._caminho_aberto is not None:
@@ -378,9 +446,76 @@ class PainelFila(QFrame):
         fonte = linha.font()
         fonte.setBold(indice == self.fila.atual)
         linha.setFont(fonte)
+        self._agendar_quadro()
 
     def _atualizar_resumo(self):
-        self.lbl_resumo.setText(self.fila.resumo())
+        # No quadro, as colunas já mostram as puladas: o resumo conta espécies e gravadas
+        texto = ff.resumo_sessao(self.fila) if self.vista == "colunas" and self.fila.itens else self.fila.resumo()
+        self.lbl_resumo.setText(texto)
+        self._agendar_quadro()
+
+    # --- Quadro da sessão ---
+
+    def _agendar_quadro(self):
+        """Refaz as colunas uma vez só no fim do evento (a verificação atualiza item a item)."""
+        if self.vista != "colunas" or self._quadro_pendente:
+            return
+        self._quadro_pendente = True
+        QTimer.singleShot(0, self._atualizar_quadro)
+
+    def _atualizar_quadro(self):
+        self._quadro_pendente = False
+        if self.vista != "colunas":
+            return
+        grupos = ff.colunas(self.fila)
+        for coluna, lista_coluna in self.colunas_quadro.items():
+            lista_coluna.clear()
+            for indice in grupos[coluna]:
+                item = self.fila.itens[indice]
+                origem = self.lista.item(indice)
+                if item.especie:
+                    texto = f"{item.nome}\n{item.especie}"
+                elif coluna == ff.CONFERINDO and getattr(self, "_estado", None) is not None \
+                        and self._estado.nome_cientifico:
+                    texto = f"{item.nome}\n{self._estado.nome_cientifico}?"
+                else:
+                    texto = item.nome
+                novo = QListWidgetItem(origem.icon() if origem is not None else QIcon(), texto, lista_coluna)
+                novo.setData(Qt.UserRole, indice)
+                novo.setToolTip(origem.toolTip() if origem is not None else item.nome)
+            total = len(grupos[coluna])
+            self._titulos_quadro[coluna].setText(f"{ff.TITULOS_COLUNAS[coluna]}  ·  {total}")
+
+    def _registrar_recente(self, pasta):
+        recentes = self.settings.value("fila/recentes", [], type=list) or []
+        self.settings.setValue("fila/recentes", ff.atualizar_recentes(recentes, pasta))
+        self._montar_recentes()
+
+    def pastas_recentes(self):
+        """Pastas abertas antes que ainda existem, a mais recente primeiro."""
+        recentes = self.settings.value("fila/recentes", [], type=list) or []
+        return [p for p in recentes if Path(p).is_dir()]
+
+    def _montar_recentes(self):
+        while self._layout_recentes.count():
+            item = self._layout_recentes.takeAt(0)
+            if item.widget() is not None:
+                item.widget().deleteLater()
+        atual = str(self.fila.pasta) if self.fila.pasta else ""
+        recentes = [p for p in self.pastas_recentes() if p.lower() != atual.lower()]
+        if not recentes:
+            return
+        rotulo = QLabel("Sessões anteriores:")
+        rotulo.setObjectName("quadro_rotulo_recentes")
+        self._layout_recentes.addWidget(rotulo)
+        for pasta in recentes[:5]:
+            botao = QPushButton(Path(pasta).name or pasta)
+            botao.setProperty("class", "chip")
+            botao.setCursor(Qt.PointingHandCursor)
+            botao.setToolTip(f"Abrir de novo a pasta {pasta}")
+            botao.clicked.connect(lambda _=False, caminho=pasta: self.carregar_pasta(caminho))
+            self._layout_recentes.addWidget(botao)
+        self._layout_recentes.addStretch()
 
     def _atualizar_botoes(self):
         self.btn_pular.setEnabled(bool(self.fila.itens))
