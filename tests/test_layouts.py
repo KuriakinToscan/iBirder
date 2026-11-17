@@ -99,3 +99,88 @@ def test_fluxo_guiado_segue_a_etapa():
     estado.gravada()
     assert all(r.text().startswith("✓") for r in barra.rotulos)
     central.close()
+
+
+def test_trilha_segue_a_etapa_e_volta_sem_perder_dados():
+    from ui import estado_identificacao as ei
+    from ui.layouts import trilha as tr
+
+    paineis = _paineis()
+    estado = ei.EstadoIdentificacao()
+    central = tr.LayoutTrilha().montar(paineis, estado)
+    central.resize(1366, 700)
+    central.show()
+    controle = central.controle_trilha
+    lateral = controle.lateral
+
+    # Sem foto: etapa 1, só ela liberada, Continuar bloqueado e a foto ao lado da fila
+    assert controle.pagina == tr.ESCOLHER and not controle.btn_continuar.isEnabled()
+    assert not controle.btn_voltar.isVisible()
+    assert [b.isEnabled() for b in lateral.botoes] == [True, False, False, False, False]
+    assert paineis.foto.isVisibleTo(central) and paineis.fila.isVisibleTo(central)
+
+    # Foto aberta: vai sozinha para Identificar, e a foto acompanha
+    estado.foto_aberta("C:/fotos/IMG_4520.JPG")
+    assert controle.pagina == tr.IDENTIFICAR and paineis.foto.isVisibleTo(central)
+    assert "IMG_4520.JPG" in controle.lbl_sobretitulo.text()
+    assert not controle.btn_continuar.isEnabled()
+
+    # Resultado: Conferir, com o nome no título
+    estado.identificacao_concluida({"nome_cientifico": "Turdus rufiventris", "status_msg": "ok"})
+    assert controle.pagina == tr.CONFERIR
+    assert "Turdus rufiventris" in controle.lbl_titulo.text()
+    assert paineis.foto.isVisibleTo(central) and paineis.identificacao.isVisibleTo(central)
+    assert lateral.botoes[0].text().startswith("✓") and lateral.botoes[1].text().startswith("✓")
+    assert lateral.botoes[2].property("situacao") == "atual"
+
+    # Só com Continuar até Gravar; o botão de gravar fica na última página
+    controle.btn_continuar.click()
+    assert controle.pagina == tr.CONHECER and paineis.descricao.isVisibleTo(central)
+    controle.btn_continuar.click()
+    assert controle.pagina == tr.GRAVAR and paineis.btn_gravar.isVisibleTo(central)
+    assert not controle.btn_continuar.isVisible()
+
+    # Voltar só troca de página
+    controle.btn_voltar.click()
+    controle.btn_voltar.click()
+    assert controle.pagina == tr.CONFERIR and estado.nome_cientifico == "Turdus rufiventris"
+    lateral.botoes[4].click()  # passo liberado pela trilha lateral
+    assert controle.pagina == tr.GRAVAR
+
+    # Gravada: fica em Gravar e oferece outra foto; depois volta à etapa 1
+    estado.gravada()
+    assert controle.pagina == tr.GRAVAR and controle.btn_continuar.isEnabled()
+    controle.btn_continuar.click()
+    assert controle.pagina == tr.ESCOLHER and paineis.foto.isVisibleTo(central)
+    central.close()
+
+
+def test_trilha_inconclusiva_e_nome_digitado():
+    from ui import estado_identificacao as ei
+    from ui.layouts import trilha as tr
+
+    paineis = _paineis()
+    estado = ei.EstadoIdentificacao()
+    central = tr.LayoutTrilha().montar(paineis, estado)
+    controle = central.controle_trilha
+    estado.foto_aberta("ave.jpg")
+    estado.identificacao_concluida({"nome_cientifico": "", "status_msg": "Inconclusiva"})
+    assert controle.pagina == tr.CONFERIR and "certeza" in controle.lbl_titulo.text()
+    assert not controle.btn_continuar.isEnabled()  # falta a pessoa indicar a espécie
+    estado.especie_digitada("Pitangus sulphuratus")
+    assert controle.pagina == tr.CONFERIR and controle.btn_continuar.isEnabled()
+    assert "Você indicou" in controle.lbl_titulo.text()
+
+
+def test_config_antiga_sem_layout_mantem_painel_completo(tmp_path, monkeypatch):
+    import json
+
+    from core import config as cfg
+
+    caminho = tmp_path / "config.json"
+    monkeypatch.setattr(cfg, "obter_caminho_config", lambda: caminho)
+    assert cfg.carregar_config()["layout"] == "trilha"  # instalação nova
+    caminho.write_text(json.dumps({"tema": "clean"}), encoding="utf-8")
+    assert cfg.carregar_config()["layout"] == "completo"  # quem atualiza
+    caminho.write_text(json.dumps({"layout": "mesa"}), encoding="utf-8")
+    assert cfg.carregar_config()["layout"] == "mesa"

@@ -464,6 +464,21 @@ QSS_GLOBAL = """
     QFrame#cartao_layout { background-color: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); }
     QFrame#cartao_layout[selecionado="true"] { border: 2px solid var(--destaque); }
 
+    /* Trilha (ui/layouts/trilha.py) */
+    QFrame#trilha_lateral { background-color: var(--superficie); border: none; border-right: 1px solid var(--borda); }
+    QLabel#trilha_rotulo { color: var(--texto_secundario); font-size: 11px; font-weight: 600; letter-spacing: 1px; }
+    QPushButton#trilha_passo {
+        text-align: left; padding: 10px 12px; border: none; border-radius: var(--raio_botao);
+        background-color: transparent; color: var(--texto_secundario); font-size: 14px;
+    }
+    QPushButton#trilha_passo:hover { background-color: var(--hover); }
+    QPushButton#trilha_passo[situacao="atual"] { background-color: var(--selecao); color: var(--texto); font-weight: 600; }
+    QPushButton#trilha_passo[situacao="feito"] { color: var(--texto); }
+    QPushButton#trilha_passo:disabled { color: var(--texto_suave); }
+    QLabel#trilha_sobretitulo { color: var(--texto_secundario); font-size: 11px; font-weight: 600; letter-spacing: 1px; }
+    QLabel#trilha_titulo { color: var(--texto); font-family: 'var(--fonte_titulo)'; font-size: 24px; font-weight: 600; }
+    QLabel#trilha_subtitulo, QLabel#trilha_situacao { color: var(--texto_secundario); font-size: 13px; }
+
     QFrame.painel {
         background-color: var(--superficie);
         border-radius: var(--raio);

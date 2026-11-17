@@ -887,8 +887,9 @@ class JanelaPrincipal(QMainWindow):
         QShortcut(QKeySequence("Ctrl+Shift+O"), self, activated=self._atalho_abrir_pasta)
 
     def _atalho_abrir_pasta(self):
-        """Ctrl+Shift+O: abre uma pasta na fila (só no layout que mostra a fila)."""
-        if self.painel_fila.isVisible():
+        """Ctrl+Shift+O: abre uma pasta na fila (só nos layouts que têm a fila)."""
+        if self.layout_atual is not None and "fila" in self.layout_atual.paineis_extras:
+            self._mostrar_widget(self.painel_fila)  # na Trilha, a fila fica na 1ª etapa
             self.painel_fila.escolher_pasta()
 
     def _atalho_buscar_especie(self):
@@ -899,7 +900,10 @@ class JanelaPrincipal(QMainWindow):
 
     def _atalho_gravar(self):
         """Ctrl+S: o mesmo que o botão Gravar, só quando ele está liberado."""
-        if self.btn_gravar_exif.isEnabled() and self.btn_gravar_exif.isVisible():
+        if not self.btn_gravar_exif.isEnabled():
+            return
+        self._mostrar_widget(self.btn_gravar_exif)  # na Trilha, o botão fica na última etapa
+        if self.btn_gravar_exif.isVisible():
             self._gravar_metadados_exif()
 
     def _aplicar_layout(self, id_layout):
@@ -923,12 +927,18 @@ class JanelaPrincipal(QMainWindow):
         logging.info(f"Layout da janela principal: {layout.nome}")
 
     def _mostrar_widget(self, widget):
-        """Deixa o widget à vista: abre a aba que o contém e rola até ele, se o layout tiver."""
+        """
+        Deixa o widget à vista: abre a aba (ou a página da Trilha) que o contém e rola até
+        ele, se o layout tiver.
+        """
         filho, pai = widget, widget.parentWidget()
         rolagem = None
         while pai is not None:
-            if isinstance(pai, QStackedWidget) and isinstance(pai.parentWidget(), QTabWidget):
-                pai.parentWidget().setCurrentWidget(filho)
+            if isinstance(pai, QStackedWidget):
+                if isinstance(pai.parentWidget(), QTabWidget):
+                    pai.parentWidget().setCurrentWidget(filho)
+                else:
+                    pai.setCurrentWidget(filho)
             if rolagem is None and isinstance(pai, QScrollArea):
                 rolagem = pai
             filho, pai = pai, pai.parentWidget()

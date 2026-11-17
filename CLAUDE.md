@@ -105,6 +105,10 @@ inclusive com Chrome headless).
   A etapa atual (sem foto, identificando, conferir, gravada...) fica em `ui/estado_identificacao.py`.
   Painéis de `PAINEIS_EXTRAS` (hoje só a `fila`) entram só nos layouts que os declaram em
   `paineis_extras`; nos outros, a janela os guarda escondidos (filhos da janela).
+- Trilha (`ui/layouts/trilha.py`, padrão de instalação nova; config sem `"layout"` = `completo`): páginas num
+  `QStackedWidget`, limite de avanço por `MAXIMO_POR_ETAPA`; o card da foto muda de página (`PortaFoto` nas
+  etapas 1 e 2, fora de layout porque é quadrado). `JanelaPrincipal._mostrar_widget` troca a página do
+  `QStackedWidget` que contém o widget (Ctrl+K, Ctrl+S, Ctrl+Shift+O).
 - Mesa de trabalho: `core/fila_fotos.py` (fila sem Qt) e `ui/widgets/painel_fila.py`, que segue o
   `EstadoIdentificacao` (foto aberta, gravada) e pede à janela para abrir a próxima. Não identificar
   em lote: o WikiAves proíbe operações massificadas (termos, item 13.3).

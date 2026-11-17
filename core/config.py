@@ -50,8 +50,8 @@ def carregar_config():
         "tema": "offwhite",
         # Modo claro/escuro (v1.6): "sistema" (segue o Windows), "claro" ou "escuro"
         "modo": "sistema",
-        # Arrumação da janela principal (ui/layouts/)
-        "layout": "completo"
+        # Arrumação da janela principal (ui/layouts/). Instalação nova: Trilha (v1.6).
+        "layout": "trilha"
     }
     
     if config_path.exists():
@@ -61,6 +61,8 @@ def carregar_config():
                 user_config = json.load(f)
             if not isinstance(user_config, dict):
                 raise ValueError("o conteúdo não é um objeto JSON")
+            # Config de antes da v1.6 sem a chave "layout": o padrão era o Painel completo
+            user_config.setdefault("layout", "completo")
             # Merge com default para garantir que chaves novas existam
             default_config.update(user_config)
         except ValueError as e:

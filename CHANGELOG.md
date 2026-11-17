@@ -5,11 +5,13 @@
 ### Novidades
 - **Modo claro e escuro**: em **Configurações > Aparência > Modo**, o padrão **Igual ao Windows** acompanha o modo do sistema e troca sozinho com o iBirder aberto (sinal `colorSchemeChanged` do Qt 6.5+; sem resposta do Qt, lê o registro do Windows). **Claro** e **Escuro** fixam o modo. Logo, ícones do topo, barra de título e mapa seguem o modo; no mapa, só a camada do OpenStreetMap é escurecida (filtro CSS), e os pinos e as cores de densidade do GBIF ficam como estão.
 - **Paletas de cores**: além de Off-White, Clean e Clássico, que ganham versão escura e não mudam no modo claro, entram **Gralha-azul**, **Sabiá** e **Alto contraste** (contraste mínimo de 7:1). As Configurações mostram uma amostra de cada paleta no modo em uso.
+- **Layout Trilha** (`ui/layouts/trilha.py`): assistente em cinco etapas (escolher a foto, identificar, conferir a espécie, conhecer a ave, gravar e publicar), com a trilha à esquerda, título em forma de pergunta e um botão principal por tela. A etapa da identificação leva a trilha adiante sozinha e limita até onde dá para avançar; **Voltar** (Alt+←) só troca de página. A primeira etapa traz a fila da pasta em grade. É o layout padrão de quem instala agora; quem atualiza mantém o que usava (um `config.json` sem a chave `"layout"` continua no Painel completo).
 
 ### Alterações
 - **Temas viram paleta x modo** (`core/temas.py`): cada paleta declara as cores-base de cada modo e o resto é derivado (`derivar_tokens`), podendo ser sobrescrito. Os testes conferem contraste de 4,5:1 (7:1 no Alto contraste) nas 12 combinações, incluindo texto sobre o item selecionado e sob o mouse. O `config.json` ganha `"modo"` (`sistema`, `claro` ou `escuro`); a paleta continua na chave `"tema"`, então configurações antigas abrem sem mudança.
 - **Logos das paletas** em PNG de 256 cores (6 a 10 KB cada, antes 80 KB), gerados por `python tools/gerar_logos.py` para cada paleta e modo.
 - **Configurações em abas**: "Aparência" (modo, paleta e layout, com uma miniatura de cada layout; os cinco novos aparecem como "em breve" até ficarem prontos) e "Identificação e nuvem". A fila de fotos ganha as vistas em lista, tira e grade, e entram os componentes comuns dos layouts novos (`ui/widgets/componentes_layout.py`: seção recolhível, rodapé de ações, sobreposição e gaveta).
+- **Ctrl+S e Ctrl+Shift+O** levam à página do botão ou da fila quando o layout os guarda numa etapa (Trilha), em vez de não fazer nada.
 
 ## v1.5 (em desenvolvimento)
 

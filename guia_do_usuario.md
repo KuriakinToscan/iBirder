@@ -133,7 +133,8 @@ Ao terminar, o número da observação é gravado na foto (*iBirder > Publicacao
 - **Ctrl+O:** abrir uma foto.
 - **Ctrl+S:** gravar os dados na fotografia (quando o botão Gravar está liberado).
 - **Ctrl+K:** ir para o campo **Nome Científico** e buscar uma espécie.
-- **Ctrl+Shift+O:** abrir uma pasta na fila de fotos (layout **Mesa de trabalho**).
+- **Ctrl+Shift+O:** abrir uma pasta na fila de fotos (layouts **Trilha** e **Mesa de trabalho**).
+- **Alt+→** e **Alt+←:** avançar e voltar uma etapa (layout **Trilha**).
 
 ### Aparência
 
@@ -155,6 +156,7 @@ As bolinhas ao lado de cada paleta mostram o fundo, os quadros e a cor dos botõ
 
 No mesmo quadro, **Layout** escolhe a arrumação da tela:
 
+- **Trilha** (padrão de quem instala a partir da v1.6): um assistente em cinco etapas, **Escolher a foto › Identificar › Conferir a espécie › Conhecer a ave › Gravar e publicar**, com a trilha sempre à vista à esquerda e um botão principal por tela. Abrir uma foto já leva à identificação, e o resultado já leva à conferência. **Continuar** avança, **Voltar** retorna sem apagar nada, e as etapas já liberadas podem ser abertas direto pela trilha. Na primeira etapa dá para abrir uma pasta inteira, como na Mesa de trabalho.
 - **Painel completo:** tudo visível numa grade de três colunas, com rolagem.
 - **Fluxo guiado:** uma etapa por vez. A barra no alto mostra **Foto › Identificação › Conferir › Gravar** e diz o que fazer em seguida; descrição, classificação, mapa e sons ficam em abas, sem rolar a janela.
 - **Ficha compacta:** tudo numa tela, em três colunas (fotos; ficha da espécie; mapa e sons), cada coluna com rolagem própria.
