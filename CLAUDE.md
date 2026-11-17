@@ -85,14 +85,20 @@ inclusive com Chrome headless).
   crédito; issue #10 fechada). Os textos wiki estão em CC BY-NC-SA 4.0 (item 12.6 dos termos).
 - O ambiente do Claude não alcança wikiaves.com.br: para ler páginas do site, pedir o texto ao usuário.
 
-## Temas (v1.4)
+## Temas (v1.4; paleta x modo desde a v1.6)
 
-- Tokens em `core/temas.py` (Off-White, Clean, Clássico); escolha salva em `config.json` (`"tema"`).
+- Tokens em `core/temas.py`: `PALETAS` (offwhite, clean, classico, gralha, sabia, contraste) x modo
+  (claro, escuro). Paleta salva em `config.json` `"tema"` (nome mantido por compatibilidade) e preferência
+  em `"modo"` (`sistema`, `claro`, `escuro`). `StyleManager.apply_theme(app, tema=, modo=)`; com `sistema`,
+  ouve `styleHints().colorSchemeChanged`. Paleta nova: só cores-base por modo (`TOKENS_BASE`), o resto
+  sai de `derivar_tokens`; os testes exigem 4,5:1 nas 12 combinações (7:1 no Alto contraste).
+- Ícones SVG de `assets/` com traço `#374151`: usar `StyleManager.definir_icone(botao, caminho)`, que
+  recolore pelo tema e refaz na troca. Mapa: `definirModoEscuro()` no JS, filtro só na camada OSM.
 - Nada de cor fixa na `ui/`: escrever QSS/HTML com `var(--token)` e aplicar por
   `StyleManager.estilizar(widget, qss)` / `StyleManager.definir_texto(rotulo, html)`, que guardam o
   modelo e renderizam de novo na troca de tema (sem reiniciar). `tests/test_temas.py` acusa `#RRGGBB`
   na `ui/` (exceto as cores de dado do mapa) e contraste de texto abaixo de 4,5:1.
-- Logos dos temas: `python tools/gerar_logos.py` (duotone do `assets/logo_ave.svg`).
+- Logos das paletas: `python tools/gerar_logos.py` (duotone do `assets/logo_ave.svg`, um PNG por paleta e modo).
 - Layouts (`ui/layouts/`): a janela cria os painéis uma vez (`Paineis`) e toda a lógica fala com
   eles; um layout só os posiciona em `montar()` (cada painel uma vez). Trocar de layout reparenta os
   painéis (`JanelaPrincipal._aplicar_layout`), sem recriar. Escolha em `config.json` (`"layout"`).

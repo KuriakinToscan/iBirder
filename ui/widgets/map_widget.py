@@ -106,13 +106,14 @@ def _ler_asset(*partes, binario=False):
         return b"" if binario else ""
 
 
-def html_base(lat, lon, zoom):
-    """Página do mapa com Leaflet embutido e a API window.ibirder."""
+def html_base(lat, lon, zoom, escuro=False):
+    """Página do mapa com Leaflet embutido e a API window.ibirder (escuro: modo escuro do app)."""
     pin_audio = base64.b64encode(_ler_asset("vocal_pin_base.png", binario=True)).decode()
     return _TEMPLATE.replace("/*LEAFLET_CSS*/", _ler_asset("leaflet", "leaflet.css")) \
                     .replace("/*LEAFLET_JS*/", _ler_asset("leaflet", "leaflet.js")) \
                     .replace("__PIN_AUDIO__", pin_audio) \
-                    .replace("__VISTA__", json.dumps([lat, lon, zoom]))
+                    .replace("__VISTA__", json.dumps([lat, lon, zoom])) \
+                    .replace("__CLASSE_MODO__", "escuro" if escuro else "")
 
 
 class MapWidget(QWebEngineView):
@@ -136,7 +137,10 @@ class MapWidget(QWebEngineView):
         self._gbif_aplicado = None       # espécie cuja camada GBIF está no mapa
         self._gbif_desejado = None       # espécie pedida mais recentemente
         self._gbif_workers = []
+        self._placeholder = None         # mensagem do placeholder exibido (refeita na troca de tema)
         self.loadFinished.connect(self._ao_carregar)
+        self.page().setBackgroundColor(StyleManager.qcor("fundo"))
+        StyleManager.sinal_tema_alterado().connect(self._ao_mudar_tema)
 
         # --- Alerta de GPS Ausente (v0.3.34 / v0.6.3 Interativo) ---
         self.alert_frame = QFrame(self)
@@ -172,7 +176,8 @@ class MapWidget(QWebEngineView):
             self._pagina_carregada = True
             self._pronto = False
             self._gbif_aplicado = None
-            self.setHtml(html_base(lat, lon, zoom), QUrl("about:blank"))
+            self._placeholder = None
+            self.setHtml(html_base(lat, lon, zoom, StyleManager.modo_escuro()), QUrl("about:blank"))
 
     def _ao_carregar(self, ok):
         if not self._pagina_carregada:
@@ -192,7 +197,16 @@ class MapWidget(QWebEngineView):
         else:
             self._fila_js.append(codigo)
 
+    def _ao_mudar_tema(self, _id_tema):
+        """Troca de paleta ou de modo: fundo da página, mapa escurecido ou placeholder refeito."""
+        self.page().setBackgroundColor(StyleManager.qcor("fundo"))
+        if self._pagina_carregada:
+            self._js(f"definirModoEscuro({'true' if StyleManager.modo_escuro() else 'false'});")
+        elif self._placeholder is not None:
+            self.show_placeholder_message(self._placeholder)
+
     def show_placeholder_message(self, message):
+        self._placeholder = message
         self._pagina_carregada = False
         self._pronto = False
         self._fila_js.clear()
@@ -305,10 +319,18 @@ _TEMPLATE = r"""<!DOCTYPE html>
              border: 1.5px solid white; border-radius: 50%; width: 20px; height: 20px; display: flex;
              align-items: center; justify-content: center; font-weight: bold; font-size: 11px;
              box-shadow: 0 1px 3px rgba(0,0,0,0.4); pointer-events: none; font-family: 'Segoe UI', sans-serif; }
+  /* Modo escuro (v1.6): escurece só o mapa do OpenStreetMap; pinos, satélite e a camada de
+     densidade do GBIF mantêm as cores, que codificam dado */
+  body.escuro { background: rgb(21, 23, 27); }
+  body.escuro .camada-osm { filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88); }
+  body.escuro #legenda { background-color: rgba(30, 33, 38, 0.92); color: rgb(230, 232, 235); border-color: rgb(90, 96, 105); }
+  body.escuro .leaflet-bar a, body.escuro .leaflet-control-layers, body.escuro .leaflet-control-attribution,
+  body.escuro .leaflet-control-scale-line { background: rgba(30, 33, 38, 0.92); color: rgb(225, 228, 232); border-color: rgb(90, 96, 105); }
+  body.escuro .leaflet-control-attribution a { color: rgb(125, 185, 242); }
 </style>
 <script>/*LEAFLET_JS*/</script>
 <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
-</head><body>
+</head><body class="__CLASSE_MODO__">
 <div id="mapa"></div>
 <div id="legenda"><b>Densidade (GBIF)</b><br>
   <i style="background:#FF0000"></i> Alta<br>
@@ -321,7 +343,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   L.control.scale().addTo(mapa);
 
   var osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      maxZoom: 19, className: 'camada-osm', attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
   }).addTo(mapa);
   var satelite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
       maxZoom: 19, attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
@@ -343,6 +365,10 @@ _TEMPLATE = r"""<!DOCTYPE html>
   if (typeof QWebChannel !== 'undefined' && window.qt && qt.webChannelTransport) {
     new QWebChannel(qt.webChannelTransport, function(canal) { ponte = canal.objects.ponte; });
   }
+
+  window.definirModoEscuro = function (escuro) {
+      document.body.classList.toggle('escuro', !!escuro);
+  };
 
   window.ibirder = {
     vista: function(lat, lon, zoom) { mapa.setView([lat, lon], zoom); },

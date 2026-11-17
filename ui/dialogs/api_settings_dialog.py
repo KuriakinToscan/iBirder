@@ -1,25 +1,26 @@
 from PySide6.QtWidgets import (QApplication, QDialog, QVBoxLayout, QHBoxLayout, 
                                QLabel, QLineEdit, QPushButton, 
                                QMessageBox, QFormLayout, QCheckBox, QGroupBox,
-                               QRadioButton, QButtonGroup)
+                               QRadioButton, QButtonGroup, QWidget)
 from core.config import carregar_config, salvar_config
 from core.paths import APP_DIR
 import requests
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QCursor
 from core.style_manager import StyleManager
-from core.temas import TEMAS, TEMA_PADRAO
+from core.temas import PALETAS, TEMA_PADRAO, PREFERENCIAS_MODO, NOMES_MODO, obter_tema, normalizar_preferencia_modo
 from ui.layouts import LAYOUTS, LAYOUT_PADRAO, LAYOUTS_PLANEJADOS
 
 class APISettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Configurações")
-        self.resize(520, 520)
+        self.resize(520, 660)
         
         self.config = carregar_config()
         # Tema salvo: a escolha é aplicada na hora (prévia) e desfeita se o diálogo for cancelado
-        self._tema_salvo = self.config.get("tema") or TEMA_PADRAO
+        self._tema_salvo = self.config.get("tema") if self.config.get("tema") in PALETAS else TEMA_PADRAO
+        self._modo_salvo = normalizar_preferencia_modo(self.config.get("modo"))
         # Layout salvo: idem, aplicado na janela principal (parent) enquanto a pessoa escolhe
         self._layout_salvo = self.config.get("layout") or LAYOUT_PADRAO
         
@@ -29,22 +30,56 @@ class APISettingsDialog(QDialog):
     def init_ui(self):
         layout = QVBoxLayout(self)
 
-        # Aparência (v1.4): um botão por tema de core/temas.py e um por layout de ui/layouts/
+        # Aparência (v1.6): modo (claro/escuro), paleta de cores (core/temas.py) e layout
+        # (ui/layouts/), três escolhas independentes aplicadas na hora como prévia
         grupo_tema = QGroupBox("Aparência")
         layout_tema = QVBoxLayout(grupo_tema)
-        lbl_cores = QLabel("Tema (cores e fontes)")
+        lbl_modo = QLabel("Modo")
+        lbl_modo.setProperty("class", "lbl-titulo-sessao")
+        layout_tema.addWidget(lbl_modo)
+        linha_modo = QHBoxLayout()
+        self.grupo_botoes_modo = QButtonGroup(self)
+        self.botoes_modo = {}
+        for modo in PREFERENCIAS_MODO:
+            botao = QRadioButton(NOMES_MODO[modo])
+            botao.setCursor(Qt.PointingHandCursor)
+            botao.toggled.connect(lambda marcado: marcado and self._previa_tema())
+            self.grupo_botoes_modo.addButton(botao)
+            self.botoes_modo[modo] = botao
+            linha_modo.addWidget(botao)
+        linha_modo.addStretch()
+        layout_tema.addLayout(linha_modo)
+
+        lbl_cores = QLabel("Paleta de cores")
         lbl_cores.setProperty("class", "lbl-titulo-sessao")
         layout_tema.addWidget(lbl_cores)
         self.grupo_botoes_tema = QButtonGroup(self)
         self.botoes_tema = {}
-        for tema in TEMAS.values():
-            botao = QRadioButton(tema.nome)
-            botao.setToolTip(tema.descricao)
+        self._amostras = {}  # paleta -> rótulos com as cores de amostra
+        for paleta in PALETAS.values():
+            linha = QWidget()
+            layout_linha = QHBoxLayout(linha)
+            layout_linha.setContentsMargins(0, 0, 0, 0)
+            layout_linha.setSpacing(6)
+            botao = QRadioButton(paleta.nome)
+            botao.setToolTip(paleta.descricao)
             botao.setCursor(Qt.PointingHandCursor)
-            botao.toggled.connect(lambda marcado, t=tema.id: marcado and self._previa_tema(t))
+            botao.toggled.connect(lambda marcado: marcado and self._previa_tema())
             self.grupo_botoes_tema.addButton(botao)
-            self.botoes_tema[tema.id] = botao
-            layout_tema.addWidget(botao)
+            self.botoes_tema[paleta.id] = botao
+            layout_linha.addWidget(botao)
+            layout_linha.addStretch()
+            amostras = []
+            for _ in range(3):
+                amostra = QLabel()
+                amostra.setFixedSize(16, 16)
+                amostra.setToolTip(paleta.descricao)
+                layout_linha.addWidget(amostra)
+                amostras.append(amostra)
+            self._amostras[paleta.id] = amostras
+            layout_tema.addWidget(linha)
+        self._pintar_amostras()
+        StyleManager.sinal_tema_alterado().connect(self._ao_mudar_tema)
 
         lbl_arrumacao = QLabel("Layout (arrumação da tela)")
         lbl_arrumacao.setProperty("class", "lbl-titulo-sessao")
@@ -68,7 +103,7 @@ class APISettingsDialog(QDialog):
             self.grupo_botoes_layout.addButton(botao)
             layout_tema.addWidget(botao)
 
-        lbl_tema = QLabel("Tema e layout são aplicados na hora, sem reiniciar o iBirder.")
+        lbl_tema = QLabel("Modo, paleta e layout são aplicados na hora, sem reiniciar o iBirder.")
         lbl_tema.setProperty("class", "lbl-placeholder")
         layout_tema.addWidget(lbl_tema)
         layout.addWidget(grupo_tema)
@@ -201,10 +236,11 @@ class APISettingsDialog(QDialog):
         self.input_google.setText(self.config.get("google_vision_api_key", ""))
         self.chk_atualizacoes.setChecked(bool(self.config.get("verificar_atualizacoes", True)))
         self.chk_sem_gps_brasil.setChecked(bool(self.config.get("ia_sem_gps_brasil", True)))
-        botao = self.botoes_tema.get(self._tema_salvo) or self.botoes_tema[TEMA_PADRAO]
-        botao.blockSignals(True)  # marcar o tema salvo não é uma prévia
-        botao.setChecked(True)
-        botao.blockSignals(False)
+        for botao in (self.botoes_tema.get(self._tema_salvo) or self.botoes_tema[TEMA_PADRAO],
+                      self.botoes_modo[self._modo_salvo]):
+            botao.blockSignals(True)  # marcar o que está salvo não é uma prévia
+            botao.setChecked(True)
+            botao.blockSignals(False)
         botao = self.botoes_layout.get(self._layout_salvo) or self.botoes_layout[LAYOUT_PADRAO]
         botao.blockSignals(True)
         botao.setChecked(True)
@@ -228,14 +264,32 @@ class APISettingsDialog(QDialog):
                 return id_tema
         return self._tema_salvo
 
-    def _previa_tema(self, id_tema):
-        """Aplica o tema marcado na hora, para a pessoa ver antes de salvar."""
-        StyleManager.apply_theme(QApplication.instance(), tema=id_tema)
+    def _modo_escolhido(self):
+        for modo, botao in self.botoes_modo.items():
+            if botao.isChecked():
+                return modo
+        return self._modo_salvo
+
+    def _previa_tema(self):
+        """Aplica paleta e modo marcados na hora, para a pessoa ver antes de salvar."""
+        StyleManager.apply_theme(QApplication.instance(), tema=self._tema_escolhido(), modo=self._modo_escolhido())
+
+    def _ao_mudar_tema(self, _id_tema):
+        self._pintar_amostras()
+
+    def _pintar_amostras(self):
+        """Amostra de cada paleta (fundo, superfície e destaque) no modo em uso agora."""
+        modo = "escuro" if StyleManager.modo_escuro() else "claro"
+        borda = StyleManager.cor("borda")
+        for id_paleta, amostras in self._amostras.items():
+            tema = obter_tema(id_paleta, modo)
+            for amostra, token in zip(amostras, ("fundo", "superficie", "destaque")):
+                amostra.setStyleSheet(f"background-color: {tema[token]}; border: 1px solid {borda}; border-radius: 8px;")
 
     def reject(self):
-        # Cancelar (ou fechar no X) desfaz a prévia do tema
-        if StyleManager.tema_atual().id != self._tema_salvo:
-            StyleManager.apply_theme(QApplication.instance(), tema=self._tema_salvo)
+        # Cancelar (ou fechar no X) desfaz a prévia de paleta e modo
+        if (StyleManager.tema_atual().id, StyleManager.modo_preferido()) != (self._tema_salvo, self._modo_salvo):
+            StyleManager.apply_theme(QApplication.instance(), tema=self._tema_salvo, modo=self._modo_salvo)
         if self._layout_escolhido() != self._layout_salvo:
             self._previa_layout(self._layout_salvo)
         super().reject()
@@ -252,11 +306,13 @@ class APISettingsDialog(QDialog):
             "verificar_atualizacoes": self.chk_atualizacoes.isChecked(),
             "ia_sem_gps_brasil": self.chk_sem_gps_brasil.isChecked(),
             "tema": self._tema_escolhido(),
+            "modo": self._modo_escolhido(),
             "layout": self._layout_escolhido(),
         })
         self.config = atual
         salvar_config(self.config)
         self._tema_salvo = self.config["tema"]
+        self._modo_salvo = self.config["modo"]
         self._layout_salvo = self.config["layout"]
         QMessageBox.information(self, "Sucesso", "Configurações salvas com sucesso.")
         self.accept()
