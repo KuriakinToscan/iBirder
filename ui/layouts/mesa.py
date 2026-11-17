@@ -67,6 +67,8 @@ class LayoutMesa(Layout):
         abas.addTab(coluna_rolavel(p.mapa, p.geo), "Local")
         abas.addTab(coluna_rolavel(p.sons), "Sons")
 
+        if hasattr(p.fila, "definir_vista"):
+            p.fila.definir_vista("lista")
         p.fila.setMinimumWidth(LARGURA_FILA - 60)
         p.fila.setMaximumWidth(LARGURA_FILA + 60)
 

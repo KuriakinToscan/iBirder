@@ -451,6 +451,19 @@ QSS_GLOBAL = """
 
     QScrollArea#area_rolagem, QWidget#container_rolagem { background-color: var(--fundo); border: none; }
 
+    /* Componentes comuns dos layouts da v1.6 (ui/widgets/componentes_layout.py) */
+    QPushButton#secao_cabecalho {
+        text-align: left; padding: 10px 12px; border: none; border-radius: 0px;
+        border-bottom: 1px solid var(--borda_suave); background-color: transparent;
+        color: var(--texto); font-weight: 600; font-size: 14px;
+    }
+    QPushButton#secao_cabecalho:hover { background-color: var(--hover); }
+    QFrame#rodape_acoes { background-color: var(--superficie); border: none; border-top: 1px solid var(--borda); }
+    QFrame#sobreposicao { background-color: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); }
+    QFrame#gaveta { background-color: var(--superficie); border: none; border-left: 1px solid var(--borda); }
+    QFrame#cartao_layout { background-color: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); }
+    QFrame#cartao_layout[selecionado="true"] { border: 2px solid var(--destaque); }
+
     QFrame.painel {
         background-color: var(--superficie);
         border-radius: var(--raio);

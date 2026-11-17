@@ -19,6 +19,10 @@ Ao abrir a pasta, uma thread lê as miniaturas e o registro do iBirder de cada f
 começa pela primeira pendente. Depois, o painel acompanha o EstadoIdentificacao:
 foto aberta vira a atual; foto gravada é marcada e, com a opção ligada, a próxima
 pendente abre sozinha.
+
+Vistas (v1.6, `definir_vista`): "lista" (coluna, Mesa de trabalho), "tira" (faixa horizontal
+de miniaturas, Mesa de luz) e "grade" (miniaturas grandes em grade). A fila e a lógica são
+as mesmas; só muda a arrumação.
 """
 
 import logging
@@ -27,14 +31,24 @@ from pathlib import Path
 from PIL import Image, ImageOps
 from PySide6.QtCore import QSettings, QSize, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QIcon, QImage, QPixmap
-from PySide6.QtWidgets import (QCheckBox, QFileDialog, QFrame, QHBoxLayout, QLabel,
-                               QListWidget, QListWidgetItem, QPushButton, QVBoxLayout)
+from PySide6.QtWidgets import (QBoxLayout, QCheckBox, QFileDialog, QFrame, QHBoxLayout, QLabel,
+                               QListView, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout,
+                               QWidget)
 
 from core import fila_fotos as ff
 from core.style_manager import StyleManager
 from ui import estado_identificacao as ei
 
 TAMANHO_MINIATURA = 56
+
+# Vista -> (lado da miniatura em px, texto completo no item)
+VISTAS = {
+    "lista": (TAMANHO_MINIATURA, True),
+    "tira": (88, False),
+    "grade": (132, False),
+}
+VISTA_PADRAO = "lista"
+ALTURA_TIRA = 132
 
 TEXTO_SITUACAO = {
     ff.PENDENTE: "Pendente",
@@ -44,7 +58,7 @@ TEXTO_SITUACAO = {
 }
 
 
-def _miniatura(caminho, lado=TAMANHO_MINIATURA * 2):
+def _miniatura(caminho, lado=max(lado for lado, _ in VISTAS.values()) * 2):
     """QImage pequena da foto (JPEG decodificado já reduzido), ou None."""
     try:
         with Image.open(caminho) as img:
@@ -94,10 +108,20 @@ class PainelFila(QFrame):
         self._verificador = None
         self._verificados = 0
         self._caminho_aberto = None
+        self.vista = VISTA_PADRAO
 
-        layout = QVBoxLayout(self)
+        # Três blocos (cabeçalho, lista, rodapé) num QBoxLayout: na vista "tira" eles ficam
+        # lado a lado, nas outras um embaixo do outro
+        layout = QBoxLayout(QBoxLayout.TopToBottom, self)
+        self._layout = layout
         layout.setContentsMargins(12, 18, 12, 12)
         layout.setSpacing(StyleManager.SPACING_SM)
+
+        self._bloco_cabecalho = QWidget()
+        layout_cabecalho = QVBoxLayout(self._bloco_cabecalho)
+        layout_cabecalho.setContentsMargins(0, 0, 0, 0)
+        layout_cabecalho.setSpacing(StyleManager.SPACING_SM)
+        layout.addWidget(self._bloco_cabecalho)
 
         topo = QHBoxLayout()
         titulo = QLabel("Fila de fotos")
@@ -109,17 +133,17 @@ class PainelFila(QFrame):
         self.btn_abrir.setToolTip("Escolher a pasta com as fotos da saída de campo (Ctrl+Shift+O)")
         self.btn_abrir.clicked.connect(self.escolher_pasta)
         topo.addWidget(self.btn_abrir)
-        layout.addLayout(topo)
+        layout_cabecalho.addLayout(topo)
 
         self.lbl_pasta = QLabel("Abra uma pasta para trabalhar as fotos uma a uma.")
         self.lbl_pasta.setWordWrap(True)
         self.lbl_pasta.setProperty("class", "lbl-placeholder")
-        layout.addWidget(self.lbl_pasta)
+        layout_cabecalho.addWidget(self.lbl_pasta)
         self.lbl_resumo = QLabel()
         self.lbl_resumo.setWordWrap(True)
         StyleManager.estilizar(self.lbl_resumo, "color: var(--texto_secundario); font-size: 12px;")
         self.lbl_resumo.setVisible(False)
-        layout.addWidget(self.lbl_resumo)
+        layout_cabecalho.addWidget(self.lbl_resumo)
 
         self.lista = QListWidget()
         self.lista.setObjectName("lista_fila")
@@ -129,10 +153,15 @@ class PainelFila(QFrame):
         self.lista.itemActivated.connect(self._ao_ativar_item)
         layout.addWidget(self.lista, 1)
 
+        self._bloco_rodape = QWidget()
+        layout_rodape = QVBoxLayout(self._bloco_rodape)
+        layout_rodape.setContentsMargins(0, 0, 0, 0)
+        layout_rodape.setSpacing(StyleManager.SPACING_SM)
+        layout.addWidget(self._bloco_rodape)
         self.cb_avancar = QCheckBox("Ir para a próxima ao gravar")
         self.cb_avancar.setChecked(self.settings.value("fila/avancar", True, type=bool))
         self.cb_avancar.toggled.connect(lambda v: self.settings.setValue("fila/avancar", v))
-        layout.addWidget(self.cb_avancar)
+        layout_rodape.addWidget(self.cb_avancar)
         rodape = QHBoxLayout()
         rodape.addStretch()
         self.btn_pular = QPushButton("Pular")
@@ -141,10 +170,53 @@ class PainelFila(QFrame):
         self.btn_pular.setEnabled(False)
         self.btn_pular.clicked.connect(self.pular)
         rodape.addWidget(self.btn_pular)
-        layout.addLayout(rodape)
+        layout_rodape.addLayout(rodape)
 
         if estado is not None:
             self.conectar_estado(estado)
+
+    # --- Vista ---
+
+    def definir_vista(self, vista):
+        """Arruma o painel como "lista", "tira" ou "grade" (cada layout escolhe a sua)."""
+        if vista not in VISTAS:
+            raise ValueError(f"Vista desconhecida: {vista}")
+        self.vista = vista
+        lado, _ = VISTAS[vista]
+        lista = self.lista
+        # Limites de tamanho de um layout anterior não valem no próximo
+        self.setMinimumSize(0, 0)
+        self.setMaximumSize(16777215, 16777215)
+        lista.setIconSize(QSize(lado, lado))
+        if vista == "lista":
+            self._layout.setDirection(QBoxLayout.TopToBottom)
+            lista.setViewMode(QListView.ListMode)
+            lista.setFlow(QListView.TopToBottom)
+            lista.setWrapping(False)
+            lista.setGridSize(QSize())
+            lista.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+            lista.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+            self._bloco_cabecalho.setMaximumWidth(16777215)
+            self._bloco_rodape.setMaximumWidth(16777215)
+        else:
+            tira = vista == "tira"
+            self._layout.setDirection(QBoxLayout.LeftToRight if tira else QBoxLayout.TopToBottom)
+            lista.setViewMode(QListView.IconMode)
+            lista.setMovement(QListView.Static)
+            lista.setResizeMode(QListView.Adjust)
+            lista.setFlow(QListView.LeftToRight)
+            lista.setWrapping(not tira)
+            lista.setGridSize(QSize(lado + 16, lado + (24 if tira else 40)))
+            lista.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded if tira else Qt.ScrollBarAlwaysOff)
+            lista.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff if tira else Qt.ScrollBarAsNeeded)
+            largura_lateral = 200 if tira else 16777215
+            self._bloco_cabecalho.setMaximumWidth(largura_lateral)
+            self._bloco_rodape.setMaximumWidth(largura_lateral)
+            if tira:
+                self.setFixedHeight(ALTURA_TIRA)
+        self.lbl_pasta.setVisible(vista != "tira" or not self.fila.itens)
+        for i in range(len(self.fila)):
+            self._atualizar_item(i)
 
     # --- Pasta ---
 
@@ -166,6 +238,7 @@ class PainelFila(QFrame):
         for i in range(len(self.fila)):
             self._atualizar_item(i)
         self.lbl_pasta.setText(f"Pasta: {Path(pasta).name}")
+        self.lbl_pasta.setVisible(self.vista != "tira")
         self.lbl_pasta.setProperty("class", "")
         StyleManager.estilizar(self.lbl_pasta, "color: var(--texto); font-weight: 600;")
         self.lbl_resumo.setVisible(True)
@@ -283,8 +356,10 @@ class PainelFila(QFrame):
         if item.especie:
             texto += f"\n{item.especie}"  # linha própria: cabe numa coluna estreita
         linha = self.lista.item(indice)
-        linha.setText(f"{item.nome}\n{texto}")
-        linha.setToolTip(str(item.caminho))
+        _, texto_completo = VISTAS[self.vista]
+        # Nas vistas de miniatura, o nome do arquivo e a situação; o resto vai na dica
+        linha.setText(f"{item.nome}\n{texto}" if texto_completo else texto.split("\n")[0])
+        linha.setToolTip(f"{item.caminho}\n{texto}")
         fonte = linha.font()
         fonte.setBold(indice == self.fila.atual)
         linha.setFont(fonte)

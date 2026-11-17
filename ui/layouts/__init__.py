@@ -17,8 +17,15 @@ LAYOUT_PADRAO = "completo"
 
 LAYOUTS = {layout.id: layout for layout in (LayoutCompleto(), LayoutGuiado(), LayoutFicha(), LayoutMesa())}
 
-# Propostas do redesenho ainda em construção: aparecem desativadas nas Configurações
-LAYOUTS_PLANEJADOS = ()
+# Layouts da v1.6 ainda em construção (plano de 17/11/2026): aparecem desativados, com
+# miniatura, nas Configurações. Cada um sai daqui quando entra em LAYOUTS.
+LAYOUTS_PLANEJADOS = (
+    ("trilha", "Trilha", "Assistente em cinco etapas, com a trilha sempre à vista e um botão principal por tela."),
+    ("cartoes", "Cartões de escolha", "Sua foto ao lado das três espécies mais prováveis, cada uma com foto de referência."),
+    ("mesa_luz", "Mesa de luz", "Foto grande no centro, fila numa tira embaixo e a ficha em seções à direita."),
+    ("quadro", "Quadro da sessão", "A pasta da saída de campo em colunas: na fila, conferindo agora, gravadas e puladas."),
+    ("foco", "Foco", "A foto ocupa a janela; resultado e ficha flutuam sobre ela. Bom para o teclado."),
+)
 
 
 def obter_layout(id_layout):

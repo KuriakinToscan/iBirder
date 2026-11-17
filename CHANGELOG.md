@@ -9,6 +9,7 @@
 ### Alterações
 - **Temas viram paleta x modo** (`core/temas.py`): cada paleta declara as cores-base de cada modo e o resto é derivado (`derivar_tokens`), podendo ser sobrescrito. Os testes conferem contraste de 4,5:1 (7:1 no Alto contraste) nas 12 combinações, incluindo texto sobre o item selecionado e sob o mouse. O `config.json` ganha `"modo"` (`sistema`, `claro` ou `escuro`); a paleta continua na chave `"tema"`, então configurações antigas abrem sem mudança.
 - **Logos das paletas** em PNG de 256 cores (6 a 10 KB cada, antes 80 KB), gerados por `python tools/gerar_logos.py` para cada paleta e modo.
+- **Configurações em abas**: "Aparência" (modo, paleta e layout, com uma miniatura de cada layout; os cinco novos aparecem como "em breve" até ficarem prontos) e "Identificação e nuvem". A fila de fotos ganha as vistas em lista, tira e grade, e entram os componentes comuns dos layouts novos (`ui/widgets/componentes_layout.py`: seção recolhível, rodapé de ações, sobreposição e gaveta).
 
 ## v1.5 (em desenvolvimento)
 
