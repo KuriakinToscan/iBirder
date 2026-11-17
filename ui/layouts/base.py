@@ -37,7 +37,7 @@ class Paineis:
     mapa: QWidget             # localização geográfica (Leaflet)
     geo: QWidget              # dados geográficos
     sons: QWidget             # vocalizações
-    fila: QWidget = None      # fila de fotos da pasta (Mesa de trabalho, Trilha; ver PAINEIS_EXTRAS)
+    fila: QWidget = None      # fila de fotos da pasta (Trilha, Mesa de luz, Quadro, Foco; ver PAINEIS_EXTRAS)
     cartoes: QWidget = None   # cartões das espécies candidatas (Cartões de escolha, Trilha)
 
     def todos(self):
@@ -68,7 +68,7 @@ class Layout:
 def coluna_rolavel(*widgets, margem=8, espaco=12):
     """
     Coluna de painéis com rolagem própria, para layouts em que a janela não rola
-    (Fluxo guiado, Ficha compacta). O fundo vem do tema (#area_rolagem).
+    (Ficha compacta e layouts da v1.6). O fundo vem do tema (#area_rolagem).
     """
     rolagem = QScrollArea()
     rolagem.setObjectName("area_rolagem")

@@ -14,7 +14,7 @@ pytest.importorskip("PySide6.QtWidgets")
 from PySide6.QtCore import QEvent  # noqa: E402
 from PySide6.QtWidgets import QApplication, QLabel  # noqa: E402
 
-from ui.layouts import (LAYOUT_PADRAO, LAYOUTS, LAYOUTS_PLANEJADOS, PAINEIS_EXTRAS,  # noqa: E402
+from ui.layouts import (LAYOUT_PADRAO, LAYOUTS, PAINEIS_EXTRAS,  # noqa: E402
                         Paineis, obter_layout)
 
 
@@ -38,8 +38,10 @@ def test_registro():
     assert obter_layout("inexistente").id == LAYOUT_PADRAO
     for id_layout, layout in LAYOUTS.items():
         assert layout.id == id_layout and layout.nome and layout.descricao
-    ids_planejados = [item[0] for item in LAYOUTS_PLANEJADOS]
-    assert len(set(ids_planejados)) == len(ids_planejados)
+    # Ids que saíram na v1.6 levam ao sucessor
+    assert obter_layout("guiado").id == "trilha"
+    assert obter_layout("mesa").id == "mesa_luz"
+    assert "guiado" not in LAYOUTS and "mesa" not in LAYOUTS
 
 
 @pytest.mark.parametrize("layout", LAYOUTS.values(), ids=list(LAYOUTS))
@@ -71,34 +73,6 @@ def test_trocar_layout_reaproveita_paineis(layout):
     primeiro.deleteLater()  # descartar o antigo não leva os painéis junto
     QApplication.sendPostedEvents(None, QEvent.DeferredDelete)
     assert paineis.identificacao.text() == "Turdus rufiventris"
-
-
-def test_fluxo_guiado_segue_a_etapa():
-    from ui import estado_identificacao as ei
-    from ui.layouts.guiado import LayoutGuiado
-
-    paineis = _paineis()
-    estado = ei.EstadoIdentificacao()
-    central = LayoutGuiado().montar(paineis, estado)
-    central.resize(1366, 700)
-    central.show()
-    barra = central.findChild(QLabel, "lbl_dica_etapa").parentWidget()
-
-    # Sem foto: só o card da foto aparece
-    assert not paineis.identificacao.isVisibleTo(central)
-    assert not paineis.referencia.isVisibleTo(central)
-    assert "Ctrl+O" in barra.lbl_dica.text()
-
-    estado.foto_aberta("ave.jpg")
-    estado.identificacao_concluida({"nome_cientifico": "Turdus rufiventris", "status_msg": "ok"})
-    assert paineis.identificacao.isVisibleTo(central) and paineis.referencia.isVisibleTo(central)
-    textos = [r.text() for r in barra.rotulos]
-    assert textos[0].startswith("✓") and textos[1].startswith("✓") and textos[2].startswith("3")
-    assert "etapa-ativa" in barra.rotulos[2].property("class")
-
-    estado.gravada()
-    assert all(r.text().startswith("✓") for r in barra.rotulos)
-    central.close()
 
 
 def test_trilha_segue_a_etapa_e_volta_sem_perder_dados():
@@ -182,5 +156,10 @@ def test_config_antiga_sem_layout_mantem_painel_completo(tmp_path, monkeypatch):
     assert cfg.carregar_config()["layout"] == "trilha"  # instalação nova
     caminho.write_text(json.dumps({"tema": "clean"}), encoding="utf-8")
     assert cfg.carregar_config()["layout"] == "completo"  # quem atualiza
+    caminho.write_text(json.dumps({"layout": "quadro"}), encoding="utf-8")
+    assert cfg.carregar_config()["layout"] == "quadro"
+    # Layouts que saíram na v1.6
     caminho.write_text(json.dumps({"layout": "mesa"}), encoding="utf-8")
-    assert cfg.carregar_config()["layout"] == "mesa"
+    assert cfg.carregar_config()["layout"] == "mesa_luz"
+    caminho.write_text(json.dumps({"layout": "guiado"}), encoding="utf-8")
+    assert cfg.carregar_config()["layout"] == "trilha"

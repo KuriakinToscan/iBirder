@@ -3,7 +3,7 @@
 #  Licença GNU GPL v3 (veja main.py)
 
 """
-Painel "Fila de fotos" do layout Mesa de trabalho (v1.4).
+Painel "Fila de fotos" (v1.4, da antiga Mesa de trabalho; hoje nos layouts da v1.6).
 
     Fila de fotos                      [Abrir pasta...]
     Pasta: Saída de campo 2026-10
@@ -20,7 +20,7 @@ começa pela primeira pendente. Depois, o painel acompanha o EstadoIdentificacao
 foto aberta vira a atual; foto gravada é marcada e, com a opção ligada, a próxima
 pendente abre sozinha.
 
-Vistas (v1.6, `definir_vista`): "lista" (coluna, Mesa de trabalho), "tira" (faixa horizontal
+Vistas (v1.6, `definir_vista`): "lista" (coluna, Foco), "tira" (faixa horizontal
 de miniaturas, Mesa de luz) e "grade" (miniaturas grandes em grade). A fila e a lógica são
 as mesmas; só muda a arrumação.
 """

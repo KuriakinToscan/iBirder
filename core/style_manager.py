@@ -738,7 +738,7 @@ QSS_GLOBAL = """
         border: 1px solid var(--borda_suave);
     }
 
-    /* Fluxo guiado: barra de etapas (ui/layouts/guiado.py) */
+    /* Barra de etapas (Cartões de escolha, ui/layouts/cartoes.py) */
     QLabel.etapa {
         color: var(--texto_secundario);
         font-family: 'var(--fonte_titulo)';
@@ -749,9 +749,8 @@ QSS_GLOBAL = """
     QLabel.etapa-ativa { color: var(--destaque); font-weight: bold; border-bottom: 3px solid var(--destaque); }
     QLabel.etapa-feita { color: var(--texto); border-bottom: 3px solid var(--enfase); }
     QLabel.etapa-seta { color: var(--texto_suave); font-size: 14px; }
-    QLabel#lbl_dica_etapa { color: var(--texto_secundario); font-size: 12px; }
 
-    /* Abas (Fluxo guiado) */
+    /* Abas da ficha (Trilha, Cartões, Quadro, Foco) */
     QTabWidget::pane {
         border: 1px solid var(--borda);
         border-radius: var(--raio_botao);

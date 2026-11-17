@@ -851,7 +851,7 @@ class JanelaPrincipal(QMainWindow):
         # Container inicia visível para manter simetria (v1.6.23)
         self.vocal_details_container.setVisible(True)
 
-        # Fila de fotos de uma pasta (só a Mesa de trabalho mostra)
+        # Fila de fotos de uma pasta (só os layouts com o painel extra "fila" mostram)
         self.painel_fila = PainelFila(self.estado)
         self.painel_fila.abrir_foto.connect(self._carregar_imagem)
 
@@ -2093,7 +2093,7 @@ class JanelaPrincipal(QMainWindow):
             try:
                 # Forçamos o processamento de eventos para garantir estabilidade da UI
                 QApplication.processEvents()
-                # Mesa de trabalho: a próxima foto da fila abre sozinha depois de gravar
+                # Fila de fotos: a próxima foto da fila abre sozinha depois de gravar
                 avancar_fila = self.painel_fila.avanca_ao_gravar()
                 
                 manager = EXIFManager()

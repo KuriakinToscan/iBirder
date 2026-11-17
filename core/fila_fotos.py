@@ -3,7 +3,7 @@
 #  Licença GNU GPL v3 (veja main.py)
 
 """
-Fila de fotos de uma pasta, para o layout "Mesa de trabalho" (v1.4).
+Fila de fotos de uma pasta (v1.4; usada pelos layouts com o painel "fila").
 
 A pessoa abre uma pasta e trabalha uma foto por vez: identifica, confere, grava e vai
 para a próxima. A fila só guarda a ordem e a situação de cada foto; a identificação

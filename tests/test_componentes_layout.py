@@ -111,7 +111,7 @@ def test_fila_troca_de_vista(app, tmp_path):
 
 
 def test_miniaturas_dos_layouts_existem():
-    from ui.layouts import LAYOUTS, LAYOUTS_PLANEJADOS
-    ids = list(LAYOUTS) + [item[0] for item in LAYOUTS_PLANEJADOS]
+    from ui.layouts import LAYOUTS
+    ids = list(LAYOUTS)
     faltando = [i for i in ids if not (RAIZ / "assets" / "layouts" / f"{i}.png").is_file()]
     assert not faltando

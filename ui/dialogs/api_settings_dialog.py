@@ -2,15 +2,15 @@ from PySide6.QtWidgets import (QApplication, QDialog, QVBoxLayout, QHBoxLayout,
                                QLabel, QLineEdit, QPushButton, 
                                QMessageBox, QFormLayout, QCheckBox,
                                QRadioButton, QButtonGroup, QWidget, QTabWidget, QFrame,
-                               QGridLayout, QGraphicsOpacityEffect)
-from core.config import carregar_config, salvar_config
+                               QGridLayout)
+from core.config import LAYOUTS_RENOMEADOS, carregar_config, salvar_config
 from core.paths import APP_DIR
 import requests
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QCursor, QPixmap
 from core.style_manager import StyleManager
 from core.temas import PALETAS, TEMA_PADRAO, PREFERENCIAS_MODO, NOMES_MODO, obter_tema, normalizar_preferencia_modo
-from ui.layouts import LAYOUTS, LAYOUT_PADRAO, LAYOUTS_PLANEJADOS
+from ui.layouts import LAYOUTS, LAYOUT_PADRAO
 from ui.widgets.componentes_layout import definir_animacoes
 
 LARGURA_MINIATURA_LAYOUT = 176
@@ -20,7 +20,7 @@ ALTURA_MINIATURA_LAYOUT = 110
 class CartaoLayout(QFrame):
     """Miniatura de um layout com o botão de escolha; clicar no cartão marca o botão."""
 
-    def __init__(self, id_layout, nome, descricao, disponivel=True, parent=None):
+    def __init__(self, id_layout, nome, descricao, parent=None):
         super().__init__(parent)
         self.setObjectName("cartao_layout")
         self.setToolTip(descricao)
@@ -34,17 +34,11 @@ class CartaoLayout(QFrame):
         if caminho.exists():
             self.miniatura.setPixmap(QPixmap(str(caminho)))
         layout.addWidget(self.miniatura)
-        self.botao = QRadioButton(nome if disponivel else f"{nome} (em breve)")
+        self.botao = QRadioButton(nome)
         self.botao.setToolTip(descricao)
-        self.botao.setEnabled(disponivel)
         layout.addWidget(self.botao)
-        if disponivel:
-            self.setCursor(Qt.PointingHandCursor)
-            self.botao.setCursor(Qt.PointingHandCursor)
-        else:
-            efeito = QGraphicsOpacityEffect(self.miniatura)
-            efeito.setOpacity(0.45)
-            self.miniatura.setGraphicsEffect(efeito)
+        self.setCursor(Qt.PointingHandCursor)
+        self.botao.setCursor(Qt.PointingHandCursor)
         self.botao.toggled.connect(self._marcar)
 
     def mousePressEvent(self, evento):
@@ -147,7 +141,7 @@ class APISettingsDialog(QDialog):
         layout_tema.addStretch()
         layout_aparencia.addWidget(coluna_cores)
 
-        # Layouts em cartões com miniatura (assets/layouts/<id>.png); os planejados, desativados
+        # Layouts em cartões com miniatura (assets/layouts/<id>.png)
         coluna_layouts = QWidget()
         layout_layouts = QVBoxLayout(coluna_layouts)
         layout_layouts.setContentsMargins(0, 0, 0, 0)
@@ -158,14 +152,11 @@ class APISettingsDialog(QDialog):
         grade.setSpacing(10)
         self.grupo_botoes_layout = QButtonGroup(self)
         self.botoes_layout = {}
-        itens = [(item.id, item.nome, item.descricao, True) for item in LAYOUTS.values()]
-        itens += [(i, n, d, False) for i, n, d in LAYOUTS_PLANEJADOS if i not in LAYOUTS]
-        for posicao, (id_layout, nome, descricao, disponivel) in enumerate(itens):
-            cartao = CartaoLayout(id_layout, nome, descricao, disponivel)
+        for posicao, item in enumerate(LAYOUTS.values()):
+            cartao = CartaoLayout(item.id, item.nome, item.descricao)
             self.grupo_botoes_layout.addButton(cartao.botao)
-            if disponivel:
-                cartao.botao.toggled.connect(lambda marcado, l=id_layout: marcado and self._previa_layout(l))
-                self.botoes_layout[id_layout] = cartao.botao
+            cartao.botao.toggled.connect(lambda marcado, l=item.id: marcado and self._previa_layout(l))
+            self.botoes_layout[item.id] = cartao.botao
             grade.addWidget(cartao, posicao // 3, posicao % 3)
         layout_layouts.addLayout(grade)
         layout_layouts.addStretch()
@@ -315,7 +306,7 @@ class APISettingsDialog(QDialog):
             botao.blockSignals(True)  # marcar o que está salvo não é uma prévia
             botao.setChecked(True)
             botao.blockSignals(False)
-        botao = self.botoes_layout.get(self._layout_salvo) or self.botoes_layout[LAYOUT_PADRAO]
+        botao = self.botoes_layout.get(LAYOUTS_RENOMEADOS.get(self._layout_salvo, self._layout_salvo)) or self.botoes_layout[LAYOUT_PADRAO]
         botao.blockSignals(True)
         botao.setChecked(True)
         botao.blockSignals(False)

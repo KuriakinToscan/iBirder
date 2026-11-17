@@ -1,4 +1,4 @@
-"""Fila de fotos da Mesa de trabalho (core/fila_fotos.py e o painel da fila)."""
+"""Fila de fotos (core/fila_fotos.py e o painel da fila)."""
 import os
 
 import pytest

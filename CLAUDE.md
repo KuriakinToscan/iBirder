@@ -101,7 +101,8 @@ inclusive com Chrome headless).
 - Logos das paletas: `python tools/gerar_logos.py` (duotone do `assets/logo_ave.svg`, um PNG por paleta e modo).
 - Layouts (`ui/layouts/`): a janela cria os painéis uma vez (`Paineis`) e toda a lógica fala com
   eles; um layout só os posiciona em `montar()` (cada painel uma vez). Trocar de layout reparenta os
-  painéis (`JanelaPrincipal._aplicar_layout`), sem recriar. Escolha em `config.json` (`"layout"`).
+  painéis (`JanelaPrincipal._aplicar_layout`), sem recriar. Escolha em `config.json` (`"layout"`); ids que saíram na v1.6 (`guiado`, `mesa`) viram
+  `trilha`/`mesa_luz` por `LAYOUTS_RENOMEADOS` (`core/config.py`), na leitura do config e em `obter_layout`.
   A etapa atual (sem foto, identificando, conferir, gravada...) fica em `ui/estado_identificacao.py`.
   Painéis de `PAINEIS_EXTRAS` (hoje só a `fila`) entram só nos layouts que os declaram em
   `paineis_extras`; nos outros, a janela os guarda escondidos (filhos da janela).
