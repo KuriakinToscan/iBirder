@@ -477,6 +477,10 @@ QSS_GLOBAL = """
     QProgressBar#cartao_barra { background-color: var(--borda_suave); border: none; border-radius: 2px; }
     QProgressBar#cartao_barra::chunk { background-color: var(--destaque); border-radius: 2px; }
 
+    /* Mesa de luz (ui/layouts/mesa_luz.py) */
+    QFrame#mesa_luz_palco { background-color: var(--superficie_alt); border: 1px solid var(--borda); border-radius: var(--raio); }
+    QFrame#mesa_luz_inspetor { background-color: transparent; border: none; }
+
     /* Trilha (ui/layouts/trilha.py) */
     QFrame#trilha_lateral { background-color: var(--superficie); border: none; border-right: 1px solid var(--borda); }
     QLabel#trilha_rotulo { color: var(--texto_secundario); font-size: 11px; font-weight: 600; letter-spacing: 1px; }

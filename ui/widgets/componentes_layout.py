@@ -286,14 +286,17 @@ class Gaveta(QFrame):
 class PortaFoto(QWidget):
     """
     Lugar do card da foto (Trilha, etapas 1 e 2; Cartões de escolha). O card é sempre
-    quadrado (altura = largura), então fica fora de layout: o maior quadrado que cabe,
-    centralizado no topo. Assim uma janela baixa não é esticada pela foto.
+    quadrado (altura = largura), então fica fora de layout: o maior quadrado que cabe, no
+    topo, centralizado ou à esquerda. Assim uma janela baixa não é esticada pela foto.
     """
 
     LADO_MINIMO = 250
 
-    def __init__(self, parent=None):
+    def __init__(self, alinhamento="centro", parent=None):
         super().__init__(parent)
+        if alinhamento not in ("centro", "esquerda"):
+            raise ValueError(f"Alinhamento desconhecido: {alinhamento}")
+        self.alinhamento = alinhamento
         self._foto = None
         self.setMinimumSize(self.LADO_MINIMO, self.LADO_MINIMO)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -317,7 +320,8 @@ class PortaFoto(QWidget):
         lado = max(self.LADO_MINIMO, min(self.width(), self.height()))
         self._foto.setMinimumWidth(0)
         self._foto.setMaximumWidth(16777215)
-        self._foto.setGeometry((self.width() - lado) // 2, 0, lado, lado)
+        x = (self.width() - lado) // 2 if self.alinhamento == "centro" else 0
+        self._foto.setGeometry(x, 0, lado, lado)
 
 
 __all__ = ["PortaFoto", "SecaoRecolhivel", "GrupoSecoes", "RodapeAcoes", "Sobreposicao", "Gaveta",

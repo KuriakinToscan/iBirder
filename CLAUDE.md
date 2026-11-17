@@ -114,6 +114,10 @@ inclusive com Chrome headless).
   (`cartoes`), "horizontal" nos Cartões e "vertical" na Trilha. Foto de referência: `core/fotos_referencia.py`
   (`default_photo` do iNaturalist, cache em `temp/candidatas/`). "É esta" na espécie aberta só confirma (sem
   WikiAves); em outra, busca manual. `limpar(manter_foto=True)` preserva as candidatas.
+- Mesa de luz (`ui/layouts/mesa_luz.py`): fila na vista "tira", cartões "vertical" numa `SecaoRecolhivel` (acordeão
+  `GrupoSecoes`), referência e Lens em `Sobreposicao`. Setas ← → por `QShortcut` (contexto WidgetWithChildren; o
+  `QLineEdit` fica com as setas pelo ShortcutOverride) chamam `PainelFila.abrir_vizinha`. Não pôr tamanho fixo em
+  painel compartilhado (ex.: `referencia`): limitar o contêiner, senão o limite vaza para os outros layouts.
 - Mesa de trabalho: `core/fila_fotos.py` (fila sem Qt) e `ui/widgets/painel_fila.py`, que segue o
   `EstadoIdentificacao` (foto aberta, gravada) e pede à janela para abrir a próxima. Não identificar
   em lote: o WikiAves proíbe operações massificadas (termos, item 13.3).

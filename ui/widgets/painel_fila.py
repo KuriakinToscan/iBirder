@@ -289,6 +289,21 @@ class PainelFila(QFrame):
             return
         self._abrir(indice)
 
+    def abrir_vizinha(self, passo):
+        """
+        Abre a foto anterior (passo -1) ou a seguinte (+1) da pasta, qualquer que seja a
+        situação dela (setas ← → da Mesa de luz). Sem foto aberta, começa pela primeira.
+        Devolve False quando não há para onde ir.
+        """
+        if not self.fila.itens:
+            return False
+        atual = self.fila.atual
+        indice = 0 if atual is None else atual + passo
+        if not 0 <= indice < len(self.fila.itens):
+            return False
+        self._abrir(indice)
+        return True
+
     def pular(self):
         if self.fila.atual is not None and self.fila.itens[self.fila.atual].situacao == ff.PENDENTE:
             self.fila.marcar(self.fila.atual, ff.PULADA)
