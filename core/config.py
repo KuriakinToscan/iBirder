@@ -50,6 +50,8 @@ def carregar_config():
         "tema": "offwhite",
         # Modo claro/escuro (v1.6): "sistema" (segue o Windows), "claro" ou "escuro"
         "modo": "sistema",
+        # Animação das gavetas (Foco, Quadro da sessão); desligar ajuda em PC lento (v1.6)
+        "animacoes": True,
         # Arrumação da janela principal (ui/layouts/). Instalação nova: Trilha (v1.6).
         "layout": "trilha"
     }

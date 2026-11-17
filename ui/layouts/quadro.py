@@ -23,6 +23,7 @@ confirmada.
 
 from pathlib import Path
 
+import shiboken6
 from PySide6.QtCore import QObject, Qt
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QTabWidget,
                                QVBoxLayout, QWidget)
@@ -63,10 +64,22 @@ class _ControleQuadro(QObject):
         if estado is not None:
             estado.etapa_alterada.connect(self._ao_mudar_etapa)
             estado.alterado.connect(self._atualizar_titulo)
-            estado.especie_confirmada.connect(lambda _: self.abas.setCurrentIndex(ABA_FICHA))
+            # Método (não lambda): a conexão some junto com o layout, e o estado continua
+            estado.especie_confirmada.connect(self._ao_confirmar)
             self._ao_mudar_etapa(estado.etapa)
 
+    def _vivo(self):
+        """Na troca de layout, a raiz destrói os filhos antes deste controle, e o estado
+        (que continua vivo) ainda pode emitir nesse intervalo."""
+        return all(shiboken6.isValid(w) for w in (self.gaveta, self.abas, self.lbl_arquivo))
+
+    def _ao_confirmar(self, _nome=None):
+        if self._vivo():
+            self.abas.setCurrentIndex(ABA_FICHA)
+
     def _ao_mudar_etapa(self, etapa):
+        if not self._vivo():
+            return
         if etapa == ei.SEM_FOTO:
             self.gaveta.fechar()
         elif etapa == ei.IDENTIFICANDO:
@@ -77,6 +90,8 @@ class _ControleQuadro(QObject):
         self._atualizar_titulo()
 
     def _atualizar_titulo(self):
+        if not self._vivo():
+            return
         estado = self.estado
         caminho = estado.caminho if estado is not None else None
         etapa = estado.etapa if estado is not None else ei.SEM_FOTO

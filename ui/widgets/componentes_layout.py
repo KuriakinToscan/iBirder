@@ -26,6 +26,19 @@ from core.style_manager import StyleManager
 
 DURACAO_ANIMACAO_MS = 160
 
+# Preferência global (Configurações > Aparência > Animações): desligada, as gavetas abrem
+# e fecham sem animação (PC mais lento). A janela define ao abrir e o diálogo ao salvar.
+_animacoes = {"ativas": True}
+
+
+def definir_animacoes(ativas):
+    _animacoes["ativas"] = bool(ativas)
+
+
+def animacoes_ativas():
+    return _animacoes["ativas"]
+
+
 SETA_ABERTA = "▾"
 SETA_FECHADA = "▸"
 
@@ -211,11 +224,18 @@ class Sobreposicao(QFrame):
         super().showEvent(evento)
         self.reposicionar()
 
+    def event(self, evento):
+        resultado = super().event(evento)
+        # O conteúdo mudou de tamanho (ex.: chegaram as sugestões): refazer a geometria
+        if evento.type() == QEvent.LayoutRequest and self.isVisible():
+            self.reposicionar()
+        return resultado
+
 
 class Gaveta(QFrame):
     """
     Painel que entra pela borda direita do hospedeiro, por cima do conteúdo.
-    `animar=False` abre e fecha sem animação (PC mais lento ou preferência).
+    `animar=False` (ou as animações desligadas nas Configurações) abre e fecha sem animação.
     """
 
     alternada = Signal(bool)
@@ -266,7 +286,7 @@ class Gaveta(QFrame):
         if aberta:
             self.show()
             self.raise_()
-        if not self.animar or not self.hospedeiro.isVisible():
+        if not (self.animar and animacoes_ativas()) or not self.hospedeiro.isVisible():
             self._animacao.stop()
             self.setGeometry(self._geometria(aberta))
             self._ao_terminar_animacao()
@@ -324,5 +344,5 @@ class PortaFoto(QWidget):
         self._foto.setGeometry(x, 0, lado, lado)
 
 
-__all__ = ["PortaFoto", "SecaoRecolhivel", "GrupoSecoes", "RodapeAcoes", "Sobreposicao", "Gaveta",
+__all__ = ["definir_animacoes", "animacoes_ativas", "PortaFoto", "SecaoRecolhivel", "GrupoSecoes", "RodapeAcoes", "Sobreposicao", "Gaveta",
            "geometria_ancorada", "ANCORAS"]

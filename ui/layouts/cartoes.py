@@ -122,7 +122,8 @@ class _ControleCartoes(QObject):
         if estado is not None:
             estado.etapa_alterada.connect(self._ao_mudar_etapa)
             estado.alterado.connect(self.atualizar)
-            estado.especie_confirmada.connect(lambda _: self.ir_para(FICHA))
+            # Método (não lambda): a conexão some junto com o layout, e o estado continua
+            estado.especie_confirmada.connect(self._ao_confirmar)
             self._ao_mudar_etapa(estado.etapa)
         else:
             self.ir_para(FOTO)
@@ -130,6 +131,9 @@ class _ControleCartoes(QObject):
     @property
     def pagina(self):
         return self.pilha.currentIndex()
+
+    def _ao_confirmar(self, _nome=None):
+        self.ir_para(FICHA)
 
     def _ao_mudar_etapa(self, etapa):
         estado = self.estado

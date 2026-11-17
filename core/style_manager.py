@@ -488,6 +488,12 @@ QSS_GLOBAL = """
     QLabel#quadro_gaveta_titulo { color: var(--texto); font-weight: 600; font-size: 14px; }
     QLabel#quadro_rotulo_recentes { color: var(--texto_secundario); font-size: 11px; }
 
+    /* Foco (ui/layouts/foco.py, ui/widgets/palco_foto.py) */
+    QGraphicsView#palco_foto { border: 1px solid var(--borda); border-radius: var(--raio); }
+    QFrame#foco_pilula, QFrame#foco_atalhos { background-color: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); }
+    QFrame#foco_dica { background-color: transparent; border: none; }
+    QLabel#foco_atalhos_titulo { color: var(--texto); font-weight: 600; font-size: 15px; }
+
     /* Trilha (ui/layouts/trilha.py) */
     QFrame#trilha_lateral { background-color: var(--superficie); border: none; border-right: 1px solid var(--borda); }
     QLabel#trilha_rotulo { color: var(--texto_secundario); font-size: 11px; font-weight: 600; letter-spacing: 1px; }

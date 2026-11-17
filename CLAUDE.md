@@ -120,8 +120,13 @@ inclusive com Chrome headless).
   painel compartilhado (ex.: `referencia`): limitar o contêiner, senão o limite vaza para os outros layouts.
 - Quadro da sessão (`ui/layouts/quadro.py`): fila na vista "colunas" (listas por coluna refeitas a partir da lista
   principal, `ff.colunas`/`resumo_sessao`), gaveta (`Gaveta`) sobre o quadro com abas Conferir/Ficha. Pastas recentes
-  em QSettings `fila/recentes` (não no config.json, que o diálogo regrava inteiro). Ativar a foto já aberta emite
+  em QSettings `fila/recentes`, junto com `last_folder`. Ativar a foto já aberta emite
   `PainelFila.atual_ativada` e não reabre. `tests/conftest.py` desvia o QSettings do painel para um .ini temporário.
+- Foco (`ui/layouts/foco.py`): `PalcoFoto` (QGraphicsView) espelha o card da foto pelo sinal `ImageCardWidget.imagem_alterada`
+  sem substituí-lo; pílula, fila e atalhos são `Sobreposicao` (que se reposiciona em `LayoutRequest`), ficha numa `Gaveta`.
+  Animações: `definir_animacoes`/`animacoes_ativas` (config `"animacoes"`).
+- Controles de layout (`_Controle*`, QObject filho da raiz): ligar sinais do estado/fila (que sobrevivem ao layout) a
+  MÉTODOS, nunca a lambdas; `JanelaPrincipal._desligar_controles` apaga os controles antes de montar o layout novo.
 - Mesa de trabalho: `core/fila_fotos.py` (fila sem Qt) e `ui/widgets/painel_fila.py`, que segue o
   `EstadoIdentificacao` (foto aberta, gravada) e pede à janela para abrir a próxima. Não identificar
   em lote: o WikiAves proíbe operações massificadas (termos, item 13.3).

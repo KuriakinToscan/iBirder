@@ -18,6 +18,7 @@
 import sys
 import os
 import logging
+import shiboken6
 import urllib.parse
 from pathlib import Path
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
@@ -49,7 +50,7 @@ from ui.layouts import PAINEIS_EXTRAS, Paineis, obter_layout
 from ui.widgets.busca_especies import BuscaEspecies
 from ui.widgets.layout_fluxo import LayoutFluxo
 from ui.widgets.cartao_candidata import PainelCartoes
-from ui.widgets.componentes_layout import Gaveta, SecaoRecolhivel
+from ui.widgets.componentes_layout import Gaveta, SecaoRecolhivel, definir_animacoes
 from ui.widgets.painel_fila import PainelFila
 
 # GeoWorker migrado para o Orchestrator v0.4.2
@@ -881,7 +882,9 @@ class JanelaPrincipal(QMainWindow):
             cartoes=self.painel_cartoes,
         )
         self.layout_atual = None
-        self._aplicar_layout(carregar_config().get("layout"))
+        config_inicial = carregar_config()
+        definir_animacoes(config_inicial.get("animacoes", True))
+        self._aplicar_layout(config_inicial.get("layout"))
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
@@ -921,6 +924,7 @@ class JanelaPrincipal(QMainWindow):
         layout = obter_layout(id_layout)
         if self.layout_atual is layout:
             return
+        self._desligar_controles(self.centralWidget())
         # montar() reparenta os painéis; só depois o widget antigo (já vazio) é descartado
         central = layout.montar(self.paineis, self.estado)
         # Painel extra que o novo layout não usa: fica guardado (escondido) na janela,
@@ -932,6 +936,20 @@ class JanelaPrincipal(QMainWindow):
         self.setCentralWidget(central)
         self.layout_atual = layout
         logging.info(f"Layout da janela principal: {layout.nome}")
+
+    @staticmethod
+    def _desligar_controles(central):
+        """
+        Apaga já os controles do layout que sai (QObjects filhos da raiz que não são widgets).
+        Eles ouvem o estado e a fila, que continuam vivos; se ficassem até o widget central ser
+        descartado, um sinal emitido no meio da troca chegaria a sobreposições já apagadas.
+        """
+        if central is None:
+            return
+        for filho in central.children():
+            if not isinstance(filho, QWidget) and shiboken6.isValid(filho) and \
+                    type(filho).__name__.startswith("_Controle"):
+                shiboken6.delete(filho)
 
     def _mostrar_widget(self, widget):
         """

@@ -11,6 +11,7 @@ from PySide6.QtGui import QCursor, QPixmap
 from core.style_manager import StyleManager
 from core.temas import PALETAS, TEMA_PADRAO, PREFERENCIAS_MODO, NOMES_MODO, obter_tema, normalizar_preferencia_modo
 from ui.layouts import LAYOUTS, LAYOUT_PADRAO, LAYOUTS_PLANEJADOS
+from ui.widgets.componentes_layout import definir_animacoes
 
 LARGURA_MINIATURA_LAYOUT = 176
 ALTURA_MINIATURA_LAYOUT = 110
@@ -133,6 +134,11 @@ class APISettingsDialog(QDialog):
             layout_tema.addWidget(linha)
         self._pintar_amostras()
         StyleManager.sinal_tema_alterado().connect(self._ao_mudar_tema)
+
+        self.chk_animacoes = QCheckBox("Animações (gavetas do Foco e do Quadro da sessão)")
+        self.chk_animacoes.setToolTip("Desligue se a gaveta tremer ou demorar a abrir num computador mais lento.")
+        layout_tema.addSpacing(8)
+        layout_tema.addWidget(self.chk_animacoes)
 
         lbl_tema = QLabel("Modo, paleta e layout são aplicados na hora, sem reiniciar o iBirder.")
         lbl_tema.setWordWrap(True)
@@ -303,6 +309,7 @@ class APISettingsDialog(QDialog):
         self.input_google.setText(self.config.get("google_vision_api_key", ""))
         self.chk_atualizacoes.setChecked(bool(self.config.get("verificar_atualizacoes", True)))
         self.chk_sem_gps_brasil.setChecked(bool(self.config.get("ia_sem_gps_brasil", True)))
+        self.chk_animacoes.setChecked(bool(self.config.get("animacoes", True)))
         for botao in (self.botoes_tema.get(self._tema_salvo) or self.botoes_tema[TEMA_PADRAO],
                       self.botoes_modo[self._modo_salvo]):
             botao.blockSignals(True)  # marcar o que está salvo não é uma prévia
@@ -378,11 +385,13 @@ class APISettingsDialog(QDialog):
             "tema": self._tema_escolhido(),
             "modo": self._modo_escolhido(),
             "layout": self._layout_escolhido(),
+            "animacoes": self.chk_animacoes.isChecked(),
         })
         self.config = atual
         salvar_config(self.config)
         self._tema_salvo = self.config["tema"]
         self._modo_salvo = self.config["modo"]
         self._layout_salvo = self.config["layout"]
+        definir_animacoes(self.config["animacoes"])
         QMessageBox.information(self, "Sucesso", "Configurações salvas com sucesso.")
         self.accept()

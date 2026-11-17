@@ -133,8 +133,9 @@ Ao terminar, o número da observação é gravado na foto (*iBirder > Publicacao
 - **Ctrl+O:** abrir uma foto.
 - **Ctrl+S:** gravar os dados na fotografia (quando o botão Gravar está liberado).
 - **Ctrl+K:** ir para o campo **Nome Científico** e buscar uma espécie.
-- **Ctrl+Shift+O:** abrir uma pasta na fila de fotos (layouts **Trilha**, **Mesa de luz**, **Quadro da sessão** e **Mesa de trabalho**).
-- **←** e **→:** foto anterior e seguinte da pasta (layout **Mesa de luz**).
+- **Ctrl+Shift+O:** abrir uma pasta na fila de fotos (layouts **Trilha**, **Mesa de luz**, **Quadro da sessão**, **Foco** e **Mesa de trabalho**).
+- **←** e **→:** foto anterior e seguinte da pasta (layouts **Mesa de luz** e **Foco**).
+- No layout **Foco**: **I** abre e fecha a ficha, **F** mostra ou esconde a fila, **+**, **−** e **0** dão zoom na foto (ou a roda do mouse), **?** ou **F1** mostra a lista de atalhos e **Esc** fecha o que estiver aberto.
 - **Alt+→** e **Alt+←:** avançar e voltar uma etapa (layout **Trilha**).
 
 ### Aparência
@@ -161,12 +162,13 @@ No mesmo quadro, **Layout** escolhe a arrumação da tela:
 - **Cartões de escolha:** a sua foto ao lado das três espécies mais prováveis, cada uma com uma foto de referência do iNaturalist (com o nome do autor e a licença). Compare a plumagem e o bico e clique em **É esta**; se não for nenhuma, digite o nome no campo abaixo dos cartões. A ficha da espécie abre em seguida, com o mapa e os botões de gravar e publicar. **Trocar espécie** volta aos cartões.
 - **Mesa de luz:** para uma pasta inteira, como num editor de fotos: a foto grande no centro, a fila numa tira embaixo e, à direita, a identificação e as seções da ficha, que abrem uma por vez. As setas **←** e **→** trocam de foto; **Pular** e **Ir para a próxima ao gravar** ficam na tira.
 - **Quadro da sessão:** a pasta da saída de campo em colunas: **Na fila**, **Conferindo agora**, **Gravadas** e **Puladas**, com o número de espécies e de fotos gravadas. A foto aberta aparece numa gaveta à direita (abas **Conferir** e **Ficha**); **Fechar** recolhe a gaveta, e um clique duplo no cartão da foto a traz de volta. Em **Sessões anteriores**, um clique reabre uma pasta usada antes.
+- **Foco:** a foto ocupa a janela, com zoom pela roda do mouse e arrasto. O resultado fica numa faixa sobre a foto, com **Ficha ›** e o botão de gravar; a ficha (comparar com a referência, sobre, classificação, mapa e sons) entra pela direita. Com uma pasta aberta, a fila aparece à esquerda. Feito para quem usa o teclado: o botão **? Atalhos** lista as teclas.
 - **Painel completo:** tudo visível numa grade de três colunas, com rolagem.
 - **Fluxo guiado:** uma etapa por vez. A barra no alto mostra **Foto › Identificação › Conferir › Gravar** e diz o que fazer em seguida; descrição, classificação, mapa e sons ficam em abas, sem rolar a janela.
 - **Ficha compacta:** tudo numa tela, em três colunas (fotos; ficha da espécie; mapa e sons), cada coluna com rolagem própria.
 - **Mesa de trabalho:** para uma pasta inteira de fotos, como a de uma saída de campo (veja abaixo).
 
-Modo, paleta e layout mudam na hora, enquanto você escolhe. **Salvar** mantém a escolha; **Cancelar** volta ao que estava antes.
+Modo, paleta e layout mudam na hora, enquanto você escolhe. **Animações** liga ou desliga o deslizar das gavetas (desligue em computadores lentos ou se o movimento incomodar). **Salvar** mantém a escolha; **Cancelar** volta ao que estava antes.
 
 ### Mesa de trabalho: uma pasta em fila
 

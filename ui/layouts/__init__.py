@@ -11,6 +11,7 @@ from ui.layouts.base import PAINEIS_EXTRAS, Layout, Paineis
 from ui.layouts.cartoes import LayoutCartoes
 from ui.layouts.completo import LayoutCompleto
 from ui.layouts.ficha import LayoutFicha
+from ui.layouts.foco import LayoutFoco
 from ui.layouts.guiado import LayoutGuiado
 from ui.layouts.mesa import LayoutMesa
 from ui.layouts.mesa_luz import LayoutMesaLuz
@@ -23,12 +24,11 @@ LAYOUT_PADRAO = "trilha"
 
 LAYOUTS = {layout.id: layout for layout in (LayoutCompleto(), LayoutGuiado(), LayoutFicha(), LayoutMesa(),
                                          LayoutTrilha(), LayoutCartoes(), LayoutMesaLuz(),
-                                         LayoutQuadro())}
+                                         LayoutQuadro(), LayoutFoco())}
 
 # Layouts da v1.6 ainda em construção (plano de 17/11/2026): aparecem desativados, com
 # miniatura, nas Configurações. Cada um sai daqui quando entra em LAYOUTS.
 LAYOUTS_PLANEJADOS = (
-    ("foco", "Foco", "A foto ocupa a janela; resultado e ficha flutuam sobre ela. Bom para o teclado."),
 )
 
 
