@@ -13,6 +13,8 @@ Componentes comuns dos layouts da v1.6 (ui/layouts/), feitos uma vez e usados po
   hospedeiro muda de tamanho (pílula de resultado do Foco).
 - `Gaveta`: painel que entra pela borda direita do hospedeiro, com animação curta
   (ficha da espécie no Foco).
+- `PortaFoto`: lugar do card da foto (sempre quadrado) fora de layout, no maior quadrado
+  que cabe, para a foto não esticar a janela (Trilha, Cartões de escolha).
 
 Nenhum deles tem cor fixa: os estilos vêm do QSS global (classes e objectNames abaixo).
 """
@@ -281,5 +283,42 @@ class Gaveta(QFrame):
             self.hide()
 
 
-__all__ = ["SecaoRecolhivel", "GrupoSecoes", "RodapeAcoes", "Sobreposicao", "Gaveta",
+class PortaFoto(QWidget):
+    """
+    Lugar do card da foto (Trilha, etapas 1 e 2; Cartões de escolha). O card é sempre
+    quadrado (altura = largura), então fica fora de layout: o maior quadrado que cabe,
+    centralizado no topo. Assim uma janela baixa não é esticada pela foto.
+    """
+
+    LADO_MINIMO = 250
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._foto = None
+        self.setMinimumSize(self.LADO_MINIMO, self.LADO_MINIMO)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+    def receber(self, foto):
+        self._foto = foto
+        foto.setParent(self)
+        self._posicionar()
+        foto.show()
+
+    def contem(self, foto):
+        return foto.parentWidget() is self
+
+    def resizeEvent(self, evento):
+        super().resizeEvent(evento)
+        self._posicionar()
+
+    def _posicionar(self):
+        if self._foto is None or not self.contem(self._foto):
+            return
+        lado = max(self.LADO_MINIMO, min(self.width(), self.height()))
+        self._foto.setMinimumWidth(0)
+        self._foto.setMaximumWidth(16777215)
+        self._foto.setGeometry((self.width() - lado) // 2, 0, lado, lado)
+
+
+__all__ = ["PortaFoto", "SecaoRecolhivel", "GrupoSecoes", "RodapeAcoes", "Sobreposicao", "Gaveta",
            "geometria_ancorada", "ANCORAS"]

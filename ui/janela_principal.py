@@ -48,6 +48,7 @@ from ui.estado_identificacao import EstadoIdentificacao
 from ui.layouts import PAINEIS_EXTRAS, Paineis, obter_layout
 from ui.widgets.busca_especies import BuscaEspecies
 from ui.widgets.layout_fluxo import LayoutFluxo
+from ui.widgets.cartao_candidata import PainelCartoes
 from ui.widgets.painel_fila import PainelFila
 
 # GeoWorker migrado para o Orchestrator v0.4.2
@@ -852,6 +853,10 @@ class JanelaPrincipal(QMainWindow):
         self.painel_fila = PainelFila(self.estado)
         self.painel_fila.abrir_foto.connect(self._carregar_imagem)
 
+        # Cartões das espécies candidatas (Cartões de escolha, Trilha): "É esta" confirma
+        self.painel_cartoes = PainelCartoes(self.estado)
+        self.painel_cartoes.escolhida.connect(self._escolher_candidata)
+
         # --- PAINÉIS PARA OS LAYOUTS (v1.4) ---
         self.paineis = Paineis(
             cabecalho=cabecalho,
@@ -872,6 +877,7 @@ class JanelaPrincipal(QMainWindow):
             geo=grupo_geo,
             sons=grupo_audio,
             fila=self.painel_fila,
+            cartoes=self.painel_cartoes,
         )
         self.layout_atual = None
         self._aplicar_layout(carregar_config().get("layout"))
@@ -1058,6 +1064,17 @@ class JanelaPrincipal(QMainWindow):
         if sciname and "Inconclusiva" not in sciname:
             url = f"https://www.google.com/search?q={urllib.parse.quote(sciname)}"
             QDesktopServices.openUrl(QUrl(url))
+
+    def _escolher_candidata(self, nome_cientifico):
+        """
+        "É esta" num cartão: a espécie já aberta só é confirmada (nenhuma consulta nova);
+        outra espécie faz a busca manual, o mesmo que digitar o nome, e fica confirmada.
+        """
+        atual = self.estado.nome_cientifico
+        mesma = atual and " ".join(atual.split()[:2]).lower() == " ".join(nome_cientifico.split()[:2]).lower()
+        if not mesma:
+            self._buscar_candidato(nome_cientifico)
+        self.estado.confirmar()
 
     def _buscar_candidato(self, nome_cientifico):
         """Clique em uma sugestão alternativa: busca manual da espécie."""
@@ -2230,6 +2247,8 @@ class JanelaPrincipal(QMainWindow):
             self.orchestrator.encerrar()
         if hasattr(self, 'painel_fila'):
             self.painel_fila.encerrar()
+        if hasattr(self, 'painel_cartoes'):
+            self.painel_cartoes.encerrar()
         if getattr(self, "worker_publicacao", None) and self.worker_publicacao.isRunning():
             self.worker_publicacao.wait(3000)  # envio em andamento: espera um pouco antes de fechar
         if hasattr(self, 'session_logger'):

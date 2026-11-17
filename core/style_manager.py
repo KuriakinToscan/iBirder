@@ -464,6 +464,19 @@ QSS_GLOBAL = """
     QFrame#cartao_layout { background-color: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); }
     QFrame#cartao_layout[selecionado="true"] { border: 2px solid var(--destaque); }
 
+    /* Cartões das candidatas (ui/widgets/cartao_candidata.py) */
+    QFrame#cartao_candidata { background-color: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); }
+    QFrame#cartao_candidata[principal="true"] { border: 2px solid var(--destaque); }
+    QFrame#cartao_candidata[escolhida="true"] { border: 2px solid var(--enfase); background-color: var(--selecao); }
+    QLabel#cartao_foto { background-color: var(--superficie_alt); color: var(--texto_suave); font-size: 12px;
+        border-top-left-radius: var(--raio); border-top-right-radius: var(--raio); }
+    QLabel#cartao_certeza { color: var(--texto_secundario); font-size: 12px; font-weight: 600; }
+    QLabel#cartao_nome_comum { color: var(--texto); font-size: 15px; font-weight: 600; }
+    QLabel#cartao_cientifico { color: var(--texto); font-size: 13px; }
+    QLabel#cartao_detalhes, QLabel#cartao_credito, QLabel#cartoes_aviso { color: var(--texto_secundario); font-size: 11px; }
+    QProgressBar#cartao_barra { background-color: var(--borda_suave); border: none; border-radius: 2px; }
+    QProgressBar#cartao_barra::chunk { background-color: var(--destaque); border-radius: 2px; }
+
     /* Trilha (ui/layouts/trilha.py) */
     QFrame#trilha_lateral { background-color: var(--superficie); border: none; border-right: 1px solid var(--borda); }
     QLabel#trilha_rotulo { color: var(--texto_secundario); font-size: 11px; font-weight: 600; letter-spacing: 1px; }

@@ -18,7 +18,8 @@ trilha sempre à vista e um botão principal por tela.
 Páginas (QStackedWidget):
     1. Escolher a foto: card da foto (arrastar ou clicar) e a fila da pasta, em grade.
     2. Identificar: a foto e o aviso de que a IA está trabalhando.
-    3. Conferir a espécie: a foto, a referência e o resultado (nome, certeza, sugestões).
+    3. Conferir a espécie: a foto, a referência e o resultado (nome, certeza), com as
+       candidatas em cartões compactos ("É esta" confirma e segue).
     4. Conhecer a ave: buscas e abas (descrição, classificação, local, sons).
     5. Gravar e publicar: os botões de gravar na foto e publicar no iNaturalist.
 
@@ -37,7 +38,7 @@ from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QProgressBar, QPushB
 from core.style_manager import StyleManager
 from ui import estado_identificacao as ei
 from ui.layouts.base import Layout, Paineis, coluna_rolavel as _aba
-from ui.widgets.componentes_layout import RodapeAcoes
+from ui.widgets.componentes_layout import PortaFoto, RodapeAcoes
 
 # Páginas da trilha, na ordem
 ESCOLHER, IDENTIFICAR, CONFERIR, CONHECER, GRAVAR = range(5)
@@ -90,43 +91,6 @@ def _repolir(widget):
 
 def _nome_arquivo(caminho):
     return Path(caminho).name if caminho else ""
-
-
-class PortaFoto(QWidget):
-    """
-    Lugar do card da foto nas etapas 1 e 2. O card é sempre quadrado (altura = largura),
-    então fica fora de layout: o maior quadrado que cabe, centralizado no topo. Assim uma
-    janela baixa não é esticada pela foto.
-    """
-
-    LADO_MINIMO = 250
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._foto = None
-        self.setMinimumSize(self.LADO_MINIMO, self.LADO_MINIMO)
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-
-    def receber(self, foto):
-        self._foto = foto
-        foto.setParent(self)
-        self._posicionar()
-        foto.show()
-
-    def contem(self, foto):
-        return foto.parentWidget() is self
-
-    def resizeEvent(self, evento):
-        super().resizeEvent(evento)
-        self._posicionar()
-
-    def _posicionar(self):
-        if self._foto is None or not self.contem(self._foto):
-            return
-        lado = max(self.LADO_MINIMO, min(self.width(), self.height()))
-        self._foto.setMinimumWidth(0)
-        self._foto.setMaximumWidth(16777215)
-        self._foto.setGeometry((self.width() - lado) // 2, 0, lado, lado)
 
 
 class LateralTrilha(QFrame):
@@ -198,6 +162,7 @@ class _ControleTrilha(QObject):
         if estado is not None:
             estado.etapa_alterada.connect(self._ao_mudar_etapa)
             estado.alterado.connect(self.atualizar)
+            estado.especie_confirmada.connect(self._ao_confirmar)
         self.ir_para(ESCOLHER if self.etapa == ei.SEM_FOTO else self._pagina_da_etapa(self.etapa))
 
     # --- Estado ---
@@ -225,6 +190,11 @@ class _ControleTrilha(QObject):
             self.ir_para(CONFERIR)  # resultado da IA (ou nome digitado) chega: conferir
         else:
             self.atualizar()  # gravada, ou nome digitado já na página 3 em diante: fica onde está
+
+    def _ao_confirmar(self, _nome):
+        """Espécie confirmada (rodapé ou "É esta" num cartão): segue para Conhecer a ave."""
+        if self.pagina <= CONFERIR and self.maximo >= CONHECER:
+            self.ir_para(CONHECER)
 
     # --- Navegação ---
 
@@ -259,6 +229,10 @@ class _ControleTrilha(QObject):
             else:
                 self.ir_para(ESCOLHER)
             return
+        if self.pagina == CONFERIR and self.estado is not None and self.estado.nome_cientifico:
+            self.estado.confirmar()  # "Sim, é esta": o sinal leva a Conhecer a ave
+            if self.pagina != CONFERIR:
+                return
         if self.pagina < self.maximo:
             self.ir_para(self.pagina + 1)
 
@@ -339,7 +313,7 @@ class LayoutTrilha(Layout):
     id = "trilha"
     nome = "Trilha"
     descricao = "Assistente em cinco etapas, com a trilha sempre à vista e um botão principal por tela."
-    paineis_extras = ("fila",)
+    paineis_extras = ("fila", "cartoes")
 
     def montar(self, p: Paineis, estado=None) -> QWidget:
         raiz = QWidget()
@@ -443,7 +417,9 @@ class LayoutTrilha(Layout):
         porta_fotos[CONFERIR] = porta3
         layout_fotos.addWidget(caixa_foto, 1)
         layout_fotos.addWidget(_coluna(p.referencia, p.btn_fonte), 1)
-        rolagem_resultado = _rolagem(_coluna(p.identificacao))
+        if p.cartoes is not None and hasattr(p.cartoes, "definir_orientacao"):
+            p.cartoes.definir_orientacao("vertical")  # linhas compactas sob o resultado
+        rolagem_resultado = _rolagem(_coluna(*(w for w in (p.identificacao, p.cartoes) if w is not None)))
         rolagem_resultado.setFixedWidth(LARGURA_RESULTADO)
         pagina3 = QWidget()
         layout3 = QHBoxLayout(pagina3)

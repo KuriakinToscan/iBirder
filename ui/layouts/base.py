@@ -37,7 +37,8 @@ class Paineis:
     mapa: QWidget             # localização geográfica (Leaflet)
     geo: QWidget              # dados geográficos
     sons: QWidget             # vocalizações
-    fila: QWidget = None      # fila de fotos da pasta (só a Mesa de trabalho usa; ver PAINEIS_EXTRAS)
+    fila: QWidget = None      # fila de fotos da pasta (Mesa de trabalho, Trilha; ver PAINEIS_EXTRAS)
+    cartoes: QWidget = None   # cartões das espécies candidatas (Cartões de escolha, Trilha)
 
     def todos(self):
         return [getattr(self, f.name) for f in fields(self) if getattr(self, f.name) is not None]
@@ -45,7 +46,7 @@ class Paineis:
 
 # Painéis que só alguns layouts posicionam (os demais são de todos). Quem não usa um deles
 # não o mostra; a janela o guarda escondido até um layout que o use (Layout.paineis_extras).
-PAINEIS_EXTRAS = ("fila",)
+PAINEIS_EXTRAS = ("fila", "cartoes")
 
 
 class Layout:

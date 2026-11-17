@@ -109,6 +109,11 @@ inclusive com Chrome headless).
   `QStackedWidget`, limite de avanço por `MAXIMO_POR_ETAPA`; o card da foto muda de página (`PortaFoto` nas
   etapas 1 e 2, fora de layout porque é quadrado). `JanelaPrincipal._mostrar_widget` troca a página do
   `QStackedWidget` que contém o widget (Ctrl+K, Ctrl+S, Ctrl+Shift+O).
+- Cartões de escolha (`ui/layouts/cartoes.py`, `ui/widgets/cartao_candidata.py`): `EstadoIdentificacao.candidatas`
+  (top3 sem repetir, a espécie da IA primeiro) e `confirmar()`/`especie_confirmada`; `PainelCartoes` é painel extra
+  (`cartoes`), "horizontal" nos Cartões e "vertical" na Trilha. Foto de referência: `core/fotos_referencia.py`
+  (`default_photo` do iNaturalist, cache em `temp/candidatas/`). "É esta" na espécie aberta só confirma (sem
+  WikiAves); em outra, busca manual. `limpar(manter_foto=True)` preserva as candidatas.
 - Mesa de trabalho: `core/fila_fotos.py` (fila sem Qt) e `ui/widgets/painel_fila.py`, que segue o
   `EstadoIdentificacao` (foto aberta, gravada) e pede à janela para abrir a próxima. Não identificar
   em lote: o WikiAves proíbe operações massificadas (termos, item 13.3).
