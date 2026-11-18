@@ -16,6 +16,7 @@
 - **Animações**: opção em **Configurações > Aparência** (`"animacoes"` no `config.json`, ligada por padrão) para a gaveta abrir sem deslizar.
 
 ### Alterações
+- **Instalador avisa da versão já instalada e fala português**: antes de começar, mostra a versão instalada e a nova e pergunta se deseja atualizar (ou reinstalar a mesma versão, ou voltar para uma mais antiga, com **Não** como padrão). Na atualização, não pergunta a pasta de novo, para não deixar uma segunda cópia, e a tela **Pronto para instalar** mostra as duas versões. Todas as telas passam a ser em português do Brasil (tradução oficial do Inno Setup); antes eram em inglês. Configurações e chaves (`%APPDATA%\iBirder`) são mantidas.
 - **Fotos grandes aparecem no card**: fotos acima de ~67 megapixels (comum em imagens ampliadas na edição) passavam do limite de 256 MB do Qt e o card ficava vazio, com a identificação rodando. Agora a foto é lida já reduzida (lado maior de 4096 px), com o Pillow como reserva (`carregar_pixmap` em `ui/custom_widgets.py`).
 - **Sem janela cmd ao gravar**: o ExifTool (gravação na foto) e o chromedriver (WikiAves) rodam sem abrir a janela do console do Windows (`core/processos.py`, `CREATE_NO_WINDOW`).
 - **Caixas de seleção com ✓**: em todo o app, a caixa marcada mostra o ✓ (e o botão de opção, o ponto) sobre a cor de destaque; antes só mudava a cor, e no modo escuro a caixa marcada parecia vazia.
