@@ -203,7 +203,7 @@ if __name__ == "__main__":
 
         logging.info("CHECKPOINT 6: Aplicando temas...")
         from core.style_manager import StyleManager
-        StyleManager.apply_theme(app, tema=config.get("tema"))
+        StyleManager.apply_theme(app, tema=config.get("tema"), modo=config.get("modo"))
 
         logging.info("CHECKPOINT 7: Criando Janela Principal...")
         from ui.janela_principal import JanelaPrincipal

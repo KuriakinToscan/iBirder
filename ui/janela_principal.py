@@ -544,7 +544,7 @@ class JanelaPrincipal(QMainWindow):
         self.btn_reload.setToolTip("Recarregar / Limpar")
         caminho_reload = self._obter_caminho_asset("icon_reload.svg")
         if os.path.exists(caminho_reload):
-            self.btn_reload.setIcon(QIcon(caminho_reload))
+            StyleManager.definir_icone(self.btn_reload, caminho_reload)
             self.btn_reload.setIconSize(QSize(24, 24))
         else:
             self.btn_reload.setText("⟳")
@@ -560,7 +560,7 @@ class JanelaPrincipal(QMainWindow):
         self.btn_ajuda.setToolTip("Ajuda: manual e diagnóstico")
         caminho_help = self._obter_caminho_asset("icon_help.svg")
         if os.path.exists(caminho_help):
-            self.btn_ajuda.setIcon(QIcon(caminho_help))
+            StyleManager.definir_icone(self.btn_ajuda, caminho_help)
             self.btn_ajuda.setIconSize(QSize(24, 24))
         else:
              self.btn_ajuda.setText("?")
@@ -577,7 +577,7 @@ class JanelaPrincipal(QMainWindow):
         self.btn_config.setToolTip("Configurações: aparência e integrações")
         caminho_config = self._obter_caminho_asset("icon_config.svg")
         if os.path.exists(caminho_config):
-            self.btn_config.setIcon(QIcon(caminho_config))
+            StyleManager.definir_icone(self.btn_config, caminho_config)
             self.btn_config.setIconSize(QSize(24, 24))
         else:
             self.btn_config.setText("⚙")
@@ -659,7 +659,7 @@ class JanelaPrincipal(QMainWindow):
         self.btn_search.setFixedSize(32, 32)
         self.btn_search.setStyleSheet("background-color: transparent; border: none;") 
         caminho_lupa = self._obter_caminho_asset("search_loupe.svg")
-        if os.path.exists(caminho_lupa): self.btn_search.setIcon(QIcon(caminho_lupa))
+        if os.path.exists(caminho_lupa): StyleManager.definir_icone(self.btn_search, caminho_lupa)
         else: self.btn_search.setText("🔍")
         self.btn_search.clicked.connect(self._realizar_busca_manual)
         

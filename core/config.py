@@ -45,8 +45,11 @@ def carregar_config():
         "verificar_atualizacoes": True,
         "ultima_verificacao_versao": "",
         "versao_ignorada": "",
-        # Tema visual (core/temas.py): "offwhite", "clean" ou "classico"
+        # Paleta de cores (core/temas.py, PALETAS): "offwhite", "clean", "classico", "gralha",
+        # "sabia" ou "contraste". A chave continua "tema" para abrir configs da v1.4/v1.5.
         "tema": "offwhite",
+        # Modo claro/escuro (v1.6): "sistema" (segue o Windows), "claro" ou "escuro"
+        "modo": "sistema",
         # Arrumação da janela principal (ui/layouts/)
         "layout": "completo"
     }

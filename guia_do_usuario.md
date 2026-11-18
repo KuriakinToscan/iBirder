@@ -126,7 +126,7 @@ Ao terminar, o número da observação é gravado na foto (*iBirder > Publicacao
 
 - **Recarregar (↻):** limpa a análise atual.
 - **Ajuda (?):** abre um menu com **Manual do usuário**, **Verificar atualizações**, **Copiar diagnóstico** (informações técnicas para enviar ao suporte, sem as suas chaves de API) e **Abrir pasta de logs**.
-- **Configurações (⚙):** aparência (tema e layout), fotos sem GPS (considerar só aves do Brasil), chaves de API da identificação em nuvem e o aviso de novas versões.
+- **Configurações (⚙):** aparência (modo claro ou escuro, paleta de cores e layout), fotos sem GPS (considerar só aves do Brasil), chaves de API da identificação em nuvem e o aviso de novas versões.
 
 ### Atalhos de teclado
 
@@ -137,11 +137,21 @@ Ao terminar, o número da observação é gravado na foto (*iBirder > Publicacao
 
 ### Aparência
 
-Em **Configurações (⚙) > Aparência**, escolha um dos três temas:
+Em **Configurações (⚙) > Aparência**, o **Modo** escolhe entre claro e escuro:
 
-- **Off-White:** o visual de sempre, cinza-grafite sobre fundo claro.
-- **Clean:** fundo branco, letras mais leves e verde-petróleo só nos botões principais.
+- **Igual ao Windows:** o iBirder acompanha o modo do Windows (Configurações > Personalização > Cores) e muda sozinho, com o programa aberto, quando o Windows muda.
+- **Claro** ou **Escuro:** fica sempre assim, qualquer que seja o modo do Windows.
+
+A **Paleta de cores** escolhe as cores, e cada uma tem versão clara e escura:
+
+- **Off-White:** o visual de sempre, cinza-grafite.
+- **Clean:** letras mais leves e verde-petróleo só nos botões principais.
 - **Clássico:** papel creme e títulos com serifa, como num guia de campo.
+- **Gralha-azul:** azul sobre fundo neutro.
+- **Sabiá:** ferrugem, a cor do peito do sabiá-laranjeira, sobre fundo areia.
+- **Alto contraste:** preto, branco e amarelo, para quem enxerga pouco.
+
+As bolinhas ao lado de cada paleta mostram o fundo, os quadros e a cor dos botões no modo em uso. No modo escuro, o mapa também fica escuro; os pinos e as cores de densidade não mudam.
 
 No mesmo quadro, **Layout** escolhe a arrumação da tela:
 
@@ -150,7 +160,7 @@ No mesmo quadro, **Layout** escolhe a arrumação da tela:
 - **Ficha compacta:** tudo numa tela, em três colunas (fotos; ficha da espécie; mapa e sons), cada coluna com rolagem própria.
 - **Mesa de trabalho:** para uma pasta inteira de fotos, como a de uma saída de campo (veja abaixo).
 
-Tema e layout mudam na hora, enquanto você escolhe. **Salvar** mantém a escolha; **Cancelar** volta ao que estava antes.
+Modo, paleta e layout mudam na hora, enquanto você escolhe. **Salvar** mantém a escolha; **Cancelar** volta ao que estava antes.
 
 ### Mesa de trabalho: uma pasta em fila
 

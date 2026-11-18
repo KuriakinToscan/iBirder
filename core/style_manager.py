@@ -18,13 +18,20 @@ from pathlib import Path
 import logging
 import platform
 
-from core.temas import TEMA_PADRAO, obter_tema, renderizar, barra_titulo_escura, cor_bgr
+from core.temas import (
+    TEMA_PADRAO, MODO_PADRAO, obter_tema, renderizar, barra_titulo_escura, cor_bgr,
+    modo_efetivo, normalizar_preferencia_modo,
+)
 
 # Propriedades dinâmicas que guardam o modelo (com var(--token)) de um widget,
 # para renderizá-lo de novo quando o tema muda
 _PROP_QSS = "_ibirder_qss"
 _PROP_HTML = "_ibirder_html"
 _PROP_HTML_RENDER = "_ibirder_html_render"
+_PROP_ICONE = "_ibirder_icone"
+
+# Cor de traço dos ícones SVG em assets/ (icon_*.svg, search_loupe.svg), trocada pela do tema
+_COR_ICONE_ORIGINAL = "#374151"
 
 # Fontes embarcadas em assets/ (registradas uma vez, antes do primeiro tema)
 _FONTES_EMBARCADAS = ("Figtree-VariableFont_wght.ttf",)
@@ -61,7 +68,9 @@ class StyleManager:
     SPACING_LG = 20
 
     _tema = obter_tema(TEMA_PADRAO)
-    _tema_aplicado = None  # id do último tema aplicado ao QApplication
+    _tema_aplicado = None  # (paleta, modo efetivo) do último tema aplicado ao QApplication
+    _modo_pref = None      # "sistema", "claro" ou "escuro" (config.json "modo"); None = ainda não lido
+    _ouvindo_sistema = False
     _fontes_registradas = False
 
     @staticmethod
@@ -116,6 +125,55 @@ class StyleManager:
         rotulo.setText(texto)
 
     @staticmethod
+    def modo_preferido():
+        """Preferência de modo em uso: "sistema", "claro" ou "escuro"."""
+        return StyleManager._modo_pref or MODO_PADRAO
+
+    @staticmethod
+    def modo_escuro():
+        """True se o tema ativo está no modo escuro."""
+        return StyleManager._tema.escuro
+
+    @staticmethod
+    def sistema_escuro():
+        """
+        True se o sistema está no modo escuro. Usa o Qt (QStyleHints.colorScheme, Qt 6.5+);
+        se o Qt não souber dizer, lê o registro do Windows.
+        """
+        try:
+            from PySide6.QtCore import Qt
+            from PySide6.QtGui import QGuiApplication
+            if QGuiApplication.instance() is not None:
+                esquema = QGuiApplication.styleHints().colorScheme()
+                if esquema == Qt.ColorScheme.Dark:
+                    return True
+                if esquema == Qt.ColorScheme.Light:
+                    return False
+        except (ImportError, AttributeError) as e:
+            logging.debug(f"Modo do sistema pelo Qt indisponível: {e}")
+        return StyleManager.detect_dark_mode()
+
+    @staticmethod
+    def icone(caminho):
+        """QIcon de um SVG de assets/ com o traço na cor de texto secundário do tema ativo."""
+        from PySide6.QtGui import QIcon, QPixmap
+        try:
+            svg = Path(caminho).read_text(encoding="utf-8")
+        except OSError:
+            return QIcon(str(caminho))
+        svg = svg.replace(_COR_ICONE_ORIGINAL, StyleManager._tema["texto_secundario"])
+        pixmap = QPixmap()
+        if not pixmap.loadFromData(svg.encode("utf-8"), "SVG"):
+            return QIcon(str(caminho))
+        return QIcon(pixmap)
+
+    @staticmethod
+    def definir_icone(botao, caminho):
+        """setIcon com o ícone na cor do tema; o ícone é refeito sozinho quando o tema muda."""
+        botao.setProperty(_PROP_ICONE, str(caminho))
+        botao.setIcon(StyleManager.icone(caminho))
+
+    @staticmethod
     def caminho_logo():
         """Logo do painel para o tema ativo (o original, recolorido); cai no original se faltar."""
         base = _caminho_assets()
@@ -136,18 +194,26 @@ class StyleManager:
         StyleManager._fontes_registradas = True
 
     @staticmethod
-    def apply_theme(app, tema=None, dark_mode=None, forcar=False):
+    def apply_theme(app, tema=None, dark_mode=None, forcar=False, modo=None):
         """
-        Aplica o tema (Paleta + CSS + Tradução) ao QApplication.
-        tema: id em core.temas.TEMAS; None = o salvo em config.json (ou Off-White).
-        dark_mode: mantido por compatibilidade; o modo escuro do Windows só afeta a barra
-        de título quando o próprio tema pede barra escura.
+        Aplica o tema (QPalette + QSS + tradução) ao QApplication.
+        tema: id da paleta em core.temas.PALETAS; None = a salva em config.json (ou Off-White).
+        modo: "sistema", "claro" ou "escuro"; None = a preferência em uso (na primeira vez,
+        a do config.json). Com "sistema", o app acompanha o modo do Windows sozinho.
+        dark_mode: mantido por compatibilidade, sem efeito.
         """
-        if tema is None:
+        if tema is None or (modo is None and StyleManager._modo_pref is None):
             from core.config import carregar_config
-            tema = carregar_config().get("tema") or TEMA_PADRAO
-        novo = obter_tema(tema)
-        if StyleManager._tema_aplicado == novo.id and not forcar:
+            config = carregar_config()
+            tema = tema or config.get("tema") or TEMA_PADRAO
+            if modo is None and StyleManager._modo_pref is None:
+                modo = config.get("modo")
+        if modo is not None or StyleManager._modo_pref is None:
+            StyleManager._modo_pref = normalizar_preferencia_modo(modo)
+        efetivo = modo_efetivo(StyleManager._modo_pref, StyleManager.sistema_escuro())
+        novo = obter_tema(tema, efetivo)
+        chave = (novo.id, novo.modo)
+        if StyleManager._tema_aplicado == chave and not forcar:
             return  # Evita re-aplicação redundante e loops de eventos (changeEvent da janela)
 
         from PySide6.QtGui import QFont
@@ -155,11 +221,12 @@ class StyleManager:
 
         primeira_vez = StyleManager._tema_aplicado is None
         StyleManager._tema = novo
-        StyleManager._tema_aplicado = novo.id
+        StyleManager._tema_aplicado = chave
 
         if primeira_vez:
             app.setStyle("Fusion")
             StyleManager._registrar_fontes()
+        StyleManager._ouvir_modo_do_sistema(app)
 
         app.setPalette(StyleManager._get_palette())
         app.setFont(QFont(novo["fonte"], 10))
@@ -176,8 +243,25 @@ class StyleManager:
 
         if not primeira_vez:
             StyleManager._reestilizar_widgets(app)
-        logging.info(f"Tema aplicado: {novo.nome}")
+        logging.info(f"Tema aplicado: {novo.nome} ({novo.modo}; preferência {StyleManager._modo_pref})")
         StyleManager.sinal_tema_alterado().emit(novo.id)
+
+    @staticmethod
+    def _ouvir_modo_do_sistema(app):
+        """Liga uma vez o aviso do Qt de troca de modo do sistema (claro/escuro)."""
+        if StyleManager._ouvindo_sistema:
+            return
+        try:
+            sinal = app.styleHints().colorSchemeChanged
+        except AttributeError:
+            return  # Qt anterior à 6.5: o changeEvent da janela ainda reafirma o tema
+        sinal.connect(lambda _esquema: StyleManager._ao_mudar_modo_do_sistema(app))
+        StyleManager._ouvindo_sistema = True
+
+    @staticmethod
+    def _ao_mudar_modo_do_sistema(app):
+        if StyleManager.modo_preferido() == "sistema":
+            StyleManager.apply_theme(app, tema=StyleManager._tema.id)
 
     @staticmethod
     def _reestilizar_widgets(app):
@@ -190,6 +274,9 @@ class StyleManager:
             # Só se o texto não foi trocado depois por um setText comum
             if modelo and hasattr(w, "text") and w.text() == w.property(_PROP_HTML_RENDER):
                 StyleManager.definir_texto(w, modelo)
+            caminho_icone = w.property(_PROP_ICONE)
+            if caminho_icone and hasattr(w, "setIcon"):
+                w.setIcon(StyleManager.icone(caminho_icone))
             w.update()
         for janela in app.topLevelWidgets():
             if janela.isWindow() and janela.isVisible():
@@ -217,6 +304,20 @@ class StyleManager:
         palette.setColor(QPalette.Link, QColor(t["link"]))
         palette.setColor(QPalette.ToolTipBase, superficie)
         palette.setColor(QPalette.ToolTipText, texto)
+        palette.setColor(QPalette.BrightText, QColor(t["texto_destaque"]))
+
+        # Relevo do Fusion (bordas de botões, barras, abas): derivado da borda do tema
+        borda = QColor(t["borda"])
+        palette.setColor(QPalette.Light, QColor(t["hover"]))
+        palette.setColor(QPalette.Midlight, QColor(t["borda_suave"]))
+        palette.setColor(QPalette.Mid, borda)
+        palette.setColor(QPalette.Dark, borda.lighter(130) if t.escuro else borda.darker(130))
+        palette.setColor(QPalette.Shadow, QColor(t["fundo"]).darker(200))
+
+        # Desabilitados: texto suave (sem isso o Fusion usa cinza fixo, ilegível no modo escuro)
+        suave = QColor(t["texto_suave"])
+        for papel in (QPalette.WindowText, QPalette.Text, QPalette.ButtonText):
+            palette.setColor(QPalette.Disabled, papel, suave)
 
         # Blindagem Inativa
         palette.setColor(QPalette.Inactive, QPalette.Window, fundo)

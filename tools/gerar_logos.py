@@ -13,11 +13,14 @@ cinza). Cada tema recebe uma cópia recolorida por duotone: a luminância de cad
 vira uma posição entre a cor de sombra e a cor de luz do tema. Desenho, transparência
 e sombras ficam iguais ao original.
 
-Saídas:
-  assets/temas/logo_clean.png      (verde-petróleo)
-  assets/temas/logo_classico.png   (verde-musgo)
+Saídas (v1.6): um PNG por paleta e modo, nos caminhos `logo_claro` / `logo_escuro` de cada
+paleta em core/temas.py (ex.: assets/temas/logo_clean.png, assets/temas/logo_clean_escuro.png).
+As cores vêm de `Paleta.cores_logo`; no modo escuro a "sombra" é clara, porque o logo fica
+sobre fundo escuro. O Off-White claro usa o original, sem cópia.
 
-Rode de novo só se o logo original ou as cores dos temas mudarem.
+O PNG é quantizado em 256 cores (com transparência) para ficar pequeno.
+
+Rode de novo só se o logo original ou as cores das paletas mudarem.
 """
 
 import base64
@@ -33,11 +36,8 @@ RAIZ = Path(__file__).resolve().parent.parent
 ORIGEM = RAIZ / "assets" / "logo_ave.svg"
 DESTINO = RAIZ / "assets" / "temas"
 
-# tema -> (cor de sombra, cor de luz). O Off-White usa o original, sem cópia.
-CORES_LOGO: dict[str, tuple[str, str]] = {
-    "clean": ("#134E4A", "#E6F4F1"),
-    "classico": ("#2E4A3B", "#F5F0E6"),
-}
+sys.path.insert(0, str(RAIZ))
+from core.temas import PALETAS  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
@@ -84,10 +84,14 @@ def main() -> int:
         logging.error(f"Não foi possível ler o logo original: {e}")
         return 1
     DESTINO.mkdir(parents=True, exist_ok=True)
-    for tema, (sombra, luz) in CORES_LOGO.items():
-        saida = DESTINO / f"logo_{tema}.png"
-        duotone(original, sombra, luz).save(saida, optimize=True)
-        logging.info(f"{saida.relative_to(RAIZ)} gerado ({original.width}x{original.height})")
+    for paleta in PALETAS.values():
+        for modo, (sombra, luz) in paleta.cores_logo.items():
+            relativo = paleta.logo_claro if modo == "claro" else paleta.logo_escuro
+            saida = RAIZ / "assets" / relativo
+            saida.parent.mkdir(parents=True, exist_ok=True)
+            imagem = duotone(original, sombra, luz).quantize(256, method=Image.Quantize.FASTOCTREE)
+            imagem.save(saida, optimize=True)
+            logging.info(f"{saida.relative_to(RAIZ)} gerado ({saida.stat().st_size // 1024} KB)")
     return 0
 
 

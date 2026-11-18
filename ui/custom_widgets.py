@@ -368,14 +368,14 @@ class VocalAuditCard(QWidget):
         else:
             self.btn_icon.setText("📻")
             
-        self.btn_icon.setStyleSheet("""
+        StyleManager.estilizar(self.btn_icon, """
             QPushButton {
                 background-color: transparent;
                 border: none;
                 padding: 0px;
             }
             QPushButton:hover {
-                background-color: rgba(0, 0, 0, 0.05);
+                background-color: var(--hover);
                 border-radius: 8px;
             }
         """)

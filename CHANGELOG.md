@@ -1,5 +1,15 @@
 # Histórico de versões
 
+## v1.6 (em desenvolvimento)
+
+### Novidades
+- **Modo claro e escuro**: em **Configurações > Aparência > Modo**, o padrão **Igual ao Windows** acompanha o modo do sistema e troca sozinho com o iBirder aberto (sinal `colorSchemeChanged` do Qt 6.5+; sem resposta do Qt, lê o registro do Windows). **Claro** e **Escuro** fixam o modo. Logo, ícones do topo, barra de título e mapa seguem o modo; no mapa, só a camada do OpenStreetMap é escurecida (filtro CSS), e os pinos e as cores de densidade do GBIF ficam como estão.
+- **Paletas de cores**: além de Off-White, Clean e Clássico, que ganham versão escura e não mudam no modo claro, entram **Gralha-azul**, **Sabiá** e **Alto contraste** (contraste mínimo de 7:1). As Configurações mostram uma amostra de cada paleta no modo em uso.
+
+### Alterações
+- **Temas viram paleta x modo** (`core/temas.py`): cada paleta declara as cores-base de cada modo e o resto é derivado (`derivar_tokens`), podendo ser sobrescrito. Os testes conferem contraste de 4,5:1 (7:1 no Alto contraste) nas 12 combinações, incluindo texto sobre o item selecionado e sob o mouse. O `config.json` ganha `"modo"` (`sistema`, `claro` ou `escuro`); a paleta continua na chave `"tema"`, então configurações antigas abrem sem mudança.
+- **Logos das paletas** em PNG de 256 cores (6 a 10 KB cada, antes 80 KB), gerados por `python tools/gerar_logos.py` para cada paleta e modo.
+
 ## v1.5 (em desenvolvimento)
 
 ### Novidades
