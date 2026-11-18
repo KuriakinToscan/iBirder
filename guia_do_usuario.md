@@ -154,7 +154,7 @@ A **Paleta de cores** escolhe as cores, e cada uma tem versão clara e escura:
 - **Sabiá:** ferrugem, a cor do peito do sabiá-laranjeira, sobre fundo areia.
 - **Alto contraste:** preto, branco e amarelo, para quem enxerga pouco.
 
-As bolinhas ao lado de cada paleta mostram o fundo, os quadros e a cor dos botões no modo em uso. No modo escuro, o mapa também fica escuro; os pinos e as cores de densidade não mudam.
+As bolinhas ao lado de cada paleta mostram o fundo, os quadros e a cor dos botões no modo em uso. No modo escuro, os botões e a legenda do mapa escurecem; o mapa em si continua com as cores de sempre.
 
 No mesmo quadro, **Layout** escolhe a arrumação da tela:
 

@@ -93,7 +93,8 @@ inclusive com Chrome headless).
   ouve `styleHints().colorSchemeChanged`. Paleta nova: só cores-base por modo (`TOKENS_BASE`), o resto
   sai de `derivar_tokens`; os testes exigem 4,5:1 nas 12 combinações (7:1 no Alto contraste).
 - Ícones SVG de `assets/` com traço `#374151`: usar `StyleManager.definir_icone(botao, caminho)`, que
-  recolore pelo tema e refaz na troca. Mapa: `definirModoEscuro()` no JS, filtro só na camada OSM.
+  recolore pelo tema e refaz na troca. Mapa: `definirModoEscuro()` no JS escurece só controles e legenda; o OSM NÃO é invertido
+  (o mantenedor achou estranho, 18/11/2026). Pinos dos cantos (`camadaAudios`) visíveis por padrão.
 - Nada de cor fixa na `ui/`: escrever QSS/HTML com `var(--token)` e aplicar por
   `StyleManager.estilizar(widget, qss)` / `StyleManager.definir_texto(rotulo, html)`, que guardam o
   modelo e renderizam de novo na troca de tema (sem reiniciar). `tests/test_temas.py` acusa `#RRGGBB`
