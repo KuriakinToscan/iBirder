@@ -3,7 +3,7 @@
 #  Licença GNU GPL v3 (veja main.py)
 
 """
-Fila de fotos de uma pasta, para o layout "Mesa de trabalho" (v1.4).
+Fila de fotos de uma pasta (v1.4; usada pelos layouts com o painel "fila").
 
 A pessoa abre uma pasta e trabalha uma foto por vez: identifica, confere, grava e vai
 para a próxima. A fila só guarda a ordem e a situação de cada foto; a identificação
@@ -127,3 +127,66 @@ class FilaFotos:
         if c[PULADA]:
             partes.append(f"{c[PULADA]} {'pulada' if c[PULADA] == 1 else 'puladas'}")
         return " · ".join(partes)
+
+
+# --- Quadro da sessão (v1.6): colunas e resumo, sem Qt ---
+
+NA_FILA = "na_fila"
+CONFERINDO = "conferindo"
+GRAVADAS = "gravadas"
+PULADAS = "puladas"
+COLUNAS = (NA_FILA, CONFERINDO, GRAVADAS, PULADAS)
+TITULOS_COLUNAS = {
+    NA_FILA: "Na fila",
+    CONFERINDO: "Conferindo agora",
+    GRAVADAS: "Gravadas",
+    PULADAS: "Puladas",
+}
+
+
+def coluna_do_item(fila, indice):
+    """Coluna do quadro de uma foto: a aberta fica em "Conferindo agora" se ainda não foi gravada."""
+    item = fila.itens[indice]
+    if item.situacao in (GRAVADA, JA_GRAVADA):
+        return GRAVADAS
+    if indice == fila.atual:
+        return CONFERINDO
+    return PULADAS if item.situacao == PULADA else NA_FILA
+
+
+def colunas(fila):
+    """Índices das fotos em cada coluna do quadro, na ordem da pasta."""
+    resultado = {coluna: [] for coluna in COLUNAS}
+    for indice in range(len(fila.itens)):
+        resultado[coluna_do_item(fila, indice)].append(indice)
+    return resultado
+
+
+def especies_gravadas(fila):
+    """Espécies distintas (gênero + espécie) das fotos gravadas, agora ou antes, em ordem alfabética."""
+    especies = set()
+    for item in fila.itens:
+        if item.situacao in (GRAVADA, JA_GRAVADA) and item.especie:
+            partes = item.especie.split()
+            especies.add(" ".join(partes[:2]).capitalize() if len(partes) >= 2 else item.especie)
+    return sorted(especies)
+
+
+def resumo_sessao(fila):
+    """'5 espécies · 7 gravadas' (as gravadas incluem as que já tinham registro)."""
+    if not fila.itens:
+        return "Nenhuma foto na pasta"
+    c = fila.contagem()
+    gravadas = c[GRAVADA] + c[JA_GRAVADA]
+    n_especies = len(especies_gravadas(fila))
+    return (f"{n_especies} {'espécie' if n_especies == 1 else 'espécies'} · "
+            f"{gravadas} {'gravada' if gravadas == 1 else 'gravadas'} de {len(fila.itens)}")
+
+
+def atualizar_recentes(recentes, pasta, limite=6):
+    """Lista de pastas recentes com `pasta` na frente, sem repetir (comparação sem maiúsculas)."""
+    pasta = str(Path(pasta))
+    chave = pasta.lower()
+    nova = [pasta] + [p for p in (recentes or []) if str(p).lower() != chave]
+    return nova[:limite]
+

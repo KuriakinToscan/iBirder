@@ -1,21 +1,62 @@
 from PySide6.QtWidgets import (QApplication, QDialog, QVBoxLayout, QHBoxLayout, 
                                QLabel, QLineEdit, QPushButton, 
-                               QMessageBox, QFormLayout, QCheckBox, QGroupBox,
-                               QRadioButton, QButtonGroup, QWidget)
-from core.config import carregar_config, salvar_config
+                               QMessageBox, QFormLayout, QCheckBox,
+                               QRadioButton, QButtonGroup, QWidget, QTabWidget, QFrame,
+                               QGridLayout)
+from core.config import LAYOUTS_RENOMEADOS, carregar_config, salvar_config
 from core.paths import APP_DIR
 import requests
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QCursor
+from PySide6.QtGui import QCursor, QPixmap
 from core.style_manager import StyleManager
 from core.temas import PALETAS, TEMA_PADRAO, PREFERENCIAS_MODO, NOMES_MODO, obter_tema, normalizar_preferencia_modo
-from ui.layouts import LAYOUTS, LAYOUT_PADRAO, LAYOUTS_PLANEJADOS
+from ui.layouts import LAYOUTS, LAYOUT_PADRAO
+from ui.widgets.componentes_layout import definir_animacoes
+
+LARGURA_MINIATURA_LAYOUT = 176
+ALTURA_MINIATURA_LAYOUT = 110
+
+
+class CartaoLayout(QFrame):
+    """Miniatura de um layout com o botão de escolha; clicar no cartão marca o botão."""
+
+    def __init__(self, id_layout, nome, descricao, parent=None):
+        super().__init__(parent)
+        self.setObjectName("cartao_layout")
+        self.setToolTip(descricao)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(6)
+        self.miniatura = QLabel()
+        self.miniatura.setFixedSize(LARGURA_MINIATURA_LAYOUT, ALTURA_MINIATURA_LAYOUT)
+        self.miniatura.setScaledContents(True)
+        caminho = APP_DIR / "assets" / "layouts" / f"{id_layout}.png"
+        if caminho.exists():
+            self.miniatura.setPixmap(QPixmap(str(caminho)))
+        layout.addWidget(self.miniatura)
+        self.botao = QRadioButton(nome)
+        self.botao.setToolTip(descricao)
+        layout.addWidget(self.botao)
+        self.setCursor(Qt.PointingHandCursor)
+        self.botao.setCursor(Qt.PointingHandCursor)
+        self.botao.toggled.connect(self._marcar)
+
+    def mousePressEvent(self, evento):
+        if self.botao.isEnabled():
+            self.botao.setChecked(True)
+        super().mousePressEvent(evento)
+
+    def _marcar(self, marcado):
+        self.setProperty("selecionado", "true" if marcado else "false")
+        self.style().unpolish(self)
+        self.style().polish(self)
+
 
 class APISettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Configurações")
-        self.resize(520, 660)
+        self.resize(980, 640)
         
         self.config = carregar_config()
         # Tema salvo: a escolha é aplicada na hora (prévia) e desfeita se o diálogo for cancelado
@@ -29,11 +70,18 @@ class APISettingsDialog(QDialog):
         
     def init_ui(self):
         layout = QVBoxLayout(self)
+        self.abas = QTabWidget()
+        layout.addWidget(self.abas, 1)
 
         # Aparência (v1.6): modo (claro/escuro), paleta de cores (core/temas.py) e layout
         # (ui/layouts/), três escolhas independentes aplicadas na hora como prévia
-        grupo_tema = QGroupBox("Aparência")
-        layout_tema = QVBoxLayout(grupo_tema)
+        pagina_aparencia = QWidget()
+        layout_aparencia = QHBoxLayout(pagina_aparencia)
+        layout_aparencia.setSpacing(24)
+        coluna_cores = QWidget()
+        coluna_cores.setMinimumWidth(300)
+        layout_tema = QVBoxLayout(coluna_cores)
+        layout_tema.setContentsMargins(0, 0, 0, 0)
         lbl_modo = QLabel("Modo")
         lbl_modo.setProperty("class", "lbl-titulo-sessao")
         layout_tema.addWidget(lbl_modo)
@@ -81,47 +129,57 @@ class APISettingsDialog(QDialog):
         self._pintar_amostras()
         StyleManager.sinal_tema_alterado().connect(self._ao_mudar_tema)
 
-        lbl_arrumacao = QLabel("Layout (arrumação da tela)")
-        lbl_arrumacao.setProperty("class", "lbl-titulo-sessao")
-        layout_tema.addWidget(lbl_arrumacao)
-        self.grupo_botoes_layout = QButtonGroup(self)
-        self.botoes_layout = {}
-        for item in LAYOUTS.values():
-            botao = QRadioButton(item.nome)
-            botao.setToolTip(item.descricao)
-            botao.setCursor(Qt.PointingHandCursor)
-            botao.toggled.connect(lambda marcado, l=item.id: marcado and self._previa_layout(l))
-            self.grupo_botoes_layout.addButton(botao)
-            self.botoes_layout[item.id] = botao
-            layout_tema.addWidget(botao)
-        for id_layout, nome, descricao in LAYOUTS_PLANEJADOS:
-            if id_layout in LAYOUTS:
-                continue
-            botao = QRadioButton(f"{nome} (em breve)")
-            botao.setToolTip(descricao)
-            botao.setEnabled(False)
-            self.grupo_botoes_layout.addButton(botao)
-            layout_tema.addWidget(botao)
+        self.chk_animacoes = QCheckBox("Animações (gavetas do Foco e do Quadro da sessão)")
+        self.chk_animacoes.setToolTip("Desligue se a gaveta tremer ou demorar a abrir num computador mais lento.")
+        layout_tema.addSpacing(8)
+        layout_tema.addWidget(self.chk_animacoes)
 
         lbl_tema = QLabel("Modo, paleta e layout são aplicados na hora, sem reiniciar o iBirder.")
+        lbl_tema.setWordWrap(True)
         lbl_tema.setProperty("class", "lbl-placeholder")
         layout_tema.addWidget(lbl_tema)
-        layout.addWidget(grupo_tema)
+        layout_tema.addStretch()
+        layout_aparencia.addWidget(coluna_cores)
+
+        # Layouts em cartões com miniatura (assets/layouts/<id>.png)
+        coluna_layouts = QWidget()
+        layout_layouts = QVBoxLayout(coluna_layouts)
+        layout_layouts.setContentsMargins(0, 0, 0, 0)
+        lbl_arrumacao = QLabel("Layout (arrumação da tela)")
+        lbl_arrumacao.setProperty("class", "lbl-titulo-sessao")
+        layout_layouts.addWidget(lbl_arrumacao)
+        grade = QGridLayout()
+        grade.setSpacing(10)
+        self.grupo_botoes_layout = QButtonGroup(self)
+        self.botoes_layout = {}
+        for posicao, item in enumerate(LAYOUTS.values()):
+            cartao = CartaoLayout(item.id, item.nome, item.descricao)
+            self.grupo_botoes_layout.addButton(cartao.botao)
+            cartao.botao.toggled.connect(lambda marcado, l=item.id: marcado and self._previa_layout(l))
+            self.botoes_layout[item.id] = cartao.botao
+            grade.addWidget(cartao, posicao // 3, posicao % 3)
+        layout_layouts.addLayout(grade)
+        layout_layouts.addStretch()
+        layout_aparencia.addWidget(coluna_layouts, 1)
+        self.abas.addTab(pagina_aparencia, "Aparência")
+
+        pagina_geral = QWidget()
+        layout_geral = QVBoxLayout(pagina_geral)
 
         # Identificação (prior Brasil da IA local; modules/step1_identity/id_worker.py)
         lbl_ident = QLabel("Identificação")
         lbl_ident.setProperty("class", "lbl-titulo-sessao")
-        layout.addWidget(lbl_ident)
+        layout_geral.addWidget(lbl_ident)
         self.chk_sem_gps_brasil = QCheckBox("Fotos sem GPS: considerar só aves do Brasil")
         self.chk_sem_gps_brasil.setToolTip(
             "A IA local acerta mais quando considera só as aves com registro no Brasil.\n"
             "Desmarque se você fotografa aves no exterior com uma câmera sem GPS.\n"
             "Fotos com GPS seguem a localização, com esta opção marcada ou não.")
-        layout.addWidget(self.chk_sem_gps_brasil)
+        layout_geral.addWidget(self.chk_sem_gps_brasil)
 
         lbl_apis = QLabel("Integrações em nuvem")
         lbl_apis.setProperty("class", "lbl-titulo-sessao")
-        layout.addWidget(lbl_apis)
+        layout_geral.addWidget(lbl_apis)
         
         form_layout = QFormLayout()
         
@@ -136,18 +194,21 @@ class APISettingsDialog(QDialog):
         form_layout.addRow(QLabel("Token iNaturalist (Opcional):"), self.input_inat)
         form_layout.addRow(QLabel("Chave Google Vision (Opcional):"), self.input_google)
         
-        layout.addLayout(form_layout)
+        layout_geral.addLayout(form_layout)
         
         # Link de Ajuda
         self.lbl_help = QLabel()
         StyleManager.definir_texto(self.lbl_help, '<a href="#help" style="color: var(--link);">Como obter essas chaves? (passo a passo)</a>')
         self.lbl_help.linkActivated.connect(self._show_help)
-        layout.addWidget(self.lbl_help)
+        layout_geral.addWidget(self.lbl_help)
 
         # Aviso de novas versões (core/verificacao_versao.py)
         self.chk_atualizacoes = QCheckBox("Avisar quando houver nova versão do iBirder (verifica uma vez por dia)")
-        layout.addWidget(self.chk_atualizacoes)
+        layout_geral.addWidget(self.chk_atualizacoes)
         
+        layout_geral.addStretch()
+        self.abas.addTab(pagina_geral, "Identificação e nuvem")
+
         # Botoes
         btn_layout = QHBoxLayout()
         self.btn_test = QPushButton("Testar Chaves")
@@ -162,6 +223,9 @@ class APISettingsDialog(QDialog):
         
         layout.addLayout(btn_layout)
         
+        # "Testar Chaves" só faz sentido na aba das integrações
+        self.abas.currentChanged.connect(lambda indice: self.btn_test.setVisible(indice == 1))
+        self.btn_test.setVisible(self.abas.currentIndex() == 1)
         self.btn_test.clicked.connect(self.test_keys)
         self.btn_save.clicked.connect(self.save_settings)
         self.btn_cancel.clicked.connect(self.reject)
@@ -236,15 +300,19 @@ class APISettingsDialog(QDialog):
         self.input_google.setText(self.config.get("google_vision_api_key", ""))
         self.chk_atualizacoes.setChecked(bool(self.config.get("verificar_atualizacoes", True)))
         self.chk_sem_gps_brasil.setChecked(bool(self.config.get("ia_sem_gps_brasil", True)))
+        self.chk_animacoes.setChecked(bool(self.config.get("animacoes", True)))
         for botao in (self.botoes_tema.get(self._tema_salvo) or self.botoes_tema[TEMA_PADRAO],
                       self.botoes_modo[self._modo_salvo]):
             botao.blockSignals(True)  # marcar o que está salvo não é uma prévia
             botao.setChecked(True)
             botao.blockSignals(False)
-        botao = self.botoes_layout.get(self._layout_salvo) or self.botoes_layout[LAYOUT_PADRAO]
+        botao = self.botoes_layout.get(LAYOUTS_RENOMEADOS.get(self._layout_salvo, self._layout_salvo)) or self.botoes_layout[LAYOUT_PADRAO]
         botao.blockSignals(True)
         botao.setChecked(True)
         botao.blockSignals(False)
+        cartao = botao.parentWidget()
+        if isinstance(cartao, CartaoLayout):
+            cartao._marcar(True)
 
     def _layout_escolhido(self):
         for id_layout, botao in self.botoes_layout.items():
@@ -308,11 +376,13 @@ class APISettingsDialog(QDialog):
             "tema": self._tema_escolhido(),
             "modo": self._modo_escolhido(),
             "layout": self._layout_escolhido(),
+            "animacoes": self.chk_animacoes.isChecked(),
         })
         self.config = atual
         salvar_config(self.config)
         self._tema_salvo = self.config["tema"]
         self._modo_salvo = self.config["modo"]
         self._layout_salvo = self.config["layout"]
+        definir_animacoes(self.config["animacoes"])
         QMessageBox.information(self, "Sucesso", "Configurações salvas com sucesso.")
         self.accept()

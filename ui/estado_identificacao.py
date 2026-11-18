@@ -6,8 +6,8 @@
 Estado da identificação em curso (v1.4).
 
 Um só lugar diz em que etapa está a foto atual (sem foto, identificando, conferir,
-gravada...), para os layouts mostrarem isso cada um a seu modo: a barra de etapas do
-Fluxo guiado, o status de cada foto da fila na Mesa de trabalho.
+gravada...), para os layouts mostrarem isso cada um a seu modo: as etapas da Trilha,
+o status de cada foto da fila, a gaveta do Quadro da sessão.
 
 O estado acompanha os sinais do Orchestrator (identificação concluída ou com erro);
 a janela informa o que só ela sabe: foto aberta, busca manual, gravação e limpeza.
@@ -27,11 +27,42 @@ ERRO = "erro"                    # falha na identificação
 ETAPAS = (SEM_FOTO, IDENTIFICANDO, CONFERIR, INCONCLUSIVA, GRAVADA, ERRO)
 
 
+MAXIMO_CANDIDATAS = 3
+
+
+def _especie(nome):
+    """Gênero + espécie, para comparar nomes com ou sem subespécie e autor."""
+    return " ".join((nome or "").split()[:2]).lower()
+
+
+def candidatas_da_identificacao(dados, nome_escolhido=None, limite=MAXIMO_CANDIDATAS):
+    """
+    Até `limite` candidatas [(nome científico, confiança)] a partir do resultado da
+    identificação (`top3` ou `top_candidates`), sem repetir espécie. A espécie escolhida
+    pela IA (ou pela nuvem) vem primeiro, com a confiança do resultado.
+    """
+    lista = []
+    vistas = set()
+    if nome_escolhido:
+        lista.append((nome_escolhido, float(dados.get("confianca") or 0.0)))
+        vistas.add(_especie(nome_escolhido))
+    for cand in dados.get("top3") or dados.get("top_candidates") or []:
+        if not isinstance(cand, dict):
+            continue
+        nome = cand.get("nome_cientifico") or cand.get("label") or ""
+        if not nome or _especie(nome) in vistas:
+            continue
+        vistas.add(_especie(nome))
+        lista.append((nome, float(cand.get("confianca") or 0.0)))
+    return lista[:limite]
+
+
 class EstadoIdentificacao(QObject):
     """Resumo da identificação atual; emite `etapa_alterada` a cada mudança de etapa."""
 
     etapa_alterada = Signal(str)
     alterado = Signal()  # qualquer mudança (etapa, espécie, caminho)
+    especie_confirmada = Signal(str)  # a pessoa disse "é esta" (Trilha, Cartões de escolha)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -41,6 +72,8 @@ class EstadoIdentificacao(QObject):
         self.confianca = None
         self.manual = False  # espécie digitada pela pessoa, não sugerida pela IA
         self.mensagem_erro = ""
+        self.candidatas = []      # [(nome científico, confiança 0-1)], a mais provável primeiro
+        self.confirmada = False   # a pessoa confirmou a espécie atual
 
     # --- Sinais do Orchestrator ---
 
@@ -57,6 +90,8 @@ class EstadoIdentificacao(QObject):
         self.mensagem_erro = ""
         inconclusiva = "Inconclusiva" in status or "Baixa" in status or not dados.get("nome_cientifico")
         self.nome_cientifico = None if inconclusiva else dados.get("nome_cientifico")
+        self.confirmada = False
+        self.candidatas = candidatas_da_identificacao(dados, self.nome_cientifico)
         self._mudar(INCONCLUSIVA if inconclusiva else CONFERIR)
 
     def identificacao_com_erro(self, mensagem=""):
@@ -76,8 +111,17 @@ class EstadoIdentificacao(QObject):
         self.nome_cientifico = nome_cientifico
         self.confianca = None
         self.manual = True
+        self.confirmada = False
         self.mensagem_erro = ""
         self._mudar(CONFERIR)
+
+    def confirmar(self):
+        """A pessoa confirmou a espécie atual ("Sim, é esta" / "É esta")."""
+        if not self.nome_cientifico or self.etapa not in (CONFERIR, GRAVADA):
+            return
+        self.confirmada = True
+        self.alterado.emit()
+        self.especie_confirmada.emit(self.nome_cientifico)
 
     def gravada(self, caminho=None):
         """Dados gravados na foto (o caminho muda se a foto foi renomeada)."""
@@ -86,8 +130,13 @@ class EstadoIdentificacao(QObject):
         self._mudar(GRAVADA)
 
     def limpar(self, manter_foto=False):
-        """Volta ao início; com manter_foto, a foto continua aberta para uma nova busca."""
+        """
+        Volta ao início; com manter_foto, a foto continua aberta para uma nova busca (manual),
+        e as candidatas da identificação continuam valendo para ela.
+        """
+        candidatas = self.candidatas if manter_foto else []
         self._limpar_resultado()
+        self.candidatas = candidatas
         if not manter_foto:
             self.caminho = None
         self._mudar(IDENTIFICANDO if manter_foto and self.caminho else SEM_FOTO)
@@ -98,6 +147,8 @@ class EstadoIdentificacao(QObject):
         self.nome_cientifico = None
         self.confianca = None
         self.manual = False
+        self.confirmada = False
+        self.candidatas = []
         self.mensagem_erro = ""
 
     def _mudar(self, etapa):

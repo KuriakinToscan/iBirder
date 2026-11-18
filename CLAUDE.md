@@ -93,7 +93,8 @@ inclusive com Chrome headless).
   ouve `styleHints().colorSchemeChanged`. Paleta nova: só cores-base por modo (`TOKENS_BASE`), o resto
   sai de `derivar_tokens`; os testes exigem 4,5:1 nas 12 combinações (7:1 no Alto contraste).
 - Ícones SVG de `assets/` com traço `#374151`: usar `StyleManager.definir_icone(botao, caminho)`, que
-  recolore pelo tema e refaz na troca. Mapa: `definirModoEscuro()` no JS, filtro só na camada OSM.
+  recolore pelo tema e refaz na troca. Mapa: `definirModoEscuro()` no JS escurece só controles e legenda; o OSM NÃO é invertido
+  (o mantenedor achou estranho, 18/11/2026). Pinos dos cantos (`camadaAudios`) visíveis por padrão.
 - Nada de cor fixa na `ui/`: escrever QSS/HTML com `var(--token)` e aplicar por
   `StyleManager.estilizar(widget, qss)` / `StyleManager.definir_texto(rotulo, html)`, que guardam o
   modelo e renderizam de novo na troca de tema (sem reiniciar). `tests/test_temas.py` acusa `#RRGGBB`
@@ -101,10 +102,33 @@ inclusive com Chrome headless).
 - Logos das paletas: `python tools/gerar_logos.py` (duotone do `assets/logo_ave.svg`, um PNG por paleta e modo).
 - Layouts (`ui/layouts/`): a janela cria os painéis uma vez (`Paineis`) e toda a lógica fala com
   eles; um layout só os posiciona em `montar()` (cada painel uma vez). Trocar de layout reparenta os
-  painéis (`JanelaPrincipal._aplicar_layout`), sem recriar. Escolha em `config.json` (`"layout"`).
+  painéis (`JanelaPrincipal._aplicar_layout`), sem recriar. Escolha em `config.json` (`"layout"`); ids que saíram na v1.6 (`guiado`, `mesa`) viram
+  `trilha`/`mesa_luz` por `LAYOUTS_RENOMEADOS` (`core/config.py`), na leitura do config e em `obter_layout`.
   A etapa atual (sem foto, identificando, conferir, gravada...) fica em `ui/estado_identificacao.py`.
   Painéis de `PAINEIS_EXTRAS` (hoje só a `fila`) entram só nos layouts que os declaram em
   `paineis_extras`; nos outros, a janela os guarda escondidos (filhos da janela).
+- Trilha (`ui/layouts/trilha.py`, padrão de instalação nova; config sem `"layout"` = `completo`): páginas num
+  `QStackedWidget`, limite de avanço por `MAXIMO_POR_ETAPA`; o card da foto muda de página (`PortaFoto` nas
+  etapas 1 e 2, fora de layout porque é quadrado). `JanelaPrincipal._mostrar_widget` troca a página do
+  `QStackedWidget` que contém o widget (Ctrl+K, Ctrl+S, Ctrl+Shift+O).
+- Cartões de escolha (`ui/layouts/cartoes.py`, `ui/widgets/cartao_candidata.py`): `EstadoIdentificacao.candidatas`
+  (top3 sem repetir, a espécie da IA primeiro) e `confirmar()`/`especie_confirmada`; `PainelCartoes` é painel extra
+  (`cartoes`), "horizontal" nos Cartões e "vertical" na Trilha. Foto de referência: `core/fotos_referencia.py`
+  (`default_photo` do iNaturalist, cache em `temp/candidatas/`). "É esta" na espécie aberta só confirma (sem
+  WikiAves); em outra, busca manual. `limpar(manter_foto=True)` preserva as candidatas.
+- Mesa de luz (`ui/layouts/mesa_luz.py`): fila na vista "tira", cartões "vertical" numa `SecaoRecolhivel` (acordeão
+  `GrupoSecoes`), referência e Lens em `Sobreposicao`. Setas ← → por `QShortcut` (contexto WidgetWithChildren; o
+  `QLineEdit` fica com as setas pelo ShortcutOverride) chamam `PainelFila.abrir_vizinha`. Não pôr tamanho fixo em
+  painel compartilhado (ex.: `referencia`): limitar o contêiner, senão o limite vaza para os outros layouts.
+- Quadro da sessão (`ui/layouts/quadro.py`): fila na vista "colunas" (listas por coluna refeitas a partir da lista
+  principal, `ff.colunas`/`resumo_sessao`), gaveta (`Gaveta`) sobre o quadro com abas Conferir/Ficha. Pastas recentes
+  em QSettings `fila/recentes`, junto com `last_folder`. Ativar a foto já aberta emite
+  `PainelFila.atual_ativada` e não reabre. `tests/conftest.py` desvia o QSettings do painel para um .ini temporário.
+- Foco (`ui/layouts/foco.py`): `PalcoFoto` (QGraphicsView) espelha o card da foto pelo sinal `ImageCardWidget.imagem_alterada`
+  sem substituí-lo; pílula, fila e atalhos são `Sobreposicao` (que se reposiciona em `LayoutRequest`), ficha numa `Gaveta`.
+  Animações: `definir_animacoes`/`animacoes_ativas` (config `"animacoes"`).
+- Controles de layout (`_Controle*`, QObject filho da raiz): ligar sinais do estado/fila (que sobrevivem ao layout) a
+  MÉTODOS, nunca a lambdas; `JanelaPrincipal._desligar_controles` apaga os controles antes de montar o layout novo.
 - Mesa de trabalho: `core/fila_fotos.py` (fila sem Qt) e `ui/widgets/painel_fila.py`, que segue o
   `EstadoIdentificacao` (foto aberta, gravada) e pede à janela para abrir a próxima. Não identificar
   em lote: o WikiAves proíbe operações massificadas (termos, item 13.3).
