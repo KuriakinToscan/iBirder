@@ -77,6 +77,34 @@ jobs:
           & $iscc "/DAppVersion=${{ steps.versao.outputs.versao }}" instalador_ibirder.iss
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup falhou." }
 
+      # Instala em silêncio 4 vezes e confere, pelo log do instalador, que ele reconhece a
+      # instalação anterior (nenhuma, mais antiga, igual, mais nova). O aviso na tela só aparece
+      # em instalação normal: esse teste fica para o Windows de verdade.
+      - name: Conferir detecção de versão anterior no instalador
+        run: |
+          $exe = (Get-ChildItem dist_installer\*.exe | Select-Object -First 1).FullName
+          $v = "${{ steps.versao.outputs.versao }}"
+          $chave = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\iBirder_is1"
+          function Instalar([string]$nome, [string]$esperado) {
+            $log = Join-Path $env:RUNNER_TEMP "instalador_$nome.log"
+            $p = Start-Process -FilePath $exe -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=$log" -Wait -PassThru
+            if ($p.ExitCode -ne 0) { throw "Instalação '$nome' falhou (código $($p.ExitCode))." }
+            $linha = (Select-String -Path $log -Pattern "\[iBirder\] anterior=" | Select-Object -First 1).Line
+            Write-Host "${nome}: $linha"
+            if ($linha -notlike "*$esperado*") { throw "Instalação '$nome': esperado '$esperado' no log." }
+          }
+          Instalar "primeira" "anterior=nenhuma nova=$v"
+          $registrada = (Get-ItemProperty $chave).DisplayVersion
+          if ($registrada -ne $v) { throw "DisplayVersion registrada = '$registrada', esperado '$v'." }
+          Set-ItemProperty $chave DisplayVersion "0.9"
+          Instalar "atualizacao" "anterior=0.9 nova=$v caso=atualizar"
+          Instalar "mesma" "anterior=$v nova=$v caso=reinstalar"
+          Set-ItemProperty $chave DisplayVersion "99.0"
+          Instalar "rebaixar" "anterior=99.0 nova=$v caso=rebaixar"
+          $chaves = Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" | Where-Object { $_.PSChildName -like "iBirder*" }
+          if ($chaves.Count -ne 1) { throw "Esperada 1 entrada do iBirder em Programas instalados, há $($chaves.Count)." }
+          if (-not (Test-Path "$env:ProgramFiles\iBirder\iBirder.exe")) { throw "iBirder.exe não está em Program Files." }
+
       - name: Publicar artefato
         uses: actions/upload-artifact@v4
         with:
