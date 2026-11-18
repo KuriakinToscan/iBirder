@@ -28,3 +28,13 @@ RULES.md
 # Saídas do teste manual do WikiAves
 tools/relatorio_wikiaves.txt
 tools/falhas_wikiaves/
+
+# Saídas da avaliação da IA (tools/avaliar_identificacao.py)
+tools/relatorio_avaliacao.txt
+tools/avaliacao_por_foto.csv
+tools/relatorio_conhecidas.txt
+# BioCLIP convertido (tools/converter_bioclip_litert.py): ~180 MB, baixado do Actions
+tools/bioclip_litert/
+# BioCLIP do app: baixado da Release do modelo (assets/models/bioclip_modelo.json)
+assets/models/bioclip/
+bioclip_litert/

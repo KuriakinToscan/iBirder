@@ -15,14 +15,16 @@
 #  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
 
 """
-Redução da foto para a identificação (etapa 1), sempre preservando a proporção original.
+Redução da foto para a identificação (etapa 1).
 
 - O modelo local recebe 224x224 px. A foto é aberta já reduzida (no JPEG, a própria
   decodificação reduz em 1/2, 1/4 ou 1/8 com ``Image.draft``), mantendo o lado maior
   com pelo menos ``LADO_MIN_ABERTURA`` px (4x a entrada do modelo, folga para o LANCZOS).
   Numa foto de 6000x4000 px isso decodifica 1500x1000 px em vez de 24 Mpx.
-- Depois o lado maior vai a 224 px e o quadrado é completado com borda cinza neutra
-  (letterbox), sem achatar a ave.
+- Depois a foto inteira é esticada para 224x224 px (sem recorte), como o modelo foi treinado.
+  Na avaliação de 14/11/2026 (200 fotos do iNaturalist de 110 espécies que o modelo conhece,
+  tools/avaliar_identificacao.py), esticar acertou 46,0% no top-1 contra 41,5% com borda cinza
+  (letterbox): 15 x 6 fotos discordantes, McNemar p = 0,078. ``letterbox`` fica para comparação.
 - Para a nuvem (iNaturalist, Google Vision), a cópia enviada tem no máximo
   ``LADO_NUVEM`` px no lado maior, em JPEG qualidade ``QUALIDADE_NUVEM``.
 
@@ -85,9 +87,16 @@ def letterbox(img: Image.Image, largura: int, altura: int,
     return quadro
 
 
+def esticar(img: Image.Image, largura: int, altura: int) -> Image.Image:
+    """Redimensiona a foto inteira para ``largura`` x ``altura``, sem recorte (a proporção muda)."""
+    if largura <= 0 or altura <= 0:
+        raise ValueError(f"Tamanho de entrada inválido: {largura}x{altura}")
+    return img.resize((largura, altura), Image.Resampling.LANCZOS)
+
+
 def preparar_para_modelo(caminho: Caminho, largura: int, altura: int) -> Image.Image:
-    """Foto pronta para a entrada do modelo local: aberta reduzida e em letterbox."""
-    return letterbox(abrir_reduzida(caminho), largura, altura)
+    """Foto pronta para a entrada do modelo local: aberta reduzida e esticada, sem recorte."""
+    return esticar(abrir_reduzida(caminho), largura, altura)
 
 
 def jpeg_para_nuvem(caminho: Caminho, lado: int = LADO_NUVEM, qualidade: int = QUALIDADE_NUVEM) -> bytes:

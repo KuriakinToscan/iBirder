@@ -1,0 +1,200 @@
+"""Avaliação da IA local (tools/avaliar_identificacao.py): estatística e execução de ponta a ponta."""
+import importlib.util
+import sys
+from pathlib import Path
+
+import pytest
+
+RAIZ = Path(__file__).resolve().parent.parent
+_spec = importlib.util.spec_from_file_location("avaliar_identificacao", RAIZ / "tools" / "avaliar_identificacao.py")
+av = importlib.util.module_from_spec(_spec)
+sys.modules["avaliar_identificacao"] = av
+_spec.loader.exec_module(av)
+
+
+def test_wilson():
+    baixo, alto = av.wilson(80, 100)
+    assert baixo == pytest.approx(0.711, abs=0.002) and alto == pytest.approx(0.867, abs=0.002)
+    assert av.wilson(0, 0) == (0.0, 0.0)
+
+
+def test_mcnemar_exato():
+    assert av.mcnemar_exato(0, 0) == 1.0
+    assert av.mcnemar_exato(5, 5) == 1.0
+    assert av.mcnemar_exato(10, 0) == pytest.approx(2 / 1024)
+
+
+def _r(arquivo, posicao, confianca, modo="borda", conhecida=True):
+    return av.Resultado(arquivo, "Turdus rufiventris", modo, [("X y", confianca)], posicao, conhecida)
+
+
+def test_metricas_e_limiares():
+    resultados = [_r("a", 1, 0.9), _r("b", 2, 0.8), _r("c", None, 0.4, conhecida=False), _r("d", 1, 0.5)]
+    m = av.calcular_metricas(resultados)
+    assert (m.n, m.top1, m.top3, m.conhecidas, m.top1_conhecidas) == (4, 2, 3, 3, 2)
+    tabela = dict((t, (aceitas, acertos)) for t, aceitas, acertos in av.analisar_limiares(resultados, [0.3, 0.7, 0.85]))
+    assert tabela == {0.3: (4, 2), 0.7: (2, 1), 0.85: (1, 1)}
+    assert av.limiar_sugerido(av.analisar_limiares(resultados, [0.3, 0.7, 0.85]), 0.9, minimo_aceitas=1) == 0.85
+    assert av.limiar_sugerido(av.analisar_limiares(resultados, [0.3]), 0.9) is None
+
+
+def test_ranking_por_especie_com_prior():
+    rotulos = ["Turdus rufiventris", "Turdus merula", "Turdus merula", "Pitangus sulphuratus"]
+    saida = [0.2, 0.5, 0.1, 0.2]
+    assert av.ranking_por_especie(rotulos, saida)[0] == ("Turdus merula", 0.5)
+    so_brasil = av.ranking_por_especie(rotulos, saida, {"turdus rufiventris", "pitangus sulphuratus"})
+    assert [nome for nome, _ in so_brasil] == ["Turdus rufiventris", "Pitangus sulphuratus"]
+    assert sum(valor for _, valor in so_brasil) == pytest.approx(1.0)
+
+
+def test_especies_brasil_embarcadas():
+    especies = av.especies_brasil()
+    assert "pitangus sulphuratus" in especies and "turdus merula" not in especies
+
+
+def test_relatorio_compara_modos_com_a_referencia():
+    resultados = []
+    for i, (ref_ok, espelho_ok) in enumerate([(True, True), (False, True), (False, True), (True, False)]):
+        for modo in av.MODOS:
+            ok = espelho_ok if modo == "espelho" else ref_ok
+            resultados.append(_r(f"f{i}", 1 if ok else None, 0.8, modo=modo))
+    m = {modo: av.calcular_metricas([r for r in resultados if r.modo == modo]) for modo in av.MODOS}
+    assert av.comparar_com_referencia(m["espelho"], m["espremida"])[:2] == (2, 1)
+    texto = av.montar_relatorio(resultados, {}, 0.9, 1.0, fora_do_brasil=1)
+    assert "espelho         |                 2 |                       1" in texto
+    assert "não está na lista do Brasil" in texto
+
+
+def test_especie_canonica():
+    pytest.importorskip("PySide6.QtCore")
+    assert av.especie_canonica("Rufous Hornero") == "Furnarius rufus"
+    assert av.especie_canonica("turdus rufiventris juensis") == "Turdus rufiventris"
+    assert av.especie_canonica("Bird") is None
+
+
+def test_csv_verdade(tmp_path):
+    planilha = tmp_path / "especies.csv"
+    planilha.write_text("Arquivo;Especie\nC:\\Fotos\\IMG_1.JPG;Furnarius rufus\n;vazio\n", encoding="utf-8-sig")
+    assert av.ler_csv_verdade(planilha) == {"img_1.jpg": "Furnarius rufus"}
+    errada = tmp_path / "errada.csv"
+    errada.write_text("foto,nome\na.jpg,b\n", encoding="utf-8")
+    with pytest.raises(ValueError):
+        av.ler_csv_verdade(errada)
+
+
+def test_ponta_a_ponta_com_o_modelo(tmp_path):
+    pytest.importorskip("PySide6.QtCore")
+    pytest.importorskip("ai_edge_litert")
+    from PIL import Image
+    pasta = tmp_path / "fotos"
+    pasta.mkdir()
+    for i, cor in enumerate([(90, 140, 60), (200, 120, 40)]):
+        Image.new("RGB", (1200, 800), cor).save(pasta / f"f{i}.jpg")
+    (pasta / "sem_especie.jpg").write_bytes((pasta / "f0.jpg").read_bytes())
+    planilha = tmp_path / "especies.csv"
+    planilha.write_text("arquivo,especie\nf0.jpg,Furnarius rufus\nf1.jpg,Rufous Hornero\n", encoding="utf-8")
+    relatorio, por_foto = tmp_path / "r.txt", tmp_path / "p.csv"
+    codigo = av.main([str(pasta), "--csv", str(planilha), "--relatorio", str(relatorio), "--saida-csv", str(por_foto)])
+    assert codigo == 0
+    assert relatorio.read_bytes().startswith(b"\xef\xbb\xbf")  # BOM: acentos certos no PowerShell
+    texto = relatorio.read_text(encoding="utf-8-sig")
+    assert "modo brasil: só espécies do Brasil, o que o app usa" in texto and "Modo espelho+brasil" in texto
+    assert "Cada modo x espremida" in texto
+    assert "Fotos avaliadas: 2" in texto and "sem espécie conhecida): 1" in texto and "McNemar" in texto
+    assert len(por_foto.read_text(encoding="utf-8-sig").strip().splitlines()) == 1 + 2 * len(av.MODOS)
+
+
+def test_bioclip_com_pesos_aleatorios(tmp_path):
+    """Caminho completo do modo BioCLIP sem baixar pesos (ViT-B-16 aleatório, mesma arquitetura)."""
+    pytest.importorskip("open_clip")
+    pytest.importorskip("PySide6.QtCore")
+    from PIL import Image
+    foto = tmp_path / "f.jpg"
+    Image.new("RGB", (900, 600), (90, 140, 60)).save(foto)
+    especies = ["Pitangus sulphuratus", "Turdus rufiventris", "Furnarius rufus"]
+    modelo = av.ModeloBioclip(especies, {"Pitangus sulphuratus": "Great Kiskadee"}, nome_modelo="ViT-B-16")
+    rankings = modelo.rankings(foto)
+    assert set(rankings) == set(av.MODOS_BIOCLIP)
+    for ranking in rankings.values():
+        assert sorted(nome for nome, _ in ranking) == sorted(especies)
+        assert sum(p for _, p in ranking) == pytest.approx(1.0, abs=1e-4)
+    assert modelo.tamanho_mb["bioclip-int8"] < modelo.tamanho_mb["bioclip-fp16"] < modelo.tamanho_mb["bioclip"]
+    assert modelo.fotos == 1 and modelo.tempo_s["bioclip"] > 0
+
+
+def test_comprimir_pesos_int8_por_canal():
+    torch = pytest.importorskip("torch")
+    camada = torch.nn.Linear(4, 3)
+    with torch.no_grad():
+        camada.weight.copy_(torch.tensor([[1.0, -0.5, 0.25, 0.0], [10.0, 5.0, -2.5, 1.0], [0.1, 0.2, 0.3, 0.4]]))
+    original = camada.weight.clone()
+    _, mb = av.comprimir_pesos(camada, "int8")
+    # Escala por linha: o maior valor de cada linha volta exato e o erro fica abaixo de meio passo
+    passo = original.abs().amax(dim=1, keepdim=True) / 127
+    assert torch.all((camada.weight - original).abs() <= passo / 2 + 1e-7)
+    assert mb == pytest.approx((12 + 2 * 3 + 2 * 3) / 1e6)
+
+
+def test_candidatas_bioclip_grafia_do_catalogo():
+    pytest.importorskip("PySide6.QtCore")
+    especies, ingles = av.candidatas_bioclip()
+    assert len(especies) > 1500 and len(especies) == len(set(especies))
+    assert ingles.get("Pitangus sulphuratus") == "Great Kiskadee"
+
+
+def test_relatorio_com_custos():
+    resultados = [_r("a", 1, 0.9, modo=modo) for modo in av.MODOS + av.MODOS_BIOCLIP]
+    texto = av.montar_relatorio(resultados, {}, 0.9, 1.0, custos=[("BioCLIP INT8", 412.3, 88.1)])
+    assert "BioCLIP INT8" in texto and "412 ms" in texto and "88.1 MB" in texto
+    assert "Modo bioclip-misto" in texto
+
+
+def test_textos_bioclip():
+    especies = ["Pitangus sulphuratus", "Furnarius rufus"]
+    ingles = {"Pitangus sulphuratus": "Great Kiskadee"}
+    assert av.textos_bioclip(especies, ingles, misto=False) == ["a photo of Pitangus sulphuratus.",
+                                                                "a photo of Furnarius rufus."]
+    assert av.textos_bioclip(especies, ingles) == [
+        "a photo of Pitangus sulphuratus with common name Great Kiskadee.", "a photo of Furnarius rufus."]
+
+
+def test_relatorio_com_litert_compara_com_pytorch():
+    resultados = [_r("a", 1, 0.9, modo=modo) for modo in av.MODOS + ("bioclip-misto",) + av.MODOS_LITERT[:3]]
+    texto = av.montar_relatorio(resultados, {}, 0.9, 1.0, custos=[("LiteRT INT8 dinâmico", 21.0, 88.0)])
+    assert "LiteRT x bioclip-misto" in texto and "Modo litert-int8d" in texto
+    assert "modo litert-int8:" in texto and "21 ms" in texto and "Modo litert-mundo" in texto
+
+
+def test_candidatas_mundo():
+    pytest.importorskip("PySide6.QtCore")
+    especies, ingles, brasil = av.candidatas_mundo()
+    assert len(especies) > 10000 and len(especies) == len(set(especies)) == len(brasil)
+    assert 1500 < sum(brasil) < 2000
+    i = especies.index("Pitangus sulphuratus")
+    assert brasil[i] and ingles["Pitangus sulphuratus"] == "Great Kiskadee"
+    assert not brasil[especies.index("Turdus merula")]
+
+
+def test_converter_e_avaliar_litert(tmp_path):
+    """Conversão real (ViT-B-16 aleatório) e leitura pelo avaliador. Só Linux/macOS, com litert-torch."""
+    pytest.importorskip("litert_torch")
+    pytest.importorskip("open_clip")
+    pytest.importorskip("PySide6.QtCore")
+    from PIL import Image
+    from tools import converter_bioclip_litert as conv
+    especies = ["Pitangus sulphuratus", "Turdus merula", "Turdus rufiventris", "Furnarius rufus"]
+    pasta = tmp_path / "bioclip"
+    info = conv.converter(pasta, "ViT-B-16", candidatas=(especies, {"Pitangus sulphuratus": "Great Kiskadee"},
+                                                         [True, False, True, True]))
+    assert set(info["arquivos"]) == {"int8", "int8d"} and info["especies"] == 4 and info["especies_brasil"] == 3
+    assert not (pasta / "bioclip_imagem_fp32.tflite").exists()
+    assert all(c >= conv.COSSENO_MINIMO for c in info["cosseno_minimo_tflite_x_pytorch"].values())
+    assert all(a["mb"] < 100 for a in info["arquivos"].values())
+    foto = tmp_path / "f.jpg"
+    Image.new("RGB", (900, 600), (90, 140, 60)).save(foto)
+    modelo = av.ModeloBioclipLitert(pasta, threads=2)
+    rankings = modelo.rankings(foto)
+    assert set(rankings) == {"litert-int8", "litert-int8d", "litert-mundo"}
+    assert sorted(nome for nome, _ in rankings["litert-int8d"]) == sorted(set(especies) - {"Turdus merula"})
+    assert sorted(nome for nome, _ in rankings["litert-mundo"]) == sorted(especies)
+    assert modelo.fotos == 1 and all(t > 0 for t in modelo.tempo_s.values()) and modelo.threads == 2

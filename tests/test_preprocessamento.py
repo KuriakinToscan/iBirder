@@ -65,9 +65,21 @@ def test_letterbox_tamanho_invalido():
         pp.letterbox(Image.new("RGB", (10, 10)), 0, 224)
 
 
-def test_preparar_para_modelo_entrega_o_tamanho_da_entrada(tmp_path):
+def test_esticar_usa_a_foto_inteira_sem_borda():
+    img = Image.new("RGB", (1500, 1000), (255, 0, 0))
+    quadro = pp.esticar(img, 224, 224)
+    assert quadro.size == (224, 224)
+    assert all(quadro.getpixel(p) == (255, 0, 0) for p in [(112, 0), (112, 223), (0, 112), (223, 112)])
+    with pytest.raises(ValueError):
+        pp.esticar(img, 224, 0)
+
+
+def test_preparar_para_modelo_estica_sem_borda(tmp_path):
     caminho = _salvar(tmp_path, "foto.jpg", (4000, 6000))
-    assert pp.preparar_para_modelo(caminho, 224, 224).size == (224, 224)
+    quadro = pp.preparar_para_modelo(caminho, 224, 224)
+    assert quadro.size == (224, 224)
+    # Foto em retrato esticada: as laterais têm a foto, não a borda cinza do letterbox
+    assert quadro.getpixel((0, 112)) != pp.COR_BORDA and quadro.getpixel((223, 112)) != pp.COR_BORDA
 
 
 def test_copia_para_nuvem_limitada_e_proporcional(tmp_path):

@@ -7,7 +7,7 @@ O **iBirder** é uma ferramenta de código aberto para observadores de aves, orn
 A identificação roda **no seu computador**. Quando a IA local fica em dúvida, o app pode consultar o iNaturalist ou o Google Vision, usando as **suas** chaves de API.
 
 ## ✨ Principais Recursos
-- **Identificação em cascata**: IA local primeiro (sem custo e sem internet). Abaixo de 70% de certeza, consulta o iNaturalist e, por fim, o Google Cloud Vision, se houver chaves configuradas.
+- **Identificação em cascata**: IA local primeiro (sem custo e sem internet), só com aves do Brasil para fotos daqui. Com chaves configuradas, a espécie é sempre confirmada no iNaturalist e, se preciso, no Google Cloud Vision; sem elas, o resultado local é uma sugestão para conferir.
 - **Privacidade (BYOK)**: a foto só sai do computador na consulta à nuvem (cópia reduzida) ou no Google Lens, por ação do usuário.
 - **Integração com o WikiAves**: nome popular, etimologia e características das espécies brasileiras.
 - **Contexto geográfico**: município, estado, bioma (IBGE), endemismo no Brasil, mapa de ocorrência (GBIF) e vocalizações próximas ao local da foto.
@@ -19,7 +19,7 @@ A identificação roda **no seu computador**. Quando a IA local fica em dúvida,
 - **Quatro layouts da janela**: **Painel completo**, **Fluxo guiado** (uma etapa por vez), **Ficha compacta** (tudo numa tela) e **Mesa de trabalho**, com a fila das fotos de uma pasta e a opção de ir para a próxima foto ao gravar. A identificação continua uma foto por vez.
 - **Busca rápida de espécies (Ctrl+K)**: sugestões do catálogo embarcado do eBird enquanto você digita, com as aves registradas no Brasil primeiro. As sugestões da IA viram botões clicáveis.
 - **Atalhos**: **Ctrl+O** abre uma foto, **Ctrl+S** grava os dados e **Ctrl+Shift+O** abre uma pasta na Mesa de trabalho.
-- **Identificação sem deformar a foto**: a IA local recebe a foto com a proporção original, em vez de espremida num quadrado, e a foto é aberta já reduzida (menos memória e preparo mais rápido).
+- **Foto aberta já reduzida**: menos memória e preparo mais rápido na identificação, e cópia de 1024 px com a proporção original para a nuvem.
 - **Aviso de novas versões**: o app avisa quando sai uma versão nova, com link direto para o instalador.
 - **Publicar no iNaturalist** (pronto, ainda inativo): o código para enviar a observação com a foto já está no app, mas só funciona depois que o aplicativo iBirder for registrado no iNaturalist ([issue #13](https://github.com/KuriakinToscan/iBirder/issues/13)).
 
@@ -44,7 +44,7 @@ A identificação roda **no seu computador**. Quando a IA local fica em dúvida,
 - **Build automático**: testes, autoteste do executável e instalador gerados pelo GitHub Actions.
 
 ## ⚠️ Limitações conhecidas
-- A IA local reconhece **965 espécies do mundo todo**, das quais cerca de **230 ocorrem no Brasil**. Para as demais, a identificação local pode ser inconclusiva ou errada: use a nuvem (iNaturalist), a Busca Manual ou o Google Lens.
+- A IA local considera as cerca de **1.760 aves com registro no Brasil** (e, para fotos com GPS no exterior, ~11 mil espécies do mundo). Numa amostra de 300 fotos do iNaturalist no Brasil, ela acertou a espécie na 1ª opção em **47%** das fotos: confira sempre, e use a nuvem (iNaturalist), a Busca Manual ou o Google Lens quando necessário.
 - As listas embarcadas (MMA, CITES, ocorrência no Brasil) refletem a data da versão; são atualizadas com `tools/atualizar_listas_conservacao.py`.
 - O token do iNaturalist expira em cerca de 24 horas.
 
@@ -54,7 +54,7 @@ A identificação roda **no seu computador**. Quando a IA local fica em dúvida,
   - WikiAves (planejado): assistente que prepara os dados e abre a página de envio. O envio é manual, porque os Termos de Uso do WikiAves proíbem automação.
 
 ## 🛠️ Tecnologias e Fontes
-- **IA local**: **MobileNetV2** quantizada (modelo "Birds V1" do Google AIY Vision, treinado com o iNaturalist), executada com o **LiteRT** (TensorFlow Lite).
+- **IA local**: **BioCLIP** (Imageomics, ViT-B/16 treinado com o TreeOfLife-10M), usado sem treino adicional (zero-shot) e convertido para **LiteRT** (TensorFlow Lite) com pesos INT8 (88 MB).
 - **Interface**: **Python 3.12** e **PySide6** (Qt 6).
 - **Mapas e geografia**: **Leaflet** (embarcado), **OpenStreetMap**, **Nominatim** e polígonos de biomas do **IBGE**.
 - **Fontes de dados**:
@@ -98,7 +98,7 @@ Também funciona em ambientes **conda** ou **venv**: basta `pip install -r requi
 3. O GitHub Actions testa, gera o instalador e cria a Release automaticamente. A tag precisa ser igual a `v` + `APP_VERSION`.
 
 ## ⚖️ Licença
-Este software é distribuído sob a licença **GNU GPL v3**. Componentes de terceiros: ExifTool (Artistic/GPL), Leaflet (BSD-2), PySide6/Qt (LGPL), modelo Birds V1 do Google (Apache 2.0).
+Este software é distribuído sob a licença **GNU GPL v3**. Componentes de terceiros: ExifTool (Artistic/GPL), Leaflet (BSD-2), PySide6/Qt (LGPL), modelo BioCLIP da Imageomics (MIT; aviso em `assets/models/LICENCA_BIOCLIP.txt`) e, só na ferramenta de avaliação, modelo Birds V1 do Google (Apache 2.0).
 
 ---
 *Desenvolvido por Kuriakin Toscan | 2026*
