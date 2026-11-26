@@ -1184,17 +1184,6 @@ class JanelaPrincipal(QMainWindow):
                 font-size: 11px;
                 margin-top: 10px;
             }
-            QCheckBox::indicator {
-                border: 1px solid var(--borda);
-                background: var(--superficie);
-                width: 14px;
-                height: 14px;
-                border-radius: 2px;
-            }
-            QCheckBox::indicator:checked {
-                background-color: var(--destaque);
-                border-color: var(--destaque);
-            }
         """))
         
         msg.setText("O Google Lens foi aberto no seu navegador.")
