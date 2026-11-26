@@ -14,7 +14,7 @@ pytest.importorskip("PySide6.QtWidgets")
 from PySide6.QtCore import QEvent  # noqa: E402
 from PySide6.QtWidgets import QApplication, QLabel  # noqa: E402
 
-from ui.layouts import (LAYOUT_PADRAO, LAYOUTS, LAYOUTS_PLANEJADOS, PAINEIS_EXTRAS,  # noqa: E402
+from ui.layouts import (LAYOUT_PADRAO, LAYOUTS, PAINEIS_EXTRAS,  # noqa: E402
                         Paineis, obter_layout)
 
 
@@ -38,8 +38,10 @@ def test_registro():
     assert obter_layout("inexistente").id == LAYOUT_PADRAO
     for id_layout, layout in LAYOUTS.items():
         assert layout.id == id_layout and layout.nome and layout.descricao
-    ids_planejados = [item[0] for item in LAYOUTS_PLANEJADOS]
-    assert len(set(ids_planejados)) == len(ids_planejados)
+    # Ids que saíram na v1.6 levam ao sucessor
+    assert obter_layout("guiado").id == "trilha"
+    assert obter_layout("mesa").id == "mesa_luz"
+    assert "guiado" not in LAYOUTS and "mesa" not in LAYOUTS
 
 
 @pytest.mark.parametrize("layout", LAYOUTS.values(), ids=list(LAYOUTS))
@@ -73,29 +75,91 @@ def test_trocar_layout_reaproveita_paineis(layout):
     assert paineis.identificacao.text() == "Turdus rufiventris"
 
 
-def test_fluxo_guiado_segue_a_etapa():
+def test_trilha_segue_a_etapa_e_volta_sem_perder_dados():
     from ui import estado_identificacao as ei
-    from ui.layouts.guiado import LayoutGuiado
+    from ui.layouts import trilha as tr
 
     paineis = _paineis()
     estado = ei.EstadoIdentificacao()
-    central = LayoutGuiado().montar(paineis, estado)
+    central = tr.LayoutTrilha().montar(paineis, estado)
     central.resize(1366, 700)
     central.show()
-    barra = central.findChild(QLabel, "lbl_dica_etapa").parentWidget()
+    controle = central.controle_trilha
+    lateral = controle.lateral
 
-    # Sem foto: só o card da foto aparece
-    assert not paineis.identificacao.isVisibleTo(central)
-    assert not paineis.referencia.isVisibleTo(central)
-    assert "Ctrl+O" in barra.lbl_dica.text()
+    # Sem foto: etapa 1, só ela liberada, Continuar bloqueado e a foto ao lado da fila
+    assert controle.pagina == tr.ESCOLHER and not controle.btn_continuar.isEnabled()
+    assert not controle.btn_voltar.isVisible()
+    assert [b.isEnabled() for b in lateral.botoes] == [True, False, False, False, False]
+    assert paineis.foto.isVisibleTo(central) and paineis.fila.isVisibleTo(central)
 
-    estado.foto_aberta("ave.jpg")
+    # Foto aberta: vai sozinha para Identificar, e a foto acompanha
+    estado.foto_aberta("C:/fotos/IMG_4520.JPG")
+    assert controle.pagina == tr.IDENTIFICAR and paineis.foto.isVisibleTo(central)
+    assert "IMG_4520.JPG" in controle.lbl_sobretitulo.text()
+    assert not controle.btn_continuar.isEnabled()
+
+    # Resultado: Conferir, com o nome no título
     estado.identificacao_concluida({"nome_cientifico": "Turdus rufiventris", "status_msg": "ok"})
-    assert paineis.identificacao.isVisibleTo(central) and paineis.referencia.isVisibleTo(central)
-    textos = [r.text() for r in barra.rotulos]
-    assert textos[0].startswith("✓") and textos[1].startswith("✓") and textos[2].startswith("3")
-    assert "etapa-ativa" in barra.rotulos[2].property("class")
+    assert controle.pagina == tr.CONFERIR
+    assert "Turdus rufiventris" in controle.lbl_titulo.text()
+    assert paineis.foto.isVisibleTo(central) and paineis.identificacao.isVisibleTo(central)
+    assert lateral.botoes[0].text().startswith("✓") and lateral.botoes[1].text().startswith("✓")
+    assert lateral.botoes[2].property("situacao") == "atual"
 
+    # Só com Continuar até Gravar; o botão de gravar fica na última página
+    controle.btn_continuar.click()
+    assert controle.pagina == tr.CONHECER and paineis.descricao.isVisibleTo(central)
+    controle.btn_continuar.click()
+    assert controle.pagina == tr.GRAVAR and paineis.btn_gravar.isVisibleTo(central)
+    assert not controle.btn_continuar.isVisible()
+
+    # Voltar só troca de página
+    controle.btn_voltar.click()
+    controle.btn_voltar.click()
+    assert controle.pagina == tr.CONFERIR and estado.nome_cientifico == "Turdus rufiventris"
+    lateral.botoes[4].click()  # passo liberado pela trilha lateral
+    assert controle.pagina == tr.GRAVAR
+
+    # Gravada: fica em Gravar e oferece outra foto; depois volta à etapa 1
     estado.gravada()
-    assert all(r.text().startswith("✓") for r in barra.rotulos)
+    assert controle.pagina == tr.GRAVAR and controle.btn_continuar.isEnabled()
+    controle.btn_continuar.click()
+    assert controle.pagina == tr.ESCOLHER and paineis.foto.isVisibleTo(central)
     central.close()
+
+
+def test_trilha_inconclusiva_e_nome_digitado():
+    from ui import estado_identificacao as ei
+    from ui.layouts import trilha as tr
+
+    paineis = _paineis()
+    estado = ei.EstadoIdentificacao()
+    central = tr.LayoutTrilha().montar(paineis, estado)
+    controle = central.controle_trilha
+    estado.foto_aberta("ave.jpg")
+    estado.identificacao_concluida({"nome_cientifico": "", "status_msg": "Inconclusiva"})
+    assert controle.pagina == tr.CONFERIR and "certeza" in controle.lbl_titulo.text()
+    assert not controle.btn_continuar.isEnabled()  # falta a pessoa indicar a espécie
+    estado.especie_digitada("Pitangus sulphuratus")
+    assert controle.pagina == tr.CONFERIR and controle.btn_continuar.isEnabled()
+    assert "Você indicou" in controle.lbl_titulo.text()
+
+
+def test_config_antiga_sem_layout_mantem_painel_completo(tmp_path, monkeypatch):
+    import json
+
+    from core import config as cfg
+
+    caminho = tmp_path / "config.json"
+    monkeypatch.setattr(cfg, "obter_caminho_config", lambda: caminho)
+    assert cfg.carregar_config()["layout"] == "trilha"  # instalação nova
+    caminho.write_text(json.dumps({"tema": "clean"}), encoding="utf-8")
+    assert cfg.carregar_config()["layout"] == "completo"  # quem atualiza
+    caminho.write_text(json.dumps({"layout": "quadro"}), encoding="utf-8")
+    assert cfg.carregar_config()["layout"] == "quadro"
+    # Layouts que saíram na v1.6
+    caminho.write_text(json.dumps({"layout": "mesa"}), encoding="utf-8")
+    assert cfg.carregar_config()["layout"] == "mesa_luz"
+    caminho.write_text(json.dumps({"layout": "guiado"}), encoding="utf-8")
+    assert cfg.carregar_config()["layout"] == "trilha"

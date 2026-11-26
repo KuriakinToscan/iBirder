@@ -18,6 +18,7 @@
 import sys
 import os
 import logging
+import shiboken6
 import urllib.parse
 from pathlib import Path
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
@@ -48,6 +49,8 @@ from ui.estado_identificacao import EstadoIdentificacao
 from ui.layouts import PAINEIS_EXTRAS, Paineis, obter_layout
 from ui.widgets.busca_especies import BuscaEspecies
 from ui.widgets.layout_fluxo import LayoutFluxo
+from ui.widgets.cartao_candidata import PainelCartoes
+from ui.widgets.componentes_layout import Gaveta, SecaoRecolhivel, definir_animacoes
 from ui.widgets.painel_fila import PainelFila
 
 # GeoWorker migrado para o Orchestrator v0.4.2
@@ -848,9 +851,13 @@ class JanelaPrincipal(QMainWindow):
         # Container inicia visível para manter simetria (v1.6.23)
         self.vocal_details_container.setVisible(True)
 
-        # Fila de fotos de uma pasta (só a Mesa de trabalho mostra)
+        # Fila de fotos de uma pasta (só os layouts com o painel extra "fila" mostram)
         self.painel_fila = PainelFila(self.estado)
         self.painel_fila.abrir_foto.connect(self._carregar_imagem)
+
+        # Cartões das espécies candidatas (Cartões de escolha, Trilha): "É esta" confirma
+        self.painel_cartoes = PainelCartoes(self.estado)
+        self.painel_cartoes.escolhida.connect(self._escolher_candidata)
 
         # --- PAINÉIS PARA OS LAYOUTS (v1.4) ---
         self.paineis = Paineis(
@@ -872,9 +879,12 @@ class JanelaPrincipal(QMainWindow):
             geo=grupo_geo,
             sons=grupo_audio,
             fila=self.painel_fila,
+            cartoes=self.painel_cartoes,
         )
         self.layout_atual = None
-        self._aplicar_layout(carregar_config().get("layout"))
+        config_inicial = carregar_config()
+        definir_animacoes(config_inicial.get("animacoes", True))
+        self._aplicar_layout(config_inicial.get("layout"))
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
@@ -887,8 +897,9 @@ class JanelaPrincipal(QMainWindow):
         QShortcut(QKeySequence("Ctrl+Shift+O"), self, activated=self._atalho_abrir_pasta)
 
     def _atalho_abrir_pasta(self):
-        """Ctrl+Shift+O: abre uma pasta na fila (só no layout que mostra a fila)."""
-        if self.painel_fila.isVisible():
+        """Ctrl+Shift+O: abre uma pasta na fila (só nos layouts que têm a fila)."""
+        if self.layout_atual is not None and "fila" in self.layout_atual.paineis_extras:
+            self._mostrar_widget(self.painel_fila)  # na Trilha, a fila fica na 1ª etapa
             self.painel_fila.escolher_pasta()
 
     def _atalho_buscar_especie(self):
@@ -899,7 +910,10 @@ class JanelaPrincipal(QMainWindow):
 
     def _atalho_gravar(self):
         """Ctrl+S: o mesmo que o botão Gravar, só quando ele está liberado."""
-        if self.btn_gravar_exif.isEnabled() and self.btn_gravar_exif.isVisible():
+        if not self.btn_gravar_exif.isEnabled():
+            return
+        self._mostrar_widget(self.btn_gravar_exif)  # na Trilha, o botão fica na última etapa
+        if self.btn_gravar_exif.isVisible():
             self._gravar_metadados_exif()
 
     def _aplicar_layout(self, id_layout):
@@ -910,6 +924,7 @@ class JanelaPrincipal(QMainWindow):
         layout = obter_layout(id_layout)
         if self.layout_atual is layout:
             return
+        self._desligar_controles(self.centralWidget())
         # montar() reparenta os painéis; só depois o widget antigo (já vazio) é descartado
         central = layout.montar(self.paineis, self.estado)
         # Painel extra que o novo layout não usa: fica guardado (escondido) na janela,
@@ -922,13 +937,37 @@ class JanelaPrincipal(QMainWindow):
         self.layout_atual = layout
         logging.info(f"Layout da janela principal: {layout.nome}")
 
+    @staticmethod
+    def _desligar_controles(central):
+        """
+        Apaga já os controles do layout que sai (QObjects filhos da raiz que não são widgets).
+        Eles ouvem o estado e a fila, que continuam vivos; se ficassem até o widget central ser
+        descartado, um sinal emitido no meio da troca chegaria a sobreposições já apagadas.
+        """
+        if central is None:
+            return
+        for filho in central.children():
+            if not isinstance(filho, QWidget) and shiboken6.isValid(filho) and \
+                    type(filho).__name__.startswith("_Controle"):
+                shiboken6.delete(filho)
+
     def _mostrar_widget(self, widget):
-        """Deixa o widget à vista: abre a aba que o contém e rola até ele, se o layout tiver."""
+        """
+        Deixa o widget à vista: abre a aba (ou a página da Trilha) que o contém e rola até
+        ele, se o layout tiver.
+        """
         filho, pai = widget, widget.parentWidget()
         rolagem = None
         while pai is not None:
-            if isinstance(pai, QStackedWidget) and isinstance(pai.parentWidget(), QTabWidget):
-                pai.parentWidget().setCurrentWidget(filho)
+            if isinstance(pai, SecaoRecolhivel) and not pai.esta_aberta():
+                pai.abrir()  # seção fechada do inspetor (Mesa de luz)
+            if isinstance(pai, Gaveta) and not pai.esta_aberta():
+                pai.abrir()  # gaveta fechada (Quadro da sessão)
+            if isinstance(pai, QStackedWidget):
+                if isinstance(pai.parentWidget(), QTabWidget):
+                    pai.parentWidget().setCurrentWidget(filho)
+                else:
+                    pai.setCurrentWidget(filho)
             if rolagem is None and isinstance(pai, QScrollArea):
                 rolagem = pai
             filho, pai = pai, pai.parentWidget()
@@ -1048,6 +1087,17 @@ class JanelaPrincipal(QMainWindow):
         if sciname and "Inconclusiva" not in sciname:
             url = f"https://www.google.com/search?q={urllib.parse.quote(sciname)}"
             QDesktopServices.openUrl(QUrl(url))
+
+    def _escolher_candidata(self, nome_cientifico):
+        """
+        "É esta" num cartão: a espécie já aberta só é confirmada (nenhuma consulta nova);
+        outra espécie faz a busca manual, o mesmo que digitar o nome, e fica confirmada.
+        """
+        atual = self.estado.nome_cientifico
+        mesma = atual and " ".join(atual.split()[:2]).lower() == " ".join(nome_cientifico.split()[:2]).lower()
+        if not mesma:
+            self._buscar_candidato(nome_cientifico)
+        self.estado.confirmar()
 
     def _buscar_candidato(self, nome_cientifico):
         """Clique em uma sugestão alternativa: busca manual da espécie."""
@@ -2032,7 +2082,7 @@ class JanelaPrincipal(QMainWindow):
             try:
                 # Forçamos o processamento de eventos para garantir estabilidade da UI
                 QApplication.processEvents()
-                # Mesa de trabalho: a próxima foto da fila abre sozinha depois de gravar
+                # Fila de fotos: a próxima foto da fila abre sozinha depois de gravar
                 avancar_fila = self.painel_fila.avanca_ao_gravar()
                 
                 manager = EXIFManager()
@@ -2209,6 +2259,8 @@ class JanelaPrincipal(QMainWindow):
             self.orchestrator.encerrar()
         if hasattr(self, 'painel_fila'):
             self.painel_fila.encerrar()
+        if hasattr(self, 'painel_cartoes'):
+            self.painel_cartoes.encerrar()
         if getattr(self, "worker_publicacao", None) and self.worker_publicacao.isRunning():
             self.worker_publicacao.wait(3000)  # envio em andamento: espera um pouco antes de fechar
         if hasattr(self, 'session_logger'):
