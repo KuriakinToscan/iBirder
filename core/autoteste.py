@@ -26,7 +26,6 @@ Usado pelo GitHub Actions para validar o executável gerado.
 import json
 import logging
 import platform
-import subprocess
 
 from core.paths import APP_DIR
 
@@ -55,7 +54,8 @@ def _exiftool():
         raise FileNotFoundError(exe)
     if platform.system() != "Windows":
         return "presente (execução só no Windows)"
-    r = subprocess.run([str(exe), "-ver"], capture_output=True, text=True, timeout=60)
+    from core.processos import executar
+    r = executar([str(exe), "-ver"], capture_output=True, text=True, timeout=60)
     if r.returncode != 0:
         raise RuntimeError(r.stderr.strip())
     return f"versão {r.stdout.strip()}"
