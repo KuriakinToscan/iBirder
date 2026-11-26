@@ -451,6 +451,64 @@ QSS_GLOBAL = """
 
     QScrollArea#area_rolagem, QWidget#container_rolagem { background-color: var(--fundo); border: none; }
 
+    /* Componentes comuns dos layouts da v1.6 (ui/widgets/componentes_layout.py) */
+    QPushButton#secao_cabecalho {
+        text-align: left; padding: 10px 12px; border: none; border-radius: 0px;
+        border-bottom: 1px solid var(--borda_suave); background-color: transparent;
+        color: var(--texto); font-weight: 600; font-size: 14px;
+    }
+    QPushButton#secao_cabecalho:hover { background-color: var(--hover); }
+    QFrame#rodape_acoes { background-color: var(--superficie); border: none; border-top: 1px solid var(--borda); }
+    QFrame#sobreposicao { background-color: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); }
+    QFrame#gaveta { background-color: var(--superficie); border: none; border-left: 1px solid var(--borda); }
+    QFrame#cartao_layout { background-color: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); }
+    QFrame#cartao_layout[selecionado="true"] { border: 2px solid var(--destaque); }
+
+    /* Cartões das candidatas (ui/widgets/cartao_candidata.py) */
+    QFrame#cartao_candidata { background-color: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); }
+    QFrame#cartao_candidata[principal="true"] { border: 2px solid var(--destaque); }
+    QFrame#cartao_candidata[escolhida="true"] { border: 2px solid var(--enfase); background-color: var(--selecao); }
+    QLabel#cartao_foto { background-color: var(--superficie_alt); color: var(--texto_suave); font-size: 12px;
+        border-top-left-radius: var(--raio); border-top-right-radius: var(--raio); }
+    QLabel#cartao_certeza { color: var(--texto_secundario); font-size: 12px; font-weight: 600; }
+    QLabel#cartao_nome_comum { color: var(--texto); font-size: 15px; font-weight: 600; }
+    QLabel#cartao_cientifico { color: var(--texto); font-size: 13px; }
+    QLabel#cartao_detalhes, QLabel#cartao_credito, QLabel#cartoes_aviso { color: var(--texto_secundario); font-size: 11px; }
+    QProgressBar#cartao_barra { background-color: var(--borda_suave); border: none; border-radius: 2px; }
+    QProgressBar#cartao_barra::chunk { background-color: var(--destaque); border-radius: 2px; }
+
+    /* Mesa de luz (ui/layouts/mesa_luz.py) */
+    QFrame#mesa_luz_palco { background-color: var(--superficie_alt); border: 1px solid var(--borda); border-radius: var(--raio); }
+    QFrame#mesa_luz_inspetor { background-color: transparent; border: none; }
+
+    /* Quadro da sessão (ui/layouts/quadro.py; vista "colunas" da fila) */
+    QFrame#quadro_coluna { background-color: var(--superficie_alt); border: 1px solid var(--borda_suave); border-radius: var(--raio); }
+    QLabel#quadro_titulo_coluna { color: var(--texto); font-weight: 600; font-size: 13px; padding: 2px 4px; }
+    QListWidget#quadro_lista { background-color: transparent; border: none; }
+    QLabel#quadro_gaveta_titulo { color: var(--texto); font-weight: 600; font-size: 14px; }
+    QLabel#quadro_rotulo_recentes { color: var(--texto_secundario); font-size: 11px; }
+
+    /* Foco (ui/layouts/foco.py, ui/widgets/palco_foto.py) */
+    QGraphicsView#palco_foto { border: 1px solid var(--borda); border-radius: var(--raio); }
+    QFrame#foco_pilula, QFrame#foco_atalhos { background-color: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); }
+    QFrame#foco_dica { background-color: transparent; border: none; }
+    QLabel#foco_atalhos_titulo { color: var(--texto); font-weight: 600; font-size: 15px; }
+
+    /* Trilha (ui/layouts/trilha.py) */
+    QFrame#trilha_lateral { background-color: var(--superficie); border: none; border-right: 1px solid var(--borda); }
+    QLabel#trilha_rotulo { color: var(--texto_secundario); font-size: 11px; font-weight: 600; letter-spacing: 1px; }
+    QPushButton#trilha_passo {
+        text-align: left; padding: 10px 12px; border: none; border-radius: var(--raio_botao);
+        background-color: transparent; color: var(--texto_secundario); font-size: 14px;
+    }
+    QPushButton#trilha_passo:hover { background-color: var(--hover); }
+    QPushButton#trilha_passo[situacao="atual"] { background-color: var(--selecao); color: var(--texto); font-weight: 600; }
+    QPushButton#trilha_passo[situacao="feito"] { color: var(--texto); }
+    QPushButton#trilha_passo:disabled { color: var(--texto_suave); }
+    QLabel#trilha_sobretitulo { color: var(--texto_secundario); font-size: 11px; font-weight: 600; letter-spacing: 1px; }
+    QLabel#trilha_titulo { color: var(--texto); font-family: 'var(--fonte_titulo)'; font-size: 24px; font-weight: 600; }
+    QLabel#trilha_subtitulo, QLabel#trilha_situacao { color: var(--texto_secundario); font-size: 13px; }
+
     QFrame.painel {
         background-color: var(--superficie);
         border-radius: var(--raio);
@@ -680,7 +738,7 @@ QSS_GLOBAL = """
         border: 1px solid var(--borda_suave);
     }
 
-    /* Fluxo guiado: barra de etapas (ui/layouts/guiado.py) */
+    /* Barra de etapas (Cartões de escolha, ui/layouts/cartoes.py) */
     QLabel.etapa {
         color: var(--texto_secundario);
         font-family: 'var(--fonte_titulo)';
@@ -691,9 +749,8 @@ QSS_GLOBAL = """
     QLabel.etapa-ativa { color: var(--destaque); font-weight: bold; border-bottom: 3px solid var(--destaque); }
     QLabel.etapa-feita { color: var(--texto); border-bottom: 3px solid var(--enfase); }
     QLabel.etapa-seta { color: var(--texto_suave); font-size: 14px; }
-    QLabel#lbl_dica_etapa { color: var(--texto_secundario); font-size: 12px; }
 
-    /* Abas (Fluxo guiado) */
+    /* Abas da ficha (Trilha, Cartões, Quadro, Foco) */
     QTabWidget::pane {
         border: 1px solid var(--borda);
         border-radius: var(--raio_botao);

@@ -15,7 +15,7 @@
 #  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
 
 from PySide6.QtWidgets import QWidget, QSizePolicy, QApplication, QPushButton, QHBoxLayout, QLabel
-from PySide6.QtCore import Qt, QSize, QRectF, QMimeData, QUrl, QPoint
+from PySide6.QtCore import Qt, QSize, QRectF, QMimeData, QUrl, QPoint, Signal
 from PySide6.QtGui import (
     QPainter, QPixmap, QColor, QFont, QPen, QPainterPath, 
     QFontMetrics, QDrag, QDragEnterEvent, QDropEvent, QIcon, QCursor
@@ -37,6 +37,9 @@ class ImageCardWidget(QWidget):
     - Luz de fundo dinâmica: Adapta-se ao tema (Dark/Light) do iBirder.
     - Lightbox Integrado: Clique no ícone de expansão para ver detalhes da plumagem.
     """
+    # A imagem mudou (set_pixmap / set_image_path): o palco do layout Foco mostra a mesma foto
+    imagem_alterada = Signal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         
@@ -159,6 +162,7 @@ class ImageCardWidget(QWidget):
             self.image_path = path
         self.update()
         self._update_expand_button()
+        self.imagem_alterada.emit()
 
     def set_image_path(self, path):
         """Carrega imagem do caminho e define como atual."""
@@ -171,6 +175,7 @@ class ImageCardWidget(QWidget):
             self.pixmap = None
             self.update()
         self._update_expand_button()
+        self.imagem_alterada.emit()
 
     def set_placeholder(self, text):
         self.text_placeholder = text

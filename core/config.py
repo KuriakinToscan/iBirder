@@ -20,11 +20,15 @@ import os
 from core.paths import BASE_DIR
 
 CONFIG_FILE = "config.json"
-APP_VERSION = "1.5"  # fonte única da versão (instalador, CI, interface, logs)
+APP_VERSION = "1.6"  # fonte única da versão (instalador, CI, interface, logs)
 
 def obter_caminho_config():
     """Retorna o caminho absoluto para o arquivo de configuração."""
     return BASE_DIR / CONFIG_FILE
+
+# Layouts que saíram na v1.6 e o sucessor de cada um (config.json antigo continua abrindo)
+LAYOUTS_RENOMEADOS = {"guiado": "trilha", "mesa": "mesa_luz"}
+
 
 def carregar_config():
     """Carrega a configuração local ou retorna padrão."""
@@ -50,8 +54,10 @@ def carregar_config():
         "tema": "offwhite",
         # Modo claro/escuro (v1.6): "sistema" (segue o Windows), "claro" ou "escuro"
         "modo": "sistema",
-        # Arrumação da janela principal (ui/layouts/)
-        "layout": "completo"
+        # Animação das gavetas (Foco, Quadro da sessão); desligar ajuda em PC lento (v1.6)
+        "animacoes": True,
+        # Arrumação da janela principal (ui/layouts/). Instalação nova: Trilha (v1.6).
+        "layout": "trilha"
     }
     
     if config_path.exists():
@@ -61,6 +67,12 @@ def carregar_config():
                 user_config = json.load(f)
             if not isinstance(user_config, dict):
                 raise ValueError("o conteúdo não é um objeto JSON")
+            # Config de antes da v1.6 sem a chave "layout": o padrão era o Painel completo
+            user_config.setdefault("layout", "completo")
+            antigo = user_config["layout"]
+            if antigo in LAYOUTS_RENOMEADOS:
+                user_config["layout"] = LAYOUTS_RENOMEADOS[antigo]
+                logging.info(f"Layout '{antigo}' substituído por '{user_config['layout']}' (v1.6).")
             # Merge com default para garantir que chaves novas existam
             default_config.update(user_config)
         except ValueError as e:

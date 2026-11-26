@@ -133,6 +133,15 @@ def resolver_nome(nome):
     return especie["nome_cientifico"] if especie else None
 
 
+def obter(nome):
+    """Espécie do catálogo (dict com nome_cientifico, nome_ingles, familia, no_brasil) ou None."""
+    alvo = _chave(nome)
+    if not alvo:
+        return None
+    por_cientifico, _ = _indices_nomes()
+    return por_cientifico.get(" ".join(alvo.split()[:2]))
+
+
 def rotulo(especie):
     """Texto da sugestão: 'Turdus rufiventris — Rufous-bellied Thrush'."""
     if especie["nome_ingles"]:

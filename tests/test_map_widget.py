@@ -66,6 +66,8 @@ def test_mapa_atualiza_sem_recarregar_e_entrega_eventos():
     e = estado(m)
     assert cargas == [True]
     assert e["pino"] == [-23.58, -46.65] and e["audios"] == 1 and "taxonKey=2482755" in e["gbif"]
+    # Os pinos dos cantos aparecem sem marcar "Vocalizações" no seletor de camadas
+    assert e["audiosVisiveis"] is True
     assert e["ponte"] is True
 
     m.page().runJavaScript("pino.setLatLng([-22.5, -45.1]); pino.fire('dragend');"

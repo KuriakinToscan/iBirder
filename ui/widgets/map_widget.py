@@ -198,7 +198,7 @@ class MapWidget(QWebEngineView):
             self._fila_js.append(codigo)
 
     def _ao_mudar_tema(self, _id_tema):
-        """Troca de paleta ou de modo: fundo da página, mapa escurecido ou placeholder refeito."""
+        """Troca de paleta ou de modo: fundo da página, controles do mapa ou placeholder refeito."""
         self.page().setBackgroundColor(StyleManager.qcor("fundo"))
         if self._pagina_carregada:
             self._js(f"definirModoEscuro({'true' if StyleManager.modo_escuro() else 'false'});")
@@ -319,10 +319,9 @@ _TEMPLATE = r"""<!DOCTYPE html>
              border: 1.5px solid white; border-radius: 50%; width: 20px; height: 20px; display: flex;
              align-items: center; justify-content: center; font-weight: bold; font-size: 11px;
              box-shadow: 0 1px 3px rgba(0,0,0,0.4); pointer-events: none; font-family: 'Segoe UI', sans-serif; }
-  /* Modo escuro (v1.6): escurece só o mapa do OpenStreetMap; pinos, satélite e a camada de
-     densidade do GBIF mantêm as cores, que codificam dado */
+  /* Modo escuro (v1.6): só os controles e a legenda escurecem. O mapa do OpenStreetMap fica
+     com as cores originais (invertido, ficava estranho: teste do mantenedor em 18/11/2026) */
   body.escuro { background: rgb(21, 23, 27); }
-  body.escuro .camada-osm { filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88); }
   body.escuro #legenda { background-color: rgba(30, 33, 38, 0.92); color: rgb(230, 232, 235); border-color: rgb(90, 96, 105); }
   body.escuro .leaflet-bar a, body.escuro .leaflet-control-layers, body.escuro .leaflet-control-attribution,
   body.escuro .leaflet-control-scale-line { background: rgba(30, 33, 38, 0.92); color: rgb(225, 228, 232); border-color: rgb(90, 96, 105); }
@@ -349,7 +348,8 @@ _TEMPLATE = r"""<!DOCTYPE html>
       maxZoom: 19, attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
   });
   var camadaGbif = L.tileLayer(TRANSPARENTE, {opacity: 0.5, attribution: 'Dados: GBIF (Sem dados)'});
-  var camadaAudios = L.featureGroup();
+  // Pinos dos cantos visíveis de saída (antes ficavam escondidos até marcar "Vocalizações")
+  var camadaAudios = L.featureGroup().addTo(mapa);
   L.control.layers({'Mapa': osm, 'Satélite': satelite},
                    {'Dist. Geográfica (GBIF)': camadaGbif, 'Vocalizações': camadaAudios},
                    {position: 'topright', collapsed: false}).addTo(mapa);
@@ -405,6 +405,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
         centro: [mapa.getCenter().lat, mapa.getCenter().lng], zoom: mapa.getZoom(),
         pino: pino ? [pino.getLatLng().lat, pino.getLatLng().lng] : null,
         gbif: camadaGbif._url, audios: camadaAudios.getLayers().length,
+        audiosVisiveis: mapa.hasLayer(camadaAudios), escuro: document.body.classList.contains('escuro'),
         legenda: document.getElementById('legenda').style.display,
         ponte: ponte !== null
       });
