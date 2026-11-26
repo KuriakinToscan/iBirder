@@ -19,10 +19,95 @@ from pathlib import Path
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, 
                                QLabel, QPushButton, QCheckBox, 
                                QScrollArea, QWidget, QFrame,
-                               QComboBox, QLineEdit)
+                               QComboBox, QLineEdit, QSizePolicy)
 from PySide6.QtCore import Qt, QSettings
 from core import nome_arquivo
 from core.style_manager import StyleManager
+
+# Campos agrupados como na ficha (a ordem dentro do grupo é a da gravação)
+GRUPOS = (
+    ("Espécie", ("nome_cientifico", "nome_comum", "nome_ingles")),
+    ("Taxonomia", ("classe", "ordem", "familia", "genero")),
+    ("Conservação", ("iucn_status", "status_icmbio", "status_cites", "endemismo")),
+    ("Localização", ("pais", "estado", "municipio", "bioma", "coord_gps")),
+)
+
+# Caixas avulsas (renomear): só a fonte; o indicador, com o ✓, vem do QSS global
+ESTILO_CAIXA = "QCheckBox { font-family: 'var(--fonte)'; font-size: 14px; color: var(--texto); }"
+
+# Linhas da lista: a marcada ganha fundo de seleção e barra na cor de destaque à esquerda
+QSS_LISTA = """
+    QWidget#exif_lista { background: transparent; }
+    QLabel#exif_grupo {
+        color: var(--texto_secundario); font-size: 11px; font-weight: 600;
+        letter-spacing: 1px; padding: 10px 8px 4px 8px;
+    }
+    QFrame#exif_linha {
+        background-color: transparent; border: none;
+        border-left: 3px solid transparent; border-radius: 6px;
+    }
+    QFrame#exif_linha:hover { background-color: var(--hover); }
+    QFrame#exif_linha[marcada="true"] {
+        background-color: var(--selecao); border-left: 3px solid var(--destaque);
+    }
+    QFrame#exif_linha QCheckBox {
+        font-family: 'var(--fonte)'; font-size: 13px; color: var(--texto_secundario);
+        background: transparent;
+    }
+    QFrame#exif_linha[marcada="true"] QCheckBox { color: var(--texto); }
+    QFrame#exif_linha QCheckBox:disabled { color: var(--texto_suave); }
+    QLabel#exif_valor { font-size: 14px; color: var(--texto_secundario); background: transparent; }
+    QFrame#exif_linha[marcada="true"] QLabel#exif_valor { color: var(--texto); font-weight: 600; }
+    QLabel#exif_valor:disabled { color: var(--texto_suave); font-style: italic; }
+"""
+
+
+class LinhaOpcao(QFrame):
+    """
+    Uma opção da lista: caixa com o nome do campo à esquerda e o valor à direita (quebra linha).
+    A linha inteira é clicável e fica destacada quando marcada.
+    """
+
+    def __init__(self, rotulo, valor, parent=None):
+        super().__init__(parent)
+        self.setObjectName("exif_linha")
+        self.setCursor(Qt.PointingHandCursor)
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(8, 6, 8, 6)
+        lay.setSpacing(12)
+
+        self.checkbox = QCheckBox(rotulo)
+        self.checkbox.setMinimumWidth(190)
+        lay.addWidget(self.checkbox, 0, Qt.AlignTop)
+
+        self.lbl_valor = QLabel(valor)
+        self.lbl_valor.setObjectName("exif_valor")
+        self.lbl_valor.setWordWrap(True)
+        self.lbl_valor.setTextFormat(Qt.PlainText)
+        self.lbl_valor.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        lay.addWidget(self.lbl_valor, 1)
+
+        self.checkbox.toggled.connect(self.atualizar_destaque)
+
+    def atualizar_destaque(self, *_):
+        """Propriedade "marcada" (usada no QSS) e cor do valor conforme a caixa."""
+        habilitada = self.checkbox.isEnabled()
+        self.lbl_valor.setEnabled(habilitada)
+        self.setCursor(Qt.PointingHandCursor if habilitada else Qt.ArrowCursor)
+        self.setProperty("marcada", habilitada and self.checkbox.isChecked())
+        for w in (self, self.checkbox, self.lbl_valor):
+            w.style().unpolish(w)
+            w.style().polish(w)
+        self.update()
+
+    def mousePressEvent(self, evento):  # noqa: N802 (API do Qt)
+        """Clique em qualquer ponto da linha (fora da caixa) alterna a opção."""
+        if evento.button() == Qt.LeftButton and self.checkbox.isEnabled():
+            self.checkbox.toggle()
+            evento.accept()
+            return
+        super().mousePressEvent(evento)
+
 
 class ExifConfigDialog(QDialog):
     def __init__(self, parent=None, dados=None, tem_gps_nativo=False, caminho_imagem=None):
@@ -41,7 +126,16 @@ class ExifConfigDialog(QDialog):
 
     def _setup_ui(self):
         # O Fundo da janela usará a cor base do app
-        StyleManager.estilizar(self, "QDialog { background-color: var(--fundo); }")
+        StyleManager.estilizar(self, """
+            QDialog { background-color: var(--fundo); }
+            QLabel#exif_contador { color: var(--texto_secundario); font-size: 13px; }
+            QPushButton#exif_acao_lote {
+                background: transparent; border: 1px solid var(--borda); border-radius: var(--raio_botao);
+                color: var(--texto); font-size: 12px; padding: 4px 10px;
+            }
+            QPushButton#exif_acao_lote:hover { background-color: var(--hover); }
+            QPushButton#exif_acao_lote:disabled { color: var(--texto_suave); border-color: var(--borda_suave); }
+        """)
         
         layout_principal = QVBoxLayout(self)
         layout_principal.setContentsMargins(20, 20, 20, 20)
@@ -55,23 +149,42 @@ class ExifConfigDialog(QDialog):
         lbl_instrucao.style().polish(lbl_instrucao)
         layout_principal.addWidget(lbl_instrucao)
 
-        # Card Central (Fundo Branco, Borda Suave, Sombra)
+        # Barra de seleção: contador + marcar/desmarcar todos
+        barra = QHBoxLayout()
+        barra.setSpacing(8)
+        self.lbl_contador = QLabel()
+        self.lbl_contador.setObjectName("exif_contador")
+        barra.addWidget(self.lbl_contador)
+        barra.addStretch()
+        self.btn_marcar_todos = QPushButton("Marcar todos")
+        self.btn_desmarcar_todos = QPushButton("Desmarcar todos")
+        for btn, marcar in ((self.btn_marcar_todos, True), (self.btn_desmarcar_todos, False)):
+            btn.setObjectName("exif_acao_lote")
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.clicked.connect(lambda _=False, m=marcar: self._marcar_todos(m))
+            barra.addWidget(btn)
+        layout_principal.addLayout(barra)
+
+        # Card com as opções em grupos; cada opção é uma linha inteira clicável
         card_central = QFrame()
         card_central.setProperty("class", "painel")
         StyleManager.apply_shadow(card_central)
         layout_card = QVBoxLayout(card_central)
-        layout_card.setContentsMargins(15, 15, 15, 15)
+        layout_card.setContentsMargins(6, 6, 6, 6)
 
-        # Scroll Area limpo por cima do Card
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
+        # Valores longos quebram a linha em vez de criar barra de rolagem horizontal
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         scroll.setStyleSheet("QScrollArea { background: transparent; }")
 
         container_checks = QWidget()
-        container_checks.setStyleSheet("QWidget { background: transparent; }")
+        container_checks.setObjectName("exif_lista")
+        StyleManager.estilizar(container_checks, QSS_LISTA)
         self.layout_checks = QVBoxLayout(container_checks)
-        self.layout_checks.setSpacing(12)
+        self.layout_checks.setContentsMargins(4, 4, 8, 4)
+        self.layout_checks.setSpacing(2)
 
         self.lista_opcoes = [
             ("Nome Científico", "nome_cientifico", True),
@@ -89,74 +202,37 @@ class ExifConfigDialog(QDialog):
             ("Município", "municipio", True),
             ("Bioma", "bioma", True),
             ("Endêmico do Brasil", "endemismo", True),
-            ("Coordenadas Geográficas (GPS)", "coord_gps", True)  
+            ("Coordenadas Geográficas (GPS)", "coord_gps", True)
         ]
 
         self.checkboxes = {}
+        self.linhas = {}
+        opcoes = {chave: (texto, padrao) for texto, chave, padrao in self.lista_opcoes}
 
-        # Estilo raw das checkboxes customizadas para leitura elegante
-        check_style = """
-            QCheckBox {
-                font-family: 'var(--fonte)'; font-size: 14px; color: var(--texto);
-            }
-            QCheckBox::indicator {
-                width: 18px; height: 18px; border-radius: 4px;
-                border: 1px solid var(--texto_suave);
-                background-color: var(--superficie);
-            }
-            QCheckBox::indicator:checked {
-                background-color: var(--destaque);
-                border: 1px solid var(--destaque);
-            }
-            QCheckBox:disabled { color: var(--texto_suave); }
-        """
-
-        for texto_exibicao, chave_dict, default_checked in self.lista_opcoes:
-            valor_atual = self.dados.get(chave_dict, "N/A")
-            
-            if chave_dict == "genero" and valor_atual == "N/A":
-                nome_cientifico = self.dados.get("nome_cientifico", "")
-                if nome_cientifico:
-                    valor_atual = nome_cientifico.split()[0]
-            
-            if chave_dict == "coord_gps":
-                lat = self.dados.get("latitude")
-                lon = self.dados.get("longitude")
-                if lat and lon:
-                    valor_atual = f"{lat:.5f}, {lon:.5f}"
-                else:
-                    valor_atual = "Não disponíveis na sessão"
-
-            cb = QCheckBox(f"{texto_exibicao}: {valor_atual}")
-            StyleManager.estilizar(cb, check_style)
-            
-            if chave_dict == "coord_gps":
-                if self.tem_gps_nativo:
-                    cb.setChecked(False)
-                    cb.setEnabled(False)
-                    cb.setText(f"{texto_exibicao}: [Protegido - Imagem possui GPS original]")
-                elif valor_atual == "Não disponíveis na sessão":
-                    cb.setChecked(False)
-                    cb.setEnabled(False)
-                else:
-                    cb.setChecked(default_checked)
-            else:
-                if valor_atual == "N/A" or not valor_atual:
-                    cb.setChecked(False)
-                    cb.setEnabled(False)
-                else:
-                    cb.setChecked(default_checked)
-
-            self.checkboxes[chave_dict] = cb
-            self.layout_checks.addWidget(cb)
+        for titulo_grupo, chaves in GRUPOS:
+            lbl_grupo = QLabel(titulo_grupo.upper())
+            lbl_grupo.setObjectName("exif_grupo")
+            self.layout_checks.addWidget(lbl_grupo)
+            for chave_dict in chaves:
+                texto_exibicao, default_checked = opcoes[chave_dict]
+                valor, habilitada = self._valor_da_opcao(chave_dict)
+                linha = LinhaOpcao(texto_exibicao, valor)
+                linha.checkbox.setEnabled(habilitada)
+                linha.checkbox.setChecked(habilitada and default_checked)
+                linha.checkbox.toggled.connect(self._atualizar_contador)
+                linha.atualizar_destaque()
+                self.checkboxes[chave_dict] = linha.checkbox
+                self.linhas[chave_dict] = linha
+                self.layout_checks.addWidget(linha)
 
         self.layout_checks.addStretch()
         scroll.setWidget(container_checks)
         layout_card.addWidget(scroll)
-        layout_principal.addWidget(card_central)
+        layout_principal.addWidget(card_central, stretch=1)
+        self._atualizar_contador()
 
         if self.caminho_imagem:
-            self._montar_secao_nome(layout_principal, check_style)
+            self._montar_secao_nome(layout_principal)
 
         # Resumo de Alerta usando CSS class
         if self.tem_gps_nativo:
@@ -192,9 +268,50 @@ class ExifConfigDialog(QDialog):
         
         layout_principal.addLayout(layout_botoes)
 
+    # ------------------------------------------------------------ Seleção dos campos
+
+    def _valor_da_opcao(self, chave):
+        """(texto do valor, habilitada) de um campo; sem dado ou GPS protegido = desabilitada."""
+        valor = self.dados.get(chave, "N/A")
+        if chave == "genero" and valor == "N/A":
+            nome_cientifico = self.dados.get("nome_cientifico", "")
+            if nome_cientifico:
+                valor = nome_cientifico.split()[0]
+        if chave == "coord_gps":
+            if self.tem_gps_nativo:
+                return "Protegido: a imagem já possui GPS original", False
+            lat = self.dados.get("latitude")
+            lon = self.dados.get("longitude")
+            if lat and lon:
+                return f"{lat:.5f}, {lon:.5f}", True
+            return "Não disponíveis na sessão", False
+        if valor == "N/A" or not valor:
+            return "Não disponível", False
+        return str(valor), True
+
+    def _marcar_todos(self, marcar):
+        """Marca ou desmarca todos os campos que têm dado (os desabilitados ficam como estão)."""
+        for cb in self.checkboxes.values():
+            if cb.isEnabled():
+                cb.setChecked(marcar)
+
+    def _atualizar_contador(self, *_):
+        habilitadas = [cb for cb in self.checkboxes.values() if cb.isEnabled()]
+        marcadas = sum(cb.isChecked() for cb in habilitadas)
+        total = len(habilitadas)
+        if marcadas == 0:
+            texto = "Nenhum campo será gravado"
+        elif marcadas == 1:
+            texto = f"1 de {total} campos será gravado"
+        else:
+            texto = f"{marcadas} de {total} campos serão gravados"
+        self.lbl_contador.setText(texto)
+        self.btn_marcar_todos.setEnabled(marcadas < total)
+        self.btn_desmarcar_todos.setEnabled(marcadas > 0)
+
     # ------------------------------------------------------------ Renomear o arquivo (v1.3)
 
-    def _montar_secao_nome(self, layout_principal, check_style):
+    def _montar_secao_nome(self, layout_principal):
         """Caixa 'Renomear o arquivo' com padrão, nome editável e prévia (NomeComum_aaaammdd)."""
         self.settings = QSettings("iBirder", "App")
         self.data_foto = nome_arquivo.data_captura(self.caminho_imagem)
@@ -208,7 +325,7 @@ class ExifConfigDialog(QDialog):
         lay.setSpacing(8)
 
         self.cb_renomear = QCheckBox("Renomear o arquivo")
-        StyleManager.estilizar(self.cb_renomear, check_style)
+        StyleManager.estilizar(self.cb_renomear, ESTILO_CAIXA)
         lay.addWidget(self.cb_renomear)
 
         linha_padrao = QHBoxLayout()
@@ -235,7 +352,7 @@ class ExifConfigDialog(QDialog):
         if self.irmaos:
             nomes = ", ".join(f.name for f in self.irmaos)
             self.cb_irmaos = QCheckBox(f"Renomear também: {nomes}")
-            StyleManager.estilizar(self.cb_irmaos, check_style)
+            StyleManager.estilizar(self.cb_irmaos, ESTILO_CAIXA)
             self.cb_irmaos.setChecked(self.settings.value("renomear/irmaos", True, type=bool))
             lay.addWidget(self.cb_irmaos)
 

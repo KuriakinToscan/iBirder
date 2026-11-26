@@ -20,12 +20,48 @@ from PySide6.QtGui import (
     QPainter, QPixmap, QColor, QFont, QPen, QPainterPath, 
     QFontMetrics, QDrag, QDragEnterEvent, QDropEvent, QIcon, QCursor
 )
+import logging
 import os
 import sys
 from pathlib import Path
 import tempfile
 from ui.dialogs.expanded_image_dialog import ExpandedImageDialog
 from core.style_manager import StyleManager
+
+# Lado maior da foto mantida em memória no card (e no lightbox). Fotos maiores são lidas já
+# reduzidas: o Qt 6 recusa imagens acima de 256 MB (~67 megapixels em RGB32), e uma foto
+# editada/ampliada passava disso e deixava o card vazio, com a identificação rodando.
+LADO_MAXIMO_PIXMAP = 4096
+
+
+def carregar_pixmap(caminho, lado_maximo=LADO_MAXIMO_PIXMAP):
+    """
+    QPixmap da foto, reduzido para caber em lado_maximo x lado_maximo (proporção mantida).
+    Lê com QImageReader em tamanho reduzido (o JPEG decodifica já pequeno); se o Qt falhar,
+    tenta pelo Pillow. Devolve um QPixmap nulo só se nenhum dos dois conseguir.
+    """
+    from PySide6.QtGui import QImageReader
+    leitor = QImageReader(str(caminho))
+    tamanho = leitor.size()
+    if tamanho.isValid() and max(tamanho.width(), tamanho.height()) > lado_maximo:
+        leitor.setScaledSize(tamanho.scaled(lado_maximo, lado_maximo, Qt.KeepAspectRatio))
+    imagem = leitor.read()
+    if not imagem.isNull():
+        return QPixmap.fromImage(imagem)
+    logging.warning(f"Qt não abriu {Path(caminho).name} ({leitor.errorString()}); tentando pelo Pillow")
+    try:
+        from PIL import Image, ImageOps
+        from PIL.ImageQt import ImageQt
+        with Image.open(caminho) as foto:
+            foto.draft("RGB", (lado_maximo, lado_maximo))
+            foto = ImageOps.exif_transpose(foto) if leitor.autoTransform() else foto
+            foto = foto.convert("RGB")
+            foto.thumbnail((lado_maximo, lado_maximo))
+            return QPixmap.fromImage(ImageQt(foto).copy())
+    except Exception as e:
+        logging.error(f"Não foi possível abrir {Path(caminho).name} para exibir: {e}")
+        return QPixmap()
+
 
 class ImageCardWidget(QWidget):
     """
@@ -168,7 +204,7 @@ class ImageCardWidget(QWidget):
         """Carrega imagem do caminho e define como atual."""
         if path and os.path.exists(path):
             self.image_path = path
-            self.pixmap = QPixmap(path)
+            self.pixmap = carregar_pixmap(path)
             self.update()
         else:
             self.image_path = None

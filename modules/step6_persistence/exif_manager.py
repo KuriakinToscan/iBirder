@@ -15,11 +15,11 @@
 #  junto com este programa. Se não, veja <https://www.gnu.org/licenses/>.
 
 import os
-import subprocess
 import tempfile
 import logging
 from pathlib import Path
 from core.paths import APP_DIR
+from core.processos import executar
 
 class EXIFManager:
     """
@@ -67,7 +67,7 @@ class EXIFManager:
             # Chamada industrial ao ExifTool via Subprocess
             # O uso de '-@' com argfile previne quebras de string em nomes científicos complexos
             # ou biomas com caracteres UTF-8 no Windows Shell.
-            resultado = subprocess.run(
+            resultado = executar(
                 [self.exiftool_path, "-charset", "filename=utf8", "-@", argfile_path, caminho_imagem],
                 capture_output=True,
                 text=True,
@@ -105,7 +105,7 @@ class EXIFManager:
             except OSError:
                 pass
         try:
-            resultado = subprocess.run(
+            resultado = executar(
                 [self.exiftool_path, "-charset", "filename=utf8", "-overwrite_original",
                  f"-XMP-xmpMM:PreservedFileName={caminho_raw.name}", str(sidecar)],
                 capture_output=True, text=True, encoding="utf-8")
@@ -129,7 +129,7 @@ class EXIFManager:
         for grupo in ("XMP-lr", "XMP-mwg-rs"):
             comandos += [f"-{grupo}:HierarchicalSubject-={tag}", f"-{grupo}:HierarchicalSubject+={tag}"]
         try:
-            resultado = subprocess.run([self.exiftool_path, *comandos, "-overwrite_original", str(caminho_imagem)],
+            resultado = executar([self.exiftool_path, *comandos, "-overwrite_original", str(caminho_imagem)],
                                        capture_output=True, text=True, encoding="utf-8")
         except Exception as e:
             logging.error(f"Falha ao gravar a publicação em {Path(caminho_imagem).name}: {e}")
@@ -143,7 +143,7 @@ class EXIFManager:
     def _verificar_gps_existente(self, caminho_imagem):
         """Retorna True se a imagem já possuir tags de GPS."""
         try:
-            resultado = subprocess.run(
+            resultado = executar(
                 [self.exiftool_path, "-GPSLatitude", "-GPSLongitude", caminho_imagem],
                 capture_output=True,
                 text=True,

@@ -17,6 +17,8 @@
 from pathlib import Path
 import logging
 import platform
+import re
+import tempfile
 
 from core.temas import (
     TEMA_PADRAO, MODO_PADRAO, obter_tema, renderizar, barra_titulo_escura, cor_bgr,
@@ -35,6 +37,44 @@ _COR_ICONE_ORIGINAL = "#374151"
 
 # Fontes embarcadas em assets/ (registradas uma vez, antes do primeiro tema)
 _FONTES_EMBARCADAS = ("Figtree-VariableFont_wght.ttf",)
+
+
+# Imagens desenhadas dos indicadores (✓ da caixa de seleção, ponto do botão de opção).
+# No QSS: url(ibirder-img:<nome>), trocado em StyleManager.render pelo SVG na cor do tema.
+_RE_IMG = re.compile(r"ibirder-img:([a-z_]+)")
+_SVG_INDICADORES = {
+    # nome: (desenho, token da cor)
+    "check": ('<polyline points="3.8,9.4 7.4,12.8 14.2,5.4" fill="none" stroke="{cor}" '
+              'stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>', "texto_destaque"),
+    "check_desativado": ('<polyline points="3.8,9.4 7.4,12.8 14.2,5.4" fill="none" stroke="{cor}" '
+                         'stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>', "texto_suave"),
+    "ponto": ('<circle cx="9" cy="9" r="4" fill="{cor}"/>', "texto_destaque"),
+    "ponto_desativado": ('<circle cx="9" cy="9" r="4" fill="{cor}"/>', "texto_suave"),
+}
+
+
+def _pasta_indicadores():
+    return Path(tempfile.gettempdir()) / "ibirder_indicadores"
+
+
+def caminho_indicador(nome, tema):
+    """
+    Caminho (com /) do SVG do indicador `nome` nas cores do `tema`, criado na 1ª vez.
+    O nome do arquivo leva a cor, então trocar de tema nunca reaproveita um desenho velho.
+    """
+    desenho, token = _SVG_INDICADORES[nome]
+    cor = tema[token]
+    arquivo = _pasta_indicadores() / f"{nome}_{cor.lstrip('#').lower()}.svg"
+    if not arquivo.exists():
+        try:
+            arquivo.parent.mkdir(parents=True, exist_ok=True)
+            svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">'
+                   + desenho.format(cor=cor) + "</svg>")
+            arquivo.write_text(svg, encoding="utf-8")
+        except OSError as e:
+            # Sem a imagem, a caixa marcada ainda se distingue pelo preenchimento na cor de destaque
+            logging.warning(f"Não foi possível criar o indicador {arquivo}: {e}")
+    return arquivo.as_posix()
 
 
 def _caminho_assets():
@@ -103,7 +143,10 @@ class StyleManager:
     @staticmethod
     def render(texto):
         """Renderiza um QSS ou HTML escrito com var(--token) para o tema ativo."""
-        return renderizar(texto, StyleManager._tema)
+        saida = renderizar(texto, StyleManager._tema)
+        if "ibirder-img:" in saida:
+            saida = _RE_IMG.sub(lambda m: f'"{caminho_indicador(m.group(1), StyleManager._tema)}"', saida)
+        return saida
 
     @staticmethod
     def sinal_tema_alterado():
@@ -720,23 +763,31 @@ QSS_GLOBAL = """
         spacing: 8px;
         font-family: 'var(--fonte)';
     }
+    /* Marcado = caixa cheia na cor de destaque COM o ✓ desenhado (só a cor não bastava:
+       no modo escuro a caixa marcada clara parecia vazia); desmarcado = caixa vazia com
+       contorno em texto_suave, visível em todas as paletas */
     QCheckBox::indicator, QRadioButton::indicator {
-        width: 18px;
-        height: 18px;
-        border: 1px solid var(--borda);
+        width: 16px;
+        height: 16px;
+        border: 2px solid var(--texto_suave);
         border-radius: 4px;
         background-color: var(--superficie);
     }
-    QRadioButton::indicator { border-radius: 9px; }
+    QRadioButton::indicator { border-radius: 10px; }
+    QCheckBox::indicator:hover, QRadioButton::indicator:hover { border: 2px solid var(--destaque); }
     QCheckBox::indicator:checked, QRadioButton::indicator:checked {
         background-color: var(--destaque);
-        border: 1px solid var(--destaque);
+        border: 2px solid var(--destaque);
     }
+    QCheckBox::indicator:checked { image: url(ibirder-img:check); }
+    QRadioButton::indicator:checked { image: url(ibirder-img:ponto); }
     QCheckBox:disabled, QRadioButton:disabled { color: var(--texto_suave); }
     QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {
         background-color: var(--borda_suave);
-        border: 1px solid var(--borda_suave);
+        border: 2px solid var(--borda_suave);
     }
+    QCheckBox::indicator:checked:disabled { image: url(ibirder-img:check_desativado); }
+    QRadioButton::indicator:checked:disabled { image: url(ibirder-img:ponto_desativado); }
 
     /* Barra de etapas (Cartões de escolha, ui/layouts/cartoes.py) */
     QLabel.etapa {

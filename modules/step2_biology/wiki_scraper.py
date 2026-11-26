@@ -216,10 +216,14 @@ def _criar_driver(headless=True):
     # o Selenium Manager embutido no Selenium 4.6+ localiza/baixa o driver.
     try:
         from webdriver_manager.chrome import ChromeDriverManager
-        return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+        # Sem a janela de console do chromedriver no Windows
+        from core.processos import SEM_JANELA
+        servico = Service(ChromeDriverManager().install(), popen_kw={"creation_flags": SEM_JANELA})
+        return webdriver.Chrome(service=servico, options=options)
     except Exception as e:
         logging.debug(f"webdriver-manager indisponível ({e}). Usando Selenium Manager.")
-        return webdriver.Chrome(options=options)
+        from core.processos import SEM_JANELA
+        return webdriver.Chrome(service=Service(popen_kw={"creation_flags": SEM_JANELA}), options=options)
 
 
 class BuscadorBlindado:
