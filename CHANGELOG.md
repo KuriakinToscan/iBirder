@@ -16,6 +16,7 @@
 - **Animações**: opção em **Configurações > Aparência** (`"animacoes"` no `config.json`, ligada por padrão) para a gaveta abrir sem deslizar.
 
 ### Alterações
+- **Fotos grandes aparecem no card**: fotos acima de ~67 megapixels (comum em imagens ampliadas na edição) passavam do limite de 256 MB do Qt e o card ficava vazio, com a identificação rodando. Agora a foto é lida já reduzida (lado maior de 4096 px), com o Pillow como reserva (`carregar_pixmap` em `ui/custom_widgets.py`).
 - **Sem janela cmd ao gravar**: o ExifTool (gravação na foto) e o chromedriver (WikiAves) rodam sem abrir a janela do console do Windows (`core/processos.py`, `CREATE_NO_WINDOW`).
 - **Caixas de seleção com ✓**: em todo o app, a caixa marcada mostra o ✓ (e o botão de opção, o ponto) sobre a cor de destaque; antes só mudava a cor, e no modo escuro a caixa marcada parecia vazia.
 - **Temas viram paleta x modo** (`core/temas.py`): cada paleta declara as cores-base de cada modo e o resto é derivado (`derivar_tokens`), podendo ser sobrescrito. Os testes conferem contraste de 4,5:1 (7:1 no Alto contraste) nas 12 combinações, incluindo texto sobre o item selecionado e sob o mouse. O `config.json` ganha `"modo"` (`sistema`, `claro` ou `escuro`); a paleta continua na chave `"tema"`, então configurações antigas abrem sem mudança.
