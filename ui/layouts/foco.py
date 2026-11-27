@@ -63,6 +63,7 @@ def _coluna(*widgets, espaco=StyleManager.SPACING_SM):
     for widget in widgets:
         if widget is not None:
             layout.addWidget(widget)
+    layout.addStretch()  # a sobra de altura fica embaixo, sem esticar os painéis
     return coluna
 
 

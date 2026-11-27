@@ -13,6 +13,7 @@ numa grade de 3 colunas e rolagem vertical.
     Mapa (2 colunas)                      | Dados geográficos, vocalizações
 """
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QGridLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
 
 from core.style_manager import StyleManager
@@ -26,13 +27,17 @@ def _titulo(texto):
 
 
 def _coluna(*widgets):
-    """Painéis empilhados sem margem (ficam colados na mesma célula da grade)."""
+    """
+    Painéis empilhados sem margem (ficam colados na mesma célula da grade). A sobra de
+    altura da célula fica embaixo: os cards não esticam com o conteúdo boiando no meio.
+    """
     coluna = QWidget()
     layout = QVBoxLayout(coluna)
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(StyleManager.SPACING_MD)
     for widget in widgets:
         layout.addWidget(widget)
+    layout.addStretch()
     return coluna
 
 
@@ -67,23 +72,25 @@ class LayoutCompleto(Layout):
         grade.addWidget(_titulo("Imagem Referência"), 0, 1)
         grade.addWidget(_titulo("Resultados da Análise"), 0, 2)
 
-        grade.addWidget(p.foto, 1, 0)
-        grade.addWidget(p.referencia, 1, 1)
+        # Fotos (quadradas) no topo da célula, quando a coluna da direita for mais alta
+        grade.addWidget(p.foto, 1, 0, Qt.AlignTop)
+        grade.addWidget(p.referencia, 1, 1, Qt.AlignTop)
         grade.addWidget(_coluna(p.identificacao, p.etimologia, p.taxonomia), 1, 2)
 
         grade.addWidget(p.btn_lens, 2, 0)
         grade.addWidget(p.btn_fonte, 2, 1)
         grade.addWidget(p.buscas, 2, 2)
 
-        grade.addWidget(p.descricao, 3, 0, 1, 2)
-        grade.addWidget(p.conservacao, 3, 2)
+        # Ao topo da linha: a conservação costuma ser mais alta que a descrição
+        grade.addWidget(p.descricao, 3, 0, 1, 2, Qt.AlignTop)
+        grade.addWidget(p.conservacao, 3, 2, Qt.AlignTop)
 
         grade.addWidget(p.btn_nova, 4, 0)
         grade.addWidget(p.btn_publicar, 4, 1)
         grade.addWidget(p.btn_gravar, 4, 2)
 
         grade.addWidget(p.mapa, 5, 0, 2, 2)
-        grade.addWidget(_coluna(p.geo, p.sons), 5, 2)
+        grade.addWidget(_coluna(p.geo, p.sons), 5, 2, 2, 1)
 
         mestre.addLayout(grade)
         mestre.addStretch()
