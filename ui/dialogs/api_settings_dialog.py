@@ -129,7 +129,7 @@ class APISettingsDialog(QDialog):
         self._pintar_amostras()
         StyleManager.sinal_tema_alterado().connect(self._ao_mudar_tema)
 
-        self.chk_animacoes = QCheckBox("Animações (gavetas do Foco e do Quadro da sessão)")
+        self.chk_animacoes = QCheckBox("Animações (gaveta da ficha no Foco)")
         self.chk_animacoes.setToolTip("Desligue se a gaveta tremer ou demorar a abrir num computador mais lento.")
         layout_tema.addSpacing(8)
         layout_tema.addWidget(self.chk_animacoes)

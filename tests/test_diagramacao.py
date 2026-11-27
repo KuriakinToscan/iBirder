@@ -149,7 +149,7 @@ def test_ficha_compacta_fotos_e_botoes_visiveis(app, largura, altura):
     raiz.close()
 
 
-@pytest.mark.parametrize("id_layout", ["completo", "ficha", "mesa_luz", "quadro", "foco", "cartoes", "trilha"])
+@pytest.mark.parametrize("id_layout", ["completo", "ficha", "mesa_luz", "foco", "cartoes", "trilha"])
 def test_paineis_dentro_da_largura_em_1000px(app, id_layout):
     """Nenhum painel passa da borda direita (cortado sem rolagem horizontal) em 1000 px."""
     from ui import estado_identificacao as ei

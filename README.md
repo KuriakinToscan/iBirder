@@ -16,7 +16,7 @@ A identificação roda **no seu computador**. Quando a IA local fica em dúvida,
 
 ## 🌟 Novidades na v1.6
 - **Modo claro e escuro**, igual ao Windows por padrão, e seis **paletas de cores** (Off-White, Clean, Clássico, Gralha-azul, Sabiá e Alto contraste).
-- **Cinco layouts novos**: **Trilha** (assistente em cinco etapas, padrão de instalação nova), **Cartões de escolha** (as três espécies mais prováveis com foto de referência), **Mesa de luz** (pasta inteira, como num editor de fotos), **Quadro da sessão** (a saída de campo em colunas) e **Foco** (a foto na janela toda, com zoom e atalhos). Continuam o **Painel completo** e a **Ficha compacta**; o Fluxo guiado e a Mesa de trabalho deram lugar à Trilha e à Mesa de luz.
+- **Cinco layouts novos**: **Trilha** (assistente em cinco etapas, padrão de instalação nova), **Cartões de escolha** (as três espécies mais prováveis com foto de referência), **Mesa de luz** (pasta inteira, como num editor de fotos) e **Foco** (a foto na janela toda, com zoom e atalhos). Continuam o **Painel completo** e a **Ficha compacta**; o Fluxo guiado e a Mesa de trabalho deram lugar à Trilha e à Mesa de luz.
 
 ## 🌟 Novidades na v1.4
 - **Temas de aparência**: Off-White (o visual de sempre), Clean e Clássico, escolhidos em **Configurações (⚙) > Aparência** e aplicados na hora, sem reiniciar.

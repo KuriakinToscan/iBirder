@@ -37,7 +37,7 @@ class Paineis:
     mapa: QWidget             # localização geográfica (Leaflet)
     geo: QWidget              # dados geográficos
     sons: QWidget             # vocalizações
-    fila: QWidget = None      # fila de fotos da pasta (Trilha, Mesa de luz, Quadro, Foco; ver PAINEIS_EXTRAS)
+    fila: QWidget = None      # fila de fotos da pasta (Trilha, Mesa de luz, Foco; ver PAINEIS_EXTRAS)
     cartoes: QWidget = None   # cartões das espécies candidatas (Cartões de escolha, Trilha)
 
     def todos(self):

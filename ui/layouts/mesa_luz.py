@@ -36,7 +36,8 @@ from ui.layouts.base import Layout, Paineis
 from ui.widgets.componentes_layout import GrupoSecoes, PortaFoto, SecaoRecolhivel
 
 LARGURA_INSPETOR = 380
-LARGURA_REFERENCIA = 250  # mínimo do card de imagem (ImageCard)
+LARGURA_REFERENCIA = 250  # coluna da referência (lado máximo do card)
+LADO_MINIMO_REFERENCIA = 150  # janela baixa: a referência encolhe até aqui
 
 
 def _coluna(*widgets, espaco=StyleManager.SPACING_SM):
@@ -125,7 +126,12 @@ class LayoutMesaLuz(Layout):
         layout_lateral = QVBoxLayout(lateral)
         layout_lateral.setContentsMargins(0, 0, 0, 0)
         layout_lateral.setSpacing(StyleManager.SPACING_SM)
-        layout_lateral.addWidget(p.referencia)
+        # A referência também é quadrada: fica numa PortaFoto, que encolhe com a janela baixa
+        # (a tira da fila ocupa a parte de baixo) em vez de esticar a janela
+        porta_referencia = PortaFoto(alinhamento="centro", lado_minimo=LADO_MINIMO_REFERENCIA)
+        porta_referencia.setMaximumHeight(LARGURA_REFERENCIA)
+        porta_referencia.receber(p.referencia)
+        layout_lateral.addWidget(porta_referencia, 1)
         layout_lateral.addWidget(p.btn_fonte)
         layout_lateral.addStretch()
         layout_lateral.addWidget(p.btn_lens)

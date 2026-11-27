@@ -947,7 +947,7 @@ class JanelaPrincipal(QMainWindow):
             if isinstance(pai, SecaoRecolhivel) and not pai.esta_aberta():
                 pai.abrir()  # seção fechada do inspetor (Mesa de luz)
             if isinstance(pai, Gaveta) and not pai.esta_aberta():
-                pai.abrir()  # gaveta fechada (Quadro da sessão)
+                pai.abrir()  # gaveta fechada (ficha do Foco)
             if isinstance(pai, QStackedWidget):
                 if isinstance(pai.parentWidget(), QTabWidget):
                     pai.parentWidget().setCurrentWidget(filho)

@@ -133,7 +133,7 @@ Ao terminar, o número da observação é gravado na foto (*iBirder > Publicacao
 - **Ctrl+O:** abrir uma foto.
 - **Ctrl+S:** gravar os dados na fotografia (quando o botão Gravar está liberado).
 - **Ctrl+K:** ir para o campo **Nome Científico** e buscar uma espécie.
-- **Ctrl+Shift+O:** abrir uma pasta na fila de fotos (layouts **Trilha**, **Mesa de luz**, **Quadro da sessão** e **Foco**).
+- **Ctrl+Shift+O:** abrir uma pasta na fila de fotos (layouts **Trilha**, **Mesa de luz** e **Foco**).
 - **←** e **→:** foto anterior e seguinte da pasta (layouts **Mesa de luz** e **Foco**).
 - No layout **Foco**: **I** abre e fecha a ficha, **F** mostra ou esconde a fila, **+**, **−** e **0** dão zoom na foto (ou a roda do mouse), **?** ou **F1** mostra a lista de atalhos e **Esc** fecha o que estiver aberto.
 - **Alt+→** e **Alt+←:** avançar e voltar uma etapa (layout **Trilha**).
@@ -161,7 +161,6 @@ No mesmo quadro, **Layout** escolhe a arrumação da tela:
 - **Trilha** (padrão de quem instala a partir da v1.6): um assistente em cinco etapas, **Escolher a foto › Identificar › Conferir a espécie › Conhecer a ave › Gravar e publicar**, com a trilha sempre à vista à esquerda e um botão principal por tela. Abrir uma foto já leva à identificação, e o resultado já leva à conferência. **Continuar** avança, **Voltar** retorna sem apagar nada, e as etapas já liberadas podem ser abertas direto pela trilha. Na primeira etapa dá para abrir uma pasta inteira (veja **Uma pasta em fila**, abaixo). Na etapa Conferir, as espécies mais prováveis aparecem com foto de referência; **É esta** confirma e segue.
 - **Cartões de escolha:** a sua foto ao lado das três espécies mais prováveis, cada uma com uma foto de referência do iNaturalist (com o nome do autor e a licença). Compare a plumagem e o bico e clique em **É esta**; se não for nenhuma, digite o nome no campo abaixo dos cartões. A ficha da espécie abre em seguida, com o mapa e os botões de gravar e publicar. **Trocar espécie** volta aos cartões.
 - **Mesa de luz:** para uma pasta inteira, como num editor de fotos: a foto grande no centro, a fila numa tira embaixo e, à direita, a identificação e as seções da ficha, que abrem uma por vez. As setas **←** e **→** trocam de foto; **Pular** e **Ir para a próxima ao gravar** ficam na tira.
-- **Quadro da sessão:** a pasta da saída de campo em colunas: **Na fila**, **Conferindo agora**, **Gravadas** e **Puladas**, com o número de espécies e de fotos gravadas. A foto aberta aparece numa gaveta à direita (abas **Conferir** e **Ficha**); **Fechar** recolhe a gaveta, e um clique duplo no cartão da foto a traz de volta. Em **Sessões anteriores**, um clique reabre uma pasta usada antes.
 - **Foco:** a foto ocupa a janela, com zoom pela roda do mouse e arrasto. O resultado fica numa faixa sobre a foto, com **Ficha ›** e o botão de gravar; a ficha (comparar com a referência, sobre, classificação, mapa e sons) entra pela direita. Com uma pasta aberta, a fila aparece à esquerda. Feito para quem usa o teclado: o botão **? Atalhos** lista as teclas.
 - **Painel completo:** tudo visível numa grade de três colunas, com rolagem.
 - **Ficha compacta:** tudo numa tela, em três colunas (fotos; ficha da espécie; mapa e sons), cada coluna com rolagem própria.
@@ -172,11 +171,13 @@ Modo, paleta e layout mudam na hora, enquanto você escolhe. **Animações** lig
 
 ### Uma pasta em fila
 
-1. Nos layouts **Trilha**, **Mesa de luz**, **Quadro da sessão** ou **Foco**, clique em **Abrir pasta...** no painel **Fila de fotos** (ou **Ctrl+Shift+O**).
+1. Nos layouts **Trilha**, **Mesa de luz** ou **Foco**, clique em **Abrir pasta...** no painel **Fila de fotos** (ou **Ctrl+Shift+O**).
 2. O iBirder lista as fotos JPG e PNG da pasta (sem subpastas), com miniaturas, e confere quais já têm dados gravados pelo iBirder: essas aparecem como **✓ Já tinha registro** e ficam fora da fila.
 3. A primeira foto pendente abre sozinha. Confira a espécie e clique em **Gravar Dados na Fotografia** (**Ctrl+S**).
 4. Com **Ir para a próxima ao gravar** marcado, a próxima foto pendente abre logo depois da gravação, sem o aviso de sucesso a cada foto. A lista mostra cada foto como **✓ Gravada**, com a espécie e o novo nome, se ela foi renomeada.
 5. **Pular** deixa a foto para depois. Para voltar a qualquer foto, clique duas vezes nela na lista.
+
+Nas miniaturas (Mesa de luz e Trilha), cada foto mostra o nome do arquivo e, embaixo, a espécie ou a situação; o selo no canto indica **✓** gravada, **▶** aberta e **»** pulada.
 
 > A identificação continua sendo feita uma foto por vez, a que está aberta: o iBirder não consulta o WikiAves em lote.
 
