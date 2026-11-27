@@ -906,6 +906,10 @@ class JanelaPrincipal(QMainWindow):
         if self.layout_atual is layout:
             return
         self._desligar_controles(self.centralWidget())
+        # Lugares de foto fora de layout (PortaFoto, ColunaFotos) tiram o mínimo dos cards;
+        # o layout novo recebe os cards com o mínimo de sempre
+        for card in (self.card_user, self.card_ref):
+            card.setMinimumWidth(card.minimumSizeHint().width())
         # montar() reparenta os painéis; só depois o widget antigo (já vazio) é descartado
         central = layout.montar(self.paineis, self.estado)
         # Painel extra que o novo layout não usa: fica guardado (escondido) na janela,

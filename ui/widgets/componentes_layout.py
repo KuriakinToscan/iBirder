@@ -15,6 +15,8 @@ Componentes comuns dos layouts da v1.6 (ui/layouts/), feitos uma vez e usados po
   (ficha da espécie no Foco).
 - `PortaFoto`: lugar do card da foto (sempre quadrado) fora de layout, no maior quadrado
   que cabe, para a foto não esticar a janela (Trilha, Cartões de escolha).
+- `ColunaFotos`: fotos quadradas empilhadas (e uma barra de botões embaixo) no maior
+  lado que deixa TODAS caberem na altura disponível (Ficha compacta).
 - `TextoAutoAltura`: caixa de texto (só leitura) cuja altura segue o texto na largura atual,
   recalculada sempre que a própria caixa muda de largura (Descrição e Etimologia).
 
@@ -346,6 +348,69 @@ class PortaFoto(QWidget):
         self._foto.setGeometry(x, 0, lado, lado)
 
 
+class ColunaFotos(QWidget):
+    """
+    Cards de foto (quadrados) empilhados e, embaixo, um widget de botões. O lado dos cards é
+    o maior que deixa todos caberem na altura (e na largura) da coluna, centralizados: antes,
+    na Ficha compacta, cada card tinha a largura da coluna e o segundo saía da tela.
+    Fica dentro de uma área de rolagem: abaixo de `LADO_MINIMO`, a coluna rola.
+    """
+
+    LADO_MINIMO = 150
+
+    def __init__(self, cards, rodape=None, espaco=StyleManager.SPACING_SM, parent=None):
+        super().__init__(parent)
+        self._cards = []
+        self._rodape = rodape
+        self._espaco = espaco
+        for card in cards:
+            self._cards.append(card)
+            card.setParent(self)
+            card.show()
+        if rodape is not None:
+            rodape.setParent(self)
+            rodape.show()
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setMinimumSize(self.LADO_MINIMO, self._altura_para(self.LADO_MINIMO))
+
+    def cards(self):
+        return list(self._cards)
+
+    def _altura_rodape(self):
+        if self._rodape is None:
+            return 0
+        return self._rodape.sizeHint().height() + self._espaco
+
+    def _altura_para(self, lado):
+        n = len(self._cards)
+        return n * lado + max(0, n - 1) * self._espaco + self._altura_rodape()
+
+    def lado(self):
+        """Lado dos cards no tamanho atual."""
+        n = max(1, len(self._cards))
+        livre = self.height() - self._altura_rodape() - (n - 1) * self._espaco
+        return max(self.LADO_MINIMO, min(self.width(), livre // n))
+
+    def resizeEvent(self, evento):
+        super().resizeEvent(evento)
+        self._posicionar()
+
+    def _posicionar(self):
+        lado = self.lado()
+        x = (self.width() - lado) // 2
+        y = 0
+        for card in self._cards:
+            if card.parentWidget() is not self:
+                continue
+            card.setMinimumSize(0, 0)
+            card.setMaximumWidth(16777215)
+            card.setGeometry(x, y, lado, lado)
+            y += lado + self._espaco
+        if self._rodape is not None and self._rodape.parentWidget() is self:
+            # Botões na largura da coluna (o texto deles não cabe no lado de uma foto pequena)
+            self._rodape.setGeometry(0, y, self.width(), self._rodape.sizeHint().height())
+
+
 class TextoAutoAltura(QTextEdit):
     """
     QTextEdit sem rolagem cuja altura é a do texto na largura que a caixa tem AGORA.
@@ -390,5 +455,5 @@ class TextoAutoAltura(QTextEdit):
         self.ajustar_altura()
 
 
-__all__ = ["TextoAutoAltura", "definir_animacoes", "animacoes_ativas", "PortaFoto", "SecaoRecolhivel", "GrupoSecoes", "RodapeAcoes", "Sobreposicao", "Gaveta",
+__all__ = ["ColunaFotos", "TextoAutoAltura", "definir_animacoes", "animacoes_ativas", "PortaFoto", "SecaoRecolhivel", "GrupoSecoes", "RodapeAcoes", "Sobreposicao", "Gaveta",
            "geometria_ancorada", "ANCORAS"]
