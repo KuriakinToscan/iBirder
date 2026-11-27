@@ -33,7 +33,8 @@ from ui import estado_identificacao as ei
 from ui.layouts.base import Layout, Paineis, coluna_rolavel
 from ui.widgets.componentes_layout import Gaveta
 
-LARGURA_GAVETA = 640
+LARGURA_GAVETA = 640      # mínimo; cresce até PROPORCAO_GAVETA da área
+PROPORCAO_GAVETA = 0.45
 ABA_CONFERIR, ABA_FICHA = range(2)
 
 
@@ -45,6 +46,7 @@ def _coluna(*widgets, espaco=StyleManager.SPACING_SM):
     for widget in widgets:
         if widget is not None:
             layout.addWidget(widget)
+    layout.addStretch()  # a sobra de altura fica embaixo, sem esticar os painéis
     return coluna
 
 
@@ -137,7 +139,7 @@ class LayoutQuadro(Layout):
         mestre.addWidget(area, 1)
 
         # --- Gaveta: conferir e ficha da foto aberta ---
-        gaveta = Gaveta(area_quadro, largura=LARGURA_GAVETA)
+        gaveta = Gaveta(area_quadro, largura=LARGURA_GAVETA, proporcao=PROPORCAO_GAVETA)
         cabeca = QHBoxLayout()
         cabeca.setContentsMargins(StyleManager.SPACING_MD, StyleManager.SPACING_SM,
                                   StyleManager.SPACING_SM, 0)

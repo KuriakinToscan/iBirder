@@ -1,5 +1,19 @@
 # Histórico de versões
 
+## Próxima versão (em desenvolvimento)
+
+### Correções de diagramação (layouts)
+- **Descrição e Etimologia não cortam mais o texto**: a altura da caixa segue o texto na largura que ela tem agora (`TextoAutoAltura` em `ui/widgets/componentes_layout.py`); antes era calculada só quando o texto chegava e, se o painel mudava de largura depois (página da Trilha, gaveta, troca de layout), as últimas linhas sumiam.
+- **Sem cards esticados**: no Painel completo, fotos, descrição e conservação ficam no topo da célula e a sobra de altura vai para o fim das colunas (antes o título boiava no meio do card e havia um vazio grande acima da descrição). O mesmo nas colunas da Mesa de luz, do Quadro e do Foco.
+- **Ficha compacta**: as duas fotos e os botões cabem na coluna (`ColunaFotos`); antes a segunda foto saía da tela. Lens e Fonte ficam um embaixo do outro, sem cortar o texto.
+- **Mesa de luz**: a referência, Abrir fonte e Google Lens ficam numa coluna ao lado da foto, que fica centralizada (antes flutuavam por cima dela e a cobriam em janela estreita). Sem fotos na fila, a tira mostra só a barra de botões.
+- **Foco**: o resultado e a fila viram colunas ao lado da foto; antes a faixa do resultado cobria quase metade da foto e ficava por cima da ficha aberta.
+- **Cartões**: a foto de referência aparece inteira, com altura proporcional ao cartão (antes era recortada numa faixa e a ave perdia cabeça e cauda); na linha compacta, o nome fica numa linha com reticências; a dica sai do nome e vai para a foto; na etapa 1, o quadro de soltar a foto ocupa a altura disponível.
+- **Trilha, etapa Conferir**: em janela estreita, sua foto e a referência ficam uma embaixo da outra (a referência era cortada à direita).
+- **Quadro**: as quatro colunas têm a mesma largura e a gaveta cresce com a janela (45% da área, mínimo de 640 px).
+- **Mapa**: em mapa pequeno (menos de 520 x 480 px), o seletor de camadas vira o ícone do Leaflet e a legenda da densidade fica compacta.
+- Testes novos em `tests/test_diagramacao.py` (sobreposição, corte e bordas em 1920, 1366 e 1000 px).
+
 ## v1.6 (em desenvolvimento)
 
 ### Novidades

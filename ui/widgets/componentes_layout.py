@@ -15,12 +15,16 @@ Componentes comuns dos layouts da v1.6 (ui/layouts/), feitos uma vez e usados po
   (ficha da espécie no Foco).
 - `PortaFoto`: lugar do card da foto (sempre quadrado) fora de layout, no maior quadrado
   que cabe, para a foto não esticar a janela (Trilha, Cartões de escolha).
+- `ColunaFotos`: fotos quadradas empilhadas (e uma barra de botões embaixo) no maior
+  lado que deixa TODAS caberem na altura disponível (Ficha compacta).
+- `TextoAutoAltura`: caixa de texto (só leitura) cuja altura segue o texto na largura atual,
+  recalculada sempre que a própria caixa muda de largura (Descrição e Etimologia).
 
 Nenhum deles tem cor fixa: os estilos vêm do QSS global (classes e objectNames abaixo).
 """
 
 from PySide6.QtCore import QEasingCurve, QEvent, QObject, QPoint, QPropertyAnimation, QRect, Qt, Signal
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QPushButton, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QBoxLayout, QFrame, QHBoxLayout, QPushButton, QSizePolicy, QTextEdit, QVBoxLayout, QWidget
 
 from core.style_manager import StyleManager
 
@@ -150,6 +154,33 @@ class RodapeAcoes(QFrame):
         return widget
 
 
+class FotosLadoALado(QWidget):
+    """
+    Dois blocos de foto (sua foto | referência) lado a lado quando cabem; quando a largura
+    disponível não comporta os dois no lado mínimo do card, um embaixo do outro. A largura
+    vem de `medidor` (um widget fora da área de rolagem), porque dentro dela o próprio
+    widget nunca fica mais estreito que o seu mínimo e o segundo card era cortado.
+    """
+
+    def __init__(self, medidor, desconto=0, lado_minimo=250, espaco=StyleManager.SPACING_MD, parent=None):
+        super().__init__(parent)
+        self._desconto = desconto
+        self._lado_minimo = lado_minimo
+        self.layout_fotos = QBoxLayout(QBoxLayout.LeftToRight, self)
+        self.layout_fotos.setContentsMargins(0, 0, 0, 0)
+        self.layout_fotos.setSpacing(espaco)
+        self._filtro = _FiltroRedimensionar(medidor, lambda: self.atualizar(medidor.width()))
+
+    def atualizar(self, largura_medidor):
+        cabem = largura_medidor - self._desconto >= 2 * self._lado_minimo + self.layout_fotos.spacing()
+        direcao = QBoxLayout.LeftToRight if cabem else QBoxLayout.TopToBottom
+        if self.layout_fotos.direction() != direcao:
+            self.layout_fotos.setDirection(direcao)
+
+    def lado_a_lado(self):
+        return self.layout_fotos.direction() == QBoxLayout.LeftToRight
+
+
 class _FiltroRedimensionar(QObject):
     """Chama `ao_redimensionar` quando o hospedeiro muda de tamanho."""
 
@@ -240,11 +271,14 @@ class Gaveta(QFrame):
 
     alternada = Signal(bool)
 
-    def __init__(self, hospedeiro, largura=480, animar=True, parent=None):
+    def __init__(self, hospedeiro, largura=480, animar=True, parent=None, proporcao=None):
         super().__init__(parent or hospedeiro)
         self.setObjectName("gaveta")
         self.hospedeiro = hospedeiro
         self.largura = largura
+        # Com `proporcao`, a gaveta cresce com o hospedeiro (fração da largura dele), com
+        # `largura` como mínimo: numa janela grande ela não fica estreita no canto
+        self.proporcao = proporcao
         self.animar = animar
         self._aberta = False
         self._animacao = QPropertyAnimation(self, b"geometry", self)
@@ -260,9 +294,16 @@ class Gaveta(QFrame):
     def esta_aberta(self):
         return self._aberta
 
+    def largura_atual(self):
+        hosp = self.hospedeiro
+        largura = self.largura
+        if self.proporcao:
+            largura = max(largura, int(hosp.width() * self.proporcao))
+        return min(largura, hosp.width())
+
     def _geometria(self, aberta):
         hosp = self.hospedeiro
-        largura = min(self.largura, hosp.width())
+        largura = self.largura_atual()
         x = hosp.width() - largura if aberta else hosp.width()
         return QRect(x, 0, largura, hosp.height())
 
@@ -344,5 +385,112 @@ class PortaFoto(QWidget):
         self._foto.setGeometry(x, 0, lado, lado)
 
 
-__all__ = ["definir_animacoes", "animacoes_ativas", "PortaFoto", "SecaoRecolhivel", "GrupoSecoes", "RodapeAcoes", "Sobreposicao", "Gaveta",
+class ColunaFotos(QWidget):
+    """
+    Cards de foto (quadrados) empilhados e, embaixo, um widget de botões. O lado dos cards é
+    o maior que deixa todos caberem na altura (e na largura) da coluna, centralizados: antes,
+    na Ficha compacta, cada card tinha a largura da coluna e o segundo saía da tela.
+    Fica dentro de uma área de rolagem: abaixo de `LADO_MINIMO`, a coluna rola.
+    """
+
+    LADO_MINIMO = 150
+
+    def __init__(self, cards, rodape=None, espaco=StyleManager.SPACING_SM, parent=None):
+        super().__init__(parent)
+        self._cards = []
+        self._rodape = rodape
+        self._espaco = espaco
+        for card in cards:
+            self._cards.append(card)
+            card.setParent(self)
+            card.show()
+        if rodape is not None:
+            rodape.setParent(self)
+            rodape.show()
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setMinimumSize(self.LADO_MINIMO, self._altura_para(self.LADO_MINIMO))
+
+    def cards(self):
+        return list(self._cards)
+
+    def _altura_rodape(self):
+        if self._rodape is None:
+            return 0
+        return self._rodape.sizeHint().height() + self._espaco
+
+    def _altura_para(self, lado):
+        n = len(self._cards)
+        return n * lado + max(0, n - 1) * self._espaco + self._altura_rodape()
+
+    def lado(self):
+        """Lado dos cards no tamanho atual."""
+        n = max(1, len(self._cards))
+        livre = self.height() - self._altura_rodape() - (n - 1) * self._espaco
+        return max(self.LADO_MINIMO, min(self.width(), livre // n))
+
+    def resizeEvent(self, evento):
+        super().resizeEvent(evento)
+        self._posicionar()
+
+    def _posicionar(self):
+        lado = self.lado()
+        x = (self.width() - lado) // 2
+        y = 0
+        for card in self._cards:
+            if card.parentWidget() is not self:
+                continue
+            card.setMinimumSize(0, 0)
+            card.setMaximumWidth(16777215)
+            card.setGeometry(x, y, lado, lado)
+            y += lado + self._espaco
+        if self._rodape is not None and self._rodape.parentWidget() is self:
+            # Botões na largura da coluna (o texto deles não cabe no lado de uma foto pequena)
+            self._rodape.setGeometry(0, y, self.width(), self._rodape.sizeHint().height())
+
+
+class TextoAutoAltura(QTextEdit):
+    """
+    QTextEdit sem rolagem cuja altura é a do texto na largura que a caixa tem AGORA.
+
+    Antes a janela calculava a altura uma vez, quando o texto chegava: se o painel mudava
+    de largura depois (página escondida da Trilha, gaveta, troca de layout, barra de rolagem
+    que aparece), a altura ficava a da largura antiga e as últimas linhas sumiam.
+    """
+
+    def __init__(self, altura_minima=45, parent=None):
+        super().__init__(parent)
+        self._altura_minima = altura_minima
+        self._largura_calculada = -1
+        self.setReadOnly(True)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.setMinimumHeight(altura_minima)
+        self.textChanged.connect(self.ajustar_altura)
+
+    def ajustar_altura(self):
+        """Altura = texto na largura do viewport + bordas e preenchimento do QSS."""
+        largura = self.viewport().width()
+        if largura <= 1:
+            return
+        self._largura_calculada = largura
+        documento = self.document()
+        documento.setTextWidth(largura)
+        bordas = max(0, self.height() - self.viewport().height())
+        altura = int(documento.size().height() + 0.999) + bordas + 2
+        altura = max(altura, self._altura_minima)
+        if altura != self.height():
+            self.setFixedHeight(altura)
+
+    def resizeEvent(self, evento):
+        super().resizeEvent(evento)
+        if self.viewport().width() != self._largura_calculada:
+            self.ajustar_altura()
+
+    def showEvent(self, evento):
+        super().showEvent(evento)
+        self.ajustar_altura()
+
+
+__all__ = ["ColunaFotos", "FotosLadoALado", "TextoAutoAltura", "definir_animacoes", "animacoes_ativas", "PortaFoto", "SecaoRecolhivel", "GrupoSecoes", "RodapeAcoes", "Sobreposicao", "Gaveta",
            "geometria_ancorada", "ANCORAS"]

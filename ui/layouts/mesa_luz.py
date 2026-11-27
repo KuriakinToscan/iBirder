@@ -7,21 +7,25 @@ Layout "Mesa de luz" (proposta 2 do redesenho, v1.6): a foto grande no centro, a
 pasta numa tira embaixo e um inspetor com seções à direita, como num editor de fotos.
 
     [cabeçalho]
-    +------------------------------------+  Identificação (nome, certeza)
-    |                       [referência] |  ▾ Outras sugestões (cartões compactos)
-    |            sua foto                |  ▸ Sobre a espécie
-    |                                    |  ▸ Classificação e conservação
-    |                             [Lens] |  ▸ Local e mapa
-    +------------------------------------+  ▸ Sons
-                                            [Gravar dados na fotografia]
-                                            [Publicar]  [Nova identificação]
+    +-------------------------+------------+  Identificação (nome, certeza)
+    |                         | referência |  ▾ Outras sugestões (cartões compactos)
+    |        sua foto         | [Fonte]    |  ▸ Sobre a espécie
+    |                         |            |  ▸ Classificação e conservação
+    |                         | [Lens]     |  ▸ Local e mapa
+    +-------------------------+------------+  ▸ Sons
+                                              [Gravar dados na fotografia]
+                                              [Publicar]  [Nova identificação]
     Fila | miniatura miniatura miniatura miniatura ...
+
+A referência fica numa coluna ao lado da foto (antes flutuava por cima dela e, em janela
+estreita, cobria a foto). Sem pasta aberta, a tira da fila fica só com a barra de botões.
 
 As setas ← → abrem a foto anterior ou a seguinte da pasta (no campo de texto, continuam
 movendo o cursor). Com "Ir para a próxima ao gravar" (na tira), gravar abre a próxima
 pendente. O inspetor abre uma seção por vez; "Outras sugestões" abre a cada foto.
 """
 
+import shiboken6
 from PySide6.QtCore import QObject, Qt
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QScrollArea, QVBoxLayout, QWidget
@@ -29,7 +33,7 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QScrollArea, QVBoxLayout, QWi
 from core.style_manager import StyleManager
 from ui import estado_identificacao as ei
 from ui.layouts.base import Layout, Paineis
-from ui.widgets.componentes_layout import GrupoSecoes, PortaFoto, SecaoRecolhivel, Sobreposicao
+from ui.widgets.componentes_layout import GrupoSecoes, PortaFoto, SecaoRecolhivel
 
 LARGURA_INSPETOR = 380
 LARGURA_REFERENCIA = 250  # mínimo do card de imagem (ImageCard)
@@ -43,6 +47,7 @@ def _coluna(*widgets, espaco=StyleManager.SPACING_SM):
     for widget in widgets:
         if widget is not None:
             layout.addWidget(widget)
+    layout.addStretch()  # a sobra de altura fica embaixo, sem esticar os painéis
     return coluna
 
 
@@ -54,12 +59,26 @@ class _ControleMesaLuz(QObject):
         self.p = p
         self.secao_sugestoes = secao_sugestoes
         porta.receber(p.foto)
+        lista = getattr(p.fila, "lista", None)
+        if lista is not None:
+            # A tira encolhe sem pasta e volta ao tamanho cheio quando a pasta carrega
+            modelo = lista.model()
+            modelo.rowsInserted.connect(self.ajustar_tira)
+            modelo.rowsRemoved.connect(self.ajustar_tira)
+            modelo.modelReset.connect(self.ajustar_tira)
+            self.ajustar_tira()
         for tecla, passo in ((Qt.Key_Left, -1), (Qt.Key_Right, 1)):
             atalho = QShortcut(QKeySequence(tecla), raiz)
             atalho.setContext(Qt.WidgetWithChildrenShortcut)
             atalho.activated.connect(lambda passo=passo: self.navegar(passo))
         if estado is not None:
             estado.etapa_alterada.connect(self._ao_mudar_etapa)
+
+    def ajustar_tira(self, *_args):
+        """Sem fotos na fila, a tira fica só com a barra (PainelFila.ajustar_tira_vazia)."""
+        fila = self.p.fila
+        if fila is not None and shiboken6.isValid(fila) and hasattr(fila, "ajustar_tira_vazia"):
+            fila.ajustar_tira_vazia()
 
     def _ao_mudar_etapa(self, etapa):
         if etapa in (ei.CONFERIR, ei.INCONCLUSIVA) and not self.secao_sugestoes.esta_aberta():
@@ -91,33 +110,27 @@ class LayoutMesaLuz(Layout):
         corpo.setSpacing(StyleManager.SPACING_MD)
         mestre.addLayout(corpo, 1)
 
-        # --- Palco: a foto, com a referência e os botões flutuando por cima ---
+        # --- Palco: a foto e, ao lado, a referência com os botões ---
         palco = QFrame()
         palco.setObjectName("mesa_luz_palco")
-        layout_palco = QVBoxLayout(palco)
+        layout_palco = QHBoxLayout(palco)
         layout_palco.setContentsMargins(StyleManager.SPACING_SM, StyleManager.SPACING_SM,
                                         StyleManager.SPACING_SM, StyleManager.SPACING_SM)
-        porta = PortaFoto(alinhamento="esquerda")  # a referência flutua no espaço à direita
-        layout_palco.addWidget(porta)
+        layout_palco.setSpacing(StyleManager.SPACING_MD)
+        porta = PortaFoto(alinhamento="centro")
+        layout_palco.addWidget(porta, 1)
+
+        lateral = QWidget()
+        lateral.setFixedWidth(LARGURA_REFERENCIA)
+        layout_lateral = QVBoxLayout(lateral)
+        layout_lateral.setContentsMargins(0, 0, 0, 0)
+        layout_lateral.setSpacing(StyleManager.SPACING_SM)
+        layout_lateral.addWidget(p.referencia)
+        layout_lateral.addWidget(p.btn_fonte)
+        layout_lateral.addStretch()
+        layout_lateral.addWidget(p.btn_lens)
+        layout_palco.addWidget(lateral, 0)
         corpo.addWidget(palco, 1)
-
-        cartao_ref = Sobreposicao(palco, "superior-direita", margem=StyleManager.SPACING_MD)
-        layout_ref = QVBoxLayout(cartao_ref)
-        layout_ref.setContentsMargins(StyleManager.SPACING_XS, StyleManager.SPACING_XS,
-                                      StyleManager.SPACING_XS, StyleManager.SPACING_XS)
-        layout_ref.setSpacing(StyleManager.SPACING_XS)
-        layout_ref.addWidget(p.referencia)
-        layout_ref.addWidget(p.btn_fonte)
-        # Tamanho no contêiner (não no painel, que é dos outros layouts também)
-        cartao_ref.setFixedSize(LARGURA_REFERENCIA + 2 * StyleManager.SPACING_XS,
-                                LARGURA_REFERENCIA + 56)
-
-        barra_palco = Sobreposicao(palco, "inferior-direita", margem=StyleManager.SPACING_MD)
-        layout_barra = QHBoxLayout(barra_palco)
-        layout_barra.setContentsMargins(StyleManager.SPACING_XS, StyleManager.SPACING_XS,
-                                        StyleManager.SPACING_XS, StyleManager.SPACING_XS)
-        layout_barra.addWidget(p.btn_lens)
-        barra_palco.setFixedSize(240, 48)
 
         # --- Inspetor: identificação, seções e ações ---
         grupo = GrupoSecoes(exclusivo=True, parent=raiz)

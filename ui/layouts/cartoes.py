@@ -33,7 +33,7 @@ FOTO, ESCOLHER, FICHA = range(3)
 PASSOS = ("Foto", "Escolher a espécie", "Ficha", "Gravar")
 
 LARGURA_SUA_FOTO = 320
-LARGURA_FOTO_INICIAL = 440
+LARGURA_FOTO_INICIAL = 560
 LARGURA_LATERAL_FICHA = 380
 
 
@@ -218,13 +218,19 @@ class LayoutCartoes(Layout):
         sub_foto.setObjectName("trilha_subtitulo")
         sub_foto.setAlignment(Qt.AlignHCenter)
         sub_foto.setWordWrap(True)
+        # O quadro ocupa a altura que sobra (centralizado, até LARGURA_FOTO_INICIAL); antes, com
+        # AlignHCenter, ficava no tamanho mínimo (~150 px) no meio de uma tela vazia
         porta_inicial = PortaFoto()
         porta_inicial.setMaximumWidth(LARGURA_FOTO_INICIAL)
         portas[FOTO] = porta_inicial
         layout_foto.addWidget(titulo_foto)
         layout_foto.addWidget(sub_foto)
         layout_foto.addSpacing(StyleManager.SPACING_MD)
-        layout_foto.addWidget(porta_inicial, 1, Qt.AlignHCenter)
+        linha_porta = QHBoxLayout()
+        linha_porta.addStretch(1)
+        linha_porta.addWidget(porta_inicial, 100)
+        linha_porta.addStretch(1)
+        layout_foto.addLayout(linha_porta, 1)
         pilha.addWidget(pagina_foto)
 
         # --- 2. Escolher: sua foto | cartões ---

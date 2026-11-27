@@ -313,6 +313,9 @@ _TEMPLATE = r"""<!DOCTYPE html>
              border: 2px solid grey; background-color: rgba(255,255,255,0.9); border-radius: 8px;
              padding: 10px; display: none; font-family: 'Segoe UI', sans-serif; }
   #legenda i { width: 10px; height: 10px; display: inline-block; margin-right: 5px; }
+  /* Mapa pequeno: legenda compacta no canto, sem tampar o mapa */
+  body.mapa-pequeno #legenda { bottom: 28px; right: 8px; width: auto; font-size: 11px; padding: 4px 8px;
+             border-width: 1px; border-radius: 6px; }
   .pino-audio { position: relative; width: 44px; height: 44px; cursor: pointer; }
   .pino-audio img { width: 44px; height: 44px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); }
   .pino-audio span { position: absolute; top: -2px; right: -2px; background-color: #ef4444; color: white;
@@ -350,9 +353,25 @@ _TEMPLATE = r"""<!DOCTYPE html>
   var camadaGbif = L.tileLayer(TRANSPARENTE, {opacity: 0.5, attribution: 'Dados: GBIF (Sem dados)'});
   // Pinos dos cantos visíveis de saída (antes ficavam escondidos até marcar "Vocalizações")
   var camadaAudios = L.featureGroup().addTo(mapa);
-  L.control.layers({'Mapa': osm, 'Satélite': satelite},
-                   {'Dist. Geográfica (GBIF)': camadaGbif, 'Vocalizações': camadaAudios},
-                   {position: 'topright', collapsed: false}).addTo(mapa);
+  // Controle de camadas aberto só em mapa grande; em mapa pequeno vira o ícone (abre ao passar
+  // o mouse ou tocar), senão a lista cobre boa parte do mapa e ganha barra de rolagem
+  var MAPA_PEQUENO = {altura: 520, largura: 480};
+  var controleCamadas = null;
+  function mapaPequeno() {
+    var tam = mapa.getSize();
+    return tam.y < MAPA_PEQUENO.altura || tam.x < MAPA_PEQUENO.largura;
+  }
+  function montarControleCamadas() {
+    var recolhido = mapaPequeno();
+    if (controleCamadas && controleCamadas.options.collapsed === recolhido) return;
+    if (controleCamadas) mapa.removeControl(controleCamadas);
+    controleCamadas = L.control.layers({'Mapa': osm, 'Satélite': satelite},
+                     {'Dist. Geográfica (GBIF)': camadaGbif, 'Vocalizações': camadaAudios},
+                     {position: 'topright', collapsed: recolhido}).addTo(mapa);
+    document.body.classList.toggle('mapa-pequeno', recolhido);
+  }
+  montarControleCamadas();
+  mapa.on('resize', montarControleCamadas);
 
   var iconeFoto = L.divIcon({className: '', iconSize: [30, 42], iconAnchor: [15, 42], html:
       '<svg width="30" height="42" viewBox="0 0 30 42" xmlns="http://www.w3.org/2000/svg">' +

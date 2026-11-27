@@ -16,10 +16,12 @@ A janela não rola: cada coluna rola sozinha quando o conteúdo passa da altura.
 A busca rápida de espécies (Ctrl+K) leva direto ao campo do nome científico.
 """
 
-from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QScrollArea, QVBoxLayout, QWidget
 
 from core.style_manager import StyleManager
 from ui.layouts.base import Layout, Paineis, coluna_rolavel
+from ui.widgets.componentes_layout import ColunaFotos
 
 
 class LayoutFicha(Layout):
@@ -36,15 +38,23 @@ class LayoutFicha(Layout):
         mestre.setSpacing(StyleManager.SPACING_SM)
         mestre.addWidget(p.cabecalho)
 
-        # Fotos empilhadas (quadradas): a coluna rola se a janela for baixa
+        # Fotos empilhadas (quadradas) no lado que deixa as duas e os botões na tela;
+        # só numa janela muito baixa a coluna rola
         botoes_foto = QWidget()
-        layout_botoes = QHBoxLayout(botoes_foto)
+        # Um embaixo do outro: lado a lado, "Pesquisar com Google Lens" era cortado
+        layout_botoes = QVBoxLayout(botoes_foto)
         layout_botoes.setContentsMargins(0, 0, 0, 0)
         layout_botoes.setSpacing(StyleManager.SPACING_SM)
         layout_botoes.addWidget(p.btn_lens)
         layout_botoes.addWidget(p.btn_fonte)
-        col_fotos = coluna_rolavel(p.foto, p.referencia, botoes_foto, margem=4,
-                                   espaco=StyleManager.SPACING_SM)
+        fotos = ColunaFotos([p.foto, p.referencia], botoes_foto)
+        col_fotos = QScrollArea()
+        col_fotos.setObjectName("area_rolagem")
+        col_fotos.setWidgetResizable(True)
+        col_fotos.setFrameShape(QFrame.NoFrame)
+        col_fotos.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        fotos.setObjectName("container_rolagem")
+        col_fotos.setWidget(fotos)
 
         col_especie = coluna_rolavel(p.identificacao, p.descricao, p.etimologia,
                                      p.taxonomia, p.conservacao, margem=4,

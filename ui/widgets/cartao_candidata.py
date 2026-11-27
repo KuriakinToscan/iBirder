@@ -32,6 +32,11 @@ from ui import estado_identificacao as ei
 
 ORIENTACOES = ("horizontal", "vertical")
 ALTURA_FOTO = {"horizontal": 170, "vertical": 56}
+# Cartão horizontal: a altura da foto acompanha a largura do cartão (proporção ~3:2),
+# entre estes limites, e a foto aparece inteira (antes era recortada numa faixa de 170 px
+# e uma ave em pé perdia a cabeça e a cauda)
+PROPORCAO_FOTO = 0.62
+ALTURA_FOTO_MIN, ALTURA_FOTO_MAX = 150, 260
 
 
 class _CarregadorFotos(QThread):
@@ -105,7 +110,12 @@ class CartaoCandidata(QFrame):
         self.lbl_certeza.setObjectName("cartao_certeza")
         self.lbl_comum = QLabel(ingles or " ")
         self.lbl_comum.setObjectName("cartao_nome_comum")
-        self.lbl_comum.setWordWrap(True)
+        self._nome_comum = ingles or " "
+        # Na linha compacta (vertical), o nome numa linha só, com reticências se não couber:
+        # quebrado em duas, a segunda linha era cortada pela altura do cartão
+        self.lbl_comum.setWordWrap(horizontal)
+        if not horizontal:
+            self.lbl_comum.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         self.lbl_cientifico = QLabel(f"<i>{nome}</i>")
         self.lbl_cientifico.setObjectName("cartao_cientifico")
         self.lbl_cientifico.setWordWrap(True)
@@ -166,7 +176,9 @@ class CartaoCandidata(QFrame):
         self._pixmap = pixmap
         self._redesenhar_foto()
         if foto.nome_comum:
+            self._nome_comum = foto.nome_comum
             self.lbl_comum.setText(foto.nome_comum)
+            self._encaixar_nome()
         self.lbl_credito.setText(f"Foto: {foto.texto_credito} (iNaturalist)")
         self.credito = foto.texto_credito
         self._atualizar_dica()
@@ -176,14 +188,35 @@ class CartaoCandidata(QFrame):
         if pixmap is None or self.lbl_foto.width() <= 1:
             return
         alvo = QSize(self.lbl_foto.width(), self.lbl_foto.height())
+        if self.orientacao == "horizontal":
+            # Foto inteira, centralizada (o fundo do rótulo vem do tema)
+            self.lbl_foto.setPixmap(pixmap.scaled(alvo, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            return
+        # Miniatura da linha compacta: quadrada, recortada no centro
         escalada = pixmap.scaled(alvo, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
         x = max(0, (escalada.width() - alvo.width()) // 2)
         y = max(0, (escalada.height() - alvo.height()) // 2)
         self.lbl_foto.setPixmap(escalada.copy(x, y, alvo.width(), alvo.height()))
 
+    def _encaixar_nome(self):
+        """Linha compacta: nome comum com reticências quando não cabe na largura."""
+        if self.orientacao == "horizontal":
+            return
+        largura = self.lbl_comum.width()
+        if largura <= 1:
+            return
+        texto = self.lbl_comum.fontMetrics().elidedText(self._nome_comum, Qt.ElideRight, largura)
+        if texto != self.lbl_comum.text():
+            self.lbl_comum.setText(texto)
+
     def resizeEvent(self, evento):
         super().resizeEvent(evento)
+        if self.orientacao == "horizontal":
+            altura = max(ALTURA_FOTO_MIN, min(ALTURA_FOTO_MAX, int(self.width() * PROPORCAO_FOTO)))
+            if self.lbl_foto.height() != altura:
+                self.lbl_foto.setFixedHeight(altura)
         self._redesenhar_foto()
+        self._encaixar_nome()
 
     def marcar_escolhida(self, escolhida):
         valor = "true" if escolhida else "false"
@@ -199,7 +232,8 @@ class CartaoCandidata(QFrame):
         partes.append("registrada no Brasil" if self.no_brasil else "sem registro no Brasil")
         if getattr(self, "credito", ""):
             partes.append(f"foto: {self.credito}")
-        self.setToolTip("\n".join(partes))
+        # Na foto (não no cartão todo): a dica não aparece por cima do nome
+        self.lbl_foto.setToolTip("\n".join(partes))
 
 
 class PainelCartoes(QFrame):

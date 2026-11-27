@@ -23,7 +23,7 @@ import urllib.parse
 from pathlib import Path
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QPushButton, QLabel, QFileDialog,
-                             QScrollArea, QFrame, QMessageBox, QTextEdit, QLineEdit, QStatusBar, QSizePolicy, QCheckBox, QStackedWidget,
+                             QScrollArea, QFrame, QMessageBox, QLineEdit, QStatusBar, QSizePolicy, QCheckBox, QStackedWidget,
                              QTabWidget)
 from PySide6.QtCore import Qt, QSize, QTimer, QSettings, QUrl
 from PySide6.QtGui import (QIcon, QFont, QDesktopServices, QKeySequence, QShortcut
@@ -50,7 +50,7 @@ from ui.layouts import PAINEIS_EXTRAS, Paineis, obter_layout
 from ui.widgets.busca_especies import BuscaEspecies
 from ui.widgets.layout_fluxo import LayoutFluxo
 from ui.widgets.cartao_candidata import PainelCartoes
-from ui.widgets.componentes_layout import Gaveta, SecaoRecolhivel, definir_animacoes
+from ui.widgets.componentes_layout import Gaveta, SecaoRecolhivel, TextoAutoAltura, definir_animacoes
 from ui.widgets.painel_fila import PainelFila
 
 # GeoWorker migrado para o Orchestrator v0.4.2
@@ -477,22 +477,12 @@ class JanelaPrincipal(QMainWindow):
         self.frame_etimologia.setVisible(True)
 
     def _ajustar_altura_descricao(self):
-        """Ajusta a altura do campo de descrição conforme o conteúdo."""
-        doc_height = self.txt_descricao.document().size().height()
-        self.txt_descricao.setFixedHeight(max(int(doc_height + 10), 45))
+        """A caixa da descrição já segue o texto e a própria largura (TextoAutoAltura)."""
+        self.txt_descricao.ajustar_altura()
 
     def _ajustar_altura_etimologia(self):
-        """Ajusta a altura do campo de etimologia conforme o conteúdo."""
-        doc_height = self.txt_etimologia.document().size().height()
-        # Ajuste fino para evitar scrollbar e espaço extra (padding css + margem segurança)
-        self.txt_etimologia.setFixedHeight(max(int(doc_height + 10), 45))
-
-    def resizeEvent(self, event):
-        """Recalcula altura dos campos de texto ao redimensionar a janela."""
-        # Usa timer para garantir que o layout já foi atualizado e a largura dos campos está correta
-        QTimer.singleShot(0, self._ajustar_altura_etimologia)
-        QTimer.singleShot(0, self._ajustar_altura_descricao)
-        super().resizeEvent(event)
+        """A caixa da etimologia já segue o texto e a própria largura (TextoAutoAltura)."""
+        self.txt_etimologia.ajustar_altura()
 
     def _configurar_ui(self):
         # 0. Fontes embarcadas: registradas pelo StyleManager ao aplicar o primeiro tema
@@ -686,13 +676,9 @@ class JanelaPrincipal(QMainWindow):
         self.lbl_titulo_etimologia.setProperty("class", "lbl-titulo-sessao")
         layout_eti.addWidget(self.lbl_titulo_etimologia)
 
-        self.txt_etimologia = QTextEdit()
-        self.txt_etimologia.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.txt_etimologia.setReadOnly(True)
+        # Altura segue o texto na largura atual, também quando o painel muda de largura
+        self.txt_etimologia = TextoAutoAltura()
         self.txt_etimologia.setPlaceholderText(self.PLACEHOLDER_TEXT)
-        self.txt_etimologia.setMinimumHeight(45) 
-        self.txt_etimologia.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.txt_etimologia.textChanged.connect(self._ajustar_altura_etimologia)
         self.txt_etimologia.setProperty("class", "container-borda-cinza")
         layout_eti.addWidget(self.txt_etimologia)
         
@@ -748,14 +734,9 @@ class JanelaPrincipal(QMainWindow):
         lbl_titulo_desc.setProperty("class", "lbl-titulo-sessao")
         layout_desc_v.addWidget(lbl_titulo_desc)
 
-        self.txt_descricao = QTextEdit()
-        # Altura segue o texto (_ajustar_altura_descricao), como na etimologia: não estica
-        self.txt_descricao.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.txt_descricao.setReadOnly(True)
+        # Altura segue o texto na largura atual (TextoAutoAltura), como na etimologia: não estica
+        self.txt_descricao = TextoAutoAltura()
         self.txt_descricao.setPlaceholderText(self.PLACEHOLDER_TEXT)
-        self.txt_descricao.setMinimumHeight(45) 
-        self.txt_descricao.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.txt_descricao.textChanged.connect(self._ajustar_altura_descricao)
         self.txt_descricao.setProperty("class", "container-borda-cinza")
         layout_desc_v.addWidget(self.txt_descricao)
 
@@ -925,6 +906,10 @@ class JanelaPrincipal(QMainWindow):
         if self.layout_atual is layout:
             return
         self._desligar_controles(self.centralWidget())
+        # Lugares de foto fora de layout (PortaFoto, ColunaFotos) tiram o mínimo dos cards;
+        # o layout novo recebe os cards com o mínimo de sempre
+        for card in (self.card_user, self.card_ref):
+            card.setMinimumWidth(card.minimumSizeHint().width())
         # montar() reparenta os painéis; só depois o widget antigo (já vazio) é descartado
         central = layout.montar(self.paineis, self.estado)
         # Painel extra que o novo layout não usa: fica guardado (escondido) na janela,

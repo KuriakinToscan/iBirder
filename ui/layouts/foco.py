@@ -7,18 +7,19 @@ Layout "Foco" (proposta 4 do redesenho, v1.6): a foto ocupa a janela e o resto f
 sobre ela. Pensado para o teclado.
 
     [cabeçalho]
-    +--------------------------------------------------------------+
-    | [fila]                                          [? Atalhos]  |
-    | [    ]            sua foto (zoom: roda, + - 0)                |
-    | [    ]                                         +-- ficha --+ |
-    |        +-- pílula ---------------------------+ | referência | |
-    |        | resultado (nome, certeza) Ficha Gravar| | abas      | |
-    +--------------------------------------------------------------+
+    +--------+-------------------------------------------+-------------+
+    | [fila] |                              [? Atalhos]  | resultado   |
+    |        |     sua foto (zoom: roda, + - 0)          | (nome,      |
+    |        |                            +-- ficha --+  |  certeza)   |
+    |        |                            | referência |  |             |
+    |        |                            | abas      |  | Ficha Gravar|
+    +--------+-------------------------------------------+-------------+
 
 - Palco: `PalcoFoto` espelha o card da foto em tamanho grande; o card fica na ficha.
-- Pílula (Sobreposicao inferior-centro): identificação, "Ficha" e "Gravar".
-- Ficha (Gaveta à direita): sua foto e a referência, candidatas, buscas e abas.
-- Fila (Sobreposicao à esquerda), mostrada quando há pasta aberta (tecla F).
+- Resultado ("pílula", coluna à direita): identificação, "Ficha" e "Gravar". Fica ao lado
+  da foto, sem cobri-la (antes flutuava por cima e tampava metade da foto).
+- Ficha (Gaveta à direita do palco): sua foto e a referência, candidatas, buscas e abas.
+- Fila (coluna à esquerda), mostrada quando há pasta aberta (tecla F).
 
 Atalhos deste layout (a lista aparece com ? ou F1): I abre e fecha a ficha, F mostra a
 fila, Esc fecha a ficha e a lista, ← → trocam de foto, + − 0 dão zoom. Os da janela
@@ -29,7 +30,7 @@ disparam num campo de texto (o campo fica com elas).
 import shiboken6
 from PySide6.QtCore import QObject, Qt
 from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QTabWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QTabWidget, QVBoxLayout, QWidget
 
 from core.style_manager import StyleManager
 from ui import estado_identificacao as ei
@@ -38,7 +39,7 @@ from ui.widgets.componentes_layout import Gaveta, Sobreposicao
 from ui.widgets.palco_foto import PalcoFoto
 
 LARGURA_FICHA = 600
-LARGURA_PILULA = 860
+LARGURA_PILULA = 380   # coluna do resultado
 LARGURA_FILA = 260
 
 ATALHOS = (
@@ -63,6 +64,7 @@ def _coluna(*widgets, espaco=StyleManager.SPACING_SM):
     for widget in widgets:
         if widget is not None:
             layout.addWidget(widget)
+    layout.addStretch()  # a sobra de altura fica embaixo, sem esticar os painéis
     return coluna
 
 
@@ -141,11 +143,6 @@ class _ControleFoco(QObject):
         tem_pasta = bool(getattr(fila, "itens", None)) if fila is not None else False
         visivel = tem_pasta and not self._fila_escondida
         self.caixa_fila.setVisible(visivel)
-        # Com a fila à esquerda, a pílula vai para a direita para não cobrir o fim da lista
-        if self._vivo(self.pilula):
-            self.pilula.ancora = "inferior-direita" if visivel else "inferior-centro"
-            if self.pilula.isVisible():
-                self.pilula.reposicionar()
 
     def alternar_atalhos(self):
         self.lista_atalhos.setVisible(not self.lista_atalhos.isVisible())
@@ -181,37 +178,43 @@ class LayoutFoco(Layout):
         mestre.setSpacing(StyleManager.SPACING_SM)
         mestre.addWidget(p.cabecalho)
 
-        # --- Palco ---
-        palco = PalcoFoto()
-        palco.espelhar(p.foto)
-        mestre.addWidget(palco, 1)
+        corpo = QHBoxLayout()
+        corpo.setSpacing(StyleManager.SPACING_MD)
+        mestre.addLayout(corpo, 1)
 
         # --- Fila à esquerda (só com pasta aberta) ---
         caixa_fila = None
         if p.fila is not None:
             if hasattr(p.fila, "definir_vista"):
                 p.fila.definir_vista("lista")
-            caixa_fila = Sobreposicao(palco, "esquerda", margem=StyleManager.SPACING_MD)
+            caixa_fila = QFrame()
+            caixa_fila.setObjectName("sobreposicao")  # mesmo fundo de antes
             caixa_fila.setFixedWidth(LARGURA_FILA)
             layout_fila = QVBoxLayout(caixa_fila)
             layout_fila.setContentsMargins(0, 0, 0, 0)
             layout_fila.addWidget(p.fila)
+            corpo.addWidget(caixa_fila)
 
-        # --- Pílula do resultado ---
-        pilula = Sobreposicao(palco, "inferior-centro", margem=StyleManager.SPACING_MD)
+        # --- Palco ---
+        palco = PalcoFoto()
+        palco.espelhar(p.foto)
+        corpo.addWidget(palco, 1)
+
+        # --- Resultado ("pílula"), numa coluna ao lado da foto ---
+        pilula = QFrame()
         pilula.setObjectName("foco_pilula")
-        layout_pilula = QHBoxLayout(pilula)
-        layout_pilula.setContentsMargins(StyleManager.SPACING_MD, StyleManager.SPACING_SM,
-                                         StyleManager.SPACING_MD, StyleManager.SPACING_SM)
-        layout_pilula.setSpacing(StyleManager.SPACING_MD)
-        layout_pilula.addWidget(p.identificacao, 1)
+        pilula.setFixedWidth(LARGURA_PILULA)
+        layout_pilula = QVBoxLayout(pilula)
+        layout_pilula.setContentsMargins(StyleManager.SPACING_SM, StyleManager.SPACING_SM,
+                                         StyleManager.SPACING_SM, StyleManager.SPACING_SM)
+        layout_pilula.setSpacing(StyleManager.SPACING_SM)
+        layout_pilula.addWidget(coluna_rolavel(p.identificacao, margem=0), 1)
         btn_ficha = QPushButton("Ficha  ›")
         btn_ficha.setCursor(Qt.PointingHandCursor)
         btn_ficha.setToolTip("Abrir a ficha da espécie (I)")
-        acoes_pilula = _coluna(btn_ficha, p.btn_gravar)
-        layout_pilula.addWidget(acoes_pilula, 0, Qt.AlignVCenter)
-        pilula.setFixedWidth(LARGURA_PILULA)
-        pilula.setMaximumHeight(300)
+        layout_pilula.addWidget(btn_ficha)
+        layout_pilula.addWidget(p.btn_gravar)
+        corpo.addWidget(pilula)
 
         # --- Botão e lista de atalhos ---
         dica = Sobreposicao(palco, "superior-direita", margem=StyleManager.SPACING_MD)

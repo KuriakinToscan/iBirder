@@ -116,8 +116,9 @@ inclusive com Chrome headless).
   (`cartoes`), "horizontal" nos Cartões e "vertical" na Trilha. Foto de referência: `core/fotos_referencia.py`
   (`default_photo` do iNaturalist, cache em `temp/candidatas/`). "É esta" na espécie aberta só confirma (sem
   WikiAves); em outra, busca manual. `limpar(manter_foto=True)` preserva as candidatas.
-- Mesa de luz (`ui/layouts/mesa_luz.py`): fila na vista "tira", cartões "vertical" numa `SecaoRecolhivel` (acordeão
-  `GrupoSecoes`), referência e Lens em `Sobreposicao`. Setas ← → por `QShortcut` (contexto WidgetWithChildren; o
+- Mesa de luz (`ui/layouts/mesa_luz.py`): fila na vista "tira" (sem fotos, só a barra: `PainelFila.ajustar_tira_vazia`),
+  cartões "vertical" numa `SecaoRecolhivel` (acordeão `GrupoSecoes`), referência, Fonte e Lens numa coluna ao lado da foto
+  (não flutuar por cima da foto). Setas ← → por `QShortcut` (contexto WidgetWithChildren; o
   `QLineEdit` fica com as setas pelo ShortcutOverride) chamam `PainelFila.abrir_vizinha`. Não pôr tamanho fixo em
   painel compartilhado (ex.: `referencia`): limitar o contêiner, senão o limite vaza para os outros layouts.
 - Quadro da sessão (`ui/layouts/quadro.py`): fila na vista "colunas" (listas por coluna refeitas a partir da lista
@@ -125,7 +126,8 @@ inclusive com Chrome headless).
   em QSettings `fila/recentes`, junto com `last_folder`. Ativar a foto já aberta emite
   `PainelFila.atual_ativada` e não reabre. `tests/conftest.py` desvia o QSettings do painel para um .ini temporário.
 - Foco (`ui/layouts/foco.py`): `PalcoFoto` (QGraphicsView) espelha o card da foto pelo sinal `ImageCardWidget.imagem_alterada`
-  sem substituí-lo; pílula, fila e atalhos são `Sobreposicao` (que se reposiciona em `LayoutRequest`), ficha numa `Gaveta`.
+  sem substituí-lo; resultado ("pílula") e fila são colunas ao lado do palco (não cobrem a foto); atalhos em `Sobreposicao`,
+  ficha numa `Gaveta`.
   Animações: `definir_animacoes`/`animacoes_ativas` (config `"animacoes"`).
 - Controles de layout (`_Controle*`, QObject filho da raiz): ligar sinais do estado/fila (que sobrevivem ao layout) a
   MÉTODOS, nunca a lambdas; `JanelaPrincipal._desligar_controles` apaga os controles antes de montar o layout novo.
@@ -135,6 +137,12 @@ inclusive com Chrome headless).
 - Busca de espécies (Ctrl+K): `core/catalogo_especies.py` (eBird embarcado + registradas no Brasil,
   sem nome popular em português) e `ui/widgets/busca_especies.py`, que também trata o Enter do campo
   (o Qt entrega o Enter ao campo antes de ativar a sugestão: não ligar `returnPressed` à busca).
+
+- Diagramação (revisão de 27/11/2026): Descrição/Etimologia são `TextoAutoAltura` (altura pela largura atual; não
+  voltar a `setFixedHeight` calculado no setText). Fotos fora de layout: `PortaFoto`, `ColunaFotos` (várias empilhadas que
+  cabem na altura) e `FotosLadoALado` (empilha em janela estreita). `tests/test_diagramacao.py` confere sobreposição e
+  bordas em 1920, 1366 e 1000 px. Capturas da janela real offscreen: ferramenta em
+  `/mnt/project-files/diagramacao-revisao/ferramentas/` (fora do repositório).
 
 ## Robustez (v1.4)
 
