@@ -142,7 +142,7 @@ def test_cartao_mostra_foto_e_credito(app, tmp_path):
     cartao.definir_foto(fr.FotoReferencia("Turdus rufiventris", str(caminho), "(c) Fulana", "CC BY",
                                           nome_comum="Sabiá-laranjeira"))
     assert cartao.lbl_comum.text() == "Sabiá-laranjeira"
-    assert "(c) Fulana, CC BY" in cartao.lbl_credito.text() and "(c) Fulana" in cartao.toolTip()
+    assert "(c) Fulana, CC BY" in cartao.lbl_credito.text() and "(c) Fulana" in cartao.lbl_foto.toolTip()
     cartao.definir_foto(None)  # sem rede: continua de pé
 
 

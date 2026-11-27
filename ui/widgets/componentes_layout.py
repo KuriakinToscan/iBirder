@@ -24,7 +24,7 @@ Nenhum deles tem cor fixa: os estilos vêm do QSS global (classes e objectNames 
 """
 
 from PySide6.QtCore import QEasingCurve, QEvent, QObject, QPoint, QPropertyAnimation, QRect, Qt, Signal
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QPushButton, QSizePolicy, QTextEdit, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QBoxLayout, QFrame, QHBoxLayout, QPushButton, QSizePolicy, QTextEdit, QVBoxLayout, QWidget
 
 from core.style_manager import StyleManager
 
@@ -152,6 +152,33 @@ class RodapeAcoes(QFrame):
         self._direita.addWidget(widget)
         widget.show()
         return widget
+
+
+class FotosLadoALado(QWidget):
+    """
+    Dois blocos de foto (sua foto | referência) lado a lado quando cabem; quando a largura
+    disponível não comporta os dois no lado mínimo do card, um embaixo do outro. A largura
+    vem de `medidor` (um widget fora da área de rolagem), porque dentro dela o próprio
+    widget nunca fica mais estreito que o seu mínimo e o segundo card era cortado.
+    """
+
+    def __init__(self, medidor, desconto=0, lado_minimo=250, espaco=StyleManager.SPACING_MD, parent=None):
+        super().__init__(parent)
+        self._desconto = desconto
+        self._lado_minimo = lado_minimo
+        self.layout_fotos = QBoxLayout(QBoxLayout.LeftToRight, self)
+        self.layout_fotos.setContentsMargins(0, 0, 0, 0)
+        self.layout_fotos.setSpacing(espaco)
+        self._filtro = _FiltroRedimensionar(medidor, lambda: self.atualizar(medidor.width()))
+
+    def atualizar(self, largura_medidor):
+        cabem = largura_medidor - self._desconto >= 2 * self._lado_minimo + self.layout_fotos.spacing()
+        direcao = QBoxLayout.LeftToRight if cabem else QBoxLayout.TopToBottom
+        if self.layout_fotos.direction() != direcao:
+            self.layout_fotos.setDirection(direcao)
+
+    def lado_a_lado(self):
+        return self.layout_fotos.direction() == QBoxLayout.LeftToRight
 
 
 class _FiltroRedimensionar(QObject):
@@ -455,5 +482,5 @@ class TextoAutoAltura(QTextEdit):
         self.ajustar_altura()
 
 
-__all__ = ["ColunaFotos", "TextoAutoAltura", "definir_animacoes", "animacoes_ativas", "PortaFoto", "SecaoRecolhivel", "GrupoSecoes", "RodapeAcoes", "Sobreposicao", "Gaveta",
+__all__ = ["ColunaFotos", "FotosLadoALado", "TextoAutoAltura", "definir_animacoes", "animacoes_ativas", "PortaFoto", "SecaoRecolhivel", "GrupoSecoes", "RodapeAcoes", "Sobreposicao", "Gaveta",
            "geometria_ancorada", "ANCORAS"]

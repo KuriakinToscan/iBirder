@@ -38,7 +38,7 @@ from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QProgressBar, QPushB
 from core.style_manager import StyleManager
 from ui import estado_identificacao as ei
 from ui.layouts.base import Layout, Paineis, coluna_rolavel as _aba
-from ui.widgets.componentes_layout import PortaFoto, RodapeAcoes
+from ui.widgets.componentes_layout import FotosLadoALado, PortaFoto, RodapeAcoes
 
 # Páginas da trilha, na ordem
 ESCOLHER, IDENTIFICAR, CONFERIR, CONHECER, GRAVAR = range(5)
@@ -403,11 +403,11 @@ class LayoutTrilha(Layout):
         layout2.addWidget(aviso, 0, Qt.AlignTop)
         pilha.addWidget(pagina2)
 
-        # 3. Conferir: sua foto | referência | resultado
-        fotos = QWidget()
-        layout_fotos = QHBoxLayout(fotos)
-        layout_fotos.setContentsMargins(0, 0, 0, 0)
-        layout_fotos.setSpacing(StyleManager.SPACING_MD)
+        # 3. Conferir: sua foto | referência | resultado. Em janela estreita, as duas fotos
+        # ficam uma embaixo da outra (lado a lado, a referência era cortada à direita)
+        pagina3 = QWidget()
+        fotos = FotosLadoALado(pagina3, desconto=LARGURA_RESULTADO + 2 * StyleManager.SPACING_LG)
+        layout_fotos = fotos.layout_fotos
         caixa_foto = QWidget()
         porta3 = QVBoxLayout(caixa_foto)
         porta3.setContentsMargins(0, 0, 0, 0)
@@ -421,7 +421,6 @@ class LayoutTrilha(Layout):
             p.cartoes.definir_orientacao("vertical")  # linhas compactas sob o resultado
         rolagem_resultado = _rolagem(_coluna(*(w for w in (p.identificacao, p.cartoes) if w is not None)))
         rolagem_resultado.setFixedWidth(LARGURA_RESULTADO)
-        pagina3 = QWidget()
         layout3 = QHBoxLayout(pagina3)
         layout3.setContentsMargins(0, 0, 0, 0)
         layout3.setSpacing(StyleManager.SPACING_LG)
