@@ -272,6 +272,24 @@ class PainelFila(QFrame):
             self._atualizar_item(i)
         self._agendar_quadro()
 
+    def ajustar_tira_vazia(self):
+        """
+        Vista "tira" sem fotos: a lista vazia some e a tira fica só com a barra (Abrir pasta,
+        opções), na altura mínima; com fotos, volta à tira cheia. Só mexe na diagramação.
+        """
+        if self.vista != "tira":
+            return
+        vazia = self.lista.count() == 0
+        self.lista.setVisible(not vazia)
+        largura = 16777215 if vazia else 200
+        self._bloco_cabecalho.setMaximumWidth(largura)
+        self._bloco_rodape.setMaximumWidth(largura)
+        if vazia:
+            self._layout.activate()
+            self.setFixedHeight(max(self._layout.minimumSize().height(), 48))
+        else:
+            self.setFixedHeight(ALTURA_TIRA)
+
     # --- Pasta ---
 
     def escolher_pasta(self):
