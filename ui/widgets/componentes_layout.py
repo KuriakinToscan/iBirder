@@ -271,11 +271,14 @@ class Gaveta(QFrame):
 
     alternada = Signal(bool)
 
-    def __init__(self, hospedeiro, largura=480, animar=True, parent=None):
+    def __init__(self, hospedeiro, largura=480, animar=True, parent=None, proporcao=None):
         super().__init__(parent or hospedeiro)
         self.setObjectName("gaveta")
         self.hospedeiro = hospedeiro
         self.largura = largura
+        # Com `proporcao`, a gaveta cresce com o hospedeiro (fração da largura dele), com
+        # `largura` como mínimo: numa janela grande ela não fica estreita no canto
+        self.proporcao = proporcao
         self.animar = animar
         self._aberta = False
         self._animacao = QPropertyAnimation(self, b"geometry", self)
@@ -291,9 +294,16 @@ class Gaveta(QFrame):
     def esta_aberta(self):
         return self._aberta
 
+    def largura_atual(self):
+        hosp = self.hospedeiro
+        largura = self.largura
+        if self.proporcao:
+            largura = max(largura, int(hosp.width() * self.proporcao))
+        return min(largura, hosp.width())
+
     def _geometria(self, aberta):
         hosp = self.hospedeiro
-        largura = min(self.largura, hosp.width())
+        largura = self.largura_atual()
         x = hosp.width() - largura if aberta else hosp.width()
         return QRect(x, 0, largura, hosp.height())
 

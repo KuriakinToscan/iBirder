@@ -183,7 +183,7 @@ class PainelFila(QFrame):
             lista_coluna.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
             lista_coluna.itemActivated.connect(self._ao_ativar_item_quadro)
             layout_caixa.addWidget(lista_coluna, 1)
-            layout_quadro.addWidget(caixa, 2 if coluna == ff.NA_FILA else 1)
+            layout_quadro.addWidget(caixa, 1)  # colunas da mesma largura
             self.colunas_quadro[coluna] = lista_coluna
             self._titulos_quadro[coluna] = titulo_coluna
         self._quadro.hide()
