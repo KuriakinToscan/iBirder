@@ -15,12 +15,14 @@ Componentes comuns dos layouts da v1.6 (ui/layouts/), feitos uma vez e usados po
   (ficha da espécie no Foco).
 - `PortaFoto`: lugar do card da foto (sempre quadrado) fora de layout, no maior quadrado
   que cabe, para a foto não esticar a janela (Trilha, Cartões de escolha).
+- `TextoAutoAltura`: caixa de texto (só leitura) cuja altura segue o texto na largura atual,
+  recalculada sempre que a própria caixa muda de largura (Descrição e Etimologia).
 
 Nenhum deles tem cor fixa: os estilos vêm do QSS global (classes e objectNames abaixo).
 """
 
 from PySide6.QtCore import QEasingCurve, QEvent, QObject, QPoint, QPropertyAnimation, QRect, Qt, Signal
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QPushButton, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QPushButton, QSizePolicy, QTextEdit, QVBoxLayout, QWidget
 
 from core.style_manager import StyleManager
 
@@ -344,5 +346,49 @@ class PortaFoto(QWidget):
         self._foto.setGeometry(x, 0, lado, lado)
 
 
-__all__ = ["definir_animacoes", "animacoes_ativas", "PortaFoto", "SecaoRecolhivel", "GrupoSecoes", "RodapeAcoes", "Sobreposicao", "Gaveta",
+class TextoAutoAltura(QTextEdit):
+    """
+    QTextEdit sem rolagem cuja altura é a do texto na largura que a caixa tem AGORA.
+
+    Antes a janela calculava a altura uma vez, quando o texto chegava: se o painel mudava
+    de largura depois (página escondida da Trilha, gaveta, troca de layout, barra de rolagem
+    que aparece), a altura ficava a da largura antiga e as últimas linhas sumiam.
+    """
+
+    def __init__(self, altura_minima=45, parent=None):
+        super().__init__(parent)
+        self._altura_minima = altura_minima
+        self._largura_calculada = -1
+        self.setReadOnly(True)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.setMinimumHeight(altura_minima)
+        self.textChanged.connect(self.ajustar_altura)
+
+    def ajustar_altura(self):
+        """Altura = texto na largura do viewport + bordas e preenchimento do QSS."""
+        largura = self.viewport().width()
+        if largura <= 1:
+            return
+        self._largura_calculada = largura
+        documento = self.document()
+        documento.setTextWidth(largura)
+        bordas = max(0, self.height() - self.viewport().height())
+        altura = int(documento.size().height() + 0.999) + bordas + 2
+        altura = max(altura, self._altura_minima)
+        if altura != self.height():
+            self.setFixedHeight(altura)
+
+    def resizeEvent(self, evento):
+        super().resizeEvent(evento)
+        if self.viewport().width() != self._largura_calculada:
+            self.ajustar_altura()
+
+    def showEvent(self, evento):
+        super().showEvent(evento)
+        self.ajustar_altura()
+
+
+__all__ = ["TextoAutoAltura", "definir_animacoes", "animacoes_ativas", "PortaFoto", "SecaoRecolhivel", "GrupoSecoes", "RodapeAcoes", "Sobreposicao", "Gaveta",
            "geometria_ancorada", "ANCORAS"]
