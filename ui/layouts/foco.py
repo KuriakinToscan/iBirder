@@ -248,7 +248,7 @@ class LayoutFoco(Layout):
         cabeca.setContentsMargins(StyleManager.SPACING_MD, StyleManager.SPACING_SM,
                                   StyleManager.SPACING_SM, 0)
         lbl_ficha = QLabel("Ficha da espécie")
-        lbl_ficha.setObjectName("quadro_gaveta_titulo")
+        lbl_ficha.setObjectName("gaveta_titulo")
         btn_fechar = QPushButton("Fechar")
         btn_fechar.setCursor(Qt.PointingHandCursor)
         btn_fechar.setToolTip("Fechar a ficha (Esc)")

@@ -26,8 +26,9 @@ def obter_caminho_config():
     """Retorna o caminho absoluto para o arquivo de configuração."""
     return BASE_DIR / CONFIG_FILE
 
-# Layouts que saíram na v1.6 e o sucessor de cada um (config.json antigo continua abrindo)
-LAYOUTS_RENOMEADOS = {"guiado": "trilha", "mesa": "mesa_luz"}
+# Layouts que saíram e o sucessor de cada um (config.json antigo continua abrindo).
+# "quadro" (Quadro da sessão) saiu depois da v1.6: a Mesa de luz também trabalha a pasta inteira.
+LAYOUTS_RENOMEADOS = {"guiado": "trilha", "mesa": "mesa_luz", "quadro": "mesa_luz"}
 
 
 def carregar_config():
@@ -54,7 +55,7 @@ def carregar_config():
         "tema": "offwhite",
         # Modo claro/escuro (v1.6): "sistema" (segue o Windows), "claro" ou "escuro"
         "modo": "sistema",
-        # Animação das gavetas (Foco, Quadro da sessão); desligar ajuda em PC lento (v1.6)
+        # Animação da gaveta da ficha (Foco); desligar ajuda em PC lento (v1.6)
         "animacoes": True,
         # Arrumação da janela principal (ui/layouts/). Instalação nova: Trilha (v1.6).
         "layout": "trilha"
@@ -72,7 +73,7 @@ def carregar_config():
             antigo = user_config["layout"]
             if antigo in LAYOUTS_RENOMEADOS:
                 user_config["layout"] = LAYOUTS_RENOMEADOS[antigo]
-                logging.info(f"Layout '{antigo}' substituído por '{user_config['layout']}' (v1.6).")
+                logging.info(f"Layout '{antigo}' substituído por '{user_config['layout']}'.")
             # Merge com default para garantir que chaves novas existam
             default_config.update(user_config)
         except ValueError as e:

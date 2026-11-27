@@ -9,7 +9,7 @@ import pytest  # noqa: E402
 @pytest.fixture(autouse=True)
 def _qsettings_temporario(tmp_path, monkeypatch):
     """
-    O painel da fila guarda a última pasta e as pastas recentes no QSettings: nos testes,
+    O painel da fila guarda a última pasta e as opções no QSettings: nos testes,
     num arquivo temporário, para não mexer nas configurações de quem roda os testes.
     """
     try:

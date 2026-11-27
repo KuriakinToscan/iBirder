@@ -353,13 +353,14 @@ class PortaFoto(QWidget):
 
     LADO_MINIMO = 250
 
-    def __init__(self, alinhamento="centro", parent=None):
+    def __init__(self, alinhamento="centro", parent=None, lado_minimo=None):
         super().__init__(parent)
         if alinhamento not in ("centro", "esquerda"):
             raise ValueError(f"Alinhamento desconhecido: {alinhamento}")
         self.alinhamento = alinhamento
+        self.lado_minimo = lado_minimo or self.LADO_MINIMO
         self._foto = None
-        self.setMinimumSize(self.LADO_MINIMO, self.LADO_MINIMO)
+        self.setMinimumSize(self.lado_minimo, self.lado_minimo)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
     def receber(self, foto):
@@ -378,7 +379,7 @@ class PortaFoto(QWidget):
     def _posicionar(self):
         if self._foto is None or not self.contem(self._foto):
             return
-        lado = max(self.LADO_MINIMO, min(self.width(), self.height()))
+        lado = max(self.lado_minimo, min(self.width(), self.height()))
         self._foto.setMinimumWidth(0)
         self._foto.setMaximumWidth(16777215)
         x = (self.width() - lado) // 2 if self.alinhamento == "centro" else 0

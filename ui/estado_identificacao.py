@@ -7,7 +7,7 @@ Estado da identificação em curso (v1.4).
 
 Um só lugar diz em que etapa está a foto atual (sem foto, identificando, conferir,
 gravada...), para os layouts mostrarem isso cada um a seu modo: as etapas da Trilha,
-o status de cada foto da fila, a gaveta do Quadro da sessão.
+o status de cada foto da fila.
 
 O estado acompanha os sinais do Orchestrator (identificação concluída ou com erro);
 a janela informa o que só ela sabe: foto aberta, busca manual, gravação e limpeza.

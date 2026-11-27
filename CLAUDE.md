@@ -121,10 +121,12 @@ inclusive com Chrome headless).
   (não flutuar por cima da foto). Setas ← → por `QShortcut` (contexto WidgetWithChildren; o
   `QLineEdit` fica com as setas pelo ShortcutOverride) chamam `PainelFila.abrir_vizinha`. Não pôr tamanho fixo em
   painel compartilhado (ex.: `referencia`): limitar o contêiner, senão o limite vaza para os outros layouts.
-- Quadro da sessão (`ui/layouts/quadro.py`): fila na vista "colunas" (listas por coluna refeitas a partir da lista
-  principal, `ff.colunas`/`resumo_sessao`), gaveta (`Gaveta`) sobre o quadro com abas Conferir/Ficha. Pastas recentes
-  em QSettings `fila/recentes`, junto com `last_folder`. Ativar a foto já aberta emite
-  `PainelFila.atual_ativada` e não reabre. `tests/conftest.py` desvia o QSettings do painel para um .ini temporário.
+- Quadro da sessão: REMOVIDO depois da v1.6 (pedido do mantenedor, 27/11/2026); `"quadro"` migra para `mesa_luz` por
+  `LAYOUTS_RENOMEADOS`. Não há mais vista "colunas" nem lista de pastas recentes. Fila: vistas "lista" (Foco), "tira"
+  (Mesa de luz; barra acima das miniaturas) e "grade" (Trilha); nas duas últimas, `DelegadoCartaoFila` desenha cartões
+  de tamanho fixo (miniatura quadrada com a foto inteira, selo da situação, nome do arquivo + espécie/situação).
+  Ativar a foto já aberta emite `PainelFila.atual_ativada` e não reabre. `tests/conftest.py` desvia o QSettings do painel
+  para um .ini temporário.
 - Foco (`ui/layouts/foco.py`): `PalcoFoto` (QGraphicsView) espelha o card da foto pelo sinal `ImageCardWidget.imagem_alterada`
   sem substituí-lo; resultado ("pílula") e fila são colunas ao lado do palco (não cobrem a foto); atalhos em `Sobreposicao`,
   ficha numa `Gaveta`.

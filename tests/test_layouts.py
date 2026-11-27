@@ -41,6 +41,7 @@ def test_registro():
     # Ids que saíram na v1.6 levam ao sucessor
     assert obter_layout("guiado").id == "trilha"
     assert obter_layout("mesa").id == "mesa_luz"
+    assert obter_layout("quadro").id == "mesa_luz"  # Quadro da sessão saiu depois da v1.6
     assert "guiado" not in LAYOUTS and "mesa" not in LAYOUTS
 
 
@@ -156,9 +157,11 @@ def test_config_antiga_sem_layout_mantem_painel_completo(tmp_path, monkeypatch):
     assert cfg.carregar_config()["layout"] == "trilha"  # instalação nova
     caminho.write_text(json.dumps({"tema": "clean"}), encoding="utf-8")
     assert cfg.carregar_config()["layout"] == "completo"  # quem atualiza
+    caminho.write_text(json.dumps({"layout": "foco"}), encoding="utf-8")
+    assert cfg.carregar_config()["layout"] == "foco"
+    # Layouts que saíram (v1.6 e, depois dela, o Quadro da sessão)
     caminho.write_text(json.dumps({"layout": "quadro"}), encoding="utf-8")
-    assert cfg.carregar_config()["layout"] == "quadro"
-    # Layouts que saíram na v1.6
+    assert cfg.carregar_config()["layout"] == "mesa_luz"
     caminho.write_text(json.dumps({"layout": "mesa"}), encoding="utf-8")
     assert cfg.carregar_config()["layout"] == "mesa_luz"
     caminho.write_text(json.dumps({"layout": "guiado"}), encoding="utf-8")

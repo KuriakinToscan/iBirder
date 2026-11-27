@@ -21,19 +21,21 @@ foto aberta vira a atual; foto gravada é marcada e, com a opção ligada, a pr�
 pendente abre sozinha.
 
 Vistas (v1.6, `definir_vista`): "lista" (coluna, Foco), "tira" (faixa horizontal
-de miniaturas, Mesa de luz) e "grade" (miniaturas grandes em grade). A fila e a lógica são
-as mesmas; só muda a arrumação.
+de miniaturas, Mesa de luz) e "grade" (miniaturas grandes em grade, Trilha). A fila e a lógica
+são as mesmas; só muda a arrumação. Nas vistas de miniatura, cada foto é um cartão do mesmo
+tamanho (`DelegadoCartaoFila`): miniatura quadrada com a foto inteira, selo da situação no
+canto e duas linhas (nome do arquivo; espécie ou situação).
 """
 
 import logging
 from pathlib import Path
 
 from PIL import Image, ImageOps
-from PySide6.QtCore import QSettings, QSize, Qt, QThread, QTimer, Signal
-from PySide6.QtGui import QIcon, QImage, QPixmap
+from PySide6.QtCore import QRect, QSettings, QSize, Qt, QThread, QTimer, Signal
+from PySide6.QtGui import QFontMetrics, QIcon, QImage, QPainter, QPixmap
 from PySide6.QtWidgets import (QBoxLayout, QCheckBox, QFileDialog, QFrame, QHBoxLayout, QLabel,
-                               QListView, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout,
-                               QWidget)
+                               QListView, QListWidget, QListWidgetItem, QPushButton, QStyle,
+                               QStyledItemDelegate, QStyleOptionViewItem, QVBoxLayout, QWidget)
 
 from core import fila_fotos as ff
 from core.style_manager import StyleManager
@@ -41,15 +43,26 @@ from ui import estado_identificacao as ei
 
 TAMANHO_MINIATURA = 56
 
-# Vista -> (lado da miniatura em px, texto completo no item)
+# Vista -> (lado da miniatura em px, cartão desenhado pelo DelegadoCartaoFila)
 VISTAS = {
-    "lista": (TAMANHO_MINIATURA, True),
-    "tira": (88, False),
-    "grade": (132, False),
-    "colunas": (88, False),  # quadro da sessão: Na fila, Conferindo agora, Gravadas, Puladas
+    "lista": (TAMANHO_MINIATURA, False),
+    "tira": (88, True),
+    "grade": (100, True),  # três por linha na coluna da Trilha
 }
 VISTA_PADRAO = "lista"
-ALTURA_TIRA = 132
+
+# Dados de cada item para o cartão (além do ícone e do texto completo)
+PAPEL_NOME = Qt.UserRole + 1
+PAPEL_LINHA2 = Qt.UserRole + 2
+PAPEL_SELO = Qt.UserRole + 3
+
+# Selo da situação: (símbolo, token do fundo, token do símbolo); pendente não tem selo
+SELOS = {
+    "aberta": ("▶", "destaque", "texto_destaque"),
+    ff.GRAVADA: ("✓", "sucesso_fundo", "sucesso_texto"),
+    ff.JA_GRAVADA: ("✓", "sucesso_fundo", "sucesso_texto"),
+    ff.PULADA: ("»", "alerta_fundo", "alerta_texto"),
+}
 
 TEXTO_SITUACAO = {
     ff.PENDENTE: "Pendente",
@@ -60,17 +73,104 @@ TEXTO_SITUACAO = {
 
 
 def _miniatura(caminho, lado=max(lado for lado, _ in VISTAS.values()) * 2):
-    """QImage pequena da foto (JPEG decodificado já reduzido), ou None."""
+    """
+    QImage quadrada (lado x lado) com a foto inteira centralizada e o resto transparente,
+    ou None. Quadrada para que retrato e paisagem deem cartões do mesmo tamanho.
+    """
     try:
         with Image.open(caminho) as img:
             img.draft("RGB", (lado, lado))  # JPEG: decodifica direto em escala menor
             img = ImageOps.exif_transpose(img).convert("RGB")
             img.thumbnail((lado, lado))
-            dados = img.tobytes()
-            return QImage(dados, img.width, img.height, 3 * img.width, QImage.Format_RGB888).copy()
+            tela = Image.new("RGBA", (lado, lado), (0, 0, 0, 0))
+            tela.paste(img, ((lado - img.width) // 2, (lado - img.height) // 2))
+            dados = tela.tobytes()
+            return QImage(dados, lado, lado, 4 * lado, QImage.Format_RGBA8888).copy()
     except Exception as e:
         logging.debug(f"Fila de fotos: sem miniatura para {caminho}: {e}")
         return None
+
+
+class DelegadoCartaoFila(QStyledItemDelegate):
+    """
+    Cartão de uma foto nas vistas de miniatura: todos do mesmo tamanho, com a miniatura
+    quadrada, o selo da situação no canto e duas linhas elididas (nome do arquivo; espécie
+    ou situação). As cores vêm do tema ativo na hora de desenhar.
+    """
+
+    MARGEM = 6
+    SELO = 22
+
+    def __init__(self, lado, parent=None):
+        super().__init__(parent)
+        self.lado = lado
+
+    def _fonte_pequena(self, fonte):
+        pequena = type(fonte)(fonte)
+        pequena.setBold(False)
+        pequena.setPointSizeF(max(fonte.pointSizeF() - 1, 7))
+        return pequena
+
+    def tamanho(self, fonte):
+        """Tamanho fixo do cartão (miniatura + duas linhas + margens)."""
+        linhas = QFontMetrics(fonte).height() + QFontMetrics(self._fonte_pequena(fonte)).height()
+        return QSize(self.lado + 2 * self.MARGEM + 8, self.lado + 3 * self.MARGEM + linhas + 2)
+
+    def sizeHint(self, option, index):
+        return self.tamanho(option.font)
+
+    def paint(self, painter, option, index):
+        from core.style_manager import StyleManager
+        opcao = QStyleOptionViewItem(option)
+        self.initStyleOption(opcao, index)
+        estilo = opcao.widget.style() if opcao.widget is not None else None
+        # Fundo do item (hover, seleção) pelo estilo, sem ícone e sem texto
+        fundo = QStyleOptionViewItem(opcao)
+        fundo.text = ""
+        fundo.icon = QIcon()
+        fundo.features &= ~QStyleOptionViewItem.HasDecoration
+        if estilo is not None:
+            estilo.drawControl(QStyle.CE_ItemViewItem, fundo, painter, opcao.widget)
+        painter.save()
+        painter.setRenderHint(QPainter.Antialiasing)
+        ret = opcao.rect
+        foto = QRect(ret.x() + (ret.width() - self.lado) // 2, ret.y() + self.MARGEM, self.lado, self.lado)
+        icone = index.data(Qt.DecorationRole)
+        if isinstance(icone, QIcon) and not icone.isNull():
+            icone.paint(painter, foto, Qt.AlignCenter)
+        else:  # miniatura ainda não lida
+            painter.setPen(StyleManager.qcor("borda"))
+            painter.setBrush(StyleManager.qcor("superficie_alt"))
+            painter.drawRoundedRect(foto.adjusted(4, 4, -4, -4), 6, 6)
+        selo = SELOS.get(index.data(PAPEL_SELO))
+        if selo:
+            simbolo, token_fundo, token_texto = selo
+            area = QRect(foto.right() - self.SELO - 2, foto.top() + 2, self.SELO, self.SELO)
+            painter.setPen(StyleManager.qcor("superficie"))
+            painter.setBrush(StyleManager.qcor(token_fundo))
+            painter.drawEllipse(area)
+            fonte_selo = type(opcao.font)(opcao.font)
+            fonte_selo.setBold(True)
+            painter.setFont(fonte_selo)
+            painter.setPen(StyleManager.qcor(token_texto))
+            painter.drawText(area, Qt.AlignCenter, simbolo)
+        # Duas linhas, elididas na largura do cartão
+        largura = ret.width() - 2 * self.MARGEM
+        y = foto.bottom() + self.MARGEM
+        fonte = opcao.font
+        metricas = QFontMetrics(fonte)
+        painter.setFont(fonte)
+        painter.setPen(StyleManager.qcor("texto"))
+        nome = metricas.elidedText(index.data(PAPEL_NOME) or "", Qt.ElideMiddle, largura)
+        painter.drawText(QRect(ret.x() + self.MARGEM, y, largura, metricas.height()), Qt.AlignHCenter, nome)
+        y += metricas.height()
+        pequena = self._fonte_pequena(fonte)
+        metricas2 = QFontMetrics(pequena)
+        painter.setFont(pequena)
+        painter.setPen(StyleManager.qcor("texto_secundario"))
+        linha2 = metricas2.elidedText(index.data(PAPEL_LINHA2) or "", Qt.ElideRight, largura)
+        painter.drawText(QRect(ret.x() + self.MARGEM, y, largura, metricas2.height()), Qt.AlignHCenter, linha2)
+        painter.restore()
 
 
 class VerificadorFila(QThread):
@@ -112,24 +212,32 @@ class PainelFila(QFrame):
         self._caminho_aberto = None
         self.vista = VISTA_PADRAO
 
-        # Três blocos (cabeçalho, lista, rodapé) num QBoxLayout: na vista "tira" eles ficam
-        # lado a lado, nas outras um embaixo do outro
-        layout = QBoxLayout(QBoxLayout.TopToBottom, self)
+        # Três blocos (cabeçalho, lista, rodapé), um embaixo do outro. Na vista "tira", o
+        # cabeçalho e o rodapé viram uma barra só, acima das miniaturas (que ficam com a largura toda)
+        layout = QVBoxLayout(self)
         self._layout = layout
         layout.setContentsMargins(12, 18, 12, 12)
         layout.setSpacing(StyleManager.SPACING_SM)
 
+        self._barra = QWidget()
+        self._layout_barra = QHBoxLayout(self._barra)
+        self._layout_barra.setContentsMargins(0, 0, 0, 0)
+        self._layout_barra.setSpacing(StyleManager.SPACING_LG)
+        self._barra.hide()
+        layout.addWidget(self._barra)
+
         self._bloco_cabecalho = QWidget()
-        layout_cabecalho = QVBoxLayout(self._bloco_cabecalho)
+        layout_cabecalho = QBoxLayout(QBoxLayout.TopToBottom, self._bloco_cabecalho)
+        self._layout_cabecalho = layout_cabecalho
         layout_cabecalho.setContentsMargins(0, 0, 0, 0)
         layout_cabecalho.setSpacing(StyleManager.SPACING_SM)
         layout.addWidget(self._bloco_cabecalho)
 
         topo = QHBoxLayout()
+        topo.setSpacing(StyleManager.SPACING_MD)
         titulo = QLabel("Fila de fotos")
         titulo.setProperty("class", "lbl-titulo-sessao")
-        topo.addWidget(titulo)
-        topo.addStretch()
+        topo.addWidget(titulo, 1)
         self.btn_abrir = QPushButton("Abrir pasta...")
         self.btn_abrir.setCursor(Qt.PointingHandCursor)
         self.btn_abrir.setToolTip("Escolher a pasta com as fotos da saída de campo (Ctrl+Shift+O)")
@@ -145,7 +253,7 @@ class PainelFila(QFrame):
         self.lbl_resumo.setWordWrap(True)
         StyleManager.estilizar(self.lbl_resumo, "color: var(--texto_secundario); font-size: 12px;")
         self.lbl_resumo.setVisible(False)
-        layout_cabecalho.addWidget(self.lbl_resumo)
+        layout_cabecalho.addWidget(self.lbl_resumo, 1)
 
         self.lista = QListWidget()
         self.lista.setObjectName("lista_fila")
@@ -153,67 +261,28 @@ class PainelFila(QFrame):
         self.lista.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.lista.setToolTip("Clique duas vezes (ou Enter) para abrir a foto")
         self.lista.itemActivated.connect(self._ao_ativar_item)
+        self._delegado_texto = self.lista.itemDelegate()
+        self._delegados = {vista: DelegadoCartaoFila(lado, self.lista)
+                           for vista, (lado, cartao) in VISTAS.items() if cartao}
         layout.addWidget(self.lista, 1)
 
-        # Quadro da sessão (vista "colunas"): uma lista por coluna, a partir da lista principal
-        self._quadro = QWidget()
-        self._quadro.setObjectName("quadro_colunas")
-        layout_quadro = QHBoxLayout(self._quadro)
-        layout_quadro.setContentsMargins(0, 0, 0, 0)
-        layout_quadro.setSpacing(StyleManager.SPACING_MD)
-        self.colunas_quadro = {}
-        self._titulos_quadro = {}
-        for coluna in ff.COLUNAS:
-            caixa = QFrame()
-            caixa.setObjectName("quadro_coluna")
-            layout_caixa = QVBoxLayout(caixa)
-            layout_caixa.setContentsMargins(StyleManager.SPACING_SM, StyleManager.SPACING_SM,
-                                            StyleManager.SPACING_SM, StyleManager.SPACING_SM)
-            titulo_coluna = QLabel(ff.TITULOS_COLUNAS[coluna])
-            titulo_coluna.setObjectName("quadro_titulo_coluna")
-            layout_caixa.addWidget(titulo_coluna)
-            lista_coluna = QListWidget()
-            lista_coluna.setObjectName("quadro_lista")
-            lista_coluna.setViewMode(QListView.IconMode)
-            lista_coluna.setMovement(QListView.Static)
-            lista_coluna.setResizeMode(QListView.Adjust)
-            lista_coluna.setWrapping(True)
-            lista_coluna.setIconSize(QSize(VISTAS["colunas"][0], VISTAS["colunas"][0]))
-            lista_coluna.setGridSize(QSize(VISTAS["colunas"][0] + 32, VISTAS["colunas"][0] + 48))
-            lista_coluna.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-            lista_coluna.itemActivated.connect(self._ao_ativar_item_quadro)
-            layout_caixa.addWidget(lista_coluna, 1)
-            layout_quadro.addWidget(caixa, 1)  # colunas da mesma largura
-            self.colunas_quadro[coluna] = lista_coluna
-            self._titulos_quadro[coluna] = titulo_coluna
-        self._quadro.hide()
-        layout.addWidget(self._quadro, 1)
-        self._quadro_pendente = False
-
         self._bloco_rodape = QWidget()
-        layout_rodape = QVBoxLayout(self._bloco_rodape)
+        layout_rodape = QBoxLayout(QBoxLayout.TopToBottom, self._bloco_rodape)
+        self._layout_rodape = layout_rodape
         layout_rodape.setContentsMargins(0, 0, 0, 0)
         layout_rodape.setSpacing(StyleManager.SPACING_SM)
         layout.addWidget(self._bloco_rodape)
-        # Pastas abertas antes (só na vista "colunas", como "sessões anteriores")
-        self._recentes = QWidget()
-        self._layout_recentes = QHBoxLayout(self._recentes)
-        self._layout_recentes.setContentsMargins(0, 0, 0, 0)
-        self._layout_recentes.setSpacing(StyleManager.SPACING_SM)
-        self._recentes.hide()
-        layout_rodape.addWidget(self._recentes)
         self.cb_avancar = QCheckBox("Ir para a próxima ao gravar")
         self.cb_avancar.setChecked(self.settings.value("fila/avancar", True, type=bool))
         self.cb_avancar.toggled.connect(lambda v: self.settings.setValue("fila/avancar", v))
         layout_rodape.addWidget(self.cb_avancar)
         rodape = QHBoxLayout()
-        rodape.addStretch()
         self.btn_pular = QPushButton("Pular")
         self.btn_pular.setCursor(Qt.PointingHandCursor)
         self.btn_pular.setToolTip("Deixar esta foto para depois e abrir a próxima pendente")
         self.btn_pular.setEnabled(False)
         self.btn_pular.clicked.connect(self.pular)
-        rodape.addWidget(self.btn_pular)
+        rodape.addWidget(self.btn_pular, 0, Qt.AlignRight)
         layout_rodape.addLayout(rodape)
 
         if estado is not None:
@@ -226,69 +295,84 @@ class PainelFila(QFrame):
         if vista not in VISTAS:
             raise ValueError(f"Vista desconhecida: {vista}")
         self.vista = vista
-        lado, _ = VISTAS[vista]
+        lado, cartao = VISTAS[vista]
         lista = self.lista
+        tira = vista == "tira"
         # Limites de tamanho de um layout anterior não valem no próximo
         self.setMinimumSize(0, 0)
         self.setMaximumSize(16777215, 16777215)
+        lista.setMinimumHeight(0)
+        lista.setMaximumHeight(16777215)
         lista.setIconSize(QSize(lado, lado))
-        colunas = vista == "colunas"
-        self.lista.setVisible(not colunas)
-        self._quadro.setVisible(colunas)
-        self._recentes.setVisible(colunas)
-        if colunas:
-            self._layout.setDirection(QBoxLayout.TopToBottom)
-            self._bloco_cabecalho.setMaximumWidth(16777215)
-            self._bloco_rodape.setMaximumWidth(16777215)
-            self._montar_recentes()
-        elif vista == "lista":
-            self._layout.setDirection(QBoxLayout.TopToBottom)
+        self._montar_barra(tira)
+        if not cartao:
+            lista.setItemDelegate(self._delegado_texto)
             lista.setViewMode(QListView.ListMode)
             lista.setFlow(QListView.TopToBottom)
             lista.setWrapping(False)
             lista.setGridSize(QSize())
             lista.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
             lista.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-            self._bloco_cabecalho.setMaximumWidth(16777215)
-            self._bloco_rodape.setMaximumWidth(16777215)
-        elif not colunas:
-            tira = vista == "tira"
-            self._layout.setDirection(QBoxLayout.LeftToRight if tira else QBoxLayout.TopToBottom)
+        else:
+            delegado = self._delegados[vista]
+            lista.setItemDelegate(delegado)
             lista.setViewMode(QListView.IconMode)
             lista.setMovement(QListView.Static)
             lista.setResizeMode(QListView.Adjust)
             lista.setFlow(QListView.LeftToRight)
             lista.setWrapping(not tira)
-            lista.setGridSize(QSize(lado + 16, lado + (24 if tira else 40)))
+            lista.setUniformItemSizes(True)
+            lista.setSpacing(0)
+            lista.setGridSize(delegado.tamanho(lista.font()) + QSize(4, 4))
             lista.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded if tira else Qt.ScrollBarAlwaysOff)
             lista.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff if tira else Qt.ScrollBarAsNeeded)
-            largura_lateral = 200 if tira else 16777215
-            self._bloco_cabecalho.setMaximumWidth(largura_lateral)
-            self._bloco_rodape.setMaximumWidth(largura_lateral)
-            if tira:
-                self.setFixedHeight(ALTURA_TIRA)
-        self.lbl_pasta.setVisible(vista != "tira" or not self.fila.itens)
+        self.lbl_pasta.setVisible(not tira or not self.fila.itens)
         for i in range(len(self.fila)):
             self._atualizar_item(i)
-        self._agendar_quadro()
+        if tira:
+            self.ajustar_tira_vazia()
+
+    def _montar_barra(self, tira):
+        """Na tira, cabeçalho e rodapé numa barra acima das miniaturas; nas outras, nos extremos."""
+        for bloco in (self._bloco_cabecalho, self._bloco_rodape):
+            self._layout.removeWidget(bloco)
+            self._layout_barra.removeWidget(bloco)
+        direcao = QBoxLayout.LeftToRight if tira else QBoxLayout.TopToBottom
+        self._layout_cabecalho.setDirection(direcao)
+        self._layout_rodape.setDirection(direcao)
+        self._layout_cabecalho.setSpacing(StyleManager.SPACING_LG if tira else StyleManager.SPACING_SM)
+        self._layout_rodape.setSpacing(StyleManager.SPACING_LG if tira else StyleManager.SPACING_SM)
+        self.lbl_resumo.setWordWrap(not tira)
+        if tira:
+            self._layout_barra.addWidget(self._bloco_cabecalho, 1)
+            self._layout_barra.addWidget(self._bloco_rodape, 0)
+            self._layout.setContentsMargins(12, 10, 12, 10)
+        else:
+            self._layout.insertWidget(self._layout.indexOf(self.lista), self._bloco_cabecalho)
+            self._layout.addWidget(self._bloco_rodape)
+            self._layout.setContentsMargins(12, 18, 12, 12)
+        self._barra.setVisible(tira)
+
+    def altura_lista_tira(self):
+        """Altura da faixa de miniaturas: um cartão, a barra de rolagem e as bordas."""
+        lista = self.lista
+        rolagem = lista.style().pixelMetric(QStyle.PM_ScrollBarExtent, None, lista)
+        return lista.gridSize().height() + rolagem + 2 * lista.frameWidth() + 8
 
     def ajustar_tira_vazia(self):
         """
-        Vista "tira" sem fotos: a lista vazia some e a tira fica só com a barra (Abrir pasta,
-        opções), na altura mínima; com fotos, volta à tira cheia. Só mexe na diagramação.
+        Vista "tira": sem fotos, a lista vazia some e a tira fica só com a barra (Abrir pasta,
+        opções), na altura mínima; com fotos, a faixa de miniaturas com um cartão inteiro de altura.
+        Só mexe na diagramação.
         """
         if self.vista != "tira":
             return
         vazia = self.lista.count() == 0
         self.lista.setVisible(not vazia)
-        largura = 16777215 if vazia else 200
-        self._bloco_cabecalho.setMaximumWidth(largura)
-        self._bloco_rodape.setMaximumWidth(largura)
-        if vazia:
-            self._layout.activate()
-            self.setFixedHeight(max(self._layout.minimumSize().height(), 48))
-        else:
-            self.setFixedHeight(ALTURA_TIRA)
+        if not vazia:
+            self.lista.setFixedHeight(self.altura_lista_tira())
+        self._layout.activate()
+        self.setFixedHeight(max(self._layout.minimumSize().height(), 48))
 
     # --- Pasta ---
 
@@ -304,7 +388,6 @@ class PainelFila(QFrame):
         self.fila = ff.FilaFotos(pasta, caminhos)
         self.fila.atual = self.fila.indice_de(self._caminho_aberto)
         self.settings.setValue("last_folder", str(pasta))
-        self._registrar_recente(pasta)
         self.lista.clear()
         for item in self.fila.itens:
             QListWidgetItem(self.lista)
@@ -387,9 +470,6 @@ class PainelFila(QFrame):
     def _ao_ativar_item(self, item_lista):
         self._ativar(self.lista.row(item_lista))
 
-    def _ao_ativar_item_quadro(self, item_lista):
-        self._ativar(item_lista.data(Qt.UserRole))
-
     def _ativar(self, indice):
         """Clique duplo/Enter numa foto: a já aberta não é aberta de novo (nada de nova consulta)."""
         if indice is None or not 0 <= indice < len(self.fila.itens):
@@ -421,7 +501,6 @@ class PainelFila(QFrame):
 
     def _ao_mudar_estado(self):
         estado = self._estado
-        self._agendar_quadro()  # "Conferindo agora" mostra a espécie sugerida
         if estado.etapa == ei.IDENTIFICANDO and estado.caminho != self._caminho_aberto:
             self._definir_atual(estado.caminho)
         elif estado.etapa == ei.SEM_FOTO and self._caminho_aberto is not None:
@@ -451,89 +530,24 @@ class PainelFila(QFrame):
 
     def _atualizar_item(self, indice):
         item = self.fila.itens[indice]
-        texto = TEXTO_SITUACAO[item.situacao]
+        situacao = TEXTO_SITUACAO[item.situacao]
+        selo = item.situacao
         if indice == self.fila.atual and item.situacao in (ff.PENDENTE, ff.PULADA):
-            texto = "▶ Aberta"
-        if item.especie:
-            texto += f"\n{item.especie}"  # linha própria: cabe numa coluna estreita
+            situacao, selo = "▶ Aberta", "aberta"
+        texto = situacao + (f"\n{item.especie}" if item.especie else "")  # linha própria: coluna estreita
         linha = self.lista.item(indice)
-        _, texto_completo = VISTAS[self.vista]
-        # Nas vistas de miniatura, o nome do arquivo e a situação; o resto vai na dica
-        linha.setText(f"{item.nome}\n{texto}" if texto_completo else texto.split("\n")[0])
+        linha.setText(f"{item.nome}\n{texto}")
         linha.setToolTip(f"{item.caminho}\n{texto}")
+        # Cartão (tira e grade): nome do arquivo; espécie, ou a situação; selo no canto da foto
+        linha.setData(PAPEL_NOME, item.nome)
+        linha.setData(PAPEL_LINHA2, item.especie or situacao)
+        linha.setData(PAPEL_SELO, selo)
         fonte = linha.font()
         fonte.setBold(indice == self.fila.atual)
         linha.setFont(fonte)
-        self._agendar_quadro()
 
     def _atualizar_resumo(self):
-        # No quadro, as colunas já mostram as puladas: o resumo conta espécies e gravadas
-        texto = ff.resumo_sessao(self.fila) if self.vista == "colunas" and self.fila.itens else self.fila.resumo()
-        self.lbl_resumo.setText(texto)
-        self._agendar_quadro()
-
-    # --- Quadro da sessão ---
-
-    def _agendar_quadro(self):
-        """Refaz as colunas uma vez só no fim do evento (a verificação atualiza item a item)."""
-        if self.vista != "colunas" or self._quadro_pendente:
-            return
-        self._quadro_pendente = True
-        QTimer.singleShot(0, self._atualizar_quadro)
-
-    def _atualizar_quadro(self):
-        self._quadro_pendente = False
-        if self.vista != "colunas":
-            return
-        grupos = ff.colunas(self.fila)
-        for coluna, lista_coluna in self.colunas_quadro.items():
-            lista_coluna.clear()
-            for indice in grupos[coluna]:
-                item = self.fila.itens[indice]
-                origem = self.lista.item(indice)
-                if item.especie:
-                    texto = f"{item.nome}\n{item.especie}"
-                elif coluna == ff.CONFERINDO and getattr(self, "_estado", None) is not None \
-                        and self._estado.nome_cientifico:
-                    texto = f"{item.nome}\n{self._estado.nome_cientifico}?"
-                else:
-                    texto = item.nome
-                novo = QListWidgetItem(origem.icon() if origem is not None else QIcon(), texto, lista_coluna)
-                novo.setData(Qt.UserRole, indice)
-                novo.setToolTip(origem.toolTip() if origem is not None else item.nome)
-            total = len(grupos[coluna])
-            self._titulos_quadro[coluna].setText(f"{ff.TITULOS_COLUNAS[coluna]}  ·  {total}")
-
-    def _registrar_recente(self, pasta):
-        recentes = self.settings.value("fila/recentes", [], type=list) or []
-        self.settings.setValue("fila/recentes", ff.atualizar_recentes(recentes, pasta))
-        self._montar_recentes()
-
-    def pastas_recentes(self):
-        """Pastas abertas antes que ainda existem, a mais recente primeiro."""
-        recentes = self.settings.value("fila/recentes", [], type=list) or []
-        return [p for p in recentes if Path(p).is_dir()]
-
-    def _montar_recentes(self):
-        while self._layout_recentes.count():
-            item = self._layout_recentes.takeAt(0)
-            if item.widget() is not None:
-                item.widget().deleteLater()
-        atual = str(self.fila.pasta) if self.fila.pasta else ""
-        recentes = [p for p in self.pastas_recentes() if p.lower() != atual.lower()]
-        if not recentes:
-            return
-        rotulo = QLabel("Sessões anteriores:")
-        rotulo.setObjectName("quadro_rotulo_recentes")
-        self._layout_recentes.addWidget(rotulo)
-        for pasta in recentes[:5]:
-            botao = QPushButton(Path(pasta).name or pasta)
-            botao.setProperty("class", "chip")
-            botao.setCursor(Qt.PointingHandCursor)
-            botao.setToolTip(f"Abrir de novo a pasta {pasta}")
-            botao.clicked.connect(lambda _=False, caminho=pasta: self.carregar_pasta(caminho))
-            self._layout_recentes.addWidget(botao)
-        self._layout_recentes.addStretch()
+        self.lbl_resumo.setText(self.fila.resumo())
 
     def _atualizar_botoes(self):
         self.btn_pular.setEnabled(bool(self.fila.itens))

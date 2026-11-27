@@ -4,15 +4,19 @@
 
 ### Correções de diagramação (layouts)
 - **Descrição e Etimologia não cortam mais o texto**: a altura da caixa segue o texto na largura que ela tem agora (`TextoAutoAltura` em `ui/widgets/componentes_layout.py`); antes era calculada só quando o texto chegava e, se o painel mudava de largura depois (página da Trilha, gaveta, troca de layout), as últimas linhas sumiam.
-- **Sem cards esticados**: no Painel completo, fotos, descrição e conservação ficam no topo da célula e a sobra de altura vai para o fim das colunas (antes o título boiava no meio do card e havia um vazio grande acima da descrição). O mesmo nas colunas da Mesa de luz, do Quadro e do Foco.
+- **Sem cards esticados**: no Painel completo, fotos, descrição e conservação ficam no topo da célula e a sobra de altura vai para o fim das colunas (antes o título boiava no meio do card e havia um vazio grande acima da descrição). O mesmo nas colunas da Mesa de luz e do Foco.
 - **Ficha compacta**: as duas fotos e os botões cabem na coluna (`ColunaFotos`); antes a segunda foto saía da tela. Lens e Fonte ficam um embaixo do outro, sem cortar o texto.
 - **Mesa de luz**: a referência, Abrir fonte e Google Lens ficam numa coluna ao lado da foto, que fica centralizada (antes flutuavam por cima dela e a cobriam em janela estreita). Sem fotos na fila, a tira mostra só a barra de botões.
 - **Foco**: o resultado e a fila viram colunas ao lado da foto; antes a faixa do resultado cobria quase metade da foto e ficava por cima da ficha aberta.
 - **Cartões**: a foto de referência aparece inteira, com altura proporcional ao cartão (antes era recortada numa faixa e a ave perdia cabeça e cauda); na linha compacta, o nome fica numa linha com reticências; a dica sai do nome e vai para a foto; na etapa 1, o quadro de soltar a foto ocupa a altura disponível.
 - **Trilha, etapa Conferir**: em janela estreita, sua foto e a referência ficam uma embaixo da outra (a referência era cortada à direita).
-- **Quadro**: as quatro colunas têm a mesma largura e a gaveta cresce com a janela (45% da área, mínimo de 640 px).
 - **Mapa**: em mapa pequeno (menos de 520 x 480 px), o seletor de camadas vira o ícone do Leaflet e a legenda da densidade fica compacta.
 - Testes novos em `tests/test_diagramacao.py` (sobreposição, corte e bordas em 1920, 1366 e 1000 px).
+- **Fila de fotos com cartões iguais** (Mesa de luz e Trilha): cada foto é um cartão do mesmo tamanho, com a miniatura quadrada (a foto inteira, retrato ou paisagem), um selo da situação no canto (✓ gravada, ▶ aberta, » pulada) e duas linhas: o nome do arquivo e a espécie (ou a situação). Antes as miniaturas tinham tamanhos diferentes e a situação ficava cortada embaixo da foto, sem o nome do arquivo.
+- **Mais espaço para a fila na Mesa de luz**: a barra (Abrir pasta, resumo, Ir para a próxima ao gravar, Pular) fica numa linha acima das miniaturas, que usam a largura toda; a referência encolhe em janela baixa para a tira caber.
+
+### Removido
+- **Layout Quadro da sessão**. Quem o usava passa a abrir na **Mesa de luz**, que também trabalha a pasta inteira (`LAYOUTS_RENOMEADOS` em `core/config.py`). Saíram junto a vista "colunas" da fila e a lista de sessões anteriores, que só apareciam nele (a última pasta aberta continua lembrada).
 
 ## v1.6 (em desenvolvimento)
 

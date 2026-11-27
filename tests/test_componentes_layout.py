@@ -89,7 +89,7 @@ def test_sobreposicao_e_gaveta(app):
 
 def test_fila_troca_de_vista(app, tmp_path):
     from PIL import Image
-    from ui.widgets.painel_fila import ALTURA_TIRA, PainelFila
+    from ui.widgets.painel_fila import PAPEL_LINHA2, PAPEL_NOME, PainelFila
 
     for nome in ("a.jpg", "b.jpg"):
         Image.new("RGB", (40, 30), "white").save(tmp_path / nome)
@@ -98,15 +98,54 @@ def test_fila_troca_de_vista(app, tmp_path):
     painel._parar_verificacao()
     painel.definir_vista("tira")
     assert painel.lista.viewMode() == QListView.IconMode and not painel.lista.isWrapping()
-    assert painel.height() == ALTURA_TIRA or painel.maximumHeight() == ALTURA_TIRA
-    assert painel.lista.item(0).text() == "Pendente"     # na tira, só a situação
+    # A faixa cabe um cartão inteiro (miniatura + 2 linhas) e a barra fica acima dela
+    assert painel.lista.height() >= painel.lista.gridSize().height()
+    assert painel._barra.isVisibleTo(painel)
+    altura_tira = painel.maximumHeight()
+    item = painel.lista.item(0)
+    assert item.data(PAPEL_NOME) == "a.jpg" and item.data(PAPEL_LINHA2) == "Pendente"
     painel.definir_vista("grade")
-    assert painel.lista.isWrapping() and painel.maximumHeight() > ALTURA_TIRA
+    assert painel.lista.isWrapping() and painel.maximumHeight() > altura_tira
+    assert not painel._barra.isVisibleTo(painel)
     painel.definir_vista("lista")
     assert painel.lista.viewMode() == QListView.ListMode
     assert painel.lista.item(0).text().startswith("a.jpg\n")
     with pytest.raises(ValueError):
         painel.definir_vista("mosaico")
+    with pytest.raises(ValueError):
+        painel.definir_vista("colunas")  # vista do Quadro da sessão, que saiu
+    painel.encerrar()
+
+
+def test_cartoes_da_fila_do_mesmo_tamanho(app, tmp_path):
+    """Retrato e paisagem dão miniaturas quadradas iguais; o texto cabe no cartão."""
+    from PIL import Image
+    from PySide6.QtWidgets import QStyleOptionViewItem
+    from ui.widgets.painel_fila import VISTAS, PainelFila, _miniatura
+
+    Image.new("RGB", (300, 400), "white").save(tmp_path / "retrato.jpg")
+    Image.new("RGB", (400, 225), "white").save(tmp_path / "paisagem_com_nome_bem_comprido_de_camera.jpg")
+    tamanhos = {(_miniatura(tmp_path / n).width(), _miniatura(tmp_path / n).height())
+                for n in ("retrato.jpg", "paisagem_com_nome_bem_comprido_de_camera.jpg")}
+    assert len(tamanhos) == 1 and len({*next(iter(tamanhos))}) == 1  # quadradas e iguais
+
+    painel = PainelFila()
+    painel.carregar_pasta(tmp_path)
+    painel._parar_verificacao()
+    for vista in ("tira", "grade"):
+        painel.definir_vista(vista)
+        delegado = painel.lista.itemDelegate()
+        opcao = QStyleOptionViewItem()
+        opcao.font = painel.lista.font()
+        dicas = {(delegado.sizeHint(opcao, painel.lista.model().index(i, 0)).width(),
+                  delegado.sizeHint(opcao, painel.lista.model().index(i, 0)).height())
+                 for i in range(painel.lista.count())}
+        assert len(dicas) == 1
+        largura, altura = next(iter(dicas))
+        lado = VISTAS[vista][0]
+        assert largura > lado and altura > lado + 2 * painel.lista.fontMetrics().height()
+        grade = painel.lista.gridSize()
+        assert grade.width() >= largura and grade.height() >= altura
     painel.encerrar()
 
 
